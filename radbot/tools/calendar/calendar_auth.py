@@ -102,15 +102,15 @@ def get_calendar_service(
 ) -> Any:
     """
     Create and return an authenticated Google Calendar API service with retry logic.
-    
+
     Args:
         force_new: If True, create a new service instance even if one exists
         service_account_path: Path to the service account credentials JSON file
         scopes: List of authorization scopes to request
-        
+
     Returns:
         A Google Calendar API service object with authentication set up.
-        
+
     Raises:
         FileNotFoundError: If service account file is not found.
         ValueError: If credentials_path is None.
@@ -124,6 +124,40 @@ def get_calendar_service(
 
     if scopes is None:
         scopes = [FULL_ACCESS_SCOPE]
+
+    # 0. Try credential store for OAuth token or service account JSON
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            # Try OAuth token from credential store
+            token_json = store.get("calendar_token")
+            if token_json:
+                from google.oauth2.credentials import Credentials as OAuthCredentials
+                from google.auth.transport.requests import Request as AuthRequest
+                creds = OAuthCredentials.from_authorized_user_info(json.loads(token_json), scopes)
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(AuthRequest())
+                    # Write refreshed token back to store
+                    store.set("calendar_token", creds.to_json(), credential_type="oauth_token")
+                if creds and creds.valid:
+                    _calendar_service = build('calendar', 'v3', credentials=creds)
+                    logger.info("Calendar: Using OAuth token from credential store")
+                    return _calendar_service
+
+            # Try service account JSON from credential store
+            sa_json = store.get("calendar_service_account")
+            if sa_json:
+                sa_info = json.loads(sa_json)
+                sa_creds = service_account.Credentials.from_service_account_info(sa_info, scopes=scopes)
+                impersonation_email = os.environ.get('GOOGLE_IMPERSONATION_EMAIL')
+                if impersonation_email:
+                    sa_creds = sa_creds.with_subject(impersonation_email)
+                _calendar_service = build('calendar', 'v3', credentials=sa_creds)
+                logger.info("Calendar: Using service account from credential store")
+                return _calendar_service
+    except Exception as e:
+        logger.debug(f"Calendar credential store lookup failed: {e}")
 
     # 1. Try saved OAuth token first (from python -m radbot.tools.calendar.setup)
     try:

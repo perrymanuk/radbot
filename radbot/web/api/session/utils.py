@@ -171,45 +171,46 @@ def _get_current_timestamp():
 
 def _get_event_type(event):
     """Determine the type of event."""
-    # Check for actions.transfer_to_agent in ADK 0.4.0 style events
+    # Check for actions.transfer_to_agent (ADK 1.x style)
     if hasattr(event, 'actions') and hasattr(event.actions, 'transfer_to_agent') and event.actions.transfer_to_agent:
         return "agent_transfer"
-    
-    # For tool events in ADK 0.4.0, check for function_call / tool_calls attribute
-    if hasattr(event, 'function_call') or hasattr(event, 'tool_calls'):
-        # We don't classify transfer_to_agent function calls as agent_transfer events
-        # since we rely exclusively on the actions.transfer_to_agent field
+
+    # ADK 1.x: function calls/responses are in content.parts, not top-level.
+    # Use get_function_calls()/get_function_responses() helpers if available.
+    if hasattr(event, 'get_function_calls') and event.get_function_calls():
         return "tool_call"
-        
-    # Check for tool result events
+    if hasattr(event, 'get_function_responses') and event.get_function_responses():
+        return "tool_call"
+
+    # Fallback: check content.parts directly for function_call/function_response
+    if hasattr(event, 'content') and event.content:
+        if hasattr(event.content, 'parts') and event.content.parts:
+            for part in event.content.parts:
+                if hasattr(part, 'function_call') and part.function_call:
+                    return "tool_call"
+                if hasattr(part, 'function_response') and part.function_response:
+                    return "tool_call"
+
+    # Legacy: top-level function_call/function_response (older ADK versions)
+    if hasattr(event, 'function_call') or hasattr(event, 'tool_calls'):
+        return "tool_call"
     if hasattr(event, 'function_response') or hasattr(event, 'tool_results'):
         return "tool_call"
-    
-    # Try to get type attribute
-    if hasattr(event, 'type'):
-        return str(event.type)
-    
-    # Check for tool call events
-    if (hasattr(event, 'tool_name') or
-        (hasattr(event, 'payload') and
-         isinstance(event.payload, dict) and
-         'toolName' in event.payload)):
-        return "tool_call"
-    
+
     # Check for planner events
     if (hasattr(event, 'plan') or
         (hasattr(event, 'payload') and
          isinstance(event.payload, dict) and
          ('plan' in event.payload or 'planStep' in event.payload))):
         return "planner"
-    
+
     # Check for model response events
     if hasattr(event, 'is_final_response'):
         return "model_response"
-    
-    # Check for content which indicates model response (ADK 0.4.0+)
+
+    # Check for content which indicates model response
     if hasattr(event, 'content') or hasattr(event, 'message'):
         return "model_response"
-    
+
     # Default category
     return "other"

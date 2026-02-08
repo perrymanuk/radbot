@@ -263,10 +263,71 @@ class ConfigLoader:
             }
         }
 
+    def _deep_merge(self, base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
+        """Deep-merge *overlay* into *base* (overlay wins on leaf conflicts)."""
+        merged = dict(base)
+        for key, value in overlay.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = self._deep_merge(merged[key], value)
+            else:
+                merged[key] = value
+        return merged
+
+    def load_db_config(self) -> None:
+        """Load config overrides from the credential store and merge into self.config.
+
+        Entries named ``config:<section>`` (e.g. ``config:agent``) are parsed as
+        JSON and deep-merged on top of the file-based config.  The special key
+        ``config:full`` replaces all non-database sections at once.
+
+        This is a no-op when the credential store is unavailable.
+        """
+        try:
+            from radbot.credentials.store import get_credential_store
+            store = get_credential_store()
+            if not store.available:
+                return
+
+            # Check for a full config blob first
+            full_json = store.get("config:full")
+            if full_json:
+                import json as _json
+                db_config = _json.loads(full_json)
+                # Preserve the database section from file config (bootstrap)
+                db_section = self.config.get("database")
+                self.config = self._deep_merge(self.config, db_config)
+                if db_section:
+                    self.config["database"] = db_section
+                logger.info("Loaded full config override from credential store")
+                return
+
+            # Otherwise merge individual sections
+            import json as _json
+            for entry in store.list():
+                name = entry["name"]
+                if not name.startswith("config:"):
+                    continue
+                section = name[len("config:"):]
+                if section == "database":
+                    continue  # never override DB bootstrap from the store
+                raw = store.get(name)
+                if raw:
+                    try:
+                        section_data = _json.loads(raw)
+                        if section in self.config and isinstance(self.config[section], dict):
+                            self.config[section] = self._deep_merge(self.config[section], section_data)
+                        else:
+                            self.config[section] = section_data
+                        logger.info(f"Merged config section '{section}' from credential store")
+                    except _json.JSONDecodeError:
+                        logger.warning(f"Invalid JSON in credential store key '{name}', skipping")
+        except Exception as e:
+            logger.debug(f"Could not load config from credential store: {e}")
+
     def get_config(self) -> Dict[str, Any]:
         """
         Get the full configuration.
-        
+
         Returns:
             Dictionary containing the full configuration
         """

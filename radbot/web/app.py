@@ -35,6 +35,7 @@ from radbot.web.api.scheduler import router as scheduler_router
 from radbot.web.api.webhooks import router as webhooks_router
 from radbot.web.api.tts import router as tts_router
 from radbot.web.api.stt import router as stt_router
+from radbot.web.api.admin import router as admin_router
 
 # Set up logging
 logging.basicConfig(
@@ -66,6 +67,7 @@ def create_app():
     app.include_router(webhooks_router)
     app.include_router(tts_router)
     app.include_router(stt_router)
+    app.include_router(admin_router)
     logger.info("API routers registered during app initialization")
     
     return app
@@ -116,6 +118,24 @@ async def initialize_app_startup():
             logger.info("Webhook database schema initialized successfully")
         except Exception as wh_err:
             logger.error(f"Error initializing webhook database: {str(wh_err)}", exc_info=True)
+
+        # Initialize credential store schema
+        logger.info("Initializing credential store schema...")
+        try:
+            from radbot.credentials.store import CredentialStore
+            CredentialStore.init_schema()
+            logger.info("Credential store schema initialized successfully")
+        except Exception as cred_err:
+            logger.error(f"Error initializing credential store: {str(cred_err)}", exc_info=True)
+
+        # Load config overrides from the credential store DB
+        logger.info("Loading config overrides from credential store...")
+        try:
+            from radbot.config.config_loader import config_loader
+            config_loader.load_db_config()
+            logger.info("Config overrides loaded from credential store")
+        except Exception as cfg_err:
+            logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
 
         # Start the scheduler engine
         logger.info("Starting scheduler engine...")

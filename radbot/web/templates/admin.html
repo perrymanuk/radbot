@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RadBot Admin</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --surface2: #0f3460;
+            --accent: #e94560;
+            --text: #eee;
+            --text-muted: #aaa;
+            --success: #4caf50;
+            --border: #333;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 0.3rem; }
+        .subtitle { color: var(--text-muted); margin-bottom: 1.5rem; }
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.2rem; }
+        .card h2 { margin-bottom: 0.8rem; font-size: 1.05rem; color: var(--accent); }
+        label { display: block; margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-muted); }
+        input, select, textarea { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); font-family: inherit; font-size: 0.85rem; margin-bottom: 0.6rem; }
+        textarea { resize: vertical; min-height: 60px; font-family: 'Consolas', 'Monaco', monospace; }
+        textarea.json-editor { min-height: 200px; }
+        button { padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-danger { background: #c0392b; color: #fff; font-size: 0.8rem; padding: 0.3rem 0.6rem; }
+        .btn-danger:hover { opacity: 0.9; }
+        .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--accent); }
+        .btn-sm { font-size: 0.8rem; padding: 0.35rem 0.7rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+        th { color: var(--text-muted); }
+        .toast { position: fixed; bottom: 1rem; right: 1rem; padding: 0.7rem 1.2rem; border-radius: 4px; color: #fff; display: none; z-index: 100; font-size: 0.85rem; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: #c0392b; }
+        .row { display: flex; gap: 0.8rem; }
+        .row > * { flex: 1; }
+        .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.2rem; }
+        .tab { padding: 0.6rem 1.2rem; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -2px; font-size: 0.9rem; }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        pre { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0.8rem; overflow-x: auto; font-size: 0.8rem; max-height: 500px; overflow-y: auto; }
+        .config-section { margin-bottom: 1rem; border: 1px solid var(--border); border-radius: 4px; }
+        .config-section-header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: var(--surface2); cursor: pointer; border-radius: 4px 4px 0 0; }
+        .config-section-header h3 { font-size: 0.9rem; margin: 0; }
+        .config-section-body { padding: 0.8rem; display: none; }
+        .config-section-body.open { display: block; }
+        .empty-msg { color: var(--text-muted); padding: 0.8rem 0; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <h1>RadBot Admin</h1>
+    <p class="subtitle">Credentials & Configuration Management</p>
+
+    <!-- Auth -->
+    <div class="card" id="auth-card">
+        <h2>Authenticate</h2>
+        <label for="token-input">Admin Token</label>
+        <input type="password" id="token-input" placeholder="Enter RADBOT_ADMIN_TOKEN" onkeydown="if(event.key==='Enter') authenticate()">
+        <button class="btn-primary" onclick="authenticate()">Authenticate</button>
+    </div>
+
+    <!-- Main content -->
+    <div id="main-content" style="display:none;">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('credentials')">Credentials</div>
+            <div class="tab" onclick="switchTab('config')">Configuration</div>
+            <div class="tab" onclick="switchTab('live')">Live Config</div>
+        </div>
+
+        <!-- ============ CREDENTIALS TAB ============ -->
+        <div id="tab-credentials" class="tab-content active">
+            <div class="card">
+                <h2>Store Credential</h2>
+                <div class="row">
+                    <div>
+                        <label for="cred-name">Name</label>
+                        <input type="text" id="cred-name" placeholder="e.g. google_api_key, jira_api_token">
+                    </div>
+                    <div>
+                        <label for="cred-type">Type</label>
+                        <select id="cred-type">
+                            <option value="api_key">API Key</option>
+                            <option value="oauth_token">OAuth Token</option>
+                            <option value="service_account">Service Account JSON</option>
+                            <option value="oauth_client">OAuth Client JSON</option>
+                        </select>
+                    </div>
+                </div>
+                <label for="cred-desc">Description (optional)</label>
+                <input type="text" id="cred-desc" placeholder="What is this credential for?">
+                <label for="cred-value">Value</label>
+                <textarea id="cred-value" placeholder="Paste the credential value"></textarea>
+                <button class="btn-primary" onclick="storeCredential()">Store Credential</button>
+            </div>
+
+            <div class="card">
+                <h2>OAuth Setup</h2>
+                <p style="color: var(--text-muted); margin-bottom: 0.8rem; font-size: 0.85rem;">
+                    Store the OAuth client JSON first (as <code>gmail_oauth_client</code> or <code>calendar_oauth_client</code>), then click setup.
+                </p>
+                <div class="actions">
+                    <button class="btn-secondary" onclick="startOAuth('gmail')">Setup Gmail OAuth</button>
+                    <button class="btn-secondary" onclick="startOAuth('calendar')">Setup Calendar OAuth</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Stored Credentials</h2>
+                <table>
+                    <thead><tr><th>Name</th><th>Type</th><th>Description</th><th>Updated</th><th></th></tr></thead>
+                    <tbody id="cred-list"></tbody>
+                </table>
+                <p id="cred-empty" class="empty-msg" style="display:none;">No credentials stored.</p>
+            </div>
+        </div>
+
+        <!-- ============ CONFIG TAB ============ -->
+        <div id="tab-config" class="tab-content">
+            <div class="card">
+                <h2>Add / Edit Config Section</h2>
+                <p style="color: var(--text-muted); margin-bottom: 0.8rem; font-size: 0.85rem;">
+                    Each section is stored as a JSON object.  Section names map to top-level config keys
+                    (e.g. <code>agent</code>, <code>integrations</code>, <code>api_keys</code>, <code>cache</code>, <code>tts</code>, <code>web</code>, <code>logging</code>).
+                    The <code>database</code> section cannot be overridden here (it is the bootstrap config).
+                </p>
+                <div class="row">
+                    <div>
+                        <label for="cfg-section">Section Name</label>
+                        <select id="cfg-section">
+                            <option value="api_keys">api_keys</option>
+                            <option value="agent">agent</option>
+                            <option value="integrations">integrations</option>
+                            <option value="cache">cache</option>
+                            <option value="vector_db">vector_db</option>
+                            <option value="tts">tts</option>
+                            <option value="stt">stt</option>
+                            <option value="web">web</option>
+                            <option value="logging">logging</option>
+                            <option value="_custom">Custom...</option>
+                        </select>
+                    </div>
+                    <div id="cfg-custom-wrap" style="display:none;">
+                        <label for="cfg-custom-name">Custom section name</label>
+                        <input type="text" id="cfg-custom-name" placeholder="section_name">
+                    </div>
+                </div>
+                <label>JSON Value</label>
+                <textarea id="cfg-value" class="json-editor" placeholder='{"key": "value"}'></textarea>
+                <div class="actions">
+                    <button class="btn-primary" onclick="saveConfigSection()">Save Section</button>
+                    <button class="btn-secondary btn-sm" onclick="loadSectionForEdit()">Load Current</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Stored Config Sections</h2>
+                <div id="cfg-sections"></div>
+                <p id="cfg-empty" class="empty-msg" style="display:none;">No config sections stored in DB.</p>
+            </div>
+        </div>
+
+        <!-- ============ LIVE CONFIG TAB ============ -->
+        <div id="tab-live" class="tab-content">
+            <div class="card">
+                <h2>Live Merged Config</h2>
+                <p style="color: var(--text-muted); margin-bottom: 0.8rem; font-size: 0.85rem;">
+                    Shows the active config (file + DB overrides merged). Sensitive values are redacted.
+                </p>
+                <button class="btn-secondary btn-sm" onclick="loadLiveConfig()" style="margin-bottom:0.8rem;">Refresh</button>
+                <pre id="live-config">Loading...</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let adminToken = '';
+
+        function headers() {
+            return { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' };
+        }
+
+        function toast(msg, type) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = 'toast ' + type;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 3000);
+        }
+
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        // ---- Tabs ----
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
+            event.target.classList.add('active');
+            if (name === 'config') loadConfigSections();
+            if (name === 'live') loadLiveConfig();
+        }
+
+        // ---- Auth ----
+        async function authenticate() {
+            adminToken = document.getElementById('token-input').value.trim();
+            if (!adminToken) { toast('Enter a token', 'error'); return; }
+            try {
+                const res = await fetch('/admin/api/credentials', { headers: headers() });
+                if (!res.ok) throw new Error('Auth failed');
+                document.getElementById('auth-card').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                loadCredentials();
+            } catch (e) {
+                toast('Invalid token', 'error');
+            }
+        }
+
+        // ---- Credentials ----
+        async function loadCredentials() {
+            try {
+                const res = await fetch('/admin/api/credentials', { headers: headers() });
+                const data = await res.json();
+                const tbody = document.getElementById('cred-list');
+                const empty = document.getElementById('cred-empty');
+                tbody.innerHTML = '';
+                // filter out internal and config entries
+                const creds = data.filter(c => c.credential_type !== 'internal' && c.credential_type !== 'config');
+                if (!creds.length) { empty.style.display = 'block'; return; }
+                empty.style.display = 'none';
+                creds.forEach(c => {
+                    const updated = c.updated_at ? new Date(c.updated_at).toLocaleString() : '-';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${esc(c.name)}</td><td>${esc(c.credential_type)}</td><td>${esc(c.description||'')}</td><td>${updated}</td><td><button class="btn-danger" onclick="deleteCredential('${esc(c.name)}')">Delete</button></td>`;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) { toast('Failed to load credentials', 'error'); }
+        }
+
+        async function storeCredential() {
+            const name = document.getElementById('cred-name').value.trim();
+            const value = document.getElementById('cred-value').value;
+            const credential_type = document.getElementById('cred-type').value;
+            const description = document.getElementById('cred-desc').value.trim() || undefined;
+            if (!name || !value) { toast('Name and value required', 'error'); return; }
+            try {
+                const res = await fetch('/admin/api/credentials', {
+                    method: 'POST', headers: headers(),
+                    body: JSON.stringify({ name, value, credential_type, description })
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast('Credential stored', 'success');
+                document.getElementById('cred-name').value = '';
+                document.getElementById('cred-value').value = '';
+                document.getElementById('cred-desc').value = '';
+                loadCredentials();
+            } catch (e) { toast('Failed: ' + e.message, 'error'); }
+        }
+
+        async function deleteCredential(name) {
+            if (!confirm(`Delete credential "${name}"?`)) return;
+            try {
+                const res = await fetch(`/admin/api/credentials/${encodeURIComponent(name)}`, {
+                    method: 'DELETE', headers: headers()
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast('Deleted', 'success');
+                loadCredentials();
+            } catch (e) { toast('Failed: ' + e.message, 'error'); }
+        }
+
+        function startOAuth(service) {
+            window.location.href = `/admin/api/credentials/${service}/setup?token=${encodeURIComponent(adminToken)}`;
+        }
+
+        // ---- Config ----
+        document.getElementById('cfg-section').addEventListener('change', function() {
+            document.getElementById('cfg-custom-wrap').style.display = this.value === '_custom' ? 'block' : 'none';
+        });
+
+        function getSelectedSection() {
+            const sel = document.getElementById('cfg-section').value;
+            if (sel === '_custom') return document.getElementById('cfg-custom-name').value.trim();
+            return sel;
+        }
+
+        async function loadConfigSections() {
+            try {
+                const res = await fetch('/admin/api/config', { headers: headers() });
+                const data = await res.json();
+                const container = document.getElementById('cfg-sections');
+                const empty = document.getElementById('cfg-empty');
+                container.innerHTML = '';
+                const sections = Object.keys(data);
+                if (!sections.length) { empty.style.display = 'block'; return; }
+                empty.style.display = 'none';
+                sections.sort().forEach(section => {
+                    const div = document.createElement('div');
+                    div.className = 'config-section';
+                    div.innerHTML = `
+                        <div class="config-section-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                            <h3>${esc(section)}</h3>
+                            <div class="actions">
+                                <button class="btn-secondary btn-sm" onclick="event.stopPropagation(); editSection('${esc(section)}')">Edit</button>
+                                <button class="btn-danger" onclick="event.stopPropagation(); deleteSection('${esc(section)}')">Delete</button>
+                            </div>
+                        </div>
+                        <div class="config-section-body"><pre>${esc(JSON.stringify(data[section], null, 2))}</pre></div>`;
+                    container.appendChild(div);
+                });
+            } catch (e) { toast('Failed to load config', 'error'); }
+        }
+
+        async function editSection(section) {
+            try {
+                const res = await fetch(`/admin/api/config/${encodeURIComponent(section)}`, { headers: headers() });
+                if (!res.ok) throw new Error('Not found');
+                const data = await res.json();
+                // Set the dropdown
+                const sel = document.getElementById('cfg-section');
+                const opt = Array.from(sel.options).find(o => o.value === section);
+                if (opt) { sel.value = section; document.getElementById('cfg-custom-wrap').style.display = 'none'; }
+                else { sel.value = '_custom'; document.getElementById('cfg-custom-wrap').style.display = 'block'; document.getElementById('cfg-custom-name').value = section; }
+                document.getElementById('cfg-value').value = JSON.stringify(data, null, 2);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (e) { toast('Failed to load section', 'error'); }
+        }
+
+        async function loadSectionForEdit() {
+            const section = getSelectedSection();
+            if (!section) { toast('Select a section', 'error'); return; }
+            // Try DB first, fall back to live config
+            try {
+                let res = await fetch(`/admin/api/config/${encodeURIComponent(section)}`, { headers: headers() });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('cfg-value').value = JSON.stringify(data, null, 2);
+                    return;
+                }
+            } catch (e) {}
+            // Fall back to live config section
+            try {
+                const res = await fetch('/admin/api/config-live', { headers: headers() });
+                const live = await res.json();
+                if (live[section]) {
+                    document.getElementById('cfg-value').value = JSON.stringify(live[section], null, 2);
+                } else {
+                    document.getElementById('cfg-value').value = '{}';
+                    toast(`Section "${section}" not in current config`, 'error');
+                }
+            } catch (e) { toast('Failed to load live config', 'error'); }
+        }
+
+        async function saveConfigSection() {
+            const section = getSelectedSection();
+            if (!section) { toast('Select a section name', 'error'); return; }
+            const raw = document.getElementById('cfg-value').value.trim();
+            let parsed;
+            try { parsed = JSON.parse(raw); } catch (e) { toast('Invalid JSON: ' + e.message, 'error'); return; }
+            try {
+                const res = await fetch(`/admin/api/config/${encodeURIComponent(section)}`, {
+                    method: 'PUT', headers: headers(), body: JSON.stringify(parsed)
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast(`Config "${section}" saved & hot-reloaded`, 'success');
+                loadConfigSections();
+            } catch (e) { toast('Failed: ' + e.message, 'error'); }
+        }
+
+        async function deleteSection(section) {
+            if (!confirm(`Delete config section "${section}"? This reverts to file/default.`)) return;
+            try {
+                const res = await fetch(`/admin/api/config/${encodeURIComponent(section)}`, {
+                    method: 'DELETE', headers: headers()
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast('Deleted', 'success');
+                loadConfigSections();
+            } catch (e) { toast('Failed: ' + e.message, 'error'); }
+        }
+
+        // ---- Live config ----
+        async function loadLiveConfig() {
+            try {
+                const res = await fetch('/admin/api/config-live', { headers: headers() });
+                const data = await res.json();
+                document.getElementById('live-config').textContent = JSON.stringify(data, null, 2);
+            } catch (e) { document.getElementById('live-config').textContent = 'Error loading config'; }
+        }
+    </script>
+</body>
+</html>

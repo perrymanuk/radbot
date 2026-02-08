@@ -19,68 +19,51 @@ def _process_tool_call_event(event):
         "category": "tool_call",
         "summary": "Tool Call"
     }
-    
-    # Process function call events (ADK 0.4.0+)
-    if hasattr(event, 'function_call'):
+
+    # ADK 1.x: function calls/responses are in content.parts
+    if hasattr(event, 'get_function_calls') and event.get_function_calls():
+        fc = event.get_function_calls()[0]
+        event_data["tool_name"] = getattr(fc, 'name', 'unknown')
+        event_data["summary"] = f"Tool Call: {event_data['tool_name']}"
+        if hasattr(fc, 'args'):
+            event_data["input"] = _safely_serialize(fc.args)
+    elif hasattr(event, 'get_function_responses') and event.get_function_responses():
+        fr = event.get_function_responses()[0]
+        event_data["tool_name"] = getattr(fr, 'name', 'unknown')
+        event_data["summary"] = f"Tool Response: {event_data['tool_name']}"
+        if hasattr(fr, 'response'):
+            event_data["output"] = _safely_serialize(fr.response)
+    # Fallback: scan content.parts directly
+    elif hasattr(event, 'content') and event.content and hasattr(event.content, 'parts') and event.content.parts:
+        for part in event.content.parts:
+            if hasattr(part, 'function_call') and part.function_call:
+                fc = part.function_call
+                event_data["tool_name"] = getattr(fc, 'name', 'unknown')
+                event_data["summary"] = f"Tool Call: {event_data['tool_name']}"
+                if hasattr(fc, 'args'):
+                    event_data["input"] = _safely_serialize(fc.args)
+                break
+            if hasattr(part, 'function_response') and part.function_response:
+                fr = part.function_response
+                event_data["tool_name"] = getattr(fr, 'name', 'unknown')
+                event_data["summary"] = f"Tool Response: {event_data['tool_name']}"
+                if hasattr(fr, 'response'):
+                    event_data["output"] = _safely_serialize(fr.response)
+                break
+    # Legacy: top-level function_call/function_response (older ADK versions)
+    elif hasattr(event, 'function_call'):
         function_call = event.function_call
         if hasattr(function_call, 'name'):
             event_data["tool_name"] = function_call.name
             event_data["summary"] = f"Tool Call: {function_call.name}"
-        
         if hasattr(function_call, 'args'):
             event_data["input"] = _safely_serialize(function_call.args)
-            
-    # Process tool_calls (ADK 0.4.0+)
-    elif hasattr(event, 'tool_calls') and event.tool_calls:
-        # Use first tool call for display
-        tool_call = event.tool_calls[0]
-        if hasattr(tool_call, 'name'):
-            event_data["tool_name"] = tool_call.name
-            event_data["summary"] = f"Tool Call: {tool_call.name}"
-        
-        if hasattr(tool_call, 'args'):
-            event_data["input"] = _safely_serialize(tool_call.args)
-            
-    # Process function response / tool results (ADK 0.4.0+)
     elif hasattr(event, 'function_response'):
         if hasattr(event.function_response, 'name'):
             event_data["tool_name"] = event.function_response.name
             event_data["summary"] = f"Tool Response: {event.function_response.name}"
-        
         if hasattr(event.function_response, 'response'):
             event_data["output"] = _safely_serialize(event.function_response.response)
-            
-    elif hasattr(event, 'tool_results') and event.tool_results:
-        # Use first tool result for display
-        tool_result = event.tool_results[0]
-        if hasattr(tool_result, 'name'):
-            event_data["tool_name"] = tool_result.name
-            event_data["summary"] = f"Tool Response: {tool_result.name}"
-        
-        if hasattr(tool_result, 'output'):
-            event_data["output"] = _safely_serialize(tool_result.output)
-    
-    # Legacy tool call formats
-    else:
-        # Extract tool name
-        if hasattr(event, 'tool_name'):
-            event_data["tool_name"] = event.tool_name
-            event_data["summary"] = f"Tool Call: {event.tool_name}"
-        elif hasattr(event, 'payload') and isinstance(event.payload, dict) and 'toolName' in event.payload:
-            event_data["tool_name"] = event.payload['toolName']
-            event_data["summary"] = f"Tool Call: {event.payload['toolName']}"
-        
-        # Extract input
-        if hasattr(event, 'input'):
-            event_data["input"] = _safely_serialize(event.input)
-        elif hasattr(event, 'payload') and isinstance(event.payload, dict) and 'input' in event.payload:
-            event_data["input"] = _safely_serialize(event.payload['input'])
-        
-        # Extract output
-        if hasattr(event, 'output'):
-            event_data["output"] = _safely_serialize(event.output)
-        elif hasattr(event, 'payload') and isinstance(event.payload, dict) and 'output' in event.payload:
-            event_data["output"] = _safely_serialize(event.payload['output'])
     
     # Get the full event for details
     event_data["details"] = _get_event_details(event)
@@ -170,17 +153,22 @@ def _process_planner_event(event):
     
     return event_data
 
+def _is_thought_part(part):
+    """Check if a part is an internal model 'thought' (Gemini 2.5 thinking)."""
+    return getattr(part, 'thought', False) is True
+
+
 def _process_model_response_event(event):
-    """Process a model response event using ADK 0.4.0 structures."""
+    """Process a model response event using ADK 1.x structures."""
     event_data = {
         "category": "model_response",
         "summary": "Model Response"
     }
 
-    # Extract text from content - ADK 0.4.0 format
+    # Extract text from content
     text = ""
 
-    # Handle message.content structure (primary ADK 0.4.0 format)
+    # Handle message.content structure (legacy ADK format)
     if hasattr(event, 'message'):
         if hasattr(event.message, 'content'):
             # Handle string content
@@ -192,10 +180,10 @@ def _process_model_response_event(event):
             # Handle content with parts
             elif hasattr(event.message.content, 'parts') and event.message.content.parts:
                 for part in event.message.content.parts:
-                    if hasattr(part, 'text') and part.text:
+                    if hasattr(part, 'text') and part.text and not _is_thought_part(part):
                         text += part.text
 
-    # Fall back to direct content if message.content doesn't contain text
+    # Fall back to direct content (ADK 1.x primary format)
     if not text and hasattr(event, 'content'):
         # Handle content as string
         if isinstance(event.content, str):
@@ -206,7 +194,7 @@ def _process_model_response_event(event):
         # Handle content with parts
         elif hasattr(event.content, 'parts') and event.content.parts:
             for part in event.content.parts:
-                if hasattr(part, 'text') and part.text:
+                if hasattr(part, 'text') and part.text and not _is_thought_part(part):
                     text += part.text
 
     event_data["text"] = text

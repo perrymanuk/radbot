@@ -26,14 +26,26 @@ config = ConfigManager()
 
 def get_google_api_key() -> Optional[str]:
     """
-    Get the Google API key from configuration or environment variables.
-    
+    Get the Google API key from credential store, configuration, or environment variables.
+
     Returns:
         The API key or None if not found
     """
-    # Check config.yaml first
+    # Try credential store first
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("google_api_key")
+            if api_key:
+                logger.info("Using Google API key from credential store")
+                return api_key
+    except Exception as e:
+        logger.debug(f"Credential store lookup for google_api_key failed: {e}")
+
+    # Check config.yaml
     api_key = config_loader.get_config().get("api_keys", {}).get("google")
-    
+
     # If not found or empty, try environment variables
     if not api_key:
         # Try various environment variable names
@@ -42,7 +54,7 @@ def get_google_api_key() -> Optional[str]:
             if api_key:
                 logger.info(f"Using Google API key from {env_var} environment variable")
                 break
-    
+
     return api_key
 
 def create_client_with_config_settings() -> Client:

@@ -1,0 +1,16 @@
+.git
+__pycache__
+*.pyc
+.env
+config.yaml
+credentials/
+*.egg-info
+task-api/
+tests/
+docs/
+.claude/
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+node_modules

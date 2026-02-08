@@ -11,7 +11,7 @@ from typing import Any
 # Set up logging
 logger = logging.getLogger(__name__)
 
-def _safely_serialize(self, obj):
+def _safely_serialize(obj):
         """Safely serialize objects to JSON-compatible structures."""
         import json
         

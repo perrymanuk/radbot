@@ -48,6 +48,7 @@ dependencies = [
     "apscheduler>=3.10.0",             # Required for cron/scheduling engine
     "google-cloud-texttospeech>=2.14.0",  # Required for TTS synthesis
     "atlassian-python-api>=3.41.0",        # Required for Jira Cloud integration
+    "cryptography>=42.0.0",                # Required for credential store encryption
     # Removed gcsa due to dependency conflict with ADK 0.4.0 (tzlocal version conflict)
 ]
 

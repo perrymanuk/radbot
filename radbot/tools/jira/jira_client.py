@@ -19,7 +19,7 @@ _initialized = False
 
 
 def _get_config() -> dict:
-    """Pull Jira settings from config manager, falling back to env vars."""
+    """Pull Jira settings from config manager, falling back to credential store then env vars."""
     try:
         from radbot.config.config_loader import config_loader
         jira_cfg = config_loader.get_integrations_config().get("jira", {})
@@ -30,6 +30,18 @@ def _get_config() -> dict:
     email = jira_cfg.get("email") or os.environ.get("JIRA_EMAIL")
     api_token = jira_cfg.get("api_token") or os.environ.get("JIRA_API_TOKEN")
     enabled = jira_cfg.get("enabled", True)
+
+    # Try credential store for API token if not found in config/env
+    if not api_token:
+        try:
+            from radbot.credentials.store import get_credential_store
+            store = get_credential_store()
+            if store.available:
+                api_token = store.get("jira_api_token")
+                if api_token:
+                    logger.info("Jira: Using API token from credential store")
+        except Exception as e:
+            logger.debug(f"Jira credential store lookup failed: {e}")
 
     return {
         "url": url,

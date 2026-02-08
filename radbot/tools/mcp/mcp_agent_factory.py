@@ -71,10 +71,20 @@ def create_tavily_search_tool(max_results=5, search_depth="advanced", include_an
         logger.error("Tavily search tool requires langchain-community package with TavilySearchResults")
         return None
     
-    # Get Tavily API key from config.yaml or environment variable
-    api_key = config_loader.get_config().get("api_keys", {}).get("tavily")
+    # Get Tavily API key: credential store → config.yaml → env var
+    api_key = None
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("tavily_api_key")
+            if api_key:
+                logger.info("Using Tavily API key from credential store")
+    except Exception as e:
+        logger.debug(f"Credential store lookup for tavily_api_key failed: {e}")
     if not api_key:
-        # Fall back to environment variable
+        api_key = config_loader.get_config().get("api_keys", {}).get("tavily")
+    if not api_key:
         api_key = os.environ.get("TAVILY_API_KEY")
     
     if not api_key:

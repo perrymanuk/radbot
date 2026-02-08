@@ -225,32 +225,42 @@ class SessionRunner:
 
             # Log detailed information about each event
             for i, event in enumerate(events):
-                logger.info(f"Event {i} attributes: {dir(event)}")
-
-                # Log message structure (ADK 0.4.0 specific)
-                if hasattr(event, 'message'):
-                    logger.info(f"Event {i} has message attribute")
-                    if hasattr(event.message, 'content'):
-                        logger.info(f"Event {i} message.content type: {type(event.message.content)}")
-                        if hasattr(event.message, 'end_turn'):
-                            logger.info(f"Event {i} message.end_turn: {event.message.end_turn}")
-
-                # Log content structure
-                if hasattr(event, 'content'):
-                    logger.info(f"Event {i} content type: {type(event.content)}")
-
                 # Log is_final_response
+                is_final = False
                 if hasattr(event, 'is_final_response'):
                     if callable(getattr(event, 'is_final_response')):
-                        logger.info(f"Event {i} is_final_response(): {event.is_final_response()}")
+                        is_final = event.is_final_response()
                     else:
-                        logger.info(f"Event {i} is_final_response: {event.is_final_response}")
+                        is_final = event.is_final_response
+                logger.info(f"Event {i}: is_final={is_final}, content={type(event.content).__name__ if hasattr(event, 'content') else 'N/A'}")
+
+                # Log content parts detail to diagnose text extraction
+                if hasattr(event, 'content') and event.content:
+                    if hasattr(event.content, 'parts') and event.content.parts:
+                        for j, part in enumerate(event.content.parts):
+                            part_attrs = []
+                            if hasattr(part, 'text') and part.text:
+                                part_attrs.append(f"text={part.text[:80]}...")
+                            if hasattr(part, 'function_call') and part.function_call:
+                                fc = part.function_call
+                                name = getattr(fc, 'name', 'unknown')
+                                part_attrs.append(f"function_call={name}")
+                            if hasattr(part, 'function_response') and part.function_response:
+                                fr = part.function_response
+                                name = getattr(fr, 'name', 'unknown')
+                                part_attrs.append(f"function_response={name}")
+                            if not part_attrs:
+                                part_attrs.append(f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}")
+                            logger.info(f"  Event {i} part {j}: {', '.join(part_attrs)}")
+                    else:
+                        logger.info(f"  Event {i}: content has no parts")
 
             # Initialize variables for collecting event data
             final_response = None
+            last_text_response = None  # Track last non-empty text from any model event
             processed_events = []
             raw_response = None
-            
+
             for event in events:
                 # Extract event type and create a base event object
                 event_type = _get_event_type(event)
@@ -258,7 +268,7 @@ class SessionRunner:
                     "type": event_type,
                     "timestamp": _get_current_timestamp()
                 }
-                
+
                 # Process based on event type
                 if event_type == "tool_call":
                     event_data.update(_process_tool_call_event(event))
@@ -268,30 +278,37 @@ class SessionRunner:
                     event_data.update(_process_planner_event(event))
                 elif event_type == "model_response":
                     event_data.update(_process_model_response_event(event))
-                    # Check if this is the final response
+                    text = event_data.get("text", "")
+                    # Track the last non-empty text from any model response event
+                    if text:
+                        last_text_response = text
+                    # Check if this is the final response - only set if there's actual text
                     if hasattr(event, 'is_final_response') and event.is_final_response():
-                        final_response = event_data.get("text", "")
+                        if text:
+                            final_response = text
                         # Save raw response for later use if needed
                         if hasattr(event, 'raw_response'):
                             raw_response = event.raw_response
                 else:
                     # Generic event processing
                     event_data.update(_process_generic_event(event))
-                    
+
                     # Get raw response if available
                     if hasattr(event, 'raw_response'):
                         raw_response = event.raw_response
-                
+
                 processed_events.append(event_data)
-                
+
                 # Store the event in the events storage
                 # Import here to avoid circular imports
                 from radbot.web.api.events import add_event
                 add_event(self.session_id, event_data)
-                
+
                 # If no final response has been found yet, try to extract it
-                if final_response is None:
-                    final_response = _extract_response_from_event(event)
+                if not final_response:
+                    extracted = _extract_response_from_event(event)
+                    if extracted:
+                        final_response = extracted
             
             # If we still don't have a response, check for malformed function calls
             if not final_response and raw_response:
@@ -333,6 +350,11 @@ class SessionRunner:
                 except Exception as e:
                     logger.error(f"Error processing malformed function call: {str(e)}", exc_info=True)
             
+            # Fall back to last non-empty text from any model response event
+            if not final_response and last_text_response:
+                logger.info("Using last non-empty text from intermediate model response events")
+                final_response = last_text_response
+
             if not final_response:
                 logger.warning("No text response found in events, including malformed function handler")
                 final_response = "I apologize, but I couldn't generate a response."
@@ -368,24 +390,23 @@ class SessionRunner:
     
     def _extract_response_from_event(self, event):
         """Extract response text from various event types."""
-        # Method 1: Check if it's a final response
-        if hasattr(event, 'is_final_response') and event.is_final_response():
-            if hasattr(event, 'content') and event.content:
-                if hasattr(event.content, 'parts') and event.content.parts:
-                    for part in event.content.parts:
-                        if hasattr(part, 'text') and part.text:
-                            return self._process_response_text(part.text)
-                            
-        # Method 2: Check for content directly
+        # Method 1: Check content.parts for text (works for both final and non-final)
+        if hasattr(event, 'content') and event.content:
+            if hasattr(event.content, 'parts') and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        return self._process_response_text(part.text)
+
+        # Method 2: Check for content.text directly
         if hasattr(event, 'content'):
             if hasattr(event.content, 'text') and event.content.text:
                 return self._process_response_text(event.content.text)
-                
+
         # Method 3: Check for message attribute
         if hasattr(event, 'message'):
             if hasattr(event.message, 'content'):
                 return self._process_response_text(event.message.content)
-        
+
         return None
         
     def _process_response_text(self, text):

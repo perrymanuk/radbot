@@ -74,10 +74,22 @@ def create_tavily_search_tool(
         logger.error("Cannot create Tavily search tool - required packages not installed")
         return None
     
-    # Check that TAVILY_API_KEY environment variable is set
-    api_key = os.environ.get("TAVILY_API_KEY")
+    # Check credential store → env var for Tavily API key
+    api_key = None
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("tavily_api_key")
+            if api_key:
+                os.environ["TAVILY_API_KEY"] = api_key
+                logger.info("Using Tavily API key from credential store")
+    except Exception as e:
+        logger.debug(f"Credential store lookup for tavily_api_key failed: {e}")
     if not api_key:
-        logger.warning("TAVILY_API_KEY environment variable not set. Web search will not function correctly.")
+        api_key = os.environ.get("TAVILY_API_KEY")
+    if not api_key:
+        logger.warning("TAVILY_API_KEY not found in credential store or environment. Web search will not function correctly.")
     
     try:
         # Import FunctionTool from ADK

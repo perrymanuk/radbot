@@ -233,12 +233,53 @@ def _save_token(creds: Credentials, token_path: str) -> None:
 
 
 def discover_accounts() -> List[Dict[str, str]]:
-    """Discover all configured Gmail accounts by scanning token files.
+    """Discover all configured Gmail accounts by scanning token files and credential store.
 
     Returns:
         List of dicts with 'account' (label) and 'email' keys.
     """
     accounts = []
+    seen_labels: set = set()
+
+    # Check credential store first (DB-backed tokens for containerized deployment)
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            for entry in store.list():
+                name = entry["name"]
+                if not name.startswith("gmail_token_"):
+                    continue
+                label = name[len("gmail_token_"):]
+                if not label:
+                    continue
+                # Try to build service and get email from the stored token
+                try:
+                    token_json = store.get(name)
+                    if token_json:
+                        creds = Credentials.from_authorized_user_info(
+                            json.loads(token_json), SCOPES
+                        )
+                        if creds and creds.expired and creds.refresh_token:
+                            creds.refresh(Request())
+                        if creds and creds.valid:
+                            creds = _apply_quota_project(creds)
+                            service = build(
+                                "gmail", "v1", credentials=creds, cache_discovery=False
+                            )
+                            profile = service.users().getProfile(userId="me").execute()
+                            email = profile.get("emailAddress", "unknown")
+                        else:
+                            email = "unknown (token invalid)"
+                    else:
+                        email = "unknown"
+                except Exception as e:
+                    logger.debug(f"Could not get email for credential store token {name}: {e}")
+                    email = "unknown"
+                accounts.append({"account": label, "email": email, "source": "credential_store"})
+                seen_labels.add(label)
+    except Exception as e:
+        logger.debug(f"Could not check credential store for Gmail tokens: {e}")
 
     # Check named token files: gmail_token_{label}.json
     pattern = os.path.join(TOKEN_DIR, "gmail_token_*.json")
@@ -249,18 +290,20 @@ def discover_accounts() -> List[Dict[str, str]]:
             continue
         # Extract label: gmail_token_personal.json -> personal
         label = basename.replace("gmail_token_", "").replace(".json", "")
-        if not label:
+        if not label or label in seen_labels:
             continue
         email = _get_email_from_token(path)
         accounts.append({"account": label, "email": email, "token_file": path})
+        seen_labels.add(label)
 
     # Check legacy default token
-    default_path = _get_token_path(None)
-    if os.path.exists(default_path):
-        # Don't double-count if the default path is also a named file
-        if not any(a["token_file"] == default_path for a in accounts):
-            email = _get_email_from_token(default_path)
-            accounts.append({"account": "default", "email": email, "token_file": default_path})
+    if "default" not in seen_labels:
+        default_path = _get_token_path(None)
+        if os.path.exists(default_path):
+            # Don't double-count if the default path is also a named file
+            if not any(a.get("token_file") == default_path for a in accounts):
+                email = _get_email_from_token(default_path)
+                accounts.append({"account": "default", "email": email, "token_file": default_path})
 
     return accounts
 
@@ -358,6 +401,29 @@ def authenticate_gmail(account: Optional[str] = None) -> Optional[Credentials]:
     Returns:
         Credentials object if successful, None otherwise.
     """
+    # 0. Try credential store first
+    key = account or "default"
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            token_json = store.get(f"gmail_token_{key}")
+            if token_json:
+                import json as _json
+                creds = Credentials.from_authorized_user_info(_json.loads(token_json), SCOPES)
+                if creds and creds.expired and creds.refresh_token:
+                    creds.refresh(Request())
+                    store.set(
+                        f"gmail_token_{key}",
+                        creds.to_json(),
+                        credential_type="oauth_token",
+                    )
+                if creds and creds.valid:
+                    logger.info(f"Gmail '{key}': Using token from credential store")
+                    return _apply_quota_project(creds)
+    except Exception as e:
+        logger.debug(f"Gmail credential store lookup failed: {e}")
+
     # 1. Try saved token first
     token_path = _get_token_path(account)
     creds = _try_saved_token(token_path)
