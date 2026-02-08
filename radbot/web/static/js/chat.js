@@ -294,6 +294,18 @@ export function addMessage(role, content, agentName) {
     }
     
     messageDiv.appendChild(contentDiv);
+
+    // Add TTS play button to assistant messages
+    if (role === 'assistant' && window.ttsManager) {
+        try {
+            // Dynamic import to avoid circular dependency
+            if (typeof window.addTTSButton === 'function') {
+                window.addTTSButton(messageDiv);
+            }
+        } catch (e) {
+            // TTS module may not be loaded yet
+        }
+    }
     
     // Verify chat messages container exists
     if (!chatMessages) {
@@ -783,18 +795,17 @@ export function sendMessage() {
             console.log("Sending message via connected WebSocket");
 
             // Ensure we have the most up-to-date agent name in case it was changed via transfer
-            // This ensures we maintain context properly after agent transfers
             const currentAgentName = window.state.currentAgentName;
 
-            // Simplified approach with no agent-specific contexts
-            console.log(`Sending message to agent: ${currentAgentName} (simplified approach)`)
-
-            // Always include current agent name to ensure correct targeting
-            const targetedMessage = `AGENT:${currentAgentName}:${message}`;
-            console.log(`Including agent targeting: ${currentAgentName}`);
+            // Only use AGENT: prefix when explicitly targeting a non-default agent.
+            // For the root agent (BETO), send the raw message so it goes through
+            // the normal runner path (avoids extra API calls from agent_transfer).
+            const isRootAgent = !currentAgentName || currentAgentName.toUpperCase() === 'BETO';
+            const outMessage = isRootAgent ? message : `AGENT:${currentAgentName}:${message}`;
+            console.log(`Sending message to agent: ${currentAgentName} (root=${isRootAgent})`);
 
             window.socket.send(JSON.stringify({
-                message: targetedMessage
+                message: outMessage
             }));
 
             // Set status to indicate processing
@@ -831,6 +842,14 @@ export function sendMessage() {
                     clearInterval(connectionCheckInterval);
                     if (!(window.socket && window.socket.socketConnected)) {
                         console.log("WebSocket connection timed out, falling back to REST API");
+                        // Remove the queued message from WebSocket pending queue
+                        // to prevent double-send when WebSocket later reconnects
+                        if (window.socket && window.socket.manager && window.socket.manager.pendingMessages) {
+                            const queuedMsg = JSON.stringify({ message: message });
+                            window.socket.manager.pendingMessages = window.socket.manager.pendingMessages.filter(
+                                m => m !== queuedMsg
+                            );
+                        }
                         sendMessageREST(message, displayMessage);
                     }
                 }, 10000);
@@ -979,12 +998,13 @@ async function sendMessageREST(message, displayMessage) {
         // Ensure we have the most up-to-date agent name in case it was changed via transfer
         const currentAgentName = window.state.currentAgentName;
 
-        // Format message with agent targeting prefix for consistent handling on server
-        const targetedMessage = `AGENT:${currentAgentName}:${message}`;
-        console.log(`Including agent targeting in REST call: ${currentAgentName}`);
+        // Only use AGENT: prefix for non-default agents (same logic as WebSocket path)
+        const isRootAgent = !currentAgentName || currentAgentName.toUpperCase() === 'BETO';
+        const outMessage = isRootAgent ? message : `AGENT:${currentAgentName}:${message}`;
+        console.log(`Sending REST message to agent: ${currentAgentName} (root=${isRootAgent})`);
 
         const formData = new FormData();
-        formData.append('message', targetedMessage); // Use the targeted message
+        formData.append('message', outMessage);
         formData.append('session_id', window.state.sessionId);
 
         const response = await fetch('/api/chat', {

@@ -111,26 +111,10 @@ class ResearchAgent:
         if self.enable_sequential_thinking:
             logger.info(f"Sequential thinking feature enabled for {name}")
         
-        # Add built-in tool agents if requested
-        if enable_google_search or enable_code_execution:
-            try:
-                from radbot.tools.adk_builtin import register_search_agent, register_code_execution_agent
-                
-                if enable_google_search:
-                    try:
-                        register_search_agent(self.agent)
-                        logger.info(f"Google Search capability enabled for {name}")
-                    except Exception as e:
-                        logger.warning(f"Failed to register search agent: {str(e)}")
-                
-                if enable_code_execution:
-                    try:
-                        register_code_execution_agent(self.agent)
-                        logger.info(f"Code Execution capability enabled for {name}")
-                    except Exception as e:
-                        logger.warning(f"Failed to register code execution agent: {str(e)}")
-            except Exception as e:
-                logger.warning(f"Failed to import built-in tool factories: {str(e)}")
+        # Note: enable_google_search and enable_code_execution are accepted
+        # for API compatibility but no longer create nested sub-agents.
+        # search_agent and code_execution_agent are siblings under beto,
+        # and scout can reach them via transfer_to_agent.
     
     def get_adk_agent(self):
         """

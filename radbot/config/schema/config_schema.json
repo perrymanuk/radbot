@@ -94,6 +94,11 @@
               "type": "string",
               "description": "Model for Axel execution specialized agent",
               "default": "gemini-2.5-pro"
+            },
+            "george_agent_model": {
+              "type": "string",
+              "description": "Model for George general utility specialized agent",
+              "default": "gemini-2.0-flash"
             }
           }
         },
@@ -114,6 +119,11 @@
         "service_account_file": {
           "type": ["string", "null"],
           "description": "Path to Google Cloud service account JSON file for Vertex AI authentication"
+        },
+        "use_pure_domain_separation": {
+          "type": "boolean",
+          "description": "When enabled, each specialized agent has exclusive access to its domain-specific tools",
+          "default": false
         },
         "enable_adk_search": {
           "type": "boolean",
@@ -138,7 +148,11 @@
         "specialized_agents": {
           "type": "object",
           "description": "Configuration for specialized agent architecture",
-          "additionalProperties": false,
+          "additionalProperties": {
+            "type": "object",
+            "description": "Custom specialized agent configuration",
+            "additionalProperties": true
+          },
           "properties": {
             "enabled": {
               "type": "boolean",
@@ -148,189 +162,111 @@
             "filesystem": {
               "type": "object",
               "description": "Filesystem specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable filesystem specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for filesystem agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "web_research": {
               "type": "object",
               "description": "Web research specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable web research specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for web research agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "memory": {
               "type": "object",
               "description": "Memory specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable memory specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for memory agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "todo": {
               "type": "object",
               "description": "Todo specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable todo specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for todo agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "calendar": {
               "type": "object",
               "description": "Calendar specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable calendar specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for calendar agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "homeassistant": {
               "type": "object",
               "description": "Home Assistant specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable Home Assistant specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for Home Assistant agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "code_execution": {
               "type": "object",
               "description": "Code execution specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable code execution specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for code execution agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "agentic_coder": {
               "type": "object",
               "description": "Agentic coder specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable agentic coder specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for agentic coder agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "utility": {
               "type": "object",
               "description": "Utility specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable utility specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for utility agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "scout": {
               "type": "object",
               "description": "Scout specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable Scout specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for Scout agent"
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             },
             "axel": {
               "type": "object",
               "description": "Axel execution specialized agent configuration",
-              "additionalProperties": false,
+              "additionalProperties": true,
               "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable/disable Axel specialized agent",
-                  "default": true
-                },
-                "model": {
-                  "type": ["string", "null"],
-                  "description": "Model override for Axel agent"
-                },
-                "dynamic_workers": {
-                  "type": "boolean",
-                  "description": "Enable/disable Axel's dynamic worker system",
-                  "default": true
-                },
-                "max_workers": {
-                  "type": "integer",
-                  "description": "Maximum number of dynamic workers",
-                  "default": 5,
-                  "minimum": 1,
-                  "maximum": 10
-                }
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] },
+                "dynamic_workers": { "type": "boolean", "default": true },
+                "max_workers": { "type": "integer", "default": 5, "minimum": 1, "maximum": 10 }
+              }
+            },
+            "george": {
+              "type": "object",
+              "description": "George general utility specialized agent configuration",
+              "additionalProperties": true,
+              "properties": {
+                "enabled": { "type": "boolean", "default": true },
+                "model": { "type": ["string", "null"] }
               }
             }
           }
@@ -522,6 +458,50 @@
             "impersonation_email": {
               "type": ["string", "null"],
               "description": "Email to impersonate for domain-wide delegation"
+            }
+          }
+        },
+        "gmail": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Gmail read-only integration settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Gmail integration",
+              "default": false
+            },
+            "oauth_client_file": {
+              "type": ["string", "null"],
+              "description": "Path to OAuth2 client credentials JSON file"
+            },
+            "token_file": {
+              "type": ["string", "null"],
+              "description": "Path to store OAuth token (default: ~/.radbot/gmail_token.json)"
+            }
+          }
+        },
+        "jira": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Jira Cloud integration settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Jira integration",
+              "default": false
+            },
+            "url": {
+              "type": ["string", "null"],
+              "description": "Jira Cloud URL (e.g. https://site.atlassian.net)"
+            },
+            "email": {
+              "type": ["string", "null"],
+              "description": "Atlassian account email"
+            },
+            "api_token": {
+              "type": ["string", "null"],
+              "description": "Atlassian API token"
             }
           }
         },
@@ -723,6 +703,109 @@
           "type": "boolean",
           "description": "Enable debug mode",
           "default": false
+        }
+      }
+    },
+    "scheduler": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Scheduler/cron configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable the scheduling engine",
+          "default": true
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Default timezone for cron schedules",
+          "default": "UTC"
+        },
+        "max_concurrent_jobs": {
+          "type": "integer",
+          "description": "Maximum number of concurrent scheduled jobs",
+          "minimum": 1,
+          "default": 5
+        }
+      }
+    },
+    "webhooks": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Webhook configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable webhook endpoints",
+          "default": true
+        }
+      }
+    },
+    "tts": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Text-to-Speech configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable TTS synthesis",
+          "default": true
+        },
+        "voice_name": {
+          "type": "string",
+          "description": "Google Cloud TTS voice name",
+          "default": "en-US-Neural2-D"
+        },
+        "language_code": {
+          "type": "string",
+          "description": "Language code for TTS",
+          "default": "en-US"
+        },
+        "speaking_rate": {
+          "type": "number",
+          "description": "Speech rate (0.25 to 4.0)",
+          "minimum": 0.25,
+          "maximum": 4.0,
+          "default": 1.0
+        },
+        "pitch": {
+          "type": "number",
+          "description": "Voice pitch (-20.0 to 20.0)",
+          "minimum": -20.0,
+          "maximum": 20.0,
+          "default": 0.0
+        },
+        "auto_play": {
+          "type": "boolean",
+          "description": "Auto-play TTS for agent responses",
+          "default": false
+        }
+      }
+    },
+    "stt": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Speech-to-Text configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable/disable STT transcription",
+          "default": true
+        },
+        "language_code": {
+          "type": "string",
+          "description": "Language code for STT recognition",
+          "default": "en-US"
+        },
+        "model": {
+          "type": "string",
+          "description": "Google Cloud STT model name",
+          "default": "latest_long"
+        },
+        "enable_automatic_punctuation": {
+          "type": "boolean",
+          "description": "Enable automatic punctuation in transcription",
+          "default": true
         }
       }
     },

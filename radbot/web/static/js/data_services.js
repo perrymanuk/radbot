@@ -11,23 +11,24 @@ import { state, tasks, projects, events } from './app_core.js';
 export async function fetchTasks() {
     console.log("Fetching tasks data...");
     try {
-        // Try to fetch from the real API first
+        // Try to fetch from the real API
         try {
-            const apiUrl = 'http://localhost:8001/api/tasks'; // Use the actual task API endpoint
+            const baseUrl = `${window.location.protocol}//${window.location.host}`;
+            const apiUrl = `${baseUrl}/api/tasks`;
             console.log(`Attempting to fetch real tasks data from ${apiUrl}`);
-            
+
             const response = await fetch(apiUrl);
-            
+
             if (response.ok) {
                 const tasksData = await response.json();
                 console.log("Successfully fetched real task data:", tasksData);
-                
+
                 // The API returns tasks as a direct array
                 window.tasks = tasksData || [];
-                
+
                 // We need to fetch projects separately
                 try {
-                    const projectsResponse = await fetch('http://localhost:8001/api/projects');
+                    const projectsResponse = await fetch(`${baseUrl}/api/projects`);
                     if (projectsResponse.ok) {
                         window.projects = await projectsResponse.json();
                         console.log("Successfully fetched real projects data:", window.projects);
@@ -39,39 +40,27 @@ export async function fetchTasks() {
                     console.warn("Error fetching projects:", projectError);
                     window.projects = [{project_id: "unknown", name: "Default"}];
                 }
-                
+
                 // Update selects module with projects
                 selectsUtils.setProjects(window.projects);
-                
+
                 renderTasks();
                 return;
             } else {
-                console.warn(`Real API returned error status: ${response.status}. Will use mock data instead.`);
+                console.warn(`API returned error status: ${response.status}`);
             }
         } catch (apiError) {
-            console.warn("Failed to connect to real API:", apiError);
+            console.warn("Failed to connect to API:", apiError);
         }
-        
-        // If we get here, the real API failed - use mock data
-        console.log("Using mock task data");
-        
-        // Mock data for testing
-        window.tasks = [
-            { task_id: "task1", title: "Implement login screen", status: "inprogress", priority: "high", project_id: "proj1" },
-            { task_id: "task2", title: "Fix navigation bug", status: "backlog", priority: "medium", project_id: "proj1" },
-            { task_id: "task3", title: "Update documentation", status: "done", priority: "low", project_id: "proj2" },
-            { task_id: "task4", title: "Refactor database layer", status: "backlog", priority: "high", project_id: "proj2" },
-            { task_id: "task5", title: "Add unit tests", status: "inprogress", priority: "medium", project_id: "proj1" }
-        ];
-        
-        window.projects = [
-            { project_id: "proj1", name: "Frontend App" },
-            { project_id: "proj2", name: "Backend API" }
-        ];
-        
+
+        // API failed - show empty state
+        console.log("Task API unavailable, showing empty state");
+        window.tasks = [];
+        window.projects = [];
+
         // Update selects module with projects
         selectsUtils.setProjects(window.projects);
-        
+
         renderTasks();
     } catch (error) {
         console.error('Unexpected error in fetchTasks:', error);
@@ -137,6 +126,13 @@ export function renderTasks() {
         return statusA - statusB;
     });
     
+    // "+ New Task" button
+    const newBtn = document.createElement('button');
+    newBtn.className = 'task-new-btn';
+    newBtn.textContent = '+ New Task';
+    newBtn.addEventListener('click', () => renderTaskCreateForm());
+    tasksContainer.appendChild(newBtn);
+
     // Render each task
     filteredTasks.forEach(task => {
         const taskItem = document.createElement('div');
@@ -148,8 +144,8 @@ export function renderTasks() {
         
         const taskTitle = document.createElement('div');
         taskTitle.className = 'task-title';
-        // Use description as title for API data, or title for mock data
-        taskTitle.textContent = task.description || task.title || "Untitled Task";
+        // Prefer title if set, fall back to description for older tasks
+        taskTitle.textContent = task.title || task.description || "Untitled Task";
         
         const taskProject = document.createElement('div');
         taskProject.className = 'task-project';
@@ -167,9 +163,9 @@ export function renderTasks() {
         taskItem.appendChild(taskTitle);
         taskItem.appendChild(taskProject);
         
-        // Add click handler to show task details
+        // Add click handler to open edit form
         taskItem.addEventListener('click', () => {
-            window.commandUtils.executeCommand(`/details ${task.task_id}`);
+            renderTaskEditForm(task);
         });
         
         tasksContainer.appendChild(taskItem);
@@ -182,6 +178,346 @@ export function renderTasks() {
         noTasksMsg.textContent = 'No tasks match the current filters';
         tasksContainer.appendChild(noTasksMsg);
     }
+}
+
+// Update a task via the API
+export async function updateTask(taskId, updates) {
+    const baseUrl = `${window.location.protocol}//${window.location.host}`;
+    const response = await fetch(`${baseUrl}/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.detail || 'Failed to update task');
+    }
+    // Refresh the task list
+    await fetchTasks();
+    return result;
+}
+
+// Delete a task via the API
+export async function deleteTask(taskId) {
+    const baseUrl = `${window.location.protocol}//${window.location.host}`;
+    const response = await fetch(`${baseUrl}/api/tasks/${taskId}`, {
+        method: 'DELETE'
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.detail || 'Failed to delete task');
+    }
+    await fetchTasks();
+    return result;
+}
+
+// Create a new task via the API
+export async function createTask(data) {
+    const baseUrl = `${window.location.protocol}//${window.location.host}`;
+    const response = await fetch(`${baseUrl}/api/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.detail || 'Failed to create task');
+    }
+    await fetchTasks();
+    return result;
+}
+
+// Render a creation form for a new task
+export function renderTaskCreateForm() {
+    const tasksContainer = document.getElementById('tasks-container');
+    if (!tasksContainer) return;
+
+    tasksContainer.innerHTML = '';
+
+    const form = document.createElement('div');
+    form.className = 'task-edit-form';
+
+    // Back button
+    const back = document.createElement('button');
+    back.className = 'task-edit-back';
+    back.textContent = '\u2190 Back to tasks';
+    back.addEventListener('click', () => renderTasks());
+    form.appendChild(back);
+
+    // Title field
+    const titleField = document.createElement('div');
+    titleField.className = 'task-edit-field';
+    const titleLabel = document.createElement('label');
+    titleLabel.className = 'task-edit-label';
+    titleLabel.textContent = 'Title';
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = 'task-edit-input';
+    titleInput.placeholder = 'Short summary';
+    titleField.appendChild(titleLabel);
+    titleField.appendChild(titleInput);
+    form.appendChild(titleField);
+
+    // Description field
+    const descField = document.createElement('div');
+    descField.className = 'task-edit-field';
+    const descLabel = document.createElement('label');
+    descLabel.className = 'task-edit-label';
+    descLabel.textContent = 'Description';
+    const descInput = document.createElement('textarea');
+    descInput.className = 'task-edit-textarea';
+    descInput.rows = 4;
+    descField.appendChild(descLabel);
+    descField.appendChild(descInput);
+    form.appendChild(descField);
+
+    // Status field
+    const statusField = document.createElement('div');
+    statusField.className = 'task-edit-field';
+    const statusLabel = document.createElement('label');
+    statusLabel.className = 'task-edit-label';
+    statusLabel.textContent = 'Status';
+    const statusSelect = document.createElement('select');
+    statusSelect.className = 'task-edit-select';
+    ['backlog', 'inprogress', 'done'].forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s === 'inprogress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1);
+        if (s === 'backlog') opt.selected = true;
+        statusSelect.appendChild(opt);
+    });
+    statusField.appendChild(statusLabel);
+    statusField.appendChild(statusSelect);
+    form.appendChild(statusField);
+
+    // Project field
+    const projField = document.createElement('div');
+    projField.className = 'task-edit-field';
+    const projLabel = document.createElement('label');
+    projLabel.className = 'task-edit-label';
+    projLabel.textContent = 'Project';
+    const projSelect = document.createElement('select');
+    projSelect.className = 'task-edit-select';
+    (window.projects || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.project_id;
+        opt.textContent = p.name;
+        projSelect.appendChild(opt);
+    });
+    projField.appendChild(projLabel);
+    projField.appendChild(projSelect);
+    form.appendChild(projField);
+
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'task-edit-actions';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'task-edit-btn save';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', async () => {
+        const title = titleInput.value.trim();
+        const description = descInput.value.trim();
+        if (!title && !description) {
+            alert('Please enter a title or description.');
+            return;
+        }
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        try {
+            await createTask({
+                title: title || undefined,
+                description: description || undefined,
+                status: statusSelect.value,
+                project_id: projSelect.value
+            });
+        } catch (err) {
+            console.error('Failed to create task:', err);
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+            alert('Failed to create task: ' + err.message);
+        }
+    });
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'task-edit-btn cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => renderTasks());
+
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+    form.appendChild(actions);
+
+    tasksContainer.appendChild(form);
+}
+
+// Render an edit form for a single task
+export function renderTaskEditForm(task) {
+    const tasksContainer = document.getElementById('tasks-container');
+    if (!tasksContainer) return;
+
+    tasksContainer.innerHTML = '';
+
+    const form = document.createElement('div');
+    form.className = 'task-edit-form';
+
+    // Back button
+    const back = document.createElement('button');
+    back.className = 'task-edit-back';
+    back.textContent = '\u2190 Back to tasks';
+    back.addEventListener('click', () => renderTasks());
+    form.appendChild(back);
+
+    // Title field
+    const titleField = document.createElement('div');
+    titleField.className = 'task-edit-field';
+    const titleLabel = document.createElement('label');
+    titleLabel.className = 'task-edit-label';
+    titleLabel.textContent = 'Title';
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = 'task-edit-input';
+    titleInput.placeholder = 'Short summary (optional)';
+    titleInput.value = task.title || '';
+    titleField.appendChild(titleLabel);
+    titleField.appendChild(titleInput);
+    form.appendChild(titleField);
+
+    // Description field
+    const descField = document.createElement('div');
+    descField.className = 'task-edit-field';
+    const descLabel = document.createElement('label');
+    descLabel.className = 'task-edit-label';
+    descLabel.textContent = 'Description';
+    const descInput = document.createElement('textarea');
+    descInput.className = 'task-edit-textarea';
+    descInput.rows = 4;
+    descInput.value = task.description || '';
+    descField.appendChild(descLabel);
+    descField.appendChild(descInput);
+    form.appendChild(descField);
+
+    // Status field
+    const statusField = document.createElement('div');
+    statusField.className = 'task-edit-field';
+    const statusLabel = document.createElement('label');
+    statusLabel.className = 'task-edit-label';
+    statusLabel.textContent = 'Status';
+    const statusSelect = document.createElement('select');
+    statusSelect.className = 'task-edit-select';
+    ['backlog', 'inprogress', 'done'].forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = s === 'inprogress' ? 'In Progress' : s.charAt(0).toUpperCase() + s.slice(1);
+        if (task.status === s) opt.selected = true;
+        statusSelect.appendChild(opt);
+    });
+    statusField.appendChild(statusLabel);
+    statusField.appendChild(statusSelect);
+    form.appendChild(statusField);
+
+    // Project field
+    const projField = document.createElement('div');
+    projField.className = 'task-edit-field';
+    const projLabel = document.createElement('label');
+    projLabel.className = 'task-edit-label';
+    projLabel.textContent = 'Project';
+    const projSelect = document.createElement('select');
+    projSelect.className = 'task-edit-select';
+    (window.projects || []).forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.project_id;
+        opt.textContent = p.name;
+        if (task.project_id === p.project_id || task.project_name === p.name) opt.selected = true;
+        projSelect.appendChild(opt);
+    });
+    projField.appendChild(projLabel);
+    projField.appendChild(projSelect);
+    form.appendChild(projField);
+
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'task-edit-actions';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'task-edit-btn save';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        try {
+            const updates = {};
+            const newTitle = titleInput.value.trim();
+            if (newTitle !== (task.title || '')) updates.title = newTitle;
+            const newDesc = descInput.value.trim();
+            if (newDesc !== (task.description || '')) updates.description = newDesc;
+            if (statusSelect.value !== task.status) updates.status = statusSelect.value;
+            if (projSelect.value !== task.project_id) updates.project_id = projSelect.value;
+            if (Object.keys(updates).length > 0) {
+                await updateTask(task.task_id, updates);
+            } else {
+                renderTasks();
+            }
+        } catch (err) {
+            console.error('Failed to update task:', err);
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+            alert('Failed to update task: ' + err.message);
+        }
+    });
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'task-edit-btn cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => renderTasks());
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'task-edit-btn delete';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => {
+        // Show inline confirmation
+        deleteBtn.style.display = 'none';
+        const confirmWrap = document.createElement('span');
+        confirmWrap.className = 'task-edit-confirm';
+        const confirmLabel = document.createElement('span');
+        confirmLabel.textContent = 'Delete this task? ';
+        confirmLabel.className = 'task-edit-confirm-label';
+        const yesBtn = document.createElement('button');
+        yesBtn.className = 'task-edit-btn delete';
+        yesBtn.textContent = 'Yes';
+        yesBtn.addEventListener('click', async () => {
+            yesBtn.disabled = true;
+            yesBtn.textContent = 'Deleting...';
+            try {
+                await deleteTask(task.task_id);
+            } catch (err) {
+                console.error('Failed to delete task:', err);
+                alert('Failed to delete task: ' + err.message);
+                yesBtn.disabled = false;
+                yesBtn.textContent = 'Yes';
+                deleteBtn.style.display = '';
+                confirmWrap.remove();
+            }
+        });
+        const noBtn = document.createElement('button');
+        noBtn.className = 'task-edit-btn cancel';
+        noBtn.textContent = 'No';
+        noBtn.addEventListener('click', () => {
+            deleteBtn.style.display = '';
+            confirmWrap.remove();
+        });
+        confirmWrap.appendChild(confirmLabel);
+        confirmWrap.appendChild(yesBtn);
+        confirmWrap.appendChild(noBtn);
+        actions.appendChild(confirmWrap);
+    });
+
+    actions.appendChild(saveBtn);
+    actions.appendChild(cancelBtn);
+    actions.appendChild(deleteBtn);
+    form.appendChild(actions);
+
+    tasksContainer.appendChild(form);
 }
 
 // Fetch events from API
@@ -239,39 +575,13 @@ export async function fetchEvents() {
                     console.warn("Could not parse error response");
                 }
                 
-                // Use fallback data if API fails
+                // API returned an error - show empty state
                 if (response.status === 404) {
                     console.log("No events found for this session or endpoint not found");
-                    
-                    // Create a demo event to show the system is working
-                    window.events = [{
-                        type: "model_response",
-                        timestamp: new Date().toISOString(),
-                        category: "model_response",
-                        summary: "Welcome Message",
-                        text: "Welcome to RadBot! I'm ready to assist you. Try asking me a question or giving me a task to work on.",
-                        is_final: true,
-                        details: {
-                            "model": "gemini-pro",
-                            "session_id": sessionId
-                        }
-                    }];
                 } else {
-                    // Create an error event
-                    window.events = [{
-                        type: "other",
-                        timestamp: new Date().toISOString(),
-                        category: "error",
-                        summary: `API Error: ${response.status} ${response.statusText}`,
-                        details: {
-                            error_message: `The events API returned status code ${response.status}`,
-                            service: "Events API",
-                            endpoint: apiUrl,
-                            status_code: response.status,
-                            status_text: response.statusText
-                        }
-                    }];
+                    console.warn(`Events API error: ${response.status} ${response.statusText}`);
                 }
+                window.events = [];
                 
                 window.renderEvents();
             }
@@ -279,20 +589,7 @@ export async function fetchEvents() {
             // Handle API connection errors (CORS, connection refused, etc.)
             console.error("API error fetching events:", apiError);
             
-            // Create a connection error event
-            window.events = [{
-                type: "other",
-                timestamp: new Date().toISOString(),
-                category: "error",
-                summary: "API Connection Error",
-                details: {
-                    error_message: `Failed to connect to Events API: ${apiError.message}`,
-                    service: "Events API",
-                    endpoint: apiUrl,
-                    error_type: apiError.name,
-                    error_stack: apiError.stack
-                }
-            }];
+            window.events = [];
             
             window.renderEvents();
         }

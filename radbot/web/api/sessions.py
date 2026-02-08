@@ -32,6 +32,7 @@ class SessionMetadata(BaseModel):
 
 class CreateSessionRequest(BaseModel):
     """Request model for creating a new session."""
+    session_id: Optional[str] = None
     name: Optional[str] = None
     user_id: Optional[str] = None
 
@@ -109,9 +110,9 @@ def register_sessions_router(app):
         logger.info("Creating new session with name: %s", request.name)
 
         try:
-            # Generate a new session ID
-            session_id = str(uuid.uuid4())
-            user_id = request.user_id or f"web_user_{session_id}"
+            # Use provided session ID or generate a new one
+            session_id = request.session_id or str(uuid.uuid4())
+            user_id = "web_user"
 
             # Create the session in the backend
             runner = await get_or_create_runner_for_session(session_id, session_manager)

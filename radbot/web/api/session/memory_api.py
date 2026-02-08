@@ -105,7 +105,7 @@ async def store_memory(
         if not memory_service:
             raise HTTPException(status_code=500, detail="Memory service not available - tried all fallback methods")
         
-        user_id = f"web_user_{request.session_id}"
+        user_id = "web_user"
         
         # Instead of creating a ToolContext directly (which changed in ADK versions),
         # use memory_service directly with the store_important_information function

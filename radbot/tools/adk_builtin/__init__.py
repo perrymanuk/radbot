@@ -12,8 +12,8 @@ from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-from .search_tool import create_search_agent, register_search_agent
-from .code_execution_tool import create_code_execution_agent, register_code_execution_agent
+from .search_tool import create_search_agent
+from .code_execution_tool import create_code_execution_agent
 
 # Check if ADK built-in tools should be enabled
 def is_search_enabled():
@@ -26,9 +26,7 @@ def is_code_execution_enabled():
 
 __all__ = [
     'create_search_agent',
-    'register_search_agent',
     'create_code_execution_agent',
-    'register_code_execution_agent',
     'is_search_enabled',
     'is_code_execution_enabled'
 ]

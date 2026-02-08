@@ -141,12 +141,12 @@ class SessionRunner:
         
         logger.info("===============================")
     
-    def process_message(self, message: str) -> dict:
+    async def process_message(self, message: str) -> dict:
         """Process a user message and return the agent's response with event data.
-        
+
         Args:
             message: The user's message text
-                
+
         Returns:
             Dictionary containing the agent's response text and event data
         """
@@ -156,56 +156,45 @@ class SessionRunner:
                 parts=[Part(text=message)],
                 role="user"
             )
-            
+
             # Get the app_name from the runner
             app_name = self.runner.app_name if hasattr(self.runner, 'app_name') else "beto"
-            
+
             # Get or create a session with the user_id and session_id
-            session = self.session_service.get_session(
+            session = await self.session_service.get_session(
                 app_name=app_name,
                 user_id=self.user_id,
                 session_id=self.session_id
             )
-            
+
             if not session:
                 logger.info(f"Creating new session for user {self.user_id} with app_name='{app_name}'")
-                session = self.session_service.create_session(
+                session = await self.session_service.create_session(
                     app_name=app_name,
                     user_id=self.user_id,
                     session_id=self.session_id
                 )
+                # Load conversation history from DB into the new ADK session
+                await self._load_history_into_session(session)
             
-            # OPTIMIZATION: Limit message history to reduce context size
-            # Get the current message count and truncate if needed
+            # OPTIMIZATION: Limit event history to reduce context size
             try:
-                # Check current message count
-                message_count = session.message_count if hasattr(session, 'message_count') else 0
-                # Get messages list
-                messages = session.messages if hasattr(session, 'messages') else []
-                
-                # If there are too many messages, keep only the most recent ones
-                # For very short messages like "hi", use an even smaller history
+                event_count = len(session.events) if hasattr(session, 'events') else 0
                 message_length = len(message.strip()) if isinstance(message, str) else 0
-                
-                # Dynamically adjust history size based on message length
-                if message_length <= 5:  # Very short message like "hi"
-                    MAX_MESSAGES = 5  # Keep only the 5 most recent messages for very short inputs
-                    logger.info(f"Using reduced history size (5) for short message: '{message}'")
-                elif message_length <= 20:  # Short message
-                    MAX_MESSAGES = 10  # Keep 10 messages for short inputs
-                    logger.info(f"Using reduced history size (10) for medium-length message")
+
+                if message_length <= 5:
+                    MAX_EVENTS = 10
+                elif message_length <= 20:
+                    MAX_EVENTS = 20
                 else:
-                    MAX_MESSAGES = 15  # Default: keep 15 messages for normal inputs
-                
-                if message_count > MAX_MESSAGES and len(messages) > MAX_MESSAGES:
-                    logger.info(f"Truncating message history from {message_count} to {MAX_MESSAGES} messages")
-                    # Keep only the most recent messages
-                    session.messages = messages[-MAX_MESSAGES:]
-                    # Update the message count
-                    session.message_count = len(session.messages)
-                    logger.info(f"Message history truncated to {session.message_count} messages")
+                    MAX_EVENTS = 30
+
+                if event_count > MAX_EVENTS:
+                    logger.info(f"Truncating event history from {event_count} to {MAX_EVENTS} events")
+                    session.events[:] = session.events[-MAX_EVENTS:]
+                    logger.info(f"Event history truncated to {len(session.events)} events")
             except Exception as e:
-                logger.warning(f"Could not truncate message history: {e}")
+                logger.warning(f"Could not truncate event history: {e}")
             
             # Use the runner to process the message
             logger.info(f"Running agent with message: {message[:50]}{'...' if len(message) > 50 else ''}")
@@ -221,12 +210,14 @@ class SessionRunner:
                 setattr(ToolContext, "user_id", self.user_id)
                 logger.info(f"Set user_id '{self.user_id}' in global ToolContext")
                 
-            # Run with consistent parameters
-            events = list(self.runner.run(
+            # Run with consistent parameters (use run_async to avoid blocking the event loop)
+            events = []
+            async for event in self.runner.run_async(
                 user_id=self.user_id,
                 session_id=session.id,
                 new_message=user_message
-            ))
+            ):
+                events.append(event)
             
             # Process events
             logger.info(f"Received {len(events)} events from runner")
@@ -346,10 +337,25 @@ class SessionRunner:
                 logger.warning("No text response found in events, including malformed function handler")
                 final_response = "I apologize, but I couldn't generate a response."
             
-            # Return both the text response and the processed events
+            # Filter events: keep non-model events (tool_call, agent_transfer, etc.)
+            # but only include the FINAL model_response to avoid duplicate chat messages
+            # and unnecessary API-driven display.
+            filtered_events = []
+            last_model_event = None
+            for ev in processed_events:
+                if ev.get("type") == "model_response" or ev.get("category") == "model_response":
+                    # Track the latest; prefer one marked as final
+                    if ev.get("is_final") or last_model_event is None:
+                        last_model_event = ev
+                else:
+                    filtered_events.append(ev)
+            if last_model_event:
+                filtered_events.append(last_model_event)
+
+            # Return both the text response and the filtered events
             return {
                 "response": final_response,
-                "events": processed_events
+                "events": filtered_events
             }
         
         except Exception as e:
@@ -961,26 +967,83 @@ class SessionRunner:
             except:
                 return f"<Unserializable object of type {type(obj).__name__}>"
     
-    def reset_session(self):
+    async def _load_history_into_session(self, session):
+        """Load conversation history from the database into an ADK session.
+
+        This seeds the in-memory ADK session with past events so the agent
+        retains context across reconnects and page refreshes.
+
+        Args:
+            session: The ADK session object to populate.
+        """
+        try:
+            from radbot.web.db import chat_operations
+            from google.adk.events import Event
+
+            db_messages = chat_operations.get_messages_by_session_id(
+                self.session_id, limit=30
+            )
+            if not db_messages:
+                logger.info(f"No DB history found for session {self.session_id}")
+                return
+
+            # Take the last N messages to keep context manageable
+            MAX_HISTORY = 15
+            recent = db_messages[-MAX_HISTORY:]
+
+            # Get the agent name for model events
+            agent_name = root_agent.name if hasattr(root_agent, 'name') else "beto"
+
+            loaded = 0
+            for msg in recent:
+                role = msg.get("role", "")
+                content_text = msg.get("content", "")
+                if not content_text:
+                    continue
+
+                if role == "user":
+                    event = Event(
+                        author="user",
+                        content=Content(parts=[Part(text=content_text)], role="user"),
+                    )
+                elif role == "assistant":
+                    event = Event(
+                        author=agent_name,
+                        content=Content(parts=[Part(text=content_text)], role="model"),
+                    )
+                else:
+                    continue
+
+                await self.session_service.append_event(session, event)
+                loaded += 1
+
+            if loaded:
+                logger.info(
+                    f"Loaded {loaded} events from DB into ADK session {self.session_id}"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load history from DB into session: {e}", exc_info=True)
+
+    async def reset_session(self):
         """Reset the session conversation history."""
         try:
             # Get the app_name from the runner
             app_name = self.runner.app_name if hasattr(self.runner, 'app_name') else "beto"
-            
+
             # Delete and recreate the session
-            self.session_service.delete_session(
+            await self.session_service.delete_session(
                 app_name=app_name,
                 user_id=self.user_id,
                 session_id=self.session_id
             )
-            
+
             # Create a new session
-            session = self.session_service.create_session(
+            session = await self.session_service.create_session(
                 app_name=app_name,
                 user_id=self.user_id,
                 session_id=self.session_id
             )
-            
+
             logger.info(f"Reset session for user {self.user_id}")
             return True
         except Exception as e:

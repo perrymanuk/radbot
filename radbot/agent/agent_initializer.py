@@ -50,6 +50,14 @@ from radbot.tools.calendar.calendar_tools import (
     check_calendar_availability_tool
 )
 
+# Import Gmail tools
+from radbot.tools.gmail import (
+    list_emails_tool,
+    search_emails_tool,
+    get_email_tool,
+    list_gmail_accounts_tool,
+)
+
 # Import Home Assistant tools
 from radbot.tools.homeassistant import (
     list_ha_entities,
@@ -75,6 +83,15 @@ from radbot.tools.agent_tools import (
 
 # Import dynamic MCP tools loader
 from radbot.tools.mcp.dynamic_tools_loader import load_dynamic_mcp_tools, load_specific_mcp_tools
+
+# Import scheduler tools
+from radbot.tools.scheduler import SCHEDULER_TOOLS, init_scheduler_schema
+
+# Import webhook tools
+from radbot.tools.webhooks import WEBHOOK_TOOLS, init_webhook_schema
+
+# Import Jira tools
+from radbot.tools.jira import JIRA_TOOLS
 
 # Log startup
 logger.info("agent_initializer.py loaded - initialization module for root agent.py")

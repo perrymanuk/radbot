@@ -330,7 +330,10 @@ export class SessionManager {
     
     // Render the sessions list
     this.renderSessionsList();
-    
+
+    // Fetch sessions from backend API and merge
+    this.fetchSessionsFromAPI();
+
     // Set initialization flag
     this.initialized = true;
     
@@ -338,6 +341,74 @@ export class SessionManager {
     return true;
   }
   
+  // Fetch sessions from the backend API and merge into localStorage index
+  async fetchSessionsFromAPI() {
+    try {
+      const baseUrl = `${window.location.protocol}//${window.location.host}`;
+      const response = await fetch(`${baseUrl}/api/sessions/`);
+
+      if (!response.ok) {
+        console.warn(`Sessions API returned status ${response.status}`);
+        return;
+      }
+
+      const data = await response.json();
+      const apiSessions = data.sessions || [];
+      console.log(`Fetched ${apiSessions.length} sessions from API`);
+
+      if (apiSessions.length === 0) return;
+
+      // Build a map of existing local sessions by ID
+      const localMap = new Map(
+        this.sessionsIndex.sessions.map(s => [s.id, s])
+      );
+
+      let changed = false;
+
+      for (const apiSession of apiSessions) {
+        const local = localMap.get(apiSession.id);
+
+        if (local) {
+          // Merge: API is authoritative for name/preview/timestamps
+          if (apiSession.name && apiSession.name !== local.name) {
+            local.name = apiSession.name;
+            changed = true;
+          }
+          if (apiSession.preview && apiSession.preview !== local.preview) {
+            local.preview = apiSession.preview;
+            changed = true;
+          }
+          if (apiSession.last_message_at) {
+            const apiTime = new Date(apiSession.last_message_at).getTime();
+            if (apiTime > (local.last_message_at || 0)) {
+              local.last_message_at = apiTime;
+              changed = true;
+            }
+          }
+        } else {
+          // New session from API — add to local index
+          this.sessionsIndex.sessions.push({
+            id: apiSession.id,
+            name: apiSession.name || `Session ${apiSession.id.substring(0, 8)}`,
+            created_at: new Date(apiSession.created_at).getTime(),
+            last_message_at: apiSession.last_message_at
+              ? new Date(apiSession.last_message_at).getTime()
+              : Date.now(),
+            preview: apiSession.preview || "Session"
+          });
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        this.saveSessionsIndex();
+        this.renderSessionsList();
+      }
+    } catch (error) {
+      console.warn("Failed to fetch sessions from API:", error);
+    }
+  }
+
   // Render the sessions list with retry mechanism
   renderSessionsList(retryCount = 0) {
     const MAX_RETRIES = 3;
@@ -558,16 +629,31 @@ export class SessionManager {
     
     // Save the sessions index
     this.saveSessionsIndex();
-    
+
     // Update localStorage for backward compatibility
     localStorage.setItem('radbot_session_id', newSession.id);
     localStorage.setItem(ACTIVE_SESSION_KEY, newSession.id);
-    
+
     // Update UI state
     if (window.state) {
       window.state.sessionId = newSession.id;
     }
-    
+
+    // Sync new session to backend (fire-and-forget)
+    try {
+      const baseUrl = `${window.location.protocol}//${window.location.host}`;
+      fetch(`${baseUrl}/api/sessions/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: newSession.id,
+          name: newSession.name
+        })
+      }).catch(err => console.warn("Failed to sync new session to backend:", err));
+    } catch (e) {
+      console.warn("Error syncing new session to backend:", e);
+    }
+
     // Re-render sessions list
     this.renderSessionsList();
     
@@ -859,77 +945,40 @@ export function initSessionManager() {
   return sessionManager;
 }
 
-// Setup event listener to hook sessions panel button to the tiling manager
+// Setup event listener to initialize sessions UI when panel opens.
+// NOTE: panel-trigger.js handles button clicks, tiling.js handles togglePanel().
+// This listener only handles sessions UI initialization AFTER the panel is opened.
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('Setting up sessions panel button');
-  
-  // Handle sessions panel toggle command
+  console.log('Setting up sessions panel initialization hooks');
+
+  // When sessions command fires, initialize the sessions UI after the panel opens
   document.addEventListener('command:sessions', function() {
-    console.log('Sessions command received');
-    
-    if (window.tilingManager) {
-      // Get current state before toggle
-      const wasClosed = !window.tilingManager.panelStates.sessionsOpen;
-      
-      // Toggle the panel
-      window.tilingManager.togglePanel('sessions');
-      
-      // Only need to initialize if panel is now open (was closed before)
-      if (wasClosed) {
-        // Use staggered initialization attempts with increasing timeouts
-        // First attempt - quick check
+    console.log('Sessions command received in sessions.js - initializing UI');
+
+    // tiling.js handles the actual togglePanel call.
+    // We just need to initialize the sessions UI after the panel opens.
+    setTimeout(() => {
+      if (window.tilingManager && window.tilingManager.panelStates.sessionsOpen && window.sessionManager) {
+        if (!window.sessionManager.initialized) {
+          window.sessionManager.initSessionsUI();
+        } else if (!window.sessionManager.sessionsContainer) {
+          window.sessionManager.renderSessionsList(0);
+        }
+        // Always refresh from API when panel opens
+        window.sessionManager.fetchSessionsFromAPI();
+
+        // Fallback retry
         setTimeout(() => {
-          console.log('First attempt to initialize sessions UI after panel toggle');
-          if (window.sessionManager) {
-            if (!window.sessionManager.initialized) {
-              window.sessionManager.initSessionsUI();
-            } else if (!window.sessionManager.sessionsContainer) {
-              // If initialized but container not found, render sessions list
-              window.sessionManager.renderSessionsList(0);
-            }
+          if (window.sessionManager && (!window.sessionManager.initialized || !window.sessionManager.sessionsContainer)) {
+            window.sessionManager.initSessionsUI();
           }
-          
-          // Second attempt - longer delay
-          setTimeout(() => {
-            console.log('Second attempt to initialize sessions UI (fallback)');
-            if (window.sessionManager && (!window.sessionManager.initialized || !window.sessionManager.sessionsContainer)) {
-              window.sessionManager.initSessionsUI();
-            }
-            
-            // Third attempt - final retry with longest delay
-            setTimeout(() => {
-              console.log('Final attempt to initialize sessions UI');
-              if (window.sessionManager && (!window.sessionManager.initialized || !window.sessionManager.sessionsContainer)) {
-                window.sessionManager.initSessionsUI();
-                // Force render regardless of initialization state
-                window.sessionManager.renderSessionsList(2);
-              }
-            }, 500);
-          }, 300);
-        }, 150);
+        }, 300);
       }
-    } else {
-      console.error('Tiling manager not found');
-    }
+    }, 200);
   });
-  
-  // Add direct click handler
-  const toggleSessionsButton = document.getElementById('toggle-sessions-button');
-  if (toggleSessionsButton) {
-    toggleSessionsButton.addEventListener('click', function(e) {
-      console.log('Sessions button clicked');
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Dispatch the command event
-      document.dispatchEvent(new CustomEvent('command:sessions'));
-    });
-  }
-  
+
   // Listen for layout changes to reinitialize UI
   document.addEventListener('layout:changed', function() {
-    console.log('Layout changed event received in sessions.js');
-    // Wait a moment for DOM updates to complete
     setTimeout(() => {
       if (window.sessionManager && window.tilingManager && window.tilingManager.panelStates.sessionsOpen) {
         console.log('Reinitializing sessions UI after layout change');

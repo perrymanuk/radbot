@@ -1,0 +1,92 @@
+"""
+Lazy-initialized singleton Jira Cloud client.
+
+Reads credentials from config.yaml ``integrations.jira`` first, then falls
+back to JIRA_URL / JIRA_EMAIL / JIRA_API_TOKEN environment variables.
+
+Returns None when unconfigured so tools can handle gracefully.
+"""
+
+import logging
+import os
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+_jira_client = None
+_jira_email: Optional[str] = None
+_initialized = False
+
+
+def _get_config() -> dict:
+    """Pull Jira settings from config manager, falling back to env vars."""
+    try:
+        from radbot.config.config_loader import config_loader
+        jira_cfg = config_loader.get_integrations_config().get("jira", {})
+    except Exception:
+        jira_cfg = {}
+
+    url = jira_cfg.get("url") or os.environ.get("JIRA_URL")
+    email = jira_cfg.get("email") or os.environ.get("JIRA_EMAIL")
+    api_token = jira_cfg.get("api_token") or os.environ.get("JIRA_API_TOKEN")
+    enabled = jira_cfg.get("enabled", True)
+
+    return {
+        "url": url,
+        "email": email,
+        "api_token": api_token,
+        "enabled": enabled,
+    }
+
+
+def get_jira_client():
+    """Return the singleton Jira client, or None if unconfigured."""
+    global _jira_client, _jira_email, _initialized
+
+    if _initialized:
+        return _jira_client
+
+    _initialized = True
+
+    cfg = _get_config()
+    if not cfg["enabled"]:
+        logger.info("Jira integration is disabled in config")
+        return None
+
+    url = cfg["url"]
+    email = cfg["email"]
+    api_token = cfg["api_token"]
+
+    if not all([url, email, api_token]):
+        logger.info(
+            "Jira integration not configured — set integrations.jira in "
+            "config.yaml or JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN env vars"
+        )
+        return None
+
+    try:
+        from atlassian import Jira
+
+        client = Jira(url=url, username=email, password=api_token, cloud=True)
+        # Verify connectivity
+        myself = client.myself()
+        logger.info(
+            "Connected to Jira Cloud as %s (%s)",
+            myself.get("displayName", "unknown"),
+            myself.get("emailAddress", email),
+        )
+        _jira_client = client
+        _jira_email = email
+        return _jira_client
+    except Exception as e:
+        logger.error("Failed to initialise Jira client: %s", e)
+        return None
+
+
+def get_jira_email() -> Optional[str]:
+    """Return the configured Jira email address."""
+    global _jira_email
+    if _jira_email is None:
+        cfg = _get_config()
+        _jira_email = cfg.get("email")
+    return _jira_email

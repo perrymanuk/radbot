@@ -16,19 +16,15 @@ import * as uiInit from './ui_initialization.js';
 import * as dataServices from './data_services.js';
 import * as eventRendering from './event_rendering.js';
 import * as agentConfig from './agent_config.js';
+import { addTTSButton } from './tts.js';
+import { initSessionManager } from './sessions.js';
 
 // Global state
 export const state = {
     sessionId: localStorage.getItem('radbot_session_id') || null,
     currentAgentName: "BETO", // Track current agent name - use uppercase to match status bar
     currentModel: "gemini-2.5-pro", // Default model - will be updated with actual model info from events
-    isDarkTheme: true, // Always use dark theme
-    // Hardcode task API settings since settings dialog is removed
-    taskApiSettings: {
-        endpoint: 'http://localhost:8001',
-        apiKey: '',
-        defaultProject: ''
-    }
+    isDarkTheme: true // Always use dark theme
 };
 
 // Global data
@@ -48,6 +44,7 @@ window.state = state;
 window.events = events;
 window.tasks = tasks;
 window.projects = projects;
+window.addTTSButton = addTTSButton;
 
 // Initialize
 function init() {
@@ -79,15 +76,46 @@ function init() {
         localStorage.setItem('radbot_session_id', state.sessionId);
     }
     
-    // Connect to WebSocket immediately
-    window.socket = socketClient.initSocket(state.sessionId);
+    // Connect to WebSocket (only if not already connected from initializeUI)
+    if (!window.socket || typeof window.socket.then === 'function') {
+        window.socket = socketClient.initSocket(state.sessionId);
+    }
     
+    // Initialize session manager
+    initSessionManager();
+
+    // Load chat history for the current session
+    loadChatFromStorage();
+
     // Fetch tasks, projects, and events directly from API
     dataServices.fetchTasks();
     dataServices.fetchEvents();
-    
+
     // Get initial agent and model information
     agentConfig.fetchAgentInfo();
+}
+
+// Load chat history from backend for the current session
+async function loadChatFromStorage() {
+    const sessionId = state.sessionId;
+    if (!sessionId) return;
+
+    const container = document.getElementById('chat-messages');
+    if (container) container.innerHTML = '';
+
+    try {
+        const resp = await fetch(`/api/messages/${sessionId}?limit=200`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.messages || data.messages.length === 0) return;
+
+        for (const msg of data.messages) {
+            if (msg.role === 'system') continue;
+            chatModule.addMessage(msg.role, msg.content, msg.agent_name || undefined);
+        }
+    } catch (e) {
+        console.warn('Failed to load chat history:', e);
+    }
 }
 
 // Make functions globally available for tiling manager
@@ -95,6 +123,7 @@ window.initializeUI = uiInit.initializeUI;
 window.renderTasks = dataServices.renderTasks;
 window.renderEvents = eventRendering.renderEvents;
 window.updateModelForCurrentAgent = agentConfig.updateModelForCurrentAgent;
+window.loadChatFromStorage = loadChatFromStorage;
 
 // Fetch data immediately when panels are opened
 document.addEventListener('command:tasks', function() {

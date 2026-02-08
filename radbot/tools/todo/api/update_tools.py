@@ -26,16 +26,17 @@ logger = logging.getLogger(__name__)
 
 # --- Tool Function Implementations ---
 
-def update_task(task_id: str, description: Optional[str] = None, 
+def update_task(task_id: str, description: Optional[str] = None,
                project_id: Optional[str] = None, status: Optional[str] = None,
                category: Optional[str] = None, origin: Optional[str] = None,
-               related_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+               related_info: Optional[Dict[str, Any]] = None,
+               title: Optional[str] = None) -> Dict[str, Any]:
     """
     Updates an existing todo task with the provided information.
-    
+
     This tool allows you to modify various attributes of an existing task.
     Only the fields you provide will be updated; others will remain unchanged.
-    
+
     Args:
         task_id: The UUID identifier of the task to update. (Required)
         description: The new description text for the task.
@@ -44,6 +45,7 @@ def update_task(task_id: str, description: Optional[str] = None,
         category: The new category label.
         origin: The new origin information.
         related_info: Additional structured data to store with the task.
+        title: An optional short summary for the task.
     
     Returns:
         A dictionary indicating the outcome.
@@ -97,7 +99,8 @@ def update_task(task_id: str, description: Optional[str] = None,
                 status=status,
                 category=category,
                 origin=origin,
-                related_info=related_info
+                related_info=related_info,
+                title=title
             )
             
             if success:

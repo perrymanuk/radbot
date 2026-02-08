@@ -31,6 +31,10 @@ from radbot.web.api.events import register_events_router
 from radbot.web.api.agent_info import register_agent_info_router
 from radbot.web.api.sessions import register_sessions_router
 from radbot.web.api.messages import register_messages_router
+from radbot.web.api.scheduler import router as scheduler_router
+from radbot.web.api.webhooks import router as webhooks_router
+from radbot.web.api.tts import router as tts_router
+from radbot.web.api.stt import router as stt_router
 
 # Set up logging
 logging.basicConfig(
@@ -58,6 +62,10 @@ def create_app():
     register_sessions_router(app)
     register_messages_router(app)
     app.include_router(memory_router)
+    app.include_router(scheduler_router)
+    app.include_router(webhooks_router)
+    app.include_router(tts_router)
+    app.include_router(stt_router)
     logger.info("API routers registered during app initialization")
     
     return app
@@ -83,6 +91,75 @@ async def initialize_app_startup():
             logger.error(f"Error initializing chat history database: {str(db_error)}", exc_info=True)
             # Continue app startup even if database initialization fails
             
+        # Initialize todo database schema (runs migrations like adding title column)
+        logger.info("Initializing todo database schema...")
+        try:
+            from radbot.tools.todo.db.schema import create_schema_if_not_exists as init_todo_schema
+            init_todo_schema()
+            logger.info("Todo database schema initialized successfully")
+        except Exception as todo_err:
+            logger.error(f"Error initializing todo database: {str(todo_err)}", exc_info=True)
+
+        # Initialize scheduler and webhook database schemas
+        logger.info("Initializing scheduler database schema...")
+        try:
+            from radbot.tools.scheduler.db import init_scheduler_schema
+            init_scheduler_schema()
+            logger.info("Scheduler database schema initialized successfully")
+        except Exception as sched_err:
+            logger.error(f"Error initializing scheduler database: {str(sched_err)}", exc_info=True)
+
+        logger.info("Initializing webhook database schema...")
+        try:
+            from radbot.tools.webhooks.db import init_webhook_schema
+            init_webhook_schema()
+            logger.info("Webhook database schema initialized successfully")
+        except Exception as wh_err:
+            logger.error(f"Error initializing webhook database: {str(wh_err)}", exc_info=True)
+
+        # Start the scheduler engine
+        logger.info("Starting scheduler engine...")
+        try:
+            from radbot.tools.scheduler.engine import SchedulerEngine
+
+            engine = SchedulerEngine.create_instance()
+            engine.inject(connection_manager=manager)
+            await engine.start()
+            logger.info("Scheduler engine started successfully")
+        except Exception as engine_err:
+            logger.error(f"Error starting scheduler engine: {str(engine_err)}", exc_info=True)
+
+        # Initialize TTS service (lazy, just load config)
+        try:
+            from radbot.tools.tts.tts_service import TTSService
+            from radbot.config import config_loader
+            tts_config = config_loader.get_config().get("tts", {})
+            if tts_config.get("enabled", True):
+                TTSService.create_instance(
+                    voice_name=tts_config.get("voice_name"),
+                    language_code=tts_config.get("language_code"),
+                    speaking_rate=tts_config.get("speaking_rate"),
+                    pitch=tts_config.get("pitch"),
+                )
+                logger.info("TTS service instance created")
+        except Exception as tts_err:
+            logger.error(f"Error initializing TTS service: {str(tts_err)}", exc_info=True)
+
+        # Initialize STT service (lazy, just load config)
+        try:
+            from radbot.tools.stt.stt_service import STTService
+            from radbot.config import config_loader as stt_config_loader
+            stt_config = stt_config_loader.get_config().get("stt", {})
+            if stt_config.get("enabled", True):
+                STTService.create_instance(
+                    language_code=stt_config.get("language_code"),
+                    model=stt_config.get("model"),
+                    enable_automatic_punctuation=stt_config.get("enable_automatic_punctuation", True),
+                )
+                logger.info("STT service instance created")
+        except Exception as stt_err:
+            logger.error(f"Error initializing STT service: {str(stt_err)}", exc_info=True)
+
         # Then initialize MCP servers
         logger.info("Initializing MCP servers at application startup...")
         from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
@@ -102,6 +179,18 @@ async def initialize_app_startup():
         
     except Exception as e:
         logger.error(f"Failed during application startup: {str(e)}", exc_info=True)
+
+@app.on_event("shutdown")
+async def shutdown_scheduler():
+    """Shut down the scheduler engine gracefully."""
+    try:
+        from radbot.tools.scheduler.engine import SchedulerEngine
+        engine = SchedulerEngine.get_instance()
+        if engine:
+            await engine.shutdown()
+            logger.info("Scheduler engine shut down")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler engine: {e}", exc_info=True)
 
 # Configure CORS
 app.add_middleware(
@@ -154,9 +243,11 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[session_id] = websocket
 
-    def disconnect(self, session_id: str):
+    def disconnect(self, session_id: str, websocket: WebSocket = None):
         if session_id in self.active_connections:
-            del self.active_connections[session_id]
+            # Only remove if it's the same websocket (avoids old handler removing new connection)
+            if websocket is None or self.active_connections[session_id] is websocket:
+                del self.active_connections[session_id]
 
     async def send_message(self, session_id: str, message: str):
         if session_id in self.active_connections:
@@ -261,8 +352,8 @@ async def chat(
     try:
         # Process the message
         logger.info(f"Processing message for session {session_id}: {message[:50]}{'...' if len(message) > 50 else ''}")
-        result = runner.process_message(message)
-        
+        result = await runner.process_message(message)
+
         # Extract response and events
         response = result.get("response", "")
         events = result.get("events", [])
@@ -306,10 +397,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
         # Get or create a runner for this session
         runner = await get_or_create_runner_for_session(session_id, session_manager)
 
-        # Reset the session to ensure new connection starts with Beto
-        if hasattr(runner, 'reset_session'):
-            logger.info(f"Resetting session {session_id} to ensure starting with Beto agent")
-            runner.reset_session()
+        # Ensure session is registered in the database
+        try:
+            from radbot.web.db import chat_operations
+            chat_operations.create_or_update_session(session_id=session_id, name=f"Session {session_id[:8]}")
+        except Exception as db_err:
+            logger.warning(f"Failed to register session in DB: {db_err}")
 
         # Send ready status
         await manager.send_status(session_id, "ready")
@@ -357,12 +450,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
         # Process sync_request messages
         async def handle_sync_request(last_message_id, timestamp=None):
             logger.info(f"Handling sync request for session {session_id} since message {last_message_id}")
-            
+
             # Get app name for this session
             app_name = runner.runner.app_name if hasattr(runner, 'runner') and hasattr(runner.runner, 'app_name') else "beto"
-            
-            # Retrieve the session from ADK
-            session = runner.session_service.get_session(
+
+            # Retrieve the session from ADK (get_session is async in ADK 1.21.0)
+            session = await runner.session_service.get_session(
                 app_name=app_name,
                 user_id=runner.user_id,
                 session_id=session_id
@@ -402,12 +495,12 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
         # Process history_request messages
         async def handle_history_request(limit=50):
             logger.info(f"Handling history request for session {session_id}, limit={limit}")
-            
+
             # Get app name for this session
             app_name = runner.runner.app_name if hasattr(runner, 'runner') and hasattr(runner.runner, 'app_name') else "beto"
-            
-            # Retrieve the session from ADK
-            session = runner.session_service.get_session(
+
+            # Retrieve the session from ADK (get_session is async in ADK 1.21.0)
+            session = await runner.session_service.get_session(
                 app_name=app_name,
                 user_id=runner.user_id,
                 session_id=session_id
@@ -469,7 +562,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
             if user_message.lower() in ["reset to beto", "use beto", "start beto"]:
                 logger.info(f"Explicit request to reset session to Beto agent")
                 if hasattr(runner, 'reset_session'):
-                    runner.reset_session()
+                    await runner.reset_session()
                     await manager.send_status(session_id, "reset")
                     await manager.send_events(session_id, [{
                         "type": "system",
@@ -589,7 +682,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
                                 }
                             else:
                                 logger.warning(f"Target agent {target_agent} not found, using default runner")
-                                result = runner.process_message(user_message)
+                                result = await runner.process_message(user_message)
                     else:
                         # Standard approach for other agents
                         target = find_agent_by_name(root_agent, target_agent)
@@ -611,15 +704,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
                             }
                         else:
                             logger.warning(f"Target agent {target_agent} not found, using default runner")
-                            result = runner.process_message(user_message)
+                            result = await runner.process_message(user_message)
                 else:
                     # Use normal runner for processing
-                    result = runner.process_message(user_message)
+                    result = await runner.process_message(user_message)
                 
                 # Extract response and events
                 response = result.get("response", "")
                 events = result.get("events", [])
-                
+
+                # Persist user message and assistant response to DB
+                try:
+                    from radbot.web.db import chat_operations
+                    chat_operations.add_message(session_id, "user", user_message, user_id="web_user")
+                    if response:
+                        chat_operations.add_message(session_id, "assistant", response, user_id="web_user")
+                except Exception as db_err:
+                    logger.warning(f"Failed to persist messages to DB: {db_err}")
+
                 # Log event sizes for debugging
                 if events:
                     for idx, event in enumerate(events):
@@ -642,11 +744,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
                 await manager.send_status(session_id, f"error: {str(e)}")
     
     except WebSocketDisconnect:
-        manager.disconnect(session_id)
+        manager.disconnect(session_id, websocket)
         logger.info(f"WebSocket disconnected for session {session_id}")
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}", exc_info=True)
-        manager.disconnect(session_id)
+        manager.disconnect(session_id, websocket)
 
 @app.get("/api/sessions/{session_id}/reset")
 async def reset_session(
@@ -668,6 +770,56 @@ async def reset_session(
         logger.error(f"Error resetting session: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error resetting session: {str(e)}")
 
+@app.post("/api/tasks")
+async def create_task_endpoint(request: Request):
+    """Create a new task.
+
+    Accepts JSON body with title, description, project_id, and optional
+    status and category fields.
+
+    Returns:
+        The new task ID on success.
+    """
+    try:
+        from radbot.tools.todo.api.task_tools import add_task
+
+        body = await request.json()
+        description = body.get("description", "")
+        project_id = body.get("project_id", "")
+        title = body.get("title") or None
+        category = body.get("category") or None
+
+        if not description and not title:
+            raise HTTPException(status_code=400, detail="Title or description is required")
+        if not project_id:
+            raise HTTPException(status_code=400, detail="project_id is required")
+
+        result = add_task(
+            description=description or (title or ""),
+            project_id=project_id,
+            title=title,
+            category=category,
+            origin="web_ui",
+        )
+
+        if result.get("status") == "success":
+            # If a non-default status was requested, update it after creation
+            status = body.get("status")
+            if status and status != "backlog":
+                task_id = result.get("task_id")
+                if task_id:
+                    from radbot.tools.todo.api.update_tools import update_task
+                    update_task(task_id=task_id, status=status)
+            return result
+
+        msg = result.get("message", "Unknown error")
+        raise HTTPException(status_code=400, detail=msg)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating task: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error creating task: {str(e)}")
+
 @app.get("/api/tasks")
 async def get_tasks():
     """Get all tasks from the database directly.
@@ -680,34 +832,81 @@ async def get_tasks():
         from radbot.tools.todo.api.list_tools import list_all_tasks
         
         # Call the function directly
-        tasks = list_all_tasks()
-        
-        # Convert tasks to a serializable format
-        serializable_tasks = []
-        for task in tasks:
-            # Check if task is already a dict
-            if isinstance(task, dict):
-                serializable_tasks.append(task)
-            else:
-                # Convert task object to dict
-                task_dict = {
-                    "task_id": str(task.task_id) if hasattr(task, "task_id") else "unknown",
-                    "description": str(task.description) if hasattr(task, "description") else "",
-                    "status": str(task.status) if hasattr(task, "status") else "backlog",
-                    "category": str(task.category) if hasattr(task, "category") else None,
-                    "project_id": str(task.project_id) if hasattr(task, "project_id") else None,
-                    "project_name": str(task.project_name) if hasattr(task, "project_name") else "Default",
-                    "created_at": str(task.created_at) if hasattr(task, "created_at") else None,
-                    "updated_at": str(task.updated_at) if hasattr(task, "updated_at") else None,
-                    "origin": str(task.origin) if hasattr(task, "origin") else None,
-                }
-                serializable_tasks.append(task_dict)
-        
-        # Return the tasks
-        return serializable_tasks
+        result = list_all_tasks()
+
+        # list_all_tasks returns {"status": "success", "tasks": [...]}
+        if isinstance(result, dict) and result.get("status") == "success":
+            return result.get("tasks", [])
+
+        logger.warning(f"list_all_tasks returned unexpected result: {result}")
+        return []
     except Exception as e:
         logger.error(f"Error getting tasks: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error getting tasks: {str(e)}")
+
+@app.delete("/api/tasks/{task_id}")
+async def delete_task_endpoint(task_id: str):
+    """Delete a task by ID.
+
+    Returns:
+        Confirmation on success, error on failure.
+    """
+    try:
+        from radbot.tools.todo.api.task_tools import remove_task
+
+        result = remove_task(task_id=task_id)
+
+        if result.get("status") == "success":
+            return result
+
+        msg = result.get("message", "Unknown error")
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error deleting task: {str(e)}")
+
+@app.put("/api/tasks/{task_id}")
+async def update_task_endpoint(task_id: str, request: Request):
+    """Update a task by ID.
+
+    Accepts JSON body with optional fields: description, status, project_id.
+
+    Returns:
+        Updated task on success, error on failure.
+    """
+    try:
+        from radbot.tools.todo.api.update_tools import update_task
+
+        body = await request.json()
+
+        # Extract supported fields
+        kwargs = {}
+        for field in ("description", "status", "project_id", "title"):
+            if field in body:
+                kwargs[field] = body[field]
+
+        if not kwargs:
+            raise HTTPException(status_code=400, detail="No valid fields to update")
+
+        result = update_task(task_id=task_id, **kwargs)
+
+        if result.get("status") == "success":
+            return result
+
+        # Determine appropriate status code
+        msg = result.get("message", "Unknown error")
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg)
+        raise HTTPException(status_code=400, detail=msg)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating task {task_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error updating task: {str(e)}")
 
 @app.get("/api/projects")
 async def get_projects():
@@ -718,30 +917,17 @@ async def get_projects():
     """
     try:
         # Import project listing function
-        from radbot.tools.todo.api.list_tools import list_projects
+        from radbot.tools.todo.api.project_tools import list_projects
         
         # Call the function directly
-        projects = list_projects()
-        
-        # Convert projects to a serializable format
-        serializable_projects = []
-        for project in projects:
-            # Check if project is already a dict
-            if isinstance(project, dict):
-                serializable_projects.append(project)
-            else:
-                # Convert project object to dict
-                project_dict = {
-                    "project_id": str(project.project_id) if hasattr(project, "project_id") else "unknown",
-                    "name": str(project.name) if hasattr(project, "name") else "Default",
-                    "description": str(project.description) if hasattr(project, "description") else "",
-                    "created_at": str(project.created_at) if hasattr(project, "created_at") else None,
-                    "updated_at": str(project.updated_at) if hasattr(project, "updated_at") else None,
-                }
-                serializable_projects.append(project_dict)
-        
-        # Return the projects
-        return serializable_projects
+        result = list_projects()
+
+        # list_projects returns {"status": "success", "projects": [...]}
+        if isinstance(result, dict) and result.get("status") == "success":
+            return result.get("projects", [])
+
+        logger.warning(f"list_projects returned unexpected result: {result}")
+        return []
     except Exception as e:
         logger.error(f"Error getting projects: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error getting projects: {str(e)}")

@@ -557,8 +557,8 @@ async def main():
         
         print("Agent setup complete. Ready for interaction.")
         
-        # Generate a random user ID for this session
-        user_id = str(uuid.uuid4())
+        # Use a fixed user ID so memories persist across all sessions
+        user_id = "web_user"
         logger.info(f"Starting session with user_id: {user_id}")
         
         # Main interaction loop

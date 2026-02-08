@@ -8,7 +8,6 @@ It supports both subprocess and Claude CLI MCP backends for command execution.
 import logging
 from typing import Dict, List, Any, Optional, Union
 
-from google.ai.generativelanguage import Tool, FunctionDeclaration, Schema, Type
 from google.adk.tools import FunctionTool
 
 from radbot.tools.shell.shell_command import execute_shell_command, ALLOWED_COMMANDS
@@ -191,68 +190,3 @@ async def handle_shell_function_call(
     )
 
 
-def get_genai_shell_tool(strict_mode: bool = True, use_claude_cli: bool = False) -> Tool:
-    """Get the shell command execution tool for the Google GenAI SDK.
-    
-    This is used when working directly with the GenAI SDK instead of ADK.
-    
-    Args:
-        strict_mode: When True, only allow-listed commands are permitted.
-                    When False, any command can be executed (SECURITY RISK).
-        use_claude_cli: Whether to use Claude CLI for command execution (deprecated).
-                        Now always uses subprocess regardless of this setting.
-    
-    Returns:
-        A Tool object for the GenAI SDK.
-    """
-    # Warn if attempting to use Claude CLI
-    if use_claude_cli:
-        logger.warning("Claude CLI shell execution has been removed. Using subprocess instead.")
-        
-    # Dynamically generate the description based on the allowed commands
-    allowed_commands_str = ", ".join(sorted(list(ALLOWED_COMMANDS)))
-    
-    if strict_mode:
-        tool_description = (
-            f"Executes an allow-listed shell command and returns its output. "
-            f"Only the following commands are permitted: {allowed_commands_str}. "
-            f"Provide the command name and a list of arguments."
-        )
-    else:
-        tool_description = (
-            "WARNING - SECURITY RISK: Executes any shell command and returns its output. "
-            "This mode bypasses command allow-listing and permits execution of ANY command. "
-            "Use with extreme caution. Provide the command name and a list of arguments."
-        )
-        logger.warning("Shell tool initialized in ALLOW ALL mode - SECURITY RISK")
-    
-    # Always using subprocess now
-    tool_description += f" (Using subprocess for execution)"
-        
-    return Tool(
-        function_declarations=[
-            FunctionDeclaration(
-                name="execute_shell_command",
-                description=tool_description,
-                parameters=Schema(
-                    type=Type.OBJECT,
-                    properties={
-                        'command': Schema(
-                            type=Type.STRING, 
-                            description="The command to execute.",
-                        ),
-                        'arguments': Schema(
-                            type=Type.ARRAY,
-                            description="A list of arguments to pass to the command. Optional.",
-                            items=Schema(type=Type.STRING)
-                        ),
-                        'timeout': Schema(
-                            type=Type.INTEGER,
-                            description="Maximum execution time in seconds. Must be positive.",
-                        ),
-                    },
-                    required=['command']
-                )
-            )
-        ]
-    )

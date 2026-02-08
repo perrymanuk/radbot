@@ -138,11 +138,33 @@ function initializeApp() {
     // Connect to the server
     initializeConnection();
     
-    // Register global handlers
-    window.state = state;
+    // Register global handlers (don't overwrite window.state if app_core.js already set it)
+    if (!window.state) {
+        window.state = state;
+    }
     window.switchAgentContext = switchAgentContext;
     window.trackAgentContext = trackAgentContext;
     window.updateModelForCurrentAgent = updateModelForCurrentAgent;
+
+    // Initialize TTS module
+    try {
+        if (window.ttsManager) {
+            window.ttsManager.loadPreferences();
+            // Dynamically import and init TTS UI
+            import('/static/js/tts.js').then(ttsModule => {
+                if (ttsModule.initTTS) {
+                    ttsModule.initTTS();
+                }
+                if (ttsModule.addTTSButton) {
+                    window.addTTSButton = ttsModule.addTTSButton;
+                }
+            }).catch(e => {
+                console.warn('TTS module not available:', e);
+            });
+        }
+    } catch (e) {
+        console.warn('Error initializing TTS:', e);
+    }
 
     console.log('Application initialized.');
 }
@@ -259,6 +281,27 @@ function initializeSessions() {
     updateSessionSelector();
 }
 
+// Event handler stubs
+function handleResize() {}
+function handleScroll() {}
+function handleOnline() { state.status = 'ready'; }
+function handleOffline() { state.status = 'offline'; }
+function handleFocus() { state.lastActivityTime = Date.now(); }
+function handleBlur() {}
+function handleBeforeUnload() {}
+function handleKeyDown() {}
+function handleSystemThemeChange(e) {
+    if (!localStorage.getItem('theme')) {
+        document.body.classList.toggle('dark-theme', e.matches);
+    }
+}
+function resetIdleTimer() { state.lastActivityTime = Date.now(); }
+function saveSessions() {
+    try { localStorage.setItem('sessions', JSON.stringify(state.sessions)); } catch(e) {}
+}
+function sendMessage() {}
+function processMessageQueue() {}
+
 // Set up event listeners
 function setupEventListeners() {
     // Window events
@@ -269,19 +312,21 @@ function setupEventListeners() {
     window.addEventListener('focus', handleFocus);
     window.addEventListener('blur', handleBlur);
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     // Setup keyboard shortcuts
     document.addEventListener('keydown', handleKeyDown);
-    
+
     // Handle theme changes
-    state.darkModeMediaQuery.addEventListener('change', handleSystemThemeChange);
-    
+    if (state.darkModeMediaQuery) {
+        state.darkModeMediaQuery.addEventListener('change', handleSystemThemeChange);
+    }
+
     // Handle idle detection
     document.addEventListener('mousemove', resetIdleTimer);
     document.addEventListener('keypress', resetIdleTimer);
     document.addEventListener('click', resetIdleTimer);
     document.addEventListener('scroll', resetIdleTimer);
-    
+
     // Start idle timer
     resetIdleTimer();
 }
@@ -360,6 +405,28 @@ window.switchAgentContext = function(newAgentName) {
     };
 };
 
+// Toggle a panel via tiling manager
+function togglePanel(panelName) {
+    if (window.tilingManager) {
+        window.tilingManager.togglePanel(panelName);
+    }
+}
+
+// Stub functions referenced in command registry
+function showCommandHelp() { console.log('Help command'); }
+function clearChat() {
+    const msgs = document.getElementById('chat-messages');
+    if (msgs) msgs.innerHTML = '';
+}
+function toggleTheme() {
+    document.body.classList.toggle('dark-theme');
+}
+function toggleVoice() { console.log('Voice toggle'); }
+function switchAgent(name) {
+    if (window.switchAgentContext) window.switchAgentContext(name || 'BETO');
+}
+function useClaudeTemplate() { console.log('Claude template'); }
+
 // Initialize command registry
 function initializeCommands() {
     // Add base commands
@@ -407,7 +474,7 @@ function initializeCommands() {
             args: ['template_name', '...args']
         }
     };
-    
+
     console.log('Command registry initialized with', Object.keys(state.commandRegistry).length, 'commands');
 }
 
@@ -517,8 +584,10 @@ function requestAgentModels() {
     }
 }
 
-// Global exports
-window.state = state;
+// Global exports - don't overwrite if app_core.js already set window.state
+if (!window.state) {
+    window.state = state;
+}
 window.initializeApp = initializeApp;
 window.switchAgentContext = switchAgentContext;
 window.trackAgentContext = trackAgentContext;

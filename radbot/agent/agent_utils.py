@@ -131,27 +131,32 @@ def create_agent(
         )
         logger.info(f"Created web agent with {len(all_tools)} tools")
         
-        # Add built-in tool agents if requested
+        # Add built-in tool agents as sub-agents if requested
         if include_google_search or include_code_execution:
             try:
-                from radbot.tools.adk_builtin import register_search_agent, register_code_execution_agent
-                
+                from radbot.tools.adk_builtin import create_search_agent, create_code_execution_agent
+                sub_agents = list(agent.sub_agents) if hasattr(agent, 'sub_agents') and agent.sub_agents else []
+
                 if include_google_search:
                     try:
-                        register_search_agent(agent)
-                        logger.info(f"Registered Google Search agent with parent {name}")
+                        search_sub = create_search_agent(name="search_agent")
+                        sub_agents.append(search_sub)
+                        logger.info(f"Added search_agent as sub-agent of {name}")
                     except Exception as e:
-                        logger.warning(f"Failed to register search agent: {str(e)}")
-                
+                        logger.warning(f"Failed to create search agent: {str(e)}")
+
                 if include_code_execution:
                     try:
-                        register_code_execution_agent(agent)
-                        logger.info(f"Registered Code Execution agent with parent {name}")
+                        code_sub = create_code_execution_agent(name="code_execution_agent")
+                        sub_agents.append(code_sub)
+                        logger.info(f"Added code_execution_agent as sub-agent of {name}")
                     except Exception as e:
-                        logger.warning(f"Failed to register code execution agent: {str(e)}")
+                        logger.warning(f"Failed to create code execution agent: {str(e)}")
+
+                agent.sub_agents = sub_agents
             except Exception as e:
                 logger.warning(f"Failed to import built-in tool factories: {str(e)}")
-        
+
         return agent
     
     # Otherwise, create a RadBotAgent instance
@@ -169,68 +174,32 @@ def create_agent(
     if register_tools:
         agent.register_tool_handlers()
     
-    # Add built-in tool agents if requested
+    # Add built-in tool agents as sub-agents if requested
     if include_google_search or include_code_execution:
         try:
-            from radbot.tools.adk_builtin import register_search_agent, register_code_execution_agent
-            
+            from radbot.tools.adk_builtin import create_search_agent, create_code_execution_agent
+
+            sub_agents = list(agent.root_agent.sub_agents) if hasattr(agent.root_agent, 'sub_agents') and agent.root_agent.sub_agents else []
+
             if include_google_search:
                 try:
-                    # For ADK 0.4.0, we need to properly register the agent in the tree
-                    from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-                    from radbot.tools.adk_builtin.search_tool import create_search_agent
-                    
-                    # First create the search agent
-                    search_agent = create_search_agent(
-                        name="search_agent",
-                        model=model,
-                        config=config
-                    )
-                    
-                    # Use the proper ADK agent.add_sub_agent method to register it
-                    if hasattr(agent.root_agent, 'add_sub_agent'):
-                        agent.root_agent.add_sub_agent(search_agent)
-                        logger.info(f"Registered search_agent using add_sub_agent method for ADK 0.4.0 compatibility")
-                    elif hasattr(agent.root_agent, 'sub_agents'):
-                        # Fallback: add to sub_agents list manually
-                        if not any(sa.name == "search_agent" for sa in agent.root_agent.sub_agents if hasattr(sa, 'name')):
-                            agent.root_agent.sub_agents.append(search_agent)
-                            logger.info(f"Added search_agent to root_agent.sub_agents list")
-                    else:
-                        # Last resort: use the register function
-                        register_search_agent(agent.root_agent)
-                        logger.info(f"Registered Google Search agent with parent {name} using register function")
+                    search_sub = create_search_agent(name="search_agent", model=model, config=config)
+                    if not any(sa.name == "search_agent" for sa in sub_agents if hasattr(sa, 'name')):
+                        sub_agents.append(search_sub)
+                        logger.info(f"Added search_agent to root_agent.sub_agents list")
                 except Exception as e:
-                    logger.warning(f"Failed to register search agent: {str(e)}")
-            
+                    logger.warning(f"Failed to create search agent: {str(e)}")
+
             if include_code_execution:
                 try:
-                    # For ADK 0.4.0, we need to properly register the agent in the tree
-                    from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-                    from radbot.tools.adk_builtin.code_execution_tool import create_code_execution_agent
-                    
-                    # First create the code execution agent
-                    code_agent = create_code_execution_agent(
-                        name="code_execution_agent",
-                        model=model,
-                        config=config
-                    )
-                    
-                    # Use the proper ADK agent.add_sub_agent method to register it
-                    if hasattr(agent.root_agent, 'add_sub_agent'):
-                        agent.root_agent.add_sub_agent(code_agent)
-                        logger.info(f"Registered code_execution_agent using add_sub_agent method for ADK 0.4.0 compatibility")
-                    elif hasattr(agent.root_agent, 'sub_agents'):
-                        # Fallback: add to sub_agents list manually
-                        if not any(sa.name == "code_execution_agent" for sa in agent.root_agent.sub_agents if hasattr(sa, 'name')):
-                            agent.root_agent.sub_agents.append(code_agent)
-                            logger.info(f"Added code_execution_agent to root_agent.sub_agents list")
-                    else:
-                        # Last resort: use the register function
-                        register_code_execution_agent(agent.root_agent)
-                        logger.info(f"Registered Code Execution agent with parent {name} using register function")
+                    code_sub = create_code_execution_agent(name="code_execution_agent", model=model, config=config)
+                    if not any(sa.name == "code_execution_agent" for sa in sub_agents if hasattr(sa, 'name')):
+                        sub_agents.append(code_sub)
+                        logger.info(f"Added code_execution_agent to root_agent.sub_agents list")
                 except Exception as e:
-                    logger.warning(f"Failed to register code execution agent: {str(e)}")
+                    logger.warning(f"Failed to create code execution agent: {str(e)}")
+
+            agent.root_agent.sub_agents = sub_agents
         except Exception as e:
             logger.warning(f"Failed to import built-in tool factories: {str(e)}")
     
@@ -317,8 +286,7 @@ def create_core_agent_for_web(
             if include_google_search:
                 try:
                     search_agent = create_search_agent(name="search_agent")
-                    # We don't add transfer_to_agent tool for Vertex AI compatibility
-                    # Specialized agents use "TRANSFER_BACK_TO_BETO" message instead
+                    # transfer_to_agent is now included in agent's tools by the factory
                     
                     sub_agents.append(search_agent)
                     logger.info("Created search_agent as sub-agent")
@@ -328,8 +296,7 @@ def create_core_agent_for_web(
             if include_code_execution:
                 try:
                     code_agent = create_code_execution_agent(name="code_execution_agent")
-                    # We don't add transfer_to_agent tool for Vertex AI compatibility
-                    # Specialized agents use "TRANSFER_BACK_TO_BETO" message instead
+                    # transfer_to_agent is now included in agent's tools by the factory
                             
                     sub_agents.append(code_agent)
                     logger.info("Created code_execution_agent as sub-agent")

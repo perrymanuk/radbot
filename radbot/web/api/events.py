@@ -72,73 +72,7 @@ async def get_events(
     """
     # Get events for this session
     events = session_events.get(session_id, [])
-    
-    # If no events exist yet, create welcome and sample events
-    if not events:
-        logger.info(f"No events found for session {session_id}, creating welcome events")
-        
-        # Create a welcome message
-        welcome_event = {
-            "type": "model_response",
-            "category": "model_response",
-            "timestamp": _get_current_timestamp(),
-            "summary": "Welcome Message",
-            "text": "Welcome to RadBot! I'm ready to assist you. Try asking me a question or giving me a task to work on.",
-            "is_final": True,
-            "details": {
-                "session_id": session_id
-            }
-        }
-        add_event(session_id, welcome_event)
-        
-        # Create a sample weather tool call event
-        from datetime import datetime, timedelta
-        
-        # Tool call event (the request)
-        tool_call_time = (datetime.now() - timedelta(minutes=2)).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        weather_tool_call = {
-            "type": "tool_call",
-            "category": "tool_call",
-            "timestamp": tool_call_time,
-            "summary": "Tool Call: get_weather",
-            "tool_name": "get_weather",
-            "input": {"location": "Santa Barbara, CA"},
-            "details": {
-                "session_id": session_id,
-                "tool": "get_weather",
-                "event_type": "function_call"
-            }
-        }
-        add_event(session_id, weather_tool_call)
-        
-        # Tool result event (the response)
-        tool_result_time = (datetime.now() - timedelta(minutes=1, seconds=58)).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        weather_tool_result = {
-            "type": "tool_call",
-            "category": "tool_call",
-            "timestamp": tool_result_time,
-            "summary": "Tool Result: get_weather",
-            "tool_name": "get_weather",
-            "output": {
-                "temperature": 22,
-                "temperature_feels_like": 21,
-                "humidity": 65,
-                "wind_speed": 3.5,
-                "condition": "clear",
-                "location": "Santa Barbara, CA"
-            },
-            "details": {
-                "session_id": session_id,
-                "tool": "get_weather",
-                "event_type": "function_response"
-            }
-        }
-        add_event(session_id, weather_tool_result)
-        
-        # Refresh events list
-        events = session_events.get(session_id, [])
-    
-    # Return the events
+
     logger.info(f"Retrieved {len(events)} events for session {session_id}")
     return events
 

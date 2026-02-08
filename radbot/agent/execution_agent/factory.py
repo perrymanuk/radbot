@@ -62,33 +62,50 @@ def create_execution_agent(
     agent_tools = []
     if tools:
         agent_tools.extend(tools)
-    
+
+    # Note: transfer_to_agent is NOT added here explicitly — ADK auto-injects it
+    # for any agent that is part of a sub_agents tree.
+
     # Add code execution tool if enabled
     if enable_code_execution:
-        # This would be implemented to add code execution tools
-        # from radbot.tools.shell import shell_command_tool
-        # agent_tools.append(shell_command_tool)
+        try:
+            from radbot.tools.shell import get_shell_tool
+            shell_tool = get_shell_tool(strict_mode=True)
+            agent_tools.append(shell_tool)
+            logger.info("Added shell command execution tool to Axel agent")
+        except Exception as e:
+            logger.warning(f"Failed to add shell tool to Axel: {e}")
         logger.info("Code execution capability enabled for Axel agent")
     
+    # Add transfer instructions
+    transfer_instructions = (
+        "\n\nIMPORTANT: When you have completed your task, you MUST use the transfer_to_agent tool "
+        "to transfer back to beto. Call transfer_to_agent(agent_name='beto') to return control "
+        "to the main agent. You can also transfer to scout for research tasks by calling "
+        "transfer_to_agent(agent_name='scout')."
+    )
+    full_instruction = instruction + transfer_instructions
+
     # Create the ExecutionAgent instance
     execution_agent = ExecutionAgent(
         name=name,
         model=model,
-        instruction=instruction,
+        instruction=full_instruction,
         tools=agent_tools,
         enable_code_execution=enable_code_execution,
         app_name=app_name
     )
-    
+
     logger.info(f"Created Axel execution agent with {len(agent_tools)} tools")
-    
+
     # Return either the ExecutionAgent or the underlying ADK agent
     if as_subagent:
         # Create and return the ADK agent for use as a subagent
         adk_agent = Agent(
             name=name,
             model=model,
-            instruction=instruction,
+            description="A specialized agent for implementing code, executing tasks, and managing project files.",
+            instruction=full_instruction,
             tools=agent_tools
         )
         

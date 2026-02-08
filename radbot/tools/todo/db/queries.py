@@ -72,20 +72,21 @@ def get_or_create_project_id(conn: psycopg2.extensions.connection, project_name:
         raise
 
 
-def add_task(conn: psycopg2.extensions.connection, description: str, project_id: uuid.UUID, 
-             category: Optional[str], origin: Optional[str], related_info: Optional[Dict]) -> uuid.UUID:
+def add_task(conn: psycopg2.extensions.connection, description: str, project_id: uuid.UUID,
+             category: Optional[str], origin: Optional[str], related_info: Optional[Dict],
+             title: Optional[str] = None) -> uuid.UUID:
     """Inserts a new task into the database and returns its UUID."""
     sql = """
-        INSERT INTO tasks (description, project_id, category, origin, related_info)
-        VALUES (%s, %s, %s, %s, %s::jsonb)
+        INSERT INTO tasks (description, project_id, category, origin, related_info, title)
+        VALUES (%s, %s, %s, %s, %s::jsonb, %s)
         RETURNING task_id;
     """
     # Convert related_info dict to JSON string if it exists
     if related_info is not None:
         related_info = json.dumps(related_info)
-        
+
     # Set up parameters for query
-    params = (description, project_id, category, origin, related_info)
+    params = (description, project_id, category, origin, related_info, title)
     try:
         with get_db_cursor(conn, commit=True) as cursor:
             cursor.execute(sql, params)
@@ -104,13 +105,14 @@ def add_task(conn: psycopg2.extensions.connection, description: str, project_id:
         raise  # Re-raise for generic handling
 
 
-def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID, 
-               description: Optional[str] = None, 
-               project_id: Optional[uuid.UUID] = None, 
+def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
+               description: Optional[str] = None,
+               project_id: Optional[uuid.UUID] = None,
                status: Optional[str] = None,
-               category: Optional[str] = None, 
-               origin: Optional[str] = None, 
-               related_info: Optional[Dict] = None) -> bool:
+               category: Optional[str] = None,
+               origin: Optional[str] = None,
+               related_info: Optional[Dict] = None,
+               title: Optional[str] = None) -> bool:
     """
     Updates a task with the provided fields. Only updates fields that are not None.
     Returns True if the update was successful, False if the task wasn't found.
@@ -148,7 +150,11 @@ def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
         update_fields.append("related_info = %s::jsonb")
         # Convert dict to JSON string for PostgreSQL
         params.append(json.dumps(related_info))
-    
+
+    if title is not None:
+        update_fields.append("title = %s")
+        params.append(title)
+
     # If no fields to update, return early
     if not update_fields:
         logger.warning("No fields provided to update task")
@@ -203,11 +209,11 @@ def update_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
         raise
 
 
-def list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID, 
+def list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
               status_filter: Optional[str]) -> List[Dict[str, Any]]:
     """Retrieves tasks for a specific project, optionally filtered by status."""
     base_sql = """
-        SELECT task_id, project_id, description, status, category, origin, created_at, related_info
+        SELECT task_id, project_id, description, status, category, origin, created_at, related_info, title
         FROM tasks
         WHERE project_id = %s
     """
@@ -238,8 +244,8 @@ def list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
 def list_all_tasks(conn: psycopg2.extensions.connection, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
     """Retrieves all tasks across all projects, optionally filtered by status."""
     base_sql = """
-        SELECT t.task_id, t.project_id, p.name as project_name, t.description, 
-               t.status, t.category, t.origin, t.created_at, t.related_info
+        SELECT t.task_id, t.project_id, p.name as project_name, t.description,
+               t.status, t.category, t.origin, t.created_at, t.related_info, t.title
         FROM tasks t
         JOIN projects p ON t.project_id = p.project_id
     """
@@ -273,8 +279,8 @@ def get_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> Option
     Returns None if the task doesn't exist.
     """
     sql = """
-        SELECT t.task_id, t.project_id, p.name as project_name, t.description, 
-               t.status, t.category, t.origin, t.created_at, t.related_info
+        SELECT t.task_id, t.project_id, p.name as project_name, t.description,
+               t.status, t.category, t.origin, t.created_at, t.related_info, t.title
         FROM tasks t
         JOIN projects p ON t.project_id = p.project_id
         WHERE t.task_id = %s;

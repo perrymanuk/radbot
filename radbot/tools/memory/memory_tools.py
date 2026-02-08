@@ -13,6 +13,57 @@ from qdrant_client import models
 
 logger = logging.getLogger(__name__)
 
+
+def _get_memory_service_and_user_id(tool_context):
+    """Get memory_service and user_id from the tool context using ADK's invocation context.
+
+    Returns:
+        tuple: (memory_service, user_id) - memory_service may be None on failure
+    """
+    memory_service = None
+    user_id = None
+
+    if tool_context:
+        # Primary path: access via ADK's invocation context (proper API)
+        invocation_ctx = getattr(tool_context, '_invocation_context', None)
+        if invocation_ctx:
+            memory_service = getattr(invocation_ctx, 'memory_service', None)
+            user_id = getattr(invocation_ctx, 'user_id', None)
+            if memory_service:
+                logger.info("Found memory_service via invocation context")
+            if user_id:
+                logger.info(f"Found user_id '{user_id}' via invocation context")
+
+    # Fallback: check global ToolContext class attributes
+    if not memory_service:
+        logger.warning("Memory service not found in invocation context, checking global ToolContext")
+        from google.adk.tools.tool_context import ToolContext as TC
+        memory_service = getattr(TC, "memory_service", None)
+        if memory_service:
+            logger.info("Found memory_service in global ToolContext class")
+
+    # Last resort: create memory service on demand
+    if not memory_service:
+        try:
+            from radbot.memory.qdrant_memory import QdrantMemoryService
+            memory_service = QdrantMemoryService()
+            logger.info("Created QdrantMemoryService on demand")
+        except Exception as e:
+            logger.error(f"Failed to create memory service: {str(e)}")
+
+    # Fallback for user_id
+    if not user_id:
+        from google.adk.tools.tool_context import ToolContext as TC
+        user_id = getattr(TC, "user_id", None)
+        if user_id:
+            logger.info(f"Using user_id '{user_id}' from global ToolContext")
+        else:
+            logger.warning("No user ID found in any context, using default 'web_user'")
+            user_id = "web_user"
+
+    return memory_service, user_id
+
+
 def search_past_conversations(
     query: str,
     max_results: int = 5,
@@ -47,64 +98,13 @@ def search_past_conversations(
               'memory_types' (list, optional): If return_stats_only=True, list of available memory types
     """
     try:
-        # Check if tool_context is available
-        if not tool_context:
-            logger.warning("Tool context not available, checking for global memory_service")
-            # Try to get memory service from global ToolContext class
-            from google.adk.tools.tool_context import ToolContext
-            memory_service = getattr(ToolContext, "memory_service", None)
-            if not memory_service:
-                # Try to create memory service if not available
-                try:
-                    from radbot.memory.qdrant_memory import QdrantMemoryService
-                    memory_service = QdrantMemoryService()
-                    logger.info("Created QdrantMemoryService on demand")
-                    # Store in global ToolContext
-                    setattr(ToolContext, "memory_service", memory_service)
-                except Exception as e:
-                    logger.error(f"Failed to create memory service: {str(e)}")
-                    return {
-                        "status": "error",
-                        "error_message": "Cannot access memory without tool context, and failed to create memory service."
-                    }
-            else:
-                logger.info("Found memory_service in global ToolContext")
-        else:
-            # Get the memory service from tool context
-            memory_service = getattr(tool_context, "memory_service", None)
-            if not memory_service:
-                logger.warning("Memory service not available in tool_context, checking global")
-                # Try getting from global ToolContext
-                from google.adk.tools.tool_context import ToolContext
-                memory_service = getattr(ToolContext, "memory_service", None)
-                if not memory_service:
-                    return {
-                        "status": "error",
-                        "error_message": "Memory service not available in tool context."
-                    }
-                else:
-                    logger.info("Found memory_service in global ToolContext")
-        
-        # Get user ID - first look in tool_context
-        user_id = getattr(tool_context, "user_id", None)
-        
-        # If not found in tool_context, try getting from session
-        if not user_id and hasattr(tool_context, "session"):
-            session = getattr(tool_context, "session", None)
-            if session and hasattr(session, "user_id"):
-                user_id = session.user_id
-        
-        # If we still don't have a user_id, check if it's in global ToolContext
-        if not user_id:
-            global_user_id = getattr(ToolContext, "user_id", None)
-            if global_user_id:
-                user_id = global_user_id
-                logger.info(f"Using user_id '{user_id}' from global ToolContext")
-            else:
-                # In web UI context, use a default user ID for testing
-                logger.warning("No user ID found in any context, using default 'web_user'")
-                user_id = "web_user"
-        
+        memory_service, user_id = _get_memory_service_and_user_id(tool_context)
+        if not memory_service:
+            return {
+                "status": "error",
+                "error_message": "Memory service not available."
+            }
+
         # Create filter conditions
         filter_conditions = {}
         
@@ -256,64 +256,13 @@ def store_important_information(
         dict: A dictionary with status information
     """
     try:
-        # Check if tool_context is available
-        if not tool_context:
-            logger.warning("Tool context not available, checking for global memory_service")
-            # Try to get memory service from global ToolContext class
-            from google.adk.tools.tool_context import ToolContext
-            memory_service = getattr(ToolContext, "memory_service", None)
-            if not memory_service:
-                # Try to create memory service if not available
-                try:
-                    from radbot.memory.qdrant_memory import QdrantMemoryService
-                    memory_service = QdrantMemoryService()
-                    logger.info("Created QdrantMemoryService on demand")
-                    # Store in global ToolContext
-                    setattr(ToolContext, "memory_service", memory_service)
-                except Exception as e:
-                    logger.error(f"Failed to create memory service: {str(e)}")
-                    return {
-                        "status": "error",
-                        "error_message": "Cannot access memory without tool context, and failed to create memory service."
-                    }
-            else:
-                logger.info("Found memory_service in global ToolContext")
-        else:
-            # Get the memory service from tool context
-            memory_service = getattr(tool_context, "memory_service", None)
-            if not memory_service:
-                logger.warning("Memory service not available in tool_context, checking global")
-                # Try getting from global ToolContext
-                from google.adk.tools.tool_context import ToolContext
-                memory_service = getattr(ToolContext, "memory_service", None)
-                if not memory_service:
-                    return {
-                        "status": "error",
-                        "error_message": "Memory service not available in tool context."
-                    }
-                else:
-                    logger.info("Found memory_service in global ToolContext")
-        
-        # Get user ID - first look in tool_context
-        user_id = getattr(tool_context, "user_id", None)
-        
-        # If not found in tool_context, try getting from session
-        if not user_id and hasattr(tool_context, "session"):
-            session = getattr(tool_context, "session", None)
-            if session and hasattr(session, "user_id"):
-                user_id = session.user_id
-        
-        # If we still don't have a user_id, check if it's in global ToolContext
-        if not user_id:
-            global_user_id = getattr(ToolContext, "user_id", None)
-            if global_user_id:
-                user_id = global_user_id
-                logger.info(f"Using user_id '{user_id}' from global ToolContext")
-            else:
-                # In web UI context, use a default user ID for testing
-                logger.warning("No user ID found in any context, using default 'web_user'")
-                user_id = "web_user"
-        
+        memory_service, user_id = _get_memory_service_and_user_id(tool_context)
+        if not memory_service:
+            return {
+                "status": "error",
+                "error_message": "Memory service not available."
+            }
+
         # Create metadata if not provided
         metadata = metadata or {}
         metadata["memory_type"] = memory_type

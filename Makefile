@@ -1,11 +1,11 @@
 .PHONY: help setup setup-web test test-unit test-integration lint format run-cli run-web run-web-custom run-scheduler clean
 
 # Use uv for Python package management
-PYTHON := python
+PYTHON := uv run python
 PIP := uv pip
-PYTEST := pytest
+PYTEST := uv run pytest
 UV := uv
-ADK := adk
+ADK := uv run adk
 
 # Help target that lists all available targets with descriptions
 help:

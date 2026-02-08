@@ -446,7 +446,7 @@ body {
 }
 
 .message.user .message-content::before {
-  content: "user@radbox:~$ ";
+  content: "perry@radbox:~$ ";
   color: var(--accent-blue);
   font-weight: 400;
   letter-spacing: 0.5px;
@@ -664,6 +664,48 @@ body {
   background-color: var(--bg-tertiary);
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* STT Mic Button */
+.stt-mic-button {
+  width: auto;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.7rem;
+  font-family: "Source Code Pro", monospace;
+}
+
+.stt-mic-button:hover {
+  background-color: var(--accent-blue);
+  color: var(--bg-primary);
+}
+
+.stt-mic-button.stt-recording {
+  background-color: var(--term-red);
+  color: #fff;
+  border-color: var(--term-red);
+  animation: stt-pulse 1s ease-in-out infinite;
+}
+
+.stt-mic-button.stt-processing {
+  background-color: var(--term-amber);
+  color: var(--bg-primary);
+  border-color: var(--term-amber);
+  cursor: wait;
+}
+
+@keyframes stt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 /* Command suggestions dropdown */

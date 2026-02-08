@@ -15,6 +15,7 @@ class TaskBase(BaseModel):
     """Base model for common task attributes."""
     project_id: uuid.UUID
     description: str
+    title: Optional[str] = None
     category: Optional[str] = None
     origin: Optional[str] = None
     related_info: Optional[Dict[str, Any]] = None

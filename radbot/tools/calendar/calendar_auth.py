@@ -1,4 +1,9 @@
-"""Authentication module for Google Calendar API using service account."""
+"""Authentication module for Google Calendar API.
+
+Supports (in order):
+1. Application Default Credentials (ADC) - from gcloud auth application-default login
+2. Service account credentials (existing behavior)
+"""
 
 import logging
 import os.path
@@ -8,6 +13,8 @@ import socket
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+import google.auth
+from google.auth.transport.requests import Request
 import httplib2
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -110,14 +117,56 @@ def get_calendar_service(
         Exception: If authentication fails.
     """
     global _calendar_service
-    
+
     # Return cached service if available and not forced to create new
     if _calendar_service is not None and not force_new:
         return _calendar_service
-    
+
     if scopes is None:
         scopes = [FULL_ACCESS_SCOPE]
-    
+
+    # 1. Try saved OAuth token first (from python -m radbot.tools.calendar.setup)
+    try:
+        from radbot.tools.calendar.setup import load_saved_token
+        oauth_creds = load_saved_token()
+        if oauth_creds:
+            _calendar_service = build('calendar', 'v3', credentials=oauth_creds)
+            try:
+                calendar_id = os.environ.get('GOOGLE_CALENDAR_ID', CALENDAR_ID)
+                calendar = _calendar_service.calendars().get(calendarId=calendar_id).execute()
+                logger.info(f"Calendar: Using saved OAuth token. Connected as: {calendar.get('summary', 'Unknown')}")
+                return _calendar_service
+            except HttpError as e:
+                logger.info(f"Calendar OAuth token available but access failed: {e}. Trying ADC.")
+                _calendar_service = None
+    except Exception as e:
+        logger.debug(f"Calendar OAuth token not available: {e}")
+
+    # 2. Try Application Default Credentials (from gcloud auth application-default login)
+    try:
+        adc_creds, adc_project = google.auth.default(scopes=scopes)
+        if not adc_creds.valid:
+            adc_creds.refresh(Request())
+
+        # User credentials need a quota project for Calendar API
+        if hasattr(adc_creds, 'with_quota_project') and adc_project:
+            adc_creds = adc_creds.with_quota_project(adc_project)
+            logger.debug(f"Calendar ADC: Applied quota project {adc_project}")
+
+        _calendar_service = build('calendar', 'v3', credentials=adc_creds)
+
+        # Verify connectivity
+        try:
+            calendar_id = os.environ.get('GOOGLE_CALENDAR_ID', CALENDAR_ID)
+            calendar = _calendar_service.calendars().get(calendarId=calendar_id).execute()
+            logger.info(f"Calendar: Using ADC. Connected as: {calendar.get('summary', 'Unknown')}")
+            return _calendar_service
+        except HttpError as e:
+            logger.info(f"Calendar ADC available but calendar access failed: {e}. Trying service account.")
+            _calendar_service = None
+    except Exception as e:
+        logger.debug(f"Calendar ADC not available: {e}. Trying service account.")
+
     try:
         # Get the impersonation email for domain-wide delegation if set
         impersonation_email = os.environ.get('GOOGLE_IMPERSONATION_EMAIL')

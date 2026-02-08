@@ -368,3 +368,154 @@
   border-left: 3px solid var(--term-amber);
   color: var(--text-primary);
 }
+
+/* Task edit form */
+.task-edit-form {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.task-edit-back {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-family: "Source Code Pro", monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+  text-align: left;
+}
+
+.task-edit-back:hover {
+  text-decoration: underline;
+}
+
+.task-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.task-edit-label {
+  font-size: 0.7rem;
+  color: var(--term-amber);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.task-edit-input,
+.task-edit-textarea,
+.task-edit-select {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.3rem 0.4rem;
+  font-family: "Source Code Pro", monospace;
+  font-size: 0.75rem;
+  outline: none;
+}
+
+.task-edit-input:focus,
+.task-edit-textarea:focus,
+.task-edit-select:focus {
+  border-color: var(--accent-blue);
+}
+
+.task-edit-textarea {
+  resize: vertical;
+  min-height: 3rem;
+}
+
+.task-edit-select {
+  cursor: pointer;
+}
+
+.task-edit-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.task-edit-btn {
+  padding: 0.3rem 0.7rem;
+  font-family: "Source Code Pro", monospace;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.task-edit-btn.save {
+  background-color: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.task-edit-btn.save:hover {
+  filter: brightness(1.15);
+}
+
+.task-edit-btn.save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.task-edit-btn.cancel {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.task-edit-btn.cancel:hover {
+  border-color: var(--accent-blue);
+}
+
+.task-edit-btn.delete {
+  background-color: transparent;
+  color: var(--term-red, #ff5555);
+  border-color: var(--term-red, #ff5555);
+  margin-left: auto;
+}
+
+.task-edit-btn.delete:hover {
+  background-color: var(--term-red, #ff5555);
+  color: #fff;
+}
+
+.task-edit-btn.delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.task-edit-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.task-edit-confirm-label {
+  font-size: 0.7rem;
+  color: var(--term-red, #ff5555);
+  font-family: "Source Code Pro", monospace;
+}
+
+/* New Task button */
+.task-new-btn {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  margin-bottom: 0.3rem;
+  background: transparent;
+  color: var(--accent-blue);
+  border: 1px dashed var(--accent-blue);
+  font-family: "Source Code Pro", monospace;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.task-new-btn:hover {
+  background-color: rgba(53, 132, 228, 0.1);
+  color: #fff;
+}

@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 
 # --- Tool Function Implementations ---
 
-def add_task(description: str, project_id: str, category: Optional[str] = None, 
+def add_task(description: str, project_id: str, title: Optional[str] = None,
+             category: Optional[str] = None,
              origin: Optional[str] = None, related_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Adds a new todo task to the persistent database.
@@ -34,6 +35,7 @@ def add_task(description: str, project_id: str, category: Optional[str] = None,
     Args:
         description: The main text content describing the task. (Required)
         project_id: The project ID or name the task belongs to. Can be a UUID string or a project name. (Required)
+        title: An optional short summary for the task, displayed in the task list.
         category: An optional label to categorize the task (e.g., 'work', 'personal').
         origin: An optional string indicating the source of the task (e.g., 'chat', 'email', 'manual').
         related_info: An optional dictionary for storing supplementary structured data,
@@ -65,7 +67,8 @@ def add_task(description: str, project_id: str, category: Optional[str] = None,
                 project_id=project_uuid,  # UUID objects should now be handled correctly with the adapter
                 category=category,
                 origin=origin,
-                related_info=related_info
+                related_info=related_info,
+                title=title
             )
             
             # Log the task creation for debugging

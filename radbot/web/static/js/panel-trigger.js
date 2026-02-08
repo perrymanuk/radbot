@@ -1,113 +1,52 @@
 /**
  * Panel Trigger System for RadBot UI
- * 
- * This script connects the UI buttons directly to the tiling manager
- * to ensure panels toggle correctly.
+ *
+ * This script is the SINGLE source of button click -> command event dispatch.
+ * tiling.js listens for command:sessions/tasks/events and calls togglePanel().
+ *
+ * Do NOT add duplicate togglePanel calls or duplicate click listeners elsewhere.
  */
+
+// Track which buttons already have handlers to prevent stacking
+const _handledButtons = new Set();
 
 // Wait for DOM content loaded to initialize
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Panel trigger system initialized');
-    
-    // Setup sessions button - needs to directly call tilingManager
-    document.addEventListener('command:sessions', function() {
-        console.log('Sessions command received - direct call to tiling manager');
-        
-        // Check if tiling manager exists
-        if (window.tilingManager) {
-            window.tilingManager.togglePanel('sessions');
-        } else {
-            console.error('Tiling manager not found');
-        }
-    });
-    
-    // Setup task button - needs to directly call tilingManager
-    document.addEventListener('command:tasks', function() {
-        console.log('Tasks command received - direct call to tiling manager');
-        
-        // Check if tiling manager exists
-        if (window.tilingManager) {
-            window.tilingManager.togglePanel('tasks');
-        } else {
-            console.error('Tiling manager not found');
-        }
-    });
-    
-    // Setup events button - needs to directly call tilingManager
-    document.addEventListener('command:events', function() {
-        console.log('Events command received - direct call to tiling manager');
-        
-        // Check if tiling manager exists
-        if (window.tilingManager) {
-            window.tilingManager.togglePanel('events');
-        } else {
-            console.error('Tiling manager not found');
-        }
-    });
-    
-    // Add direct click handlers to buttons
     setupDirectHandlers();
 });
 
-// Set up direct handlers for buttons
+// Set up direct handlers for buttons (idempotent - safe to call multiple times)
 function setupDirectHandlers() {
-    const toggleSessionsButton = document.getElementById('toggle-sessions-button');
-    const toggleTasksButton = document.getElementById('toggle-tasks-button');
-    const toggleEventsButton = document.getElementById('toggle-events-button');
-    
-    if (toggleSessionsButton) {
-        toggleSessionsButton.addEventListener('click', function(e) {
-            console.log('Sessions button clicked - direct handler');
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Call tiling manager directly
-            if (window.tilingManager) {
-                window.tilingManager.togglePanel('sessions');
-            } else {
-                console.error('Tiling manager not available');
-            }
-        });
-    }
-    
-    if (toggleTasksButton) {
-        toggleTasksButton.addEventListener('click', function(e) {
-            console.log('Tasks button clicked - direct handler');
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Call tiling manager directly
-            if (window.tilingManager) {
-                window.tilingManager.togglePanel('tasks');
-            } else {
-                console.error('Tiling manager not available');
-            }
-        });
-    }
-    
-    if (toggleEventsButton) {
-        toggleEventsButton.addEventListener('click', function(e) {
-            console.log('Events button clicked - direct handler');
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Call tiling manager directly
-            if (window.tilingManager) {
-                window.tilingManager.togglePanel('events');
-            } else {
-                console.error('Tiling manager not available');
-            }
-        });
-    }
+    setupButton('toggle-sessions-button', 'command:sessions');
+    setupButton('toggle-tasks-button', 'command:tasks');
+    setupButton('toggle-events-button', 'command:events');
 }
 
-// Re-attach handlers when layout changes
+function setupButton(buttonId, commandEvent) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+
+    // Only add listener once per button element
+    if (_handledButtons.has(button)) return;
+    _handledButtons.add(button);
+
+    button.addEventListener('click', function(e) {
+        console.log(`${buttonId} clicked, dispatching ${commandEvent}`);
+        e.preventDefault();
+        e.stopPropagation();
+        document.dispatchEvent(new CustomEvent(commandEvent));
+    });
+}
+
+// Re-attach handlers when layout changes (tiling recreates DOM elements)
 document.addEventListener('tiling:ready', function() {
-    console.log('Tiling ready - setting up direct handlers');
+    // Layout changes create new DOM elements, so clear tracked set
+    _handledButtons.clear();
     setTimeout(setupDirectHandlers, 200);
 });
 
 document.addEventListener('layout:changed', function() {
-    console.log('Layout changed - re-setting up direct handlers');
+    _handledButtons.clear();
     setTimeout(setupDirectHandlers, 200);
 });

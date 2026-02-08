@@ -38,6 +38,17 @@ from radbot.agent.agent_initializer import (
     get_shell_tool,
     ALL_TOOLS,
     init_database,
+
+    # Import scheduler tools
+    SCHEDULER_TOOLS,
+    init_scheduler_schema,
+
+    # Import webhook tools
+    WEBHOOK_TOOLS,
+    init_webhook_schema,
+
+    # Import Jira tools
+    JIRA_TOOLS,
     
     # Import calendar tools
     list_calendar_events_tool,
@@ -45,7 +56,13 @@ from radbot.agent.agent_initializer import (
     update_calendar_event_tool,
     delete_calendar_event_tool,
     check_calendar_availability_tool,
-    
+
+    # Import Gmail tools
+    list_emails_tool,
+    search_emails_tool,
+    get_email_tool,
+    list_gmail_accounts_tool,
+
     # Import Home Assistant tools
     list_ha_entities,
     get_ha_entity_state,
@@ -72,6 +89,26 @@ def setup_before_agent_call(callback_context: CallbackContext):
             logger.error(f"Failed to initialize Todo database: {str(e)}")
             callback_context.state["todo_init"] = False
     
+    # Initialize Scheduler database schema if needed
+    if "scheduler_init" not in callback_context.state:
+        try:
+            init_scheduler_schema()
+            callback_context.state["scheduler_init"] = True
+            logger.info("Scheduler database schema initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Scheduler database: {str(e)}")
+            callback_context.state["scheduler_init"] = False
+
+    # Initialize Webhook database schema if needed
+    if "webhook_init" not in callback_context.state:
+        try:
+            init_webhook_schema()
+            callback_context.state["webhook_init"] = True
+            logger.info("Webhook database schema initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Webhook database: {str(e)}")
+            callback_context.state["webhook_init"] = False
+
     # Initialize Home Assistant client if not already done
     if "ha_client_init" not in callback_context.state:
         try:
@@ -140,6 +177,18 @@ tools.extend([
     check_calendar_availability_tool
 ])
 
+# Add Gmail tools
+try:
+    tools.extend([
+        list_emails_tool,
+        search_emails_tool,
+        get_email_tool,
+        list_gmail_accounts_tool,
+    ])
+    logger.info("Added 4 Gmail tools")
+except Exception as e:
+    logger.warning(f"Failed to add Gmail tools: {e}")
+
 # Add Home Assistant tools
 tools.extend([
     search_ha_entities,
@@ -193,6 +242,27 @@ try:
     logger.info(f"Added {len(ALL_TOOLS)} Todo tools")
 except Exception as e:
     logger.warning(f"Failed to add Todo tools: {e}")
+
+# Add Scheduler Tools
+try:
+    tools.extend(SCHEDULER_TOOLS)
+    logger.info(f"Added {len(SCHEDULER_TOOLS)} Scheduler tools")
+except Exception as e:
+    logger.warning(f"Failed to add Scheduler tools: {e}")
+
+# Add Webhook Tools
+try:
+    tools.extend(WEBHOOK_TOOLS)
+    logger.info(f"Added {len(WEBHOOK_TOOLS)} Webhook tools")
+except Exception as e:
+    logger.warning(f"Failed to add Webhook tools: {e}")
+
+# Add Jira Tools
+try:
+    tools.extend(JIRA_TOOLS)
+    logger.info(f"Added {len(JIRA_TOOLS)} Jira tools")
+except Exception as e:
+    logger.warning(f"Failed to add Jira tools: {e}")
 
 # Add memory tools
 tools.extend([

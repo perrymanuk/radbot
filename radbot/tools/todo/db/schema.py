@@ -63,7 +63,19 @@ def create_schema_if_not_exists() -> None:
                     logger.info("Database schema created successfully")
                 else:
                     logger.info("Tasks table already exists")
-                    
+
+                    # Migration: add title column if missing
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'tasks' AND column_name = 'title'
+                        );
+                    """)
+                    title_exists = cursor.fetchone()[0]
+                    if not title_exists:
+                        logger.info("Adding title column to tasks table")
+                        cursor.execute("ALTER TABLE tasks ADD COLUMN title TEXT;")
+
                 # Check if the projects table exists
                 cursor.execute("""
                     SELECT EXISTS (

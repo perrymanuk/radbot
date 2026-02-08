@@ -11,6 +11,8 @@ import * as statusUtils from './status.js';
 import * as selectsUtils from './selects.js';
 import * as socketClient from './socket.js';
 import { state } from './app_core.js';
+import { addTTSButton, initTTS } from './tts.js';
+import { initSTT } from './stt.js';
 
 // Initialize UI elements after DOM is ready
 export function initializeUI() {
@@ -43,6 +45,23 @@ export function initializeUI() {
     // Initialize event type filter
     initEventTypeFilter();
     
+    // Initialize TTS module (must be after tiling renders templates)
+    try {
+        initTTS();
+        window.addTTSButton = addTTSButton;
+        console.log('TTS module initialized from UI initialization');
+    } catch (e) {
+        console.warn('TTS initialization failed:', e);
+    }
+
+    // Initialize STT module (mic button in input area)
+    try {
+        initSTT();
+        console.log('STT module initialized from UI initialization');
+    } catch (e) {
+        console.warn('STT initialization failed:', e);
+    }
+
     // Check if WebSocket needs to be initialized or reinitialized
     if (!window.socket) {
         window.socket = socketClient.initSocket(state.sessionId);
@@ -50,21 +69,10 @@ export function initializeUI() {
 }
 
 // Initialize event panel buttons
+// NOTE: Click handlers for toggle buttons are managed by panel-trigger.js
+// to prevent duplicate listener stacking. This function is intentionally empty.
 function initEventPanelButtons() {
-    const toggleEventsButton = document.getElementById('toggle-events-button');
-    const toggleTasksButton = document.getElementById('toggle-tasks-button');
-    
-    if (toggleEventsButton) {
-        toggleEventsButton.addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent('command:events'));
-        });
-    }
-    
-    if (toggleTasksButton) {
-        toggleTasksButton.addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent('command:tasks'));
-        });
-    }
+    // panel-trigger.js handles button click -> command event dispatch
 }
 
 // Initialize event type filter

@@ -45,6 +45,9 @@ dependencies = [
     "langchain-community>=0.2.16",      # Required for integrations
     "tavily-python>=0.3.8",             # Required for Tavily search integration
     "python-jsonrpc>=0.10.0",          # Required for Context7 MCP stdio client
+    "apscheduler>=3.10.0",             # Required for cron/scheduling engine
+    "google-cloud-texttospeech>=2.14.0",  # Required for TTS synthesis
+    "atlassian-python-api>=3.41.0",        # Required for Jira Cloud integration
     # Removed gcsa due to dependency conflict with ADK 0.4.0 (tzlocal version conflict)
 ]
 

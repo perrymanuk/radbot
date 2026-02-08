@@ -57,7 +57,7 @@
 }
 
 .message.user .message-content::before {
-  content: "user@radbox:~$ ";
+  content: "perry@radbox:~$ ";
   color: var(--accent-blue);
   font-weight: 400;
   letter-spacing: 0.5px;
@@ -384,6 +384,66 @@
   display: block;
   margin: 0 -0.75rem;
   padding: 0 0.75rem;
+}
+
+/* TTS Play Button */
+.tts-play-btn {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--accent-blue);
+  border: 1px solid var(--border-color);
+  font-size: 0.7rem;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+  z-index: 5;
+  padding: 0;
+  line-height: 1;
+}
+
+.message.assistant:hover .tts-play-btn {
+  opacity: 0.8;
+}
+
+.tts-play-btn:hover {
+  opacity: 1 !important;
+  color: var(--term-amber);
+  border-color: var(--term-amber);
+}
+
+.tts-play-btn[data-playing="true"] {
+  opacity: 1;
+  color: var(--term-red);
+  border-color: var(--term-red);
+}
+
+/* TTS Auto-play Toggle */
+.tts-autoplay-toggle {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.15rem 0.4rem;
+  font-size: 0.7rem;
+  font-family: "Source Code Pro", monospace;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.tts-autoplay-toggle.active {
+  color: var(--term-green);
+  border-color: var(--term-green);
+}
+
+.tts-autoplay-toggle:hover {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
 }
 
 /* Additional styles for inline code */

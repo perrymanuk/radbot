@@ -1,13 +1,14 @@
 """
 Text embedding utilities for the Qdrant memory system.
+
+Uses the google-genai package (not google-generativeai) for Gemini embeddings.
 """
 
 import os
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Any, Optional
 from dataclasses import dataclass
 
-import numpy as np
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -26,16 +27,12 @@ class EmbeddingModel:
 def get_embedding_model() -> EmbeddingModel:
     """
     Initialize and return the appropriate embedding model based on configuration.
-    
-    This function selects and initializes the embedding model client
-    based on environment variables or configuration.
-    
+
     Returns:
         EmbeddingModel: The configured embedding model
     """
-    # Determine which embedding model to use based on environment variables
     embed_model = os.getenv("radbot_EMBED_MODEL", "gemini").lower()
-    
+
     if embed_model == "gemini":
         return _initialize_gemini_embedding()
     elif embed_model == "sentence-transformers":
@@ -47,49 +44,48 @@ def get_embedding_model() -> EmbeddingModel:
 
 def _initialize_gemini_embedding() -> EmbeddingModel:
     """
-    Initialize the Gemini embedding model.
-    
+    Initialize the Gemini embedding model using the google-genai package.
+
     Returns:
         EmbeddingModel: The initialized embedding model
     """
-    try:
-        # Import here to prevent global dependency
-        import google.generativeai as genai
-        
-        # Configure the client with API key
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if api_key:
-            genai.configure(api_key=api_key)
-        
-        # Return the model info
-        return EmbeddingModel(
-            name="gemini-embedding-001",
-            vector_size=768,  # Gemini embeddings are 768-dimensional
-            client=genai
-        )
-    except ImportError:
-        logger.error("Failed to import google.generativeai. Please install with: pip install google-generativeai")
-        raise
+    from google import genai
+
+    # Get API key: try env var first, then config
+    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        try:
+            from radbot.config.config_loader import config_loader
+            config = config_loader.get_config()
+            api_key = config.get("api_keys", {}).get("google")
+        except Exception as e:
+            logger.warning(f"Could not load API key from config: {e}")
+
+    if not api_key:
+        raise ValueError("No Google API key found. Set GOOGLE_API_KEY env var or api_keys.google in config.yaml")
+
+    client = genai.Client(api_key=api_key)
+
+    return EmbeddingModel(
+        name="gemini-embedding-001",
+        vector_size=768,  # Using output_dimensionality=768 for compatibility
+        client=client
+    )
 
 
 def _initialize_sentence_transformers() -> EmbeddingModel:
     """
     Initialize a sentence-transformers embedding model.
-    
+
     Returns:
         EmbeddingModel: The initialized embedding model
     """
     try:
-        # Import here to prevent global dependency
         from sentence_transformers import SentenceTransformer
-        
-        # Get the model name from environment or use default
+
         model_name = os.getenv("SENTENCE_TRANSFORMERS_MODEL", "all-MiniLM-L6-v2")
-        
-        # Load the model
         model = SentenceTransformer(model_name)
-        
-        # Return the model info
+
         return EmbeddingModel(
             name=model_name,
             vector_size=model.get_sentence_embedding_dimension(),
@@ -103,47 +99,40 @@ def _initialize_sentence_transformers() -> EmbeddingModel:
 def embed_text(text: str, model: EmbeddingModel, is_query: bool = True, source: str = "agent_memory") -> List[float]:
     """
     Generate embedding vector for a text string.
-    
+
     Args:
         text: The text to embed
         model: The embedding model to use
         is_query: Whether this is a query (True) or a document (False)
-        source: The source system for the embedding ("agent_memory" or "crawl4ai")
-        
+        source: The source system for the embedding
+
     Returns:
         List of embedding vector values
     """
     try:
-        if model.name.startswith("gemini"):
-            # Gemini embedding
-            if is_query:
-                # For queries, use RETRIEVAL_QUERY without title
-                result = model.client.embed_content(
-                    model="models/embedding-001",
-                    content=text,
-                    task_type="RETRIEVAL_QUERY"
-                )
-            else:
-                # For documents, use RETRIEVAL_DOCUMENT with title
-                title = f"{source.replace('_', ' ').title()} Document"
-                result = model.client.embed_content(
-                    model="models/embedding-001",
-                    content=text,
-                    task_type="RETRIEVAL_DOCUMENT",
-                    title=title
-                )
-            return result["embedding"]
-        
+        if model.name.startswith("text-embedding") or model.name.startswith("gemini"):
+            # google-genai embedding via Client
+            task_type = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
+            result = model.client.models.embed_content(
+                model=model.name,
+                contents=text,
+                config={
+                    "task_type": task_type,
+                    "output_dimensionality": model.vector_size,
+                }
+            )
+            return list(result.embeddings[0].values)
+
         elif hasattr(model.client, 'encode'):
             # Sentence Transformers embedding
             embedding = model.client.encode(text)
             return embedding.tolist()
-        
+
         else:
             logger.error(f"Unsupported embedding model: {model.name}")
             raise ValueError(f"Unsupported embedding model: {model.name}")
-            
+
     except Exception as e:
         logger.error(f"Error generating embedding: {str(e)}")
-        # Return a zero vector as fallback (in production, consider a more robust fallback)
+        # Return a zero vector as fallback
         return [0.0] * model.vector_size

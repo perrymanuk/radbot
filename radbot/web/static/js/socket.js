@@ -34,7 +34,8 @@ class WebSocketManager {
     this.heartbeatInterval = null;
     this.missedHeartbeats = 0;
     this.lastActivityTimestamp = Date.now();
-    
+    this._intentionalClose = false;
+
     // Connect immediately
     this.connect();
   }
@@ -64,6 +65,8 @@ class WebSocketManager {
         // Only attempt to close if not already closed
         if (this.socket.readyState !== WebSocket.CLOSED) {
           console.log(`Closing existing socket for session ${this.sessionId} (state: ${this.getReadyStateString()})`);
+          // Mark as intentional close so the onclose handler doesn't schedule a reconnect
+          this._intentionalClose = true;
           // Use a clean close code to avoid excessive reconnection attempts
           this.socket.close(1000, "Clean reconnection");
         }
@@ -194,32 +197,40 @@ class WebSocketManager {
         // Log detailed close info
         const wasClean = event.wasClean ? 'clean' : 'unclean';
         console.log(`WebSocket ${wasClean} disconnect for session ${this.sessionId}, code: ${event.code}, reason: ${event.reason || 'none'}`);
-        
+
+        // Stop heartbeat on disconnection
+        this.stopHeartbeat();
+
+        // If this close was triggered by connect() replacing this socket,
+        // don't update state or schedule a reconnect (the new socket handles that)
+        if (this._intentionalClose) {
+          this._intentionalClose = false;
+          console.log(`Intentional close for session ${this.sessionId}, skipping reconnect (new socket in progress)`);
+          return;
+        }
+
         this.connected = false;
         socketConnected = false;
-        
+
         // Update UI status
         if (window.statusUtils) {
           window.statusUtils.setStatus('disconnected');
         }
-        
-        // Stop heartbeat on disconnection
-        this.stopHeartbeat();
-        
+
         // Check if we should reconnect
         const timeSinceLastActivity = Date.now() - this.lastActivityTimestamp;
         const inactiveTimeThreshold = 10 * 60 * 1000; // 10 minutes
-        
+
         if (timeSinceLastActivity > inactiveTimeThreshold) {
           console.log(`Session ${this.sessionId} has been inactive for ${Math.round(timeSinceLastActivity/1000/60)} minutes, not reconnecting`);
           return;
         }
-        
+
         // Attempt to reconnect with exponential backoff
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           const delay = this.calculateReconnectDelay();
           console.log(`Connection closed for session ${this.sessionId}. Reconnecting in ${delay}ms...`);
-          
+
           setTimeout(() => {
             this.reconnectAttempts++;
             this.connect();
@@ -400,9 +411,35 @@ class WebSocketManager {
         return;
       }
       
-      // NOTE: We've removed message deduplication logic since we now only 
-      // process events and don't receive duplicates from the server
-      
+      // Handle scheduled task notifications (reminders)
+      if (data.type === 'scheduled_task_result') {
+        console.log(`Scheduled task notification: ${data.task_name}`);
+        const label = `⏰ [${data.task_name}]`;
+        window.chatModule.addMessage('system', `${label} ${data.prompt}`);
+        window.chatModule.scrollToBottom();
+        // Auto-play TTS if enabled
+        if (window.ttsManager && window.ttsManager.autoPlay && data.prompt) {
+          window.ttsManager.enqueue(data.prompt);
+        }
+        return;
+      }
+
+      // Handle webhook results
+      if (data.type === 'webhook_result') {
+        console.log(`Webhook result: ${data.webhook_name}`);
+        const label = `[Webhook: ${data.webhook_name}]`;
+        window.chatModule.addMessage('system', `${label} ${data.prompt}`);
+        if (data.response) {
+          window.chatModule.addMessage('assistant', data.response, 'WEBHOOK');
+          window.chatModule.scrollToBottom();
+        }
+        // Auto-play TTS if enabled
+        if (window.ttsManager && window.ttsManager.autoPlay && data.response) {
+          window.ttsManager.enqueue(data.response);
+        }
+        return;
+      }
+
       // We no longer handle 'message' type as we only use events now
       if (data.type === 'status') {
         window.statusUtils.handleStatusUpdate(data.content);
@@ -412,6 +449,7 @@ class WebSocketManager {
         
         // Process various event types
         if (Array.isArray(data.content)) {
+          const modelResponses = [];
           data.content.forEach(event => {
             // Handle agent transfer events - Check for actions.transfer_to_agent (ADK 0.4.0 style)
             if (event.actions && event.actions.transfer_to_agent) {
@@ -508,103 +546,78 @@ class WebSocketManager {
               window.chatModule.addMessage('system', transferMessage);
             }
             
-            // Process model_response events to display in chat
+            // Collect model_response events (don't display yet)
             if ((event.type === 'model_response' || event.category === 'model_response') && event.text) {
-              console.log('Model response event detected with text, checking for duplicates:', event);
-              
-              // Check for model information in event details
-              if (event.details && event.details.model) {
-                // Update model status
-                window.statusUtils.updateModelStatus(event.details.model);
-              }
-              
-              // Check if the response indicates a specific agent
-              let agentName = window.state.currentAgentName;
-              
-              // Check all possible places in the event where the agent name might be stored
-              if (event.agent_name) {
-                agentName = event.agent_name.toUpperCase();
-              } else if (event.details && event.details.agent_name) {
-                agentName = event.details.agent_name.toUpperCase();
-              } else if (event.details && event.details.agent) {
-                agentName = event.details.agent.toUpperCase();
-              }
-              
-              // Update the current agent if it has changed
-              if (agentName !== window.state.currentAgentName) {
-                console.log(`Agent change detected from model_response: ${window.state.currentAgentName} → ${agentName}`);
-                
-                // If we have model info in the event, use it
-                if (event.details && event.details.model) {
-                  window.statusUtils.updateModelStatus(event.details.model);
-                  console.log(`Updated model from event details: ${event.details.model}`);
-                }
-                // Otherwise try to update model based on the agent name
-                else if (typeof window.updateModelForCurrentAgent === 'function') {
-                  // Temporarily set current agent name for model lookup
-                  const previousAgent = window.state.currentAgentName;
-                  window.state.currentAgentName = agentName;
-                  
-                  // Update model using the agent name
-                  window.updateModelForCurrentAgent();
-                  console.log(`Updated model for ${agentName} via updateModelForCurrentAgent`);
-                  
-                  // Restore previous agent name since updateAgentStatus will set it properly
-                  window.state.currentAgentName = previousAgent;
-                }
-                
-                // Now update the agent name
-                window.statusUtils.updateAgentStatus(agentName);
-                
-                // Force a visual refresh of the status bar
-                if (window.statusUtils && window.statusUtils.updateStatusBar) {
-                  window.statusUtils.updateStatusBar();
-                }
-              }
-              
-              // Check text size before display
-              const textSize = event.text ? event.text.length : 0;
-              if (textSize > 0) {
-                if (textSize > 200000) {
-                  console.warn(`Very large model response: ${textSize} chars`);
-                  // Show warning for extremely large messages
-                  if (textSize > 500000) {
-                    // Add notification before the message
-                    window.chatModule.addMessage('system', `Rendering large message (${Math.round(textSize/1024)}KB)...`);
-                  }
-                }
-                
-                try {
-                  // Check if this is a recovered response from a malformed function call
-                  const isRecovered = event.details && event.details.recovered_from === 'malformed_function_call';
-                  
-                  if (isRecovered) {
-                    console.log("Displaying recovered response from malformed function call");
-                  }
-                  
-                  // Display the model response from the event
-                  window.chatModule.addMessage('assistant', event.text, agentName);
-                  window.chatModule.scrollToBottom();
-                } catch (displayError) {
-                  console.error(`Error displaying message: ${displayError.message}`);
-                  // Fallback rendering for extremely large messages
-                  try {
-                    // Try to display a truncated version of the message
-                    const truncatedText = event.text.substring(0, 100000) + 
-                      `\n\n[Message truncated for display. Original size: ${Math.round(textSize/1024)}KB]`;
-                    window.chatModule.addMessage('assistant', truncatedText, agentName);
-                    window.chatModule.scrollToBottom();
-                  } catch (fallbackError) {
-                    console.error(`Fallback display also failed: ${fallbackError.message}`);
-                    // Last resort - just show an error message
-                    window.chatModule.addMessage('system', `Error: Could not display large message (${Math.round(textSize/1024)}KB). The response was too large to render.`);
-                  }
-                }
-              } else {
-                console.warn(`Empty model response received`);
-              }
+              modelResponses.push(event);
             }
           });
+
+          // Display only the LAST model_response to avoid duplicates
+          // (matches the REST fallback approach in chat.js)
+          if (modelResponses.length > 0) {
+            // Prefer the event marked as final; otherwise use the last one
+            const responseEvent = modelResponses.find(e => e.is_final) || modelResponses[modelResponses.length - 1];
+            console.log(`Displaying 1 of ${modelResponses.length} model_response events (is_final: ${responseEvent.is_final})`);
+
+            // Check for model information in event details
+            if (responseEvent.details && responseEvent.details.model) {
+              window.statusUtils.updateModelStatus(responseEvent.details.model);
+            }
+
+            // Check if the response indicates a specific agent
+            let agentName = window.state.currentAgentName;
+            if (responseEvent.agent_name) {
+              agentName = responseEvent.agent_name.toUpperCase();
+            } else if (responseEvent.details && responseEvent.details.agent_name) {
+              agentName = responseEvent.details.agent_name.toUpperCase();
+            } else if (responseEvent.details && responseEvent.details.agent) {
+              agentName = responseEvent.details.agent.toUpperCase();
+            }
+
+            // Update the current agent if it has changed
+            if (agentName !== window.state.currentAgentName) {
+              console.log(`Agent change detected from model_response: ${window.state.currentAgentName} → ${agentName}`);
+              if (responseEvent.details && responseEvent.details.model) {
+                window.statusUtils.updateModelStatus(responseEvent.details.model);
+              } else if (typeof window.updateModelForCurrentAgent === 'function') {
+                const previousAgent = window.state.currentAgentName;
+                window.state.currentAgentName = agentName;
+                window.updateModelForCurrentAgent();
+                window.state.currentAgentName = previousAgent;
+              }
+              window.statusUtils.updateAgentStatus(agentName);
+              if (window.statusUtils && window.statusUtils.updateStatusBar) {
+                window.statusUtils.updateStatusBar();
+              }
+            }
+
+            // Display the single response
+            const textSize = responseEvent.text ? responseEvent.text.length : 0;
+            if (textSize > 0) {
+              if (textSize > 500000) {
+                window.chatModule.addMessage('system', `Rendering large message (${Math.round(textSize/1024)}KB)...`);
+              }
+              try {
+                window.chatModule.addMessage('assistant', responseEvent.text, agentName);
+                window.chatModule.scrollToBottom();
+                // Auto-play TTS if enabled
+                if (window.ttsManager && window.ttsManager.autoPlay) {
+                  window.ttsManager.enqueue(responseEvent.text);
+                }
+              } catch (displayError) {
+                console.error(`Error displaying message: ${displayError.message}`);
+                try {
+                  const truncatedText = responseEvent.text.substring(0, 100000) +
+                    `\n\n[Message truncated for display. Original size: ${Math.round(textSize/1024)}KB]`;
+                  window.chatModule.addMessage('assistant', truncatedText, agentName);
+                  window.chatModule.scrollToBottom();
+                } catch (fallbackError) {
+                  console.error(`Fallback display also failed: ${fallbackError.message}`);
+                  window.chatModule.addMessage('system', `Error: Could not display large message (${Math.round(textSize/1024)}KB). The response was too large to render.`);
+                }
+              }
+            }
+          }
         }
         
         // Pass to event handler if it exists
@@ -715,7 +728,9 @@ function _initSocketImplementation(sessionId) {
 function createSocketInterface(manager, sessionId) {
   return {
     socket: manager.socket,
-    socketConnected: manager.connected,
+    // Use a getter so socketConnected always reflects the live connection state
+    // (previously this was a snapshot that went stale after disconnect/reconnect)
+    get socketConnected() { return manager.connected; },
     sessionId: sessionId,
     send: (data) => {
       if (manager && typeof data === 'string') {

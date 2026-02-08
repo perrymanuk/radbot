@@ -65,23 +65,22 @@ def create_search_agent(
             "You are a web search agent. When asked about recent events, news, "
             "or facts that may have changed since your training, use the Google Search "
             "tool to find current information. Always cite your sources clearly. "
-            "When you don't need to search, answer from your knowledge. "
-            "When your task is complete, say 'TRANSFER_BACK_TO_BETO' to return to the main agent."
+            "When you don't need to search, answer from your knowledge."
         )
     
-    # Vertex AI only supports one tool at a time, so just use the google_search tool
     tools = [google_search]
-    
-    # Create the agent with just the search tool
-    # Add instructions for how to transfer back
-    transfer_instructions = "\n\nWhen you're done, say 'TRANSFER_BACK_TO_BETO' to return to the main agent."
-    
+
+    # Disallow transfer_to_agent injection because google_search (a grounding
+    # tool) cannot be mixed with function declarations on gemini-2.5-flash.
+    # Control returns to the caller automatically when the agent finishes.
     search_agent = Agent(
         name=name,
         model=model_name,
-        instruction=instruction + transfer_instructions,
+        instruction=instruction,
         description="A specialized agent that can search the web using Google Search.",
-        tools=tools
+        tools=tools,
+        disallow_transfer_to_parent=True,
+        disallow_transfer_to_peers=True,
     )
     
     # Enable search explicitly if using Vertex AI
@@ -127,78 +126,3 @@ def create_search_agent(
     logger.info(f"Created search agent '{name}' with google_search tool")
     return search_agent
 
-def register_search_agent(parent_agent: Agent, search_agent: Optional[Agent] = None) -> None:
-    """
-    Register a search agent as a sub-agent to the parent.
-    
-    Args:
-        parent_agent: The parent agent to register the search agent with
-        search_agent: Optional existing search agent (creates one if None)
-    """
-    # Create a search agent if one isn't provided
-    agent_to_register = search_agent or create_search_agent()
-    
-    # Get current sub-agents
-    current_sub_agents = list(parent_agent.sub_agents) if hasattr(parent_agent, 'sub_agents') and parent_agent.sub_agents else []
-    
-    # Check if we already have a search agent
-    search_agent_exists = False
-    for existing_agent in current_sub_agents:
-        if hasattr(existing_agent, 'name') and existing_agent.name == agent_to_register.name:
-            logger.warning(f"Search agent '{agent_to_register.name}' already registered")
-            search_agent_exists = True
-            agent_to_register = existing_agent  # Use the existing agent for further updates
-            break
-    
-    # Add the search agent to the sub-agents list if not already there
-    if not search_agent_exists:
-        current_sub_agents.append(agent_to_register)
-        parent_agent.sub_agents = current_sub_agents
-        logger.info(f"Registered search agent '{agent_to_register.name}' with parent agent '{parent_agent.name if hasattr(parent_agent, 'name') else 'unnamed'}'")
-    
-    # For ADK 0.4.0+, bidirectional navigation requires the parent to be in the
-    # search agent's sub_agents list as well (for transfers back)
-    try:
-        # Set up bidirectional navigation
-        search_sub_agents = list(agent_to_register.sub_agents) if hasattr(agent_to_register, 'sub_agents') and agent_to_register.sub_agents else []
-        
-        # Check if parent is already in search agent's sub_agents
-        parent_exists = False
-        for existing_agent in search_sub_agents:
-            if hasattr(existing_agent, 'name') and existing_agent.name == parent_agent.name:
-                parent_exists = True
-                break
-        
-        # Add parent to search agent's sub_agents if not already there
-        if not parent_exists:
-            from google.adk.agents import Agent
-            # Create a proxy for the parent (minimal version without tools for Vertex AI compatibility)
-            parent_proxy = Agent(
-                name=parent_agent.name if hasattr(parent_agent, 'name') else "beto",
-                model=parent_agent.model if hasattr(parent_agent, 'model') else None,
-                instruction="Main coordinating agent",
-                description="Main agent for coordinating tasks",
-                tools=[]  # No tools for Vertex AI compatibility
-            )
-            
-            search_sub_agents.append(parent_proxy)
-            agent_to_register.sub_agents = search_sub_agents
-            logger.info(f"Added parent agent '{parent_proxy.name}' to search agent sub_agents for bidirectional navigation")
-    except Exception as e:
-        logger.warning(f"Failed to add parent to search agent's sub_agents: {str(e)}")
-    
-    # For Vertex AI compatibility, ensure we're only using one tool
-    # as Vertex AI only supports one tool at a time
-    if hasattr(agent_to_register, 'tools') and len(agent_to_register.tools) > 1:
-        # Restrict to only google_search tool
-        agent_to_register.tools = [google_search]
-        logger.info(
-            f"Restricted search agent '{agent_to_register.name}' to only "
-            "google_search tool for Vertex AI compatibility"
-        )
-    
-    # Ensure the agent has the transfer_back instruction
-    if hasattr(agent_to_register, 'instruction') and "TRANSFER_BACK_TO_BETO" not in agent_to_register.instruction:
-        transfer_instructions = "\n\nWhen you're done, say 'TRANSFER_BACK_TO_BETO' to return to the main agent."
-        agent_to_register.instruction += transfer_instructions
-        logger.info(f"Added transfer_back instructions to agent '{agent_to_register.name}'")

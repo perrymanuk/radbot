@@ -18,7 +18,6 @@ from google.adk.tools import FunctionTool
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent
 from radbot.config import config_manager
-from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 
 def create_research_agent(
     name: str = "scout",
@@ -68,102 +67,17 @@ def create_research_agent(
         app_name=app_name  # Should match parent agent name
     )
     
-    # Import required components for agent transfers
-    from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-    
     # Get the ADK agent
     adk_agent = research_agent.get_adk_agent()
-    
-    # Ensure agent has transfer_to_agent tool
-    if hasattr(adk_agent, 'tools'):
-        # Check if tool already exists
-        has_transfer_tool = False
-        for tool in adk_agent.tools:
-            tool_name = getattr(tool, 'name', None) or getattr(tool, '__name__', None)
-            if tool_name == 'transfer_to_agent':
-                has_transfer_tool = True
-                break
-                
-        if not has_transfer_tool:
-            adk_agent.tools.append(transfer_to_agent)
-            logger.info("Added transfer_to_agent tool to scout agent")
-    
-    # Create built-in tool sub-agents if requested
-    sub_agents = []
-    
-    if enable_google_search or enable_code_execution:
-        try:
-            from radbot.tools.adk_builtin import create_search_agent, create_code_execution_agent
-            
-            if enable_google_search:
-                try:
-                    # Create search agent with agent-specific model (handled inside the function)
-                    search_agent = create_search_agent(name="search_agent")
-                    
-                    # No need to add transfer_to_agent for Vertex AI compatibility
-                    # The agent will use "TRANSFER_BACK_TO_BETO" phrase instead
-                    
-                    sub_agents.append(search_agent)
-                    logger.info("Created search_agent as sub-agent for scout")
-                except Exception as e:
-                    logger.warning(f"Failed to create search agent for scout: {str(e)}")
-            
-            if enable_code_execution:
-                try:
-                    # Create code execution agent with agent-specific model (handled inside the function)
-                    code_agent = create_code_execution_agent(name="code_execution_agent")
-                    
-                    # No need to add transfer_to_agent for Vertex AI compatibility
-                    # The agent will use "TRANSFER_BACK_TO_BETO" phrase instead
-                    
-                    sub_agents.append(code_agent)
-                    logger.info("Created code_execution_agent as sub-agent for scout")
-                except Exception as e:
-                    logger.warning(f"Failed to create code execution agent for scout: {str(e)}")
-        except Exception as e:
-            logger.warning(f"Failed to import built-in tool factories for scout: {str(e)}")
-    
-    # Add parent agent (beto) to sub-agents list for proper backlinks
-    # This ensures that scout can transfer back to beto
-    try:
-        from google.adk.agents import Agent
-        
-        # Create a proxy agent for beto (parent) to allow transfers back
-        # For Vertex AI compatibility, don't include any tools on the parent proxy
-        beto_agent = Agent(
-            name="beto",  # Must be exactly "beto" for transfers back
-            model=config_manager.get_main_model(),  # Always use the main model for beto
-            instruction="Main coordinating agent",  # Simple placeholder
-            description="Main coordinating agent that handles user requests",
-            tools=[]  # No tools for Vertex AI compatibility
-        )
-        
-        # Add beto to the list of sub-agents even if we have other sub-agents
-        if not sub_agents:
-            sub_agents = []
-        
-        # Check if we already have beto in the list
-        beto_already_added = False
-        for sa in sub_agents:
-            if hasattr(sa, 'name') and sa.name == "beto":
-                beto_already_added = True
-                break
-                
-        if not beto_already_added:
-            sub_agents.append(beto_agent)
-            logger.info("Added 'beto' agent to scout's sub_agents list for proper back-transfers")
-    except Exception as e:
-        logger.error(f"Failed to create beto proxy agent for scout's sub_agents: {str(e)}")
-    
-    # Set sub-agents list on the scout agent
-    if sub_agents and hasattr(adk_agent, 'sub_agents'):
-        adk_agent.sub_agents = sub_agents
-        logger.info(f"Added {len(sub_agents)} sub-agents to scout agent")
-        
-        # Log the agent tree for debugging
-        sub_agent_names = [sa.name for sa in adk_agent.sub_agents if hasattr(sa, 'name')]
-        logger.info(f"Scout agent tree: root='scout', sub_agents={sub_agent_names}")
-    
+
+    # Note: transfer_to_agent is NOT added here explicitly — ADK auto-injects it
+    # for any agent that is part of a sub_agents tree. Adding it explicitly causes
+    # a "Duplicate function declaration" error from the Gemini API.
+
+    # Scout relies on transfer_to_agent to navigate the agent tree.
+    # No sub-agents needed here — search_agent, code_execution_agent, and axel
+    # are siblings under beto, and ADK's transfer_to_agent can find them by name.
+
     # Return either the ResearchAgent wrapper or the underlying ADK agent
     if as_subagent:
         return research_agent

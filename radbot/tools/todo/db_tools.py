@@ -6,94 +6,17 @@ using the psycopg2 library. It utilizes connection pooling for efficiency and
 defines private functions for core CRUD operations.
 """
 
-import os
 import logging
 import psycopg2
-import psycopg2.pool
 import psycopg2.extras  # For RealDictCursor
 import uuid
-from contextlib import contextmanager
-from typing import List, Dict, Optional, Any, Generator
+from typing import List, Dict, Optional, Any
 
-# Import configuration
-from radbot.config import config_loader
-
-# Register UUID adapter for psycopg2
-psycopg2.extensions.register_adapter(uuid.UUID, lambda u: psycopg2.extensions.adapt(str(u)))
+# Reuse the lazy connection pool from the db package
+from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
 
 # Setup logging
 logger = logging.getLogger(__name__)
-
-# --- Connection Pool Setup ---
-
-# Get database configuration from config.yaml
-database_config = config_loader.get_config().get("database", {})
-
-# Load from config.yaml or fall back to environment variables
-DB_NAME = database_config.get("db_name") or os.getenv("POSTGRES_DB")
-DB_USER = database_config.get("user") or os.getenv("POSTGRES_USER")
-DB_PASSWORD = database_config.get("password") or os.getenv("POSTGRES_PASSWORD")
-DB_HOST = database_config.get("host") or os.getenv("POSTGRES_HOST", "localhost")
-DB_PORT = database_config.get("port") or os.getenv("POSTGRES_PORT", "5432")
-
-# Basic validation
-if not all([DB_NAME, DB_USER, DB_PASSWORD]):
-    error_msg = "Database credentials (database.db_name, database.user, database.password) must be set in config.yaml or as environment variables (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)"
-    logger.error(error_msg)
-    raise ValueError(error_msg)
-
-# Configure and initialize the connection pool
-# Adjust minconn and maxconn based on expected load
-MIN_CONN = 1
-MAX_CONN = 5  # Start conservatively
-
-try:
-    pool = psycopg2.pool.ThreadedConnectionPool(
-        minconn=MIN_CONN,
-        maxconn=MAX_CONN,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-        port=DB_PORT
-    )
-    logger.info(f"Database connection pool initialized (Min: {MIN_CONN}, Max: {MAX_CONN})")
-    logger.info(f"Connected to PostgreSQL database '{DB_NAME}' at {DB_HOST}:{DB_PORT}")
-except psycopg2.OperationalError as e:
-    logger.error(f"FATAL: Could not connect to database: {e}")
-    # Handle fatal error appropriately - maybe exit or raise
-    raise
-
-
-@contextmanager
-def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]:
-    """Provides a database connection from the pool, managing cleanup."""
-    conn = None
-    try:
-        conn = pool.getconn()
-        yield conn
-    except psycopg2.Error as e:
-        # Log or handle pool errors if necessary
-        logger.error(f"Error getting connection from pool: {e}")
-        raise  # Re-raise the original psycopg2 error
-    finally:
-        if conn:
-            pool.putconn(conn)  # Return connection to the pool
-
-
-@contextmanager
-def get_db_cursor(conn: psycopg2.extensions.connection, commit: bool = False) -> Generator[psycopg2.extensions.cursor, None, None]:
-    """Provides a cursor from a connection, handling commit/rollback."""
-    with conn.cursor() as cursor:
-        try:
-            yield cursor
-            if commit:
-                conn.commit()
-        except psycopg2.Error as e:
-            logger.error(f"Database operation failed. Rolling back transaction. Error: {e}")
-            conn.rollback()
-            raise  # Re-raise the original psycopg2 error
-        # No finally block needed for cursor, 'with' handles closing
 
 
 # --- Private CRUD Functions ---
@@ -150,16 +73,17 @@ def _get_or_create_project_id(conn: psycopg2.extensions.connection, project_name
         logger.error(f"Error getting/creating project ID for '{project_name}': {e}")
         raise
 
-def _add_task(conn: psycopg2.extensions.connection, description: str, project_id: uuid.UUID, 
-              category: Optional[str], origin: Optional[str], related_info: Optional[Dict]) -> uuid.UUID:
+def _add_task(conn: psycopg2.extensions.connection, description: str, project_id: uuid.UUID,
+              category: Optional[str], origin: Optional[str], related_info: Optional[Dict],
+              title: Optional[str] = None) -> uuid.UUID:
     """Inserts a new task into the database and returns its UUID."""
     sql = """
-        INSERT INTO tasks (description, project_id, category, origin, related_info)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO tasks (description, project_id, category, origin, related_info, title)
+        VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING task_id;
     """
     # psycopg2 automatically handles JSON serialization for related_info if it's a dict
-    params = (description, project_id, category, origin, related_info)
+    params = (description, project_id, category, origin, related_info, title)
     try:
         with get_db_cursor(conn, commit=True) as cursor:
             cursor.execute(sql, params)
@@ -182,7 +106,7 @@ def _list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
                 status_filter: Optional[str]) -> List[Dict[str, Any]]:
     """Retrieves tasks, optionally filtered by status."""
     base_sql = """
-        SELECT task_id, project_id, description, status, category, origin, created_at, related_info
+        SELECT task_id, project_id, description, status, category, origin, created_at, related_info, title
         FROM tasks
         WHERE project_id = %s
     """
@@ -349,7 +273,19 @@ def create_schema_if_not_exists() -> None:
                     logger.info("Database schema created successfully")
                 else:
                     logger.info("Tasks table already exists")
-                    
+
+                    # Migration: add title column if missing
+                    cursor.execute("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = 'tasks' AND column_name = 'title'
+                        );
+                    """)
+                    title_exists = cursor.fetchone()[0]
+                    if not title_exists:
+                        logger.info("Adding title column to tasks table")
+                        cursor.execute("ALTER TABLE tasks ADD COLUMN title TEXT;")
+
                 # Check if the projects table exists
                 cursor.execute("""
                     SELECT EXISTS (
