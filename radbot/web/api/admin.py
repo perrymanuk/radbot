@@ -174,6 +174,14 @@ async def save_config_section(section: str, request: Request, _: None = Depends(
         config_loader.load_db_config()
     except Exception as e:
         logger.warning(f"Config hot-reload failed: {e}")
+    # Hot-reload agent model when agent config changes
+    if section == "agent":
+        try:
+            from radbot.config import config_manager
+            from agent import root_agent
+            config_manager.apply_model_config(root_agent)
+        except Exception as e:
+            logger.warning(f"Agent model hot-reload failed: {e}")
     # Reset client singletons so next call picks up new config
     if section == "integrations":
         try:

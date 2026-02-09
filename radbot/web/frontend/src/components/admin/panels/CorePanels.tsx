@@ -22,6 +22,7 @@ const MODEL_OPTIONS = [
   "gemini-1.5-flash",
 ];
 
+// Display labels and their config keys in agent_models
 const OVERRIDE_AGENTS = [
   "search",
   "scout",
@@ -37,6 +38,9 @@ const OVERRIDE_AGENTS = [
   "web_research",
   "filesystem",
 ] as const;
+
+/** Map a short display name to the canonical config key (e.g. "search" → "search_agent"). */
+const agentConfigKey = (name: string) => `${name}_agent`;
 
 // ── GooglePanel ───────────────────────────────────────────────
 
@@ -198,15 +202,17 @@ export function AgentModelsPanel() {
     if (!liveConfig) return;
     const agent = liveConfig.agent || {};
 
-    if (agent.model) setMainModel(agent.model);
+    if (agent.main_model) setMainModel(agent.main_model);
+    else if (agent.model) setMainModel(agent.model); // legacy fallback
     if (agent.sub_agent_model) setSubAgentModel(agent.sub_agent_model);
     if (agent.enable_adk_search !== undefined) setEnableSearch(!!agent.enable_adk_search);
     if (agent.enable_adk_code_execution !== undefined) setEnableCodeExec(!!agent.enable_adk_code_execution);
 
-    const modelOverrides = agent.model_overrides || {};
+    const agentModels = agent.agent_models || {};
     const init: Record<string, string> = {};
     for (const a of OVERRIDE_AGENTS) {
-      init[a] = modelOverrides[a] || "";
+      // Try canonical key (search_agent), then legacy key (search_agent_model)
+      init[a] = agentModels[agentConfigKey(a)] || agentModels[`${a}_agent_model`] || "";
     }
     setOverrides(init);
   }, [liveConfig]);
@@ -218,18 +224,18 @@ export function AgentModelsPanel() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Build model_overrides, filtering out empty strings
-      const modelOverrides: Record<string, string> = {};
+      // Build agent_models using canonical keys (e.g. search_agent)
+      const agentModels: Record<string, string> = {};
       for (const [k, v] of Object.entries(overrides)) {
-        if (v.trim()) modelOverrides[k] = v.trim();
+        if (v.trim()) agentModels[agentConfigKey(k)] = v.trim();
       }
 
       await mergeConfigSection("agent", {
-        model: mainModel,
+        main_model: mainModel,
         sub_agent_model: subAgentModel,
         enable_adk_search: enableSearch,
         enable_adk_code_execution: enableCodeExec,
-        model_overrides: modelOverrides,
+        agent_models: agentModels,
       });
 
       toast("Agent model settings saved");

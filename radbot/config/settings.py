@@ -4,6 +4,7 @@ Configuration settings and management for the radbot agent framework.
 
 import os
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
@@ -66,7 +67,7 @@ class ConfigManager:
         
         return {
             # Primary model for main agent
-            "main_model": agent_config.get("main_model") or os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
+            "main_model": agent_config.get("main_model") or agent_config.get("model") or os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
             
             # Also check GEMINI_MODEL env var for compatibility 
             "gemini_model": os.getenv("GEMINI_MODEL"),
@@ -95,6 +96,36 @@ class ConfigManager:
             # Enable ADK Code Execution Tool
             "enable_adk_code_execution": agent_config.get("enable_adk_code_execution", False) if "enable_adk_code_execution" in agent_config else os.getenv("RADBOT_ENABLE_ADK_CODE_EXEC", "FALSE").upper() == "TRUE"
         }
+
+    def reload_model_config(self) -> None:
+        """Re-read model configuration from config_loader (after DB config changes)."""
+        self.model_config = self._load_model_config()
+
+    def apply_model_config(self, root_agent) -> None:
+        """Reload model config and apply to root_agent and its sub-agents.
+
+        This is the single place where model changes are pushed onto the
+        live agent tree.  Called from web startup, CLI startup, and admin
+        hot-reload.
+        """
+        _logger = logging.getLogger(__name__)
+        self.reload_model_config()
+
+        new_model = self.get_main_model()
+        old_model = root_agent.model
+        if old_model != new_model:
+            root_agent.model = new_model
+            _logger.info(f"Applied model config: {old_model} -> {new_model}")
+
+        for sa in (root_agent.sub_agents or []):
+            name = getattr(sa, "name", None)
+            if not name:
+                continue
+            lookup = name if name.endswith("_agent") else f"{name}_agent"
+            new_sa_model = self.get_agent_model(lookup)
+            if sa.model != new_sa_model:
+                _logger.info(f"Applied sub-agent '{name}' model: {sa.model} -> {new_sa_model}")
+                sa.model = new_sa_model
 
     def _load_home_assistant_config(self) -> Dict[str, Any]:
         """

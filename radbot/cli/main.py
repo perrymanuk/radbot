@@ -202,6 +202,14 @@ async def setup_agent() -> Optional[RadBotAgent]:
     except Exception as e:
         logger.warning(f"Could not load DB config: {e}")
 
+    # Refresh config_manager and apply DB model overrides to root agent
+    try:
+        from radbot.config import config_manager
+        from agent import root_agent
+        config_manager.apply_model_config(root_agent)
+    except Exception as model_err:
+        logger.warning(f"Error applying DB model config: {model_err}")
+
     # Re-run environment setup now that full config (including DB overrides) is loaded
     try:
         from radbot.config.adk_config import setup_vertex_environment
