@@ -33,7 +33,8 @@ def _format_issue(issue: Dict[str, Any], base_url: str = "") -> Dict[str, Any]:
         return str(obj)
 
     key = issue.get("key", "")
-    return {
+    from radbot.tools.shared.sanitize import sanitize_dict
+    return sanitize_dict({
         "key": key,
         "summary": fields.get("summary"),
         "status": _name(fields.get("status")),
@@ -44,7 +45,7 @@ def _format_issue(issue: Dict[str, Any], base_url: str = "") -> Dict[str, Any]:
         "created": fields.get("created"),
         "updated": fields.get("updated"),
         "url": f"{base_url.rstrip('/')}/browse/{key}" if base_url else key,
-    }
+    }, source="jira", keys=["summary", "status", "priority", "type", "assignee", "reporter"])
 
 
 def _client_or_error():

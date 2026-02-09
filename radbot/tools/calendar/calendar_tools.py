@@ -495,8 +495,9 @@ def list_calendar_events_wrapper(
         # Ensure we always return a list
         if not isinstance(result, list):
             return []
-            
-        return result
+
+        from radbot.tools.shared.sanitize import sanitize_external_content
+        return sanitize_external_content(result, source="calendar")
     except Exception as e:
         print(f"Exception while listing calendar events: {str(e)}. Please check authentication credentials.")
         return []  # Return empty list instead of raising exception

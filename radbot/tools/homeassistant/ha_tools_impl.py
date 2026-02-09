@@ -48,7 +48,8 @@ def list_ha_entities() -> Dict[str, Any]:
                         if k in ["friendly_name", "unit_of_measurement", "device_class", "supported_features"]
                     }  # Only include key attributes
                 })
-        return {"status": "success", "data": formatted_entities}
+        from radbot.tools.shared.sanitize import sanitize_external_content
+        return {"status": "success", "data": sanitize_external_content(formatted_entities, source="homeassistant")}
     except Exception as e:
         logger.error(f"Error in list_ha_entities tool: {e}")
         return {"status": "error", "message": f"An internal error occurred: {str(e)}"}
@@ -77,12 +78,13 @@ def get_ha_entity_state(entity_id: str) -> Dict[str, Any]:
         state = client.get_state(entity_id)
         if state:
             # Return relevant parts of the state object
-            return {"status": "success", "data": {
+            from radbot.tools.shared.sanitize import sanitize_dict
+            return {"status": "success", "data": sanitize_dict({
                 "entity_id": state.get("entity_id"),
                 "state": state.get("state"),
                 "attributes": state.get("attributes", {}),
-                "last_changed": state.get("last_changed")
-            }}
+                "last_changed": state.get("last_changed"),
+            }, source="homeassistant")}
         else:
             # Handles 404 or other client errors resulting in None
             return {"status": "error", "message": f"Entity '{entity_id}' not found or failed to retrieve state."}
@@ -332,13 +334,14 @@ def search_ha_entities(search_term: str, domain_filter: Optional[str] = None) ->
         logger.info(f"Found {len(matches)} matching entities for search term '{search_term}'")
         
         # Return the results
+        from radbot.tools.shared.sanitize import sanitize_external_content
         return {
             "status": "success",
             "search_term": search_term,
             "domain_filter": domain_filter,
             "match_count": len(matches),
-            "matches": matches[:10] if matches else [],  # Return top 10 matches
-            "available_domains": sorted(list(domains))
+            "matches": sanitize_external_content(matches[:10] if matches else [], source="homeassistant"),
+            "available_domains": sorted(list(domains)),
         }
     except Exception as e:
         logger.error(f"Error in search_ha_entities: {e}")

@@ -166,6 +166,8 @@ class SchedulerEngine:
         Processes the prompt through the agent and broadcasts results to all
         active WebSocket connections.
         """
+        from radbot.tools.shared.sanitize import sanitize_text
+        prompt = sanitize_text(prompt, source="scheduler")
         logger.info(f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), prompt: {prompt[:80]}")
 
         # Snapshot active connections; skip if none
@@ -322,6 +324,8 @@ class SchedulerEngine:
 
     async def _deliver_single_reminder(self, reminder_id: str, message: str) -> None:
         """Deliver a single reminder as a notification broadcast. No LLM processing."""
+        from radbot.tools.shared.sanitize import sanitize_text
+        message = sanitize_text(message, source="reminder")
         session_id = self._connection_manager.get_any_session_id()
         if not session_id:
             return

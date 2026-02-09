@@ -796,6 +796,41 @@
         }
       }
     },
+    "security": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Security configuration",
+      "properties": {
+        "sanitize": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Unicode sanitization settings for prompt injection defense",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Unicode sanitization of external content",
+              "default": true
+            },
+            "strictness": {
+              "type": "string",
+              "description": "Strictness level: relaxed (zero-width/bidi/tags/control), standard (+soft hyphen/variation selectors/interlinear), strict (+Private Use Area)",
+              "enum": ["relaxed", "standard", "strict"],
+              "default": "standard"
+            },
+            "log_detections": {
+              "type": "boolean",
+              "description": "Log warnings when invisible characters are stripped",
+              "default": true
+            },
+            "callback_enabled": {
+              "type": "boolean",
+              "description": "Enable the before-model callback sanitization (catch-all layer)",
+              "default": true
+            }
+          }
+        }
+      }
+    },
     "logging": {
       "type": "object",
       "additionalProperties": false,

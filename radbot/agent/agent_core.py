@@ -34,6 +34,9 @@ from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory import search_past_conversations, store_important_information
 from radbot.config.config_loader import config_loader
 
+# Import sanitization callback
+from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
+
 # Get the instruction from the config manager
 instruction = config_manager.get_instruction("main_agent")
 
@@ -139,6 +142,7 @@ root_agent = Agent(
     sub_agents=[search_agent, code_execution_agent, scout_agent],
     tools=tools,
     before_agent_callback=setup_before_agent_call,
+    before_model_callback=sanitize_before_model_callback,
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
 

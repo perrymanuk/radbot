@@ -215,9 +215,10 @@ def search_past_conversations(
                 
                 formatted_results.append(formatted_entry)
             
+            from radbot.tools.shared.sanitize import sanitize_external_content
             return {
                 "status": "success",
-                "memories": formatted_results
+                "memories": sanitize_external_content(formatted_results, source="memory"),
             }
         else:
             return {

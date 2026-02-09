@@ -30,7 +30,8 @@ def _resolve_path(obj: Any, path: str) -> str:
             return ""
         if current is None:
             return ""
-    return str(current)
+    from radbot.tools.shared.sanitize import sanitize_text
+    return sanitize_text(str(current), source="webhook")
 
 
 def render_template(template: str, payload: Dict[str, Any]) -> str:

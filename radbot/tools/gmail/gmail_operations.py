@@ -96,7 +96,8 @@ def _parse_message(raw_message: Dict[str, Any]) -> Dict[str, Any]:
 
     body = _decode_body(payload)
 
-    return {
+    from radbot.tools.shared.sanitize import sanitize_dict
+    return sanitize_dict({
         "id": raw_message.get("id", ""),
         "threadId": raw_message.get("threadId", ""),
         "snippet": raw_message.get("snippet", ""),
@@ -107,7 +108,7 @@ def _parse_message(raw_message: Dict[str, Any]) -> Dict[str, Any]:
         "body": body,
         "attachments": attachments,
         "labelIds": raw_message.get("labelIds", []),
-    }
+    }, source="gmail", keys=["snippet", "subject", "from", "to", "body"])
 
 
 def list_messages(
@@ -157,14 +158,15 @@ def list_messages(
                     metadataHeaders=["Subject", "From", "Date"],
                 ).execute()
                 headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
-                enriched.append({
+                from radbot.tools.shared.sanitize import sanitize_dict
+                enriched.append(sanitize_dict({
                     "id": msg.get("id", ""),
                     "threadId": msg.get("threadId", ""),
                     "snippet": msg.get("snippet", ""),
                     "subject": headers.get("subject", "(no subject)"),
                     "from": headers.get("from", ""),
                     "date": headers.get("date", ""),
-                })
+                }, source="gmail", keys=["snippet", "subject", "from"]))
             except HttpError as e:
                 logger.warning(f"Failed to fetch metadata for message {msg_stub['id']}: {e}")
                 enriched.append({

@@ -81,7 +81,8 @@ def _format_search_result(item: Dict[str, Any]) -> Dict[str, Any]:
         result["media_status"] = MEDIA_STATUS.get(
             media_info.get("status", 0), "Unknown"
         )
-    return result
+    from radbot.tools.shared.sanitize import sanitize_dict
+    return sanitize_dict(result, source="overseerr", keys=["title", "overview"])
 
 
 # ---------------------------------------------------------------------------
