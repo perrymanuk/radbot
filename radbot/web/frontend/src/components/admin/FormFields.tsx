@@ -57,13 +57,13 @@ export function FormToggle({ label, checked, onChange }: ToggleProps) {
         type="button"
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative w-[38px] h-5 rounded-[10px] transition-colors flex-shrink-0 cursor-pointer border-none",
-          checked ? "bg-[#e94560]" : "bg-[#2a3a5c]",
+          "relative w-[38px] h-5 rounded-[10px] transition-colors flex-shrink-0 cursor-pointer border-none p-0",
+          checked ? "bg-[#2ecc71]" : "bg-[#e94560]",
         )}
       >
         <span
           className={cn(
-            "absolute w-3.5 h-3.5 rounded-full transition-transform top-[3px]",
+            "absolute left-0 w-3.5 h-3.5 rounded-full transition-transform top-[3px]",
             checked ? "translate-x-[21px] bg-white" : "translate-x-[3px] bg-[#999]",
           )}
         />
