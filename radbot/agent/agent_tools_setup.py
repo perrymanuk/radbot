@@ -29,7 +29,6 @@ from radbot.agent.agent_initializer import (
     # Import built-in tools
     load_artifacts,
     get_current_time,
-    get_weather,
     search_past_conversations,
     store_important_information,
     create_fileserver_toolset,
@@ -165,8 +164,7 @@ tools.extend([
 
 # Add basic tools
 tools.extend([
-    get_current_time,
-    get_weather
+    get_current_time
 ])
 
 # Add calendar tools

@@ -5,7 +5,7 @@ This package provides various tools for the Radbot agent.
 """
 
 # Re-export tools from subpackages
-from radbot.tools.basic import get_current_time, get_weather, get_weather_details
+from radbot.tools.basic import get_current_time
 from radbot.tools.homeassistant import (
     get_ha_client,
     HomeAssistantRESTClient,
@@ -30,8 +30,6 @@ from radbot.tools.shell import execute_shell_command, ALLOWED_COMMANDS, get_shel
 __all__ = [
     # Basic tools
     "get_current_time",
-    "get_weather",
-    "get_weather_details",
 
     # Home Assistant tools
     "get_ha_client",

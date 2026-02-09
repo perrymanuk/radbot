@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from radbot.agent.agent import RadBotAgent, create_agent
 from radbot.config import config_manager
-from radbot.tools.basic import get_current_time, get_weather
+from radbot.tools.basic import get_current_time
 
 # Set up logging
 logging.basicConfig(
@@ -240,7 +240,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
         config_manager = ConfigManager()
         
         # Configure basic tools
-        basic_tools = [get_current_time, get_weather]
+        basic_tools = [get_current_time]
         
         # Add all the direct Home Assistant functions as basic tools
         # This ensures they're available regardless of integration status
