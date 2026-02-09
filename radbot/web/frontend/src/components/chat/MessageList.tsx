@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useAppStore } from "@/stores/app-store";
 import ChatMessage from "./ChatMessage";
@@ -6,21 +6,37 @@ import ChatMessage from "./ChatMessage";
 export default function MessageList() {
   const messages = useAppStore((s) => s.messages);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const scrollerRef = useRef<HTMLElement | null>(null);
   const isAtBottomRef = useRef(true);
 
-  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = useCallback(() => {
+    if (scrollerRef.current) {
+      // Set scrollTop directly on the DOM element — the browser clamps
+      // to (scrollHeight − clientHeight), which is the true bottom
+      // regardless of Virtuoso's internal height estimates.
+      scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
+    }
+  }, []);
+
+  // Scroll to bottom when new messages arrive (if user is at bottom)
   useEffect(() => {
-    if (isAtBottomRef.current && messages.length > 0) {
-      // Small delay to let the DOM render
+    if (messages.length > 0 && isAtBottomRef.current) {
+      // Double-rAF: first lets React commit, second lets Virtuoso
+      // render + measure the new item so scrollHeight is accurate.
       requestAnimationFrame(() => {
-        virtuosoRef.current?.scrollToIndex({
-          index: messages.length - 1,
-          behavior: "smooth",
-          align: "end",
+        requestAnimationFrame(() => {
+          scrollToBottom();
         });
       });
     }
-  }, [messages.length]);
+  }, [messages.length, scrollToBottom]);
+
+  const handleScrollerRef = useCallback(
+    (ref: HTMLElement | Window | null) => {
+      scrollerRef.current = ref as HTMLElement;
+    },
+    [],
+  );
 
   if (messages.length === 0) {
     return (
@@ -36,15 +52,16 @@ export default function MessageList() {
   return (
     <Virtuoso
       ref={virtuosoRef}
+      scrollerRef={handleScrollerRef}
       data={messages}
       className="flex-1 min-h-0"
-      followOutput="smooth"
+      initialTopMostItemIndex={messages.length - 1}
+      atBottomThreshold={150}
       atBottomStateChange={(atBottom) => {
         isAtBottomRef.current = atBottom;
       }}
-      itemContent={(index, msg) => (
-        <ChatMessage key={msg.id ?? index} message={msg} />
-      )}
+      computeItemKey={(_index, msg) => msg.id}
+      itemContent={(_index, msg) => <ChatMessage message={msg} />}
       style={{
         scrollbarWidth: "thin",
         scrollbarColor: "#3584e4 #0e1419",
