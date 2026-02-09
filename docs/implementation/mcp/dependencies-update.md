@@ -54,9 +54,6 @@ By using the official SDK, we'll benefit from community maintenance, standards c
 After installation, run the test scripts to validate the new dependencies:
 
 ```bash
-# Test direct SDK usage
-python tools/test_direct_mcp_sdk.py https://crawl4ai.demonsafe.com/mcp/sse
-
 # Test the updated client
 python tools/test_mcp_standard_client.py
 ```

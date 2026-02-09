@@ -68,56 +68,16 @@ def test_mcp_client(url: str, auth_token: Optional[str] = None, timeout: int = 3
         logger.error(f"Error testing MCP client: {e}")
         return False
 
-def test_crawl4ai_server(auth_token: Optional[str] = None, timeout: int = 30):
-    """
-    Test connection to a Crawl4AI MCP server.
-    
-    Args:
-        auth_token: Optional authentication token
-        timeout: Request timeout in seconds
-    """
-    # First check if we have a Crawl4AI server configured
-    from radbot.config.config_loader import config_loader
-    
-    servers = config_loader.get_enabled_mcp_servers()
-    crawl4ai_server = None
-    
-    for server in servers:
-        server_id = server.get("id", "unknown")
-        if "crawl4ai" in server_id.lower():
-            crawl4ai_server = server
-            break
-    
-    if not crawl4ai_server:
-        logger.warning("No Crawl4AI MCP server found in configuration")
-        return False
-    
-    url = crawl4ai_server.get("url")
-    if not url:
-        logger.warning("Crawl4AI MCP server has no URL in configuration")
-        return False
-    
-    # Use the configured auth token if not provided
-    if not auth_token and crawl4ai_server.get("auth_token"):
-        auth_token = crawl4ai_server.get("auth_token")
-    
-    logger.info(f"Testing connection to Crawl4AI MCP server at {url}")
-    return test_mcp_client(url, auth_token, timeout)
-
 def main():
     """Main function to run the test script."""
     parser = argparse.ArgumentParser(description="Test the MCPSSEClient implementation")
-    parser.add_argument("--url", help="URL of the MCP server")
+    parser.add_argument("--url", help="URL of the MCP server", required=True)
     parser.add_argument("--token", help="Authentication token for the MCP server")
     parser.add_argument("--timeout", type=int, default=30, help="Request timeout in seconds")
-    parser.add_argument("--crawl4ai", action="store_true", help="Test connection to Crawl4AI MCP server from config")
-    
+
     args = parser.parse_args()
-    
-    if args.crawl4ai:
-        # Test connection to Crawl4AI MCP server from config
-        success = test_crawl4ai_server(args.token, args.timeout)
-    elif args.url:
+
+    if args.url:
         # Test connection to specified URL
         success = test_mcp_client(args.url, args.token, args.timeout)
     else:

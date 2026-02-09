@@ -46,19 +46,19 @@ The MCP configuration will reside in the `integrations.mcp` section and support 
 integrations:
   mcp:
     servers:
-      - id: "crawl4ai"           # Unique identifier for this MCP server
-        name: "Crawl4AI Server"  # Human-readable name
+      - id: "example-mcp"         # Unique identifier for this MCP server
+        name: "Example Server"   # Human-readable name
         enabled: true            # Whether this server is active
         transport: "sse"         # Transport protocol (sse, websocket, etc.)
         url: "http://localhost:11235/mcp/sse"  # Server endpoint URL
-        auth_token: "${CRAWL4AI_TOKEN}"        # Optional authentication token (from env var)
-        
-      - id: "firecrawl"          # Another MCP server configuration
-        name: "FireCrawl Server"
+        auth_token: "${MCP_TOKEN}"             # Optional authentication token (from env var)
+
+      - id: "another-mcp"        # Another MCP server configuration
+        name: "Another Server"
         enabled: false           # This server is disabled
-        transport: "sse" 
+        transport: "sse"
         url: "http://localhost:11236/mcp/sse"
-        auth_token: "${FIRECRAWL_TOKEN}"
+        auth_token: "${ANOTHER_TOKEN}"
 ```
 
 ### Environment Variable Interpolation
@@ -209,8 +209,8 @@ integrations:
     
   mcp:
     servers:
-      - id: "crawl4ai"
-        name: "Crawl4AI Server"
+      - id: "example-mcp"
+        name: "Example MCP Server"
         enabled: true
         transport: "sse"
         url: "http://localhost:11235/mcp/sse"
@@ -253,7 +253,7 @@ The YAML configuration system has been fully implemented and integrated into the
 4. **Migration Script**: Created in `tools/migrate_env_to_yaml.py`
 5. **MCP Client Factory**: Implemented in `radbot/tools/mcp/mcp_client_factory.py`
 6. **MCP Tools Integration**: Updated in `radbot/tools/mcp/mcp_tools.py`
-7. **Crawl4AI Integration**: Updated to use the new configuration system
+7. **MCP Integrations**: Updated to use the new configuration system
 
 ### Implementation Details
 

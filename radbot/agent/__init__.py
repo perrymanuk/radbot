@@ -28,10 +28,6 @@ from radbot.agent.agent import (
     create_runner
 )
 from radbot.agent.memory_agent_factory import create_memory_enabled_agent
-from radbot.agent.web_search_agent_factory import (
-    create_websearch_agent,
-    create_websearch_enabled_root_agent
-)
 from radbot.agent.home_assistant_agent_factory import create_home_assistant_agent_factory
 from radbot.agent.shell_agent_factory import (
     create_shell_agent,
@@ -70,8 +66,6 @@ __all__ = [
     'create_agent',
     'create_runner',
     'create_memory_enabled_agent',
-    'create_websearch_agent',
-    'create_websearch_enabled_root_agent',
     'create_home_assistant_agent_factory',
     'create_shell_agent',
     'create_shell_enabled_root_agent',

@@ -195,7 +195,6 @@ The agent framework supports multiple tool types:
 
 4. **Research Tools**
    - Web search tools - Search the internet for information
-   - Crawl4AI tools - Extract and process web content
 
 5. **Task Management Tools**
    - Todo tools - Manage tasks and projects

@@ -16,15 +16,6 @@ integrations:
         # Optional auth token if required
         # auth_token: "your_auth_token_here"
         
-      # tavily-mcp via proxy
-      - id: tavily-proxy
-        enabled: true
-        transport: sse
-        url: https://mcp-proxy.demonsafe.com/tavily-mcp/sse
-        description: "Tavily search and research tools"
-        # Optional auth token if required
-        # auth_token: "your_auth_token_here"
-        
       # context7 via proxy
       - id: context7-proxy
         enabled: true

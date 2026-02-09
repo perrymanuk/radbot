@@ -126,13 +126,6 @@ class MCPSSEClient:
             logger.info("Client already initialized")
             return True
             
-        # Handle special case for Crawl4AI
-        if "crawl4ai" in self.url.lower():
-            success = self._initialize_crawl4ai()
-            if success:
-                self.initialized = True
-                return True
-                
         # Use asyncio to run the async initialization
         try:
             if asyncio.get_event_loop().is_running():
@@ -158,9 +151,7 @@ class MCPSSEClient:
                 logger.info("Attempting direct HTTP initialization")
                 init_success = self._send_initialization_request()
                 if init_success:
-                    # Create default tools
                     logger.info("Direct HTTP initialization succeeded")
-                    self._create_crawl4ai_tools()
                     self.initialized = True
                     return True
             
@@ -245,233 +236,6 @@ class MCPSSEClient:
                     
             return False
             
-    def _initialize_crawl4ai(self) -> bool:
-        """
-        Special initialization for Crawl4AI servers.
-        
-        Crawl4AI servers have specific patterns and tool formats that
-        need special handling. This method establishes a persistent SSE connection
-        and sets up event handling.
-        
-        Returns:
-            True if initialization was successful, False otherwise
-        """
-        try:
-            logger.info("Initializing Crawl4AI client")
-            
-            # First, establish an SSE connection and keep it open
-            # This is critical for Crawl4AI to properly handle responses
-            base_url = "https://crawl4ai.demonsafe.com"
-            sse_url = f"{base_url}/mcp/sse"
-            
-            # Set up headers for SSE connection
-            sse_headers = {
-                "Accept": "text/event-stream",
-                "Cache-Control": "no-cache"
-            }
-            
-            # Add any auth headers if needed
-            if self.auth_token:
-                sse_headers["Authorization"] = f"Bearer {self.auth_token}"
-                
-            import requests
-            import threading
-            import json
-            import time
-            from collections import deque
-            
-            # Store responses for each request ID
-            self._response_store = {}
-            self._response_events = {}
-            self._response_lock = threading.Lock()
-            self._sse_active = True
-            self._event_queue = deque(maxlen=100)  # Store last 100 events
-            
-            # Create a new session for SSE
-            self._sse_session = requests.Session()
-            
-            # Function to process SSE events in a background thread
-            def sse_event_handler():
-                try:
-                    logger.info(f"Starting SSE event handler thread for {sse_url}")
-                    sse_response = self._sse_session.get(
-                        sse_url,
-                        headers=sse_headers,
-                        stream=True,
-                        timeout=60
-                    )
-                    
-                    if sse_response.status_code != 200:
-                        logger.error(f"Failed to connect to SSE endpoint: {sse_response.status_code}")
-                        return
-                        
-                    logger.info("SSE connection established, listening for events...")
-                    
-                    # Variables for parsing SSE events
-                    current_event_type = None
-                    current_data = []
-                    message_endpoint = None
-                    session_id = None
-                    
-                    # Process events line by line
-                    for line in sse_response.iter_lines(decode_unicode=True):
-                        if not self._sse_active:
-                            logger.info("SSE connection closing as requested")
-                            break
-                            
-                        if not line:
-                            # Empty line means end of event, process it
-                            if current_event_type and current_data:
-                                event_data = "\n".join(current_data)
-                                
-                                # Store event for debugging/analysis
-                                with self._response_lock:
-                                    self._event_queue.append({
-                                        "type": current_event_type,
-                                        "data": event_data
-                                    })
-                                
-                                logger.debug(f"SSE event: {current_event_type}, data: {event_data[:100]}...")
-                                
-                                # Handle different event types
-                                if current_event_type == "endpoint":
-                                    # Extract message endpoint
-                                    try:
-                                        endpoint_path = event_data.strip()
-                                        message_endpoint = f"{base_url}{endpoint_path}"
-                                        
-                                        # Extract session ID if present
-                                        if "session_id=" in message_endpoint:
-                                            session_id = message_endpoint.split("session_id=")[1].split("&")[0]
-                                            logger.info(f"Extracted session ID: {session_id}")
-                                            
-                                            # Set them in the client instance
-                                            with self._response_lock:
-                                                self.session_id = session_id
-                                                self.message_endpoint = message_endpoint
-                                                
-                                            logger.info(f"Set message endpoint: {message_endpoint}")
-                                    except Exception as e:
-                                        logger.error(f"Error parsing endpoint event: {e}")
-                                        
-                                elif current_event_type == "result":
-                                    # This is a tool response
-                                    try:
-                                        result_data = json.loads(event_data)
-                                        
-                                        # Check if this is a response to a specific request
-                                        if "id" in result_data:
-                                            request_id = result_data["id"]
-                                            
-                                            # Store the result for the request
-                                            with self._response_lock:
-                                                self._response_store[request_id] = result_data
-                                                
-                                                # Signal any waiting threads
-                                                if request_id in self._response_events:
-                                                    self._response_events[request_id].set()
-                                                    
-                                            logger.info(f"Stored result for request {request_id}")
-                                    except json.JSONDecodeError:
-                                        logger.warning(f"Failed to parse result event as JSON: {event_data[:100]}...")
-                                    except Exception as e:
-                                        logger.error(f"Error handling result event: {e}")
-                                        
-                                # Reset for next event
-                                current_event_type = None
-                                current_data = []
-                                
-                        elif line.startswith("event:"):
-                            # Start of new event
-                            current_event_type = line[6:].strip()
-                            current_data = []
-                        elif line.startswith("data:"):
-                            # Event data
-                            data_content = line[5:].strip()
-                            current_data.append(data_content)
-                            
-                            # Direct data line might contain session info
-                            if not session_id and not message_endpoint:
-                                try:
-                                    # Check if it contains a session ID path
-                                    if "/session_id=" in data_content or "session_id=" in data_content:
-                                        logger.info(f"Found direct data with session ID: {data_content}")
-                                        
-                                        # Determine if it's a full URL or just a path
-                                        if data_content.startswith("http"):
-                                            message_endpoint = data_content
-                                        else:
-                                            message_endpoint = f"{base_url}{data_content}"
-                                        
-                                        # Extract session ID
-                                        if "session_id=" in message_endpoint:
-                                            session_id = message_endpoint.split("session_id=")[1].split("&")[0]
-                                            logger.info(f"Extracted session ID from data: {session_id}")
-                                            
-                                            # Set them in the client instance
-                                            with self._response_lock:
-                                                self.session_id = session_id
-                                                self.message_endpoint = message_endpoint
-                                                
-                                            logger.info(f"Set message endpoint from data: {message_endpoint}")
-                                except Exception as e:
-                                    logger.error(f"Error parsing data content: {e}")
-                                    
-                    logger.info("SSE event stream ended")
-                    
-                    # Clean up
-                    sse_response.close()
-                    
-                except Exception as e:
-                    logger.error(f"Error in SSE event handler: {e}")
-                finally:
-                    # Make sure we mark the connection as inactive
-                    self._sse_active = False
-                    logger.info("SSE event handler thread exiting")
-            
-            # Start the SSE event handler in a background thread
-            self._sse_thread = threading.Thread(target=sse_event_handler, daemon=True)
-            self._sse_thread.start()
-            
-            # Wait for session ID and message endpoint to be set by the event handler
-            # This is necessary before we can send requests
-            start_time = time.time()
-            max_wait = 15  # seconds
-            while time.time() - start_time < max_wait:
-                if self.session_id and self.message_endpoint:
-                    logger.info("Session ID and message endpoint received")
-                    break
-                time.sleep(0.1)
-                
-            # Check if we got the session ID and message endpoint
-            if not self.session_id or not self.message_endpoint:
-                logger.warning(f"Timed out waiting for session ID and message endpoint")
-                # Generate fallbacks
-                self.session_id = self.session_id or str(uuid.uuid4())
-                self.message_endpoint = self.message_endpoint or f"{base_url}/mcp/messages/?session_id={self.session_id}"
-                logger.info(f"Using fallback session ID: {self.session_id}")
-                logger.info(f"Using fallback message endpoint: {self.message_endpoint}")
-            
-            # Apply initialization delay if configured
-            if self.initialization_delay:
-                delay_seconds = self.initialization_delay / 1000.0
-                logger.info(f"Waiting {delay_seconds}s before continuing (initialization delay)")
-                time.sleep(delay_seconds)
-            
-            # Send initialization request to establish the session properly
-            # This is crucial for MCP protocol compliance
-            init_success = self._send_initialization_request()
-            logger.info(f"Initialization request {'succeeded' if init_success else 'failed'}")
-            
-            # Create the Crawl4AI tools
-            self._create_crawl4ai_tools()
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error initializing Crawl4AI client: {e}")
-            return False
-    
     def _send_initialization_request(self) -> bool:
         """
         Send a proper initialization request to the server.
@@ -557,150 +321,6 @@ class MCPSSEClient:
             logger.error(f"Error sending initialization request: {e}")
             return False
     
-    def _create_crawl4ai_tools(self) -> None:
-        """
-        Create common tools for Crawl4AI servers.
-        
-        This method creates a set of standard tools for Crawl4AI servers
-        based on typical functionality.
-        """
-        from google.adk.tools import FunctionTool
-        
-        # Define standard Crawl4AI tools
-        tool_defs = [
-            {
-                "name": "md",
-                "description": "Fetch a URL and return markdown content",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "URL to process"
-                        },
-                        "f": {
-                            "type": "string",
-                            "description": "Optional filter parameter",
-                            "enum": ["fit", "raw"]
-                        }
-                    },
-                    "required": ["url"]
-                }
-            },
-            {
-                "name": "html",
-                "description": "Fetch a URL and return HTML content",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "URL to process"
-                        }
-                    },
-                    "required": ["url"]
-                }
-            },
-            {
-                "name": "screenshot",
-                "description": "Take a screenshot of a URL",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "URL to screenshot"
-                        }
-                    },
-                    "required": ["url"]
-                }
-            },
-            {
-                "name": "crawl",
-                "description": "Crawl a website and extract content",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "url": {
-                            "type": "string",
-                            "description": "URL to crawl"
-                        },
-                        "depth": {
-                            "type": "integer",
-                            "description": "Crawl depth"
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of pages to crawl"
-                        }
-                    },
-                    "required": ["url"]
-                }
-            },
-            {
-                "name": "search",
-                "description": "Search for information",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search query"
-                        }
-                    },
-                    "required": ["query"]
-                }
-            }
-        ]
-        
-        # Create the tools
-        for tool_def in tool_defs:
-            tool_name = tool_def["name"]
-            tool_schema = tool_def["schema"]
-            
-            # Create the function that will call the MCP server
-            def create_tool_function(name):
-                def tool_function(**kwargs):
-                    return self._call_tool(name, kwargs)
-                tool_function.__name__ = name
-                return tool_function
-                
-            function = create_tool_function(tool_name)
-            
-            try:
-                # Try different approaches to create FunctionTool based on ADK version
-                try:
-                    # Check what parameters FunctionTool accepts
-                    import inspect
-                    sig = inspect.signature(FunctionTool.__init__)
-                    params = sig.parameters
-                    
-                    if "function_schema" in params:
-                        # ADK 0.4.0+
-                        tool = FunctionTool(
-                            function=function,
-                            function_schema=tool_def
-                        )
-                    elif "schema" in params:
-                        # Older ADK
-                        tool = FunctionTool(function, schema=tool_def)
-                    else:
-                        # Very old ADK or different implementation
-                        tool = FunctionTool(function)
-                        
-                    self.tools.append(tool)
-                    logger.info(f"Created Crawl4AI tool: {tool_name}")
-                except Exception as e:
-                    # Last resort - just create function tool without schema
-                    try:
-                        tool = FunctionTool(function)
-                        self.tools.append(tool)
-                        logger.info(f"Created Crawl4AI tool (simple): {tool_name}")
-                    except Exception as inner_e:
-                        logger.error(f"Error creating Crawl4AI tool {tool_name}: {inner_e}")
-            except Exception as e:
-                logger.error(f"Error creating Crawl4AI tool {tool_name}: {e}")
-                
     def _process_tools(self, tools_info: Any) -> None:
         """
         Process tool information from the MCP server.
@@ -951,10 +571,6 @@ class MCPSSEClient:
         """
         Call a tool on the MCP server via direct HTTP request.
         
-        For asynchronous tools (like Crawl4AI tools), this method will:
-        1. Send the request via HTTP
-        2. Wait for a response from the SSE stream if the call returns 202 Accepted
-        
         Args:
             tool_name: The name of the tool to call
             args: The arguments to pass to the tool
@@ -963,35 +579,14 @@ class MCPSSEClient:
             The result of the tool call
         """
         import requests
-        import threading
-        import time
-        
+
         try:
-            # For Crawl4AI, we need to ensure the session_id is in the URL
             endpoint_url = self.message_endpoint
-            
-            # Special handling for Crawl4AI
-            if "crawl4ai" in self.url.lower():
-                # For Crawl4AI, we need to use the messages endpoint, not SSE
-                if '/sse' in endpoint_url:
-                    endpoint_url = endpoint_url.replace('/sse', '/messages')
-                    
-                # If endpoint doesn't already have session_id and we have one
-                if 'session_id=' not in endpoint_url and self.session_id:
-                    separator = '?' if '?' not in endpoint_url else '&'
-                    endpoint_url = f"{endpoint_url}{separator}session_id={self.session_id}"
-                
-                # For Crawl4AI, we need a specific base URL structure
-                if not endpoint_url.endswith("/messages") and not "/messages/" in endpoint_url:
-                    if endpoint_url.endswith("/"):
-                        endpoint_url = f"{endpoint_url}messages/?session_id={self.session_id}"
-                    else:
-                        endpoint_url = f"{endpoint_url}/messages/?session_id={self.session_id}"
-            else:
-                # Standard MCP URL handling for non-Crawl4AI servers
-                if 'session_id' not in endpoint_url and self.session_id:
-                    separator = '?' if '?' not in endpoint_url else '&'
-                    endpoint_url = f"{endpoint_url}{separator}session_id={self.session_id}"
+
+            # Add session_id to endpoint URL if not already present
+            if 'session_id' not in endpoint_url and self.session_id:
+                separator = '?' if '?' not in endpoint_url else '&'
+                endpoint_url = f"{endpoint_url}{separator}session_id={self.session_id}"
                 
             logger.info(f"Calling tool {tool_name} via HTTP to {endpoint_url}")
             
@@ -1009,27 +604,10 @@ class MCPSSEClient:
                 "id": request_id
             }
             
-            # For Crawl4AI, also include session_id in multiple places (belt and suspenders approach)
-            if "crawl4ai" in self.url.lower() and self.session_id:
-                # Add session ID to params
-                request_data["params"]["session_id"] = self.session_id
-            
             # Set up headers for this call
             headers = {**self.headers}
             headers["Content-Type"] = "application/json"
-            
-            # For Crawl4AI, set up an event to wait for the SSE response
-            waiting_for_sse_response = False
-            sse_response_event = None
-            
-            if "crawl4ai" in self.url.lower() and hasattr(self, '_sse_active') and self._sse_active:
-                # Create an event for this request
-                sse_response_event = threading.Event()
-                with self._response_lock:
-                    self._response_events[request_id] = sse_response_event
-                waiting_for_sse_response = True
-                logger.info(f"Set up SSE response event for request {request_id}")
-            
+
             # Make the request
             response = requests.post(
                 endpoint_url,
@@ -1073,43 +651,9 @@ class MCPSSEClient:
                                 "message": "Response was not JSON format"
                             }
                     
-                    # For 202 Accepted, we may need to wait for the SSE response
+                    # For 202 Accepted, return basic accepted response
                     if response.status_code == 202:
                         logger.info(f"Tool {tool_name} call accepted (202)")
-                        
-                        # If we're waiting for an SSE response from Crawl4AI
-                        if waiting_for_sse_response and sse_response_event:
-                            # Wait for the result to come through the SSE stream
-                            logger.info(f"Waiting for SSE response for request {request_id}")
-                            
-                            # Wait up to 30 seconds for a response
-                            max_wait = 30
-                            sse_response_event.wait(timeout=max_wait)
-                            
-                            # Check if we got a response
-                            with self._response_lock:
-                                if request_id in self._response_store:
-                                    result = self._response_store[request_id]
-                                    logger.info(f"Received SSE response for request {request_id}")
-                                    
-                                    # Clean up
-                                    del self._response_store[request_id]
-                                    del self._response_events[request_id]
-                                    
-                                    # Process the result
-                                    if "result" in result:
-                                        return result.get("result")
-                                    elif "output" in result:
-                                        return result.get("output")
-                                    else:
-                                        return result
-                                else:
-                                    logger.warning(f"No SSE response received for request {request_id} after {max_wait}s")
-                                    # Clean up
-                                    if request_id in self._response_events:
-                                        del self._response_events[request_id]
-                        
-                        # If no SSE response or we didn't get one in time, return basic accepted response
                         if response.text.strip():
                             try:
                                 # Try to parse as JSON
@@ -1262,24 +806,6 @@ class MCPSSEClient:
         """
         Clean up resources when the client is deleted.
         """
-        # First, clean up any Crawl4AI SSE connections
-        if hasattr(self, '_sse_active') and self._sse_active:
-            try:
-                logger.info("Closing SSE connection")
-                self._sse_active = False
-                
-                # Close the session if it exists
-                if hasattr(self, '_sse_session'):
-                    self._sse_session.close()
-                    
-                # Wait a little for the SSE thread to finish if it's running
-                if hasattr(self, '_sse_thread') and self._sse_thread.is_alive():
-                    self._sse_thread.join(timeout=1.0)
-                    
-                logger.info("SSE connection closed")
-            except Exception as e:
-                logger.warning(f"Error closing SSE connection: {e}")
-        
         # Close any open async sessions/contexts
         if self.session and self._session_context:
             # We need to close the session in the event loop

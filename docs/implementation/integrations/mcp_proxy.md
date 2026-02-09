@@ -79,11 +79,7 @@ The proxy provides access to the following services and their respective tools:
    - `firecrawl_search`: Search and retrieve content from web pages
    - And other tools for web content extraction
 
-2. **Tavily** (`tavily-mcp`):
-   - `tavily-search`: Perform web searches with advanced filtering
-   - `tavily-extract`: Extract content from specified URLs
-
-3. **Context7** (`context7`):
+2. **Context7** (`context7`):
    - `resolve-library-id`: Resolve package names to library IDs
    - `get-library-docs`: Fetch documentation for libraries
 

@@ -144,18 +144,6 @@ class MCPClientFactory:
                 if server_config.get("headers"):
                     client_args["headers"] = server_config.get("headers")
                     
-                # Special handling for Crawl4AI - use our async client if this is Crawl4AI
-                if "crawl4ai" in server_id.lower() or "crawl4ai" in url.lower():
-                    try:
-                        from radbot.tools.mcp.async_crawl4ai_client import AsyncCrawl4AIClient
-                        client_class = AsyncCrawl4AIClient
-                        logger.info(f"Using AsyncCrawl4AIClient for server: {server_id}")
-
-                        # Flag to indicate this is an async client that needs special handling
-                        client_args["is_async_client"] = True
-                    except ImportError:
-                        logger.warning(f"AsyncCrawl4AIClient not available, falling back to standard client for {server_id}")
-                
             elif transport == "websocket":
                 # WebSocket transport requires a different client
                 url = server_config.get("url")

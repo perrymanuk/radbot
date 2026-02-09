@@ -37,28 +37,27 @@ cache:
   ttl: 3600
   
 api_keys:
-  tavily: "your-tavily-api-key"
   google: "${GOOGLE_API_KEY}"
-  
+
 integrations:
   home_assistant:
     enabled: true
     url: "http://192.168.1.100:8123"
     token: "${HA_TOKEN}"
-    
+
   calendar:
     enabled: true
     service_account_file: "radbot/tools/calendar/credentials/service-account.json"
     calendar_id: "your-calendar-id@gmail.com"
-    
+
   mcp:
     servers:
-      - id: "crawl4ai"
-        name: "Crawl4AI Server"
+      - id: "example-mcp"
+        name: "Example MCP Server"
         enabled: true
         transport: "sse"
-        url: "https://crawl4ai.example.com/mcp/sse"
-        auth_token: "${CRAWL4AI_TOKEN}"
+        url: "https://example.com/mcp/sse"
+        auth_token: "${MCP_TOKEN}"
 ```
 
 ## Environment Variable Interpolation
@@ -105,19 +104,19 @@ Multiple MCP servers can be configured in the `integrations.mcp.servers` section
 integrations:
   mcp:
     servers:
-      - id: "crawl4ai"
-        name: "Crawl4AI Server"
+      - id: "example-mcp"
+        name: "Example MCP Server"
         enabled: true
         transport: "sse"
-        url: "https://crawl4ai.example.com/mcp/sse"
-        auth_token: "${CRAWL4AI_TOKEN}"
-        
-      - id: "firecrawl"
-        name: "FireCrawl Server"
+        url: "https://example.com/mcp/sse"
+        auth_token: "${MCP_TOKEN}"
+
+      - id: "another-mcp"
+        name: "Another MCP Server"
         enabled: false  # Disabled server
         transport: "sse"
-        url: "https://firecrawl.example.com/mcp/sse"
-        auth_token: "${FIRECRAWL_TOKEN}"
+        url: "https://another.example.com/mcp/sse"
+        auth_token: "${ANOTHER_TOKEN}"
 ```
 
 ## Testing Your Configuration

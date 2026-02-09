@@ -4,7 +4,7 @@
 Identify and remove unused files and functions within the `/Users/perry.manuk/git/perrymanuk/radbot` codebase.
 
 ## Status
-In Progress - Examining `tools` directory for internal dead code. Completed check of `tools/tavily_search_util.py` (no internal dead code found). **Confirmed `tools/mcp_fileserver_client.py` is likely dead code.**
+In Progress - Examining `tools` directory for internal dead code. **Confirmed `tools/mcp_fileserver_client.py` is likely dead code.**
 
 ## Approach
 Due to technical issues running automated tools directly, we will examine the codebase directory by directory, listing contents and reviewing suspicious files. Findings will be logged below.
@@ -50,7 +50,6 @@ Due to technical issues running automated tools directly, we will examine the co
 - [x] Examine `radbot/filesystem/integration.py` (no internal dead code found)
 - [x] Examine `tools/create_calendar_token.py` (no internal dead code found)
 - [x] Examine `tools/save_calendar_token.py` (no internal dead code found)
-- [x] Examine `tools/tavily_search_util.py` (no internal dead code found)
 - [ ] Examine `tools/mcp_fileserver_server.py` for internal dead code.
 - [ ] Examine remaining non-test `.py` files in `tools` for internal dead code.
 - [ ] Examine `.sh` scripts in `tools`
@@ -136,16 +135,13 @@ Standalone utility script. All internal functions/methods appear used within the
 ----- QUICK FINDINGS FOR `tools/save_calendar_token.py` ---
 Standalone utility script for saving calendar tokens. All internal functions/methods appear used within the script. No obvious internal dead code found.
 
------ QUICK FINDINGS FOR `tools/tavily_search_util.py` ---
-Standalone utility script for Tavily search. All internal functions/methods appear used within the script. No obvious internal dead code found.
-
 ---
 
 ## Examination Notes
 
 ### Initial Scan (Top-Level)
 Found directories: `tools`, `.pytest_cache`, `task-api`, `tests`, `.claude`, `__pycache__`, `docs`, `img`, `radbot`, `.git`, `examples`, `.venv`, `scripts`
-Found files: `adk.config.json`, `pytest.ini`, `Makefile`, `pyproject.toml`, `.env.bak`, `README.md`, `TASKS.md`, `test_filesystem.py`, `.gitignore`, `.env`, `.env.new`, `.env.example`, `ui.md`, `CLAUDE.md`, `code_eval.md`
+Found files: `adk.config.json`, `pytest.ini`, `Makefile`, `pyproject.toml`, `.env.bak`, `README.md`, `TASKS.md`, `.gitignore`, `.env`, `.env.new`, `.env.example`, `ui.md`, `CLAUDE.md`, `code_eval.md`
 
 Excluding cache, git, and documentation directories/files. Focusing investigation on `radbot`, `tools`, `task-api`, `examples`, and `scripts`.
 
@@ -189,5 +185,4 @@ Moving to manual review of remaining non-test `.py` files in the root `tools` di
 
 Examined `tools/create_calendar_token.py` (no internal dead code found).
 Examined `tools/save_calendar_token.py` (no internal dead code found).
-Examined `tools/tavily_search_util.py` (no internal dead code found).
 Examining `tools/mcp_fileserver_server.py`.

@@ -326,10 +326,6 @@
       "additionalProperties": false,
       "description": "API tokens for various services",
       "properties": {
-        "tavily": {
-          "type": ["string", "null"],
-          "description": "API key for Tavily web search service"
-        },
         "google": {
           "type": ["string", "null"],
           "description": "API key for Google APIs"
@@ -530,32 +526,6 @@
             "api_key": {
               "type": ["string", "null"],
               "description": "Overseerr API key"
-            }
-          }
-        },
-        "crawl4ai": {
-          "type": "object",
-          "additionalProperties": false,
-          "description": "Crawl4AI integration settings",
-          "properties": {
-            "enabled": {
-              "type": "boolean",
-              "description": "Enable/disable Crawl4AI integration",
-              "default": false
-            },
-            "api_url": {
-              "type": "string",
-              "description": "Crawl4AI API URL",
-              "default": "http://localhost:11235"
-            },
-            "api_token": {
-              "type": ["string", "null"],
-              "description": "Crawl4AI API token"
-            },
-            "collection": {
-              "type": "string",
-              "description": "Collection name for Crawl4AI vector storage",
-              "default": "crawl4ai_docs"
             }
           }
         },

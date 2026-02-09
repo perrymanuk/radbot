@@ -32,9 +32,7 @@ from radbot.agent.agent_initializer import (
     get_weather,
     search_past_conversations,
     store_important_information,
-    create_tavily_search_tool,
     create_fileserver_toolset,
-    create_crawl4ai_toolset,
     get_shell_tool,
     ALL_TOOLS,
     init_database,
@@ -165,20 +163,6 @@ tools.extend([
     call_scout_agent
 ])
 
-# Add Tavily web search tool
-try:
-    web_search_tool = create_tavily_search_tool(
-        max_results=3,
-        search_depth="advanced",
-        include_answer=True,
-        include_raw_content=True
-    )
-    if web_search_tool:
-        tools.append(web_search_tool)
-        logger.info("Added web_search tool")
-except Exception as e:
-    logger.warning(f"Failed to create Tavily search tool: {e}")
-
 # Add basic tools
 tools.extend([
     get_current_time,
@@ -225,15 +209,6 @@ try:
         logger.info(f"Added {len(fs_tools)} filesystem tools")
 except Exception as e:
     logger.warning(f"Failed to create filesystem tools: {e}")
-
-# For Crawl4AI, we'll use the compatibility stub which will output deprecation warnings
-try:
-    # This function now returns [] but logs a deprecation warning
-    crawl4ai_tools = create_crawl4ai_toolset()
-    # No need to extend tools since the stub returns empty list
-    logger.info("Crawl4AI direct integration is deprecated - use MCP server instead")
-except Exception as e:
-    logger.warning(f"Failed to create Crawl4AI tools: {e}")
 
 # Add dynamic MCP tools from all enabled servers
 try:

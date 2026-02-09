@@ -2,8 +2,8 @@
 """
 Test script for validating the standard MCP client implementation.
 
-This script tests the MCP client with Crawl4AI and Home Assistant
-servers to validate proper implementation and compatibility.
+This script tests the MCP client with MCP servers to validate proper
+implementation and compatibility.
 
 Usage:
     python test_mcp_standard_client.py [--server-id SERVER_ID] [--debug]
@@ -112,52 +112,6 @@ async def test_server(server_id: str) -> bool:
                     logger.warning("No tools discovered by discover_tools()")
             except Exception as e:
                 logger.error(f"Error discovering tools: {e}")
-                
-        # Test crawl4ai specific tool if applicable
-        if 'crawl4ai' in server_id.lower() or 'crawl4ai' in server_config.get('url', '').lower():
-            logger.info("Testing Crawl4AI specific functionality")
-            
-            # Select a tool to test based on available tools
-            test_tool_name = None
-            test_args = {"url": "https://example.com"}
-            
-            # Look for known Crawl4AI tool names
-            crawl4ai_tool_candidates = ['md', 'crawl', 'html', 'screenshot', 'crawl4ai_scrape', 'scrape']
-            for candidate in crawl4ai_tool_candidates:
-                if candidate in tool_names:
-                    test_tool_name = candidate
-                    break
-                    
-            if test_tool_name:
-                logger.info(f"Testing Crawl4AI tool: {test_tool_name} with args: {test_args}")
-                try:
-                    # Find the tool object
-                    tool_obj = next((t for t in tools if hasattr(t, 'name') and t.name == test_tool_name), None)
-                    
-                    if tool_obj:
-                        # Try to call the tool
-                        if hasattr(tool_obj, '__call__'):
-                            logger.info(f"Calling tool directly: {test_tool_name}")
-                            result = await tool_obj(**test_args)
-                            logger.info(f"Tool call result: {result}")
-                            return True
-                        else:
-                            logger.warning(f"Tool {test_tool_name} is not callable")
-                    else:
-                        logger.warning(f"Tool {test_tool_name} not found in tools list")
-                        
-                    # Try to call via client's _call_tool method if available
-                    if hasattr(client, '_call_tool') and callable(client._call_tool):
-                        logger.info(f"Calling via client._call_tool: {test_tool_name}")
-                        result = client._call_tool(test_tool_name, test_args)
-                        logger.info(f"Tool call result: {result}")
-                        return True
-                        
-                except Exception as e:
-                    logger.error(f"Error calling tool {test_tool_name}: {e}")
-                    return False
-            else:
-                logger.warning("No suitable Crawl4AI tool found for testing")
                 
         # If we get here without errors, return success
         return True

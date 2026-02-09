@@ -26,7 +26,7 @@ The new implementation uses a multi-level approach to connecting to MCP servers 
 
 3. **Limited SSE Connection**: If the direct endpoint fails, try a limited SSE connection that only reads enough events to get server info, with a strict timeout and limits on how many lines to read.
 
-4. **Fallback Dummy Tools**: If all else fails, create dummy tools based on the server URL pattern (e.g., creating standard Crawl4AI tools for servers with "crawl4ai" in the URL).
+4. **Fallback Dummy Tools**: If all else fails, create dummy tools based on the server URL pattern.
 
 ### Key Implementation Features
 
@@ -101,24 +101,6 @@ handle various response formats (JSON-RPC, direct output, etc.)
 ```
 
 This approach provides resilience against different server implementations and temporary failures.
-
-#### Server Type Detection
-
-The client includes smart detection of server types based on URL patterns:
-
-```python
-# Check for Crawl4AI in any part of the URL
-if "crawl4ai" in self.url.lower():
-    server_type = "crawl4ai"
-# Check for specific MCP path patterns that indicate Crawl4AI
-elif "/mcp/sse" in self.url.lower() and any(x in self.url.lower() for x in ["firecrawl", "crawl", "search"]):
-    server_type = "crawl4ai"
-# Check for Home Assistant
-elif any(x in self.url.lower() for x in ["homeassistant", "home-assistant", "home_assistant"]):
-    server_type = "home_assistant"
-```
-
-This allows the client to create appropriate dummy tools even when the server URL doesn't contain explicit service names.
 
 ## Integration Points
 

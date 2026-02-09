@@ -7,12 +7,6 @@ and information extraction from online sources.
 import logging
 from typing import List, Any, Optional
 
-# Import web search tools
-try:
-    from radbot.tools.web_search.web_search_tools import create_tavily_search_tool
-except ImportError:
-    create_tavily_search_tool = None
-
 # Import base toolset for registration
 from .base_toolset import register_toolset
 
@@ -25,16 +19,6 @@ def create_web_research_toolset() -> List[Any]:
         List of tools for web search and information retrieval
     """
     toolset = []
-
-    # Add basic web search tool
-    if create_tavily_search_tool:
-        try:
-            search_tool = create_tavily_search_tool()
-            if search_tool:
-                toolset.append(search_tool)
-                logger.info("Added web_search to web research toolset")
-        except Exception as e:
-            logger.error(f"Failed to add web_search: {e}")
 
     return toolset
 

@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 # Proxy endpoint IDs to test
 PROXY_ENDPOINTS = [
     "firecrawl-proxy",
-    "tavily-proxy",
     "context7-proxy",
     "webresearch-proxy",
     "nomad-proxy"  # May be optional depending on configuration

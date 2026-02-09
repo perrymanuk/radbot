@@ -158,4 +158,3 @@ For a more comprehensive fix, the chat persistence system should be refactored t
 1. `/radbot/web/static/js/chat_persistence.js` - Added sync tracking and duplicate prevention
 2. `/radbot/web/static/js/app_main.js` - Reduced sync frequency and added sync limits
 3. `/radbot/web/api/session.py` - Added message history truncation and dynamic context sizing
-4. `/radbot/tools/mcp/async_crawl4ai_client.py` - Fixed syntax error causing high token usage for crawl4ai connections

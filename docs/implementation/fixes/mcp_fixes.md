@@ -11,7 +11,6 @@ The RadBot framework uses the Model Context Protocol (MCP) to integrate with var
 
 1. **MCP Fileserver** - For filesystem operations
 2. **Home Assistant** - For smart home control
-3. **Crawl4AI** - For web content extraction and search
 
 Several issues were encountered and fixed during the implementation and evolution of these integrations, particularly related to:
 
@@ -194,7 +193,6 @@ Several issues were encountered and fixed during the implementation and evolutio
        
        # Try to get Home Assistant tools
        # Try to get FileServer tools
-       # Try to get Crawl4AI tools
        
        return tools
    
@@ -224,15 +222,12 @@ Updated each `__init__.py` file to properly import and re-export all public symb
 ```python
 # radbot/tools/mcp/__init__.py
 from radbot.tools.mcp.mcp_fileserver_client import create_fileserver_toolset, test_fileserver_connection
-from radbot.tools.mcp.mcp_crawl4ai_client import create_crawl4ai_toolset, test_crawl4ai_connection
 from radbot.tools.mcp.mcp_tools import get_available_mcp_tools
 from radbot.tools.mcp.mcp_utils import convert_to_adk_tool
 
 __all__ = [
     'create_fileserver_toolset',
     'test_fileserver_connection',
-    'create_crawl4ai_toolset',
-    'test_crawl4ai_connection',
     'get_available_mcp_tools',
     'convert_to_adk_tool',
 ]
@@ -270,47 +265,6 @@ Modules were trying to use relative imports like `from ...tools import X` but th
    
    # After
    from radbot.tools.memory.memory_tools import search_past_conversations
-   ```
-
-## MCP Crawl4AI Fix
-
-### Issue
-
-The Crawl4AI integration was failing with errors:
-
-```
-AttributeError: module 'crawl4ai' has no attribute 'extract_urls'
-```
-
-### Root Cause
-
-1. **API Changes**: The Crawl4AI library had changed its API between versions
-2. **Missing Dependencies**: The required version of Crawl4AI was not properly specified
-
-### Solution
-
-1. **Updated API Calls**:
-   ```python
-   # Before
-   urls = crawl4ai.extract_urls(content)
-   
-   # After
-   urls = crawl4ai.utilities.extract_urls(content)
-   ```
-
-2. **Pinned Dependency Version**:
-   ```
-   crawl4ai==0.6.2
-   ```
-
-3. **Added Fallbacks for Compatibility**:
-   ```python
-   try:
-       # Try new API path
-       from crawl4ai.utilities import extract_urls
-   except ImportError:
-       # Fall back to old API path
-       from crawl4ai import extract_urls
    ```
 
 ## Agent Transfer Fix

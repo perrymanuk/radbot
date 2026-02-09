@@ -1,6 +1,6 @@
 # Library-Based MCP Client Implementation
 
-This document describes the implementation of the MCP client using the official MCP Python SDK with special handling for Crawl4AI and other MCP servers.
+This document describes the implementation of the MCP client using the official MCP Python SDK.
 
 ## Overview
 
@@ -31,34 +31,15 @@ The client initialization follows these steps:
 4. Requesting the list of available tools
 5. Creating tool objects based on the server's response
 
-### Special Handling for Crawl4AI
-
-Crawl4AI servers have specific requirements and behaviors that require special handling:
-
-- A persistent SSE connection is maintained in a background thread
-- Events from the SSE stream are processed to extract session information
-- Asynchronous tools return 202 Accepted responses immediately, with actual results coming through the SSE stream
-- Session IDs must be maintained and included in all requests
-
-### SSE Connection Management
-
-For Crawl4AI servers, the client implements a robust SSE connection handling mechanism:
-
-- A dedicated background thread listens for SSE events
-- Events are parsed and processed based on their type (endpoint, result, etc.)
-- Tool responses are stored in a thread-safe dictionary and associated with request IDs
-- Threading.Event objects are used to synchronize waiting for asynchronous responses
-
 ### Tool Invocation Process
 
 When a tool is invoked, the following happens:
 
 1. The client formats a proper MCP request with the tool name and arguments
-2. For Crawl4AI, it sets up an event to wait for an asynchronous response
-3. The request is sent to the message endpoint with appropriate headers
-4. For synchronous responses (200 OK), the result is processed immediately
-5. For asynchronous responses (202 Accepted), the client waits for a response to arrive via the SSE stream
-6. Results are extracted from the JSON-RPC format and returned
+2. The request is sent to the message endpoint with appropriate headers
+3. For synchronous responses (200 OK), the result is processed immediately
+4. For asynchronous responses (202 Accepted), the client returns an accepted status
+5. Results are extracted from the JSON-RPC format and returned
 
 ### Tool Discovery and Creation
 
@@ -66,7 +47,7 @@ The client supports several methods of tool discovery:
 
 1. Retrieving tools via the MCP SDK's list_tools method
 2. Fetching schema information from various common endpoints
-3. Falling back to creating standard tools for well-known servers like Crawl4AI
+3. Falling back to creating standard tools based on server URL patterns
 
 ### Error Handling and Fallbacks
 
@@ -94,7 +75,7 @@ The client properly cleans up resources when it's destroyed:
 
 ### Server-Sent Events Connection
 
-**Challenge**: The Crawl4AI server would close SSE connections with "BrokenResourceError" when trying to send responses.
+**Challenge**: Some MCP servers would close SSE connections with "BrokenResourceError" when trying to send responses.
 
 **Solution**: Maintain a persistent SSE connection in a background thread, properly parsing and handling all events, and using thread synchronization to wait for responses.
 
@@ -112,7 +93,7 @@ The client properly cleans up resources when it's destroyed:
 
 ### Session Management
 
-**Challenge**: Maintaining the session across requests is critical, especially for Crawl4AI.
+**Challenge**: Maintaining the session across requests is critical for some MCP servers.
 
 **Solution**: Extract and store session IDs from SSE events, and include them in all requests to maintain session continuity.
 
@@ -120,7 +101,7 @@ The client properly cleans up resources when it's destroyed:
 
 ```python
 # Create a client
-client = MCPSSEClient(url="https://crawl4ai.demonsafe.com/mcp/sse")
+client = MCPSSEClient(url="https://example.com/mcp/sse")
 
 # Initialize the connection
 client.initialize()

@@ -46,11 +46,7 @@ docs/
    - Keep content from 15_agent_config_integration.md (more comprehensive)
    - Move to core/15_agent_config_integration.md
 
-2. **crawl4ai.md and crawl4ai_integration.md**
-   - Merge into a single comprehensive file
-   - Move to integrations/crawl4ai.md
-
-3. **memory_system.md and 16_memory_implementation.md**
+2. **memory_system.md and 16_memory_implementation.md**
    - Merge into core/16_memory_implementation.md
    - Keep enhanced_memory_system.md as components/enhanced_memory_system.md
 
@@ -78,7 +74,6 @@ Consolidate the multiple MCP fix files into a structured document:
 
 - mcp_adk030_function_tool_fix.md
 - mcp_adk_0.3.0_update.md
-- mcp_crawl4ai_fix.md
 - mcp_fileserver_async_fix.md
 - mcp_fileserver_fix.md
 - mcp_parent_init_fix.md
@@ -98,21 +93,6 @@ Consolidate the todo tool files:
 - todo_tools_uuid_fix.md
 
 Merge into components/todo_tools.md with a chronological progression of features and fixes.
-
-#### Crawl4AI Consolidation
-
-Consolidate the crawl4ai implementation files:
-
-- crawl4ai.md
-- crawl4ai_chunking_fix.md
-- crawl4ai_integration.md
-- crawl4ai_manual_deep_crawling.md
-- crawl4ai_simplification.md
-- crawl4ai_staged_crawling.md
-- crawl4ai_two_step_crawling.md
-- improved_crawl4ai_depth.md
-
-Merge into integrations/crawl4ai.md with clear sections for different approaches and optimizations.
 
 ## Implementation Steps
 
@@ -168,14 +148,12 @@ Based on our documentation analysis, the following tasks should be added to TASK
 
 - [ ] Create subdirectory structure in docs/implementation/ (core, components, integrations, fixes, enhancements, migrations)
 - [ ] Merge 15_agent_config_integration.md and agent_config_integration.md
-- [ ] Merge crawl4ai.md and crawl4ai_integration.md
 - [ ] Merge memory_system.md and 16_memory_implementation.md
 - [ ] Consolidate home-assistant.md, home_assistant_integration.md, and 08_mcp_home_assistant.md
 - [ ] Merge gui.md and custom_web_ui.md
 - [ ] Consolidate google-calendar documentation files
 - [ ] Consolidate MCP fix documentation files
 - [ ] Consolidate todo tools documentation files
-- [ ] Consolidate crawl4ai documentation files
 - [ ] Create index.md files for each subdirectory
 - [ ] Create master index.md for the implementation directory
 - [ ] Update cross-references between documentation files

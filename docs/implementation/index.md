@@ -54,7 +54,6 @@ The [components documentation](components/index.md) details specific functional 
 
 The [integrations documentation](integrations/index.md) covers external service connections:
 
-- [Crawl4AI](integrations/crawl4ai.md) - Web content extraction and search
 - [Google Calendar](integrations/google_calendar.md) - Calendar integration
 
 ## Fixes

@@ -35,9 +35,7 @@ logger.info(f"Main model from config: '{config_manager.get_main_model()}'")
 from google.adk.tools import load_artifacts
 from radbot.tools.basic import get_current_time, get_weather
 from radbot.tools.memory import search_past_conversations, store_important_information
-from radbot.tools.web_search import create_tavily_search_tool
 from radbot.tools.mcp import create_fileserver_toolset
-from radbot.tools.mcp.mcp_crawl4ai_client import create_crawl4ai_toolset
 from radbot.tools.shell import get_shell_tool
 from radbot.tools.todo import ALL_TOOLS, init_database
 

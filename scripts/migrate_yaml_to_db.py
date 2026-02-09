@@ -40,7 +40,6 @@ BOOTSTRAP_SECTIONS = {"database", "credential_key", "admin_token"}
 NAMED_CREDENTIALS = [
     # (yaml_path_tuple, credential_name, credential_type)
     (("api_keys", "google"), "google_api_key", "api_key"),
-    (("api_keys", "tavily"), "tavily_api_key", "api_key"),
     (("integrations", "home_assistant", "token"), "ha_token", "credential"),
     (("integrations", "jira", "api_token"), "jira_api_token", "credential"),
 ]

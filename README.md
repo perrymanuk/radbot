@@ -14,7 +14,7 @@ An AI agent built on Google ADK with a unique '90s SoCal personality. Beto blend
 RadBot uses specialized sub-agents with focused toolsets, reducing token usage and improving response quality:
 
 *   **Beto** (root agent): General conversation, Home Assistant control, task management, calendar, memory
-*   **Search Agent**: Web search via Tavily with focused query handling
+*   **Search Agent**: Web search with focused query handling
 *   **Scout Agent**: Technical research across web, docs, and code repos with sequential thinking
 *   **Axel Agent**: Code implementation with a dynamic worker system that distributes tasks across specialized agents for parallel execution
 *   **Code Execution Agent**: Secure Python code execution via Google ADK's built-in sandbox
@@ -111,12 +111,7 @@ Three-tier semantic memory backed by Qdrant vector database:
 ### Web & Search Tools
 
 *   **`web_search`**: General web search
-*   **`call_search_agent`**: Focused web search via Tavily-powered agent
-*   **Crawl4AI**: Web content ingestion and knowledge base querying
-    *   `crawl4ai_ingest_and_read`: Fetch, read, and save web content
-    *   `crawl4ai_ingest_url`: Batch URL ingestion
-    *   `crawl4ai_query`: Search the knowledge base
-    *   `crawl4ai_two_step`: Deep crawl following links from a page
+*   **`call_search_agent`**: Focused web search via search agent
 
 ### File System & Shell
 

@@ -259,7 +259,6 @@ def register_tool_handlers(self: RadBotAgent):
     try:
         # Import needed components
         from radbot.tools.mcp.mcp_fileserver_client import handle_fileserver_tool_call
-        from radbot.tools.mcp.mcp_crawl4ai_client import handle_crawl4ai_tool_call
         from radbot.tools.memory.memory_tools import search_past_conversations, store_important_information
         
         # Register filesystem tool handlers
@@ -285,26 +284,6 @@ def register_tool_handlers(self: RadBotAgent):
         self.root_agent.register_tool_handler(
             "create_directory",
             lambda params: handle_fileserver_tool_call("create_directory", params),
-        )
-        
-        # Crawl4AI tools are now provided via MCP server integration
-        # These handlers remain for backward compatibility only
-        # See radbot/tools/mcp/mcp_crawl4ai_client.py for more info
-        self.root_agent.register_tool_handler(
-            "crawl4ai_scrape",
-            lambda params: handle_crawl4ai_tool_call("crawl4ai_scrape", params),
-        )
-        self.root_agent.register_tool_handler(
-            "crawl4ai_search", 
-            lambda params: handle_crawl4ai_tool_call("crawl4ai_search", params),
-        )
-        self.root_agent.register_tool_handler(
-            "crawl4ai_extract",
-            lambda params: handle_crawl4ai_tool_call("crawl4ai_extract", params),
-        )
-        self.root_agent.register_tool_handler(
-            "crawl4ai_crawl",
-            lambda params: handle_crawl4ai_tool_call("crawl4ai_crawl", params),
         )
         
         # Register memory tools

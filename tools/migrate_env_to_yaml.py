@@ -26,8 +26,6 @@ logger = logging.getLogger(__name__)
 SENSITIVE_VARS = {
     "HA_TOKEN", 
     "GOOGLE_API_KEY", 
-    "TAVILY_API_KEY",
-    "CRAWL4AI_API_TOKEN",
     "GEMINI_API_KEY",
     "GOOGLE_GENAI_API_KEY",
     "REDIS_PASSWORD",
@@ -47,7 +45,6 @@ ENV_TO_CONFIG_MAP = {
     "GOOGLE_APPLICATION_CREDENTIALS": ["agent", "service_account_file"],
     
     # API keys section
-    "TAVILY_API_KEY": ["api_keys", "tavily"],
     "GOOGLE_API_KEY": ["api_keys", "google"],
     "GEMINI_API_KEY": ["api_keys", "google"],
     "GOOGLE_GENAI_API_KEY": ["api_keys", "google"],
@@ -85,11 +82,6 @@ ENV_TO_CONFIG_MAP = {
     "GOOGLE_CALENDAR_SERVICE_ACCOUNT": ["integrations", "calendar", "service_account_file"],
     "CALENDAR_SERVICE_ACCOUNT_JSON": ["integrations", "calendar", "service_account_json"],
     "CALENDAR_TIMEZONE": ["integrations", "calendar", "timezone"],
-    
-    # Crawl4AI section
-    "CRAWL4AI_API_URL": ["integrations", "crawl4ai", "api_url"],
-    "CRAWL4AI_API_TOKEN": ["integrations", "crawl4ai", "api_token"],
-    "CRAWL4AI_COLLECTION": ["integrations", "crawl4ai", "collection"],
     
     # Filesystem section
     "FS_ROOT_DIR": ["integrations", "filesystem", "root_dir"],
@@ -219,9 +211,6 @@ def convert_env_to_yaml(env_path: str, yaml_path: str, sensitive_vars: Set[str] 
         # Add enabled flags for integrations
         add_integration_enabled_flags(config)
         
-        # Add MCP servers configuration if Crawl4AI is configured
-        add_mcp_servers_config(config)
-        
         # Write YAML file
         with open(yaml_path, 'w') as f:
             # Add header comments
@@ -271,51 +260,6 @@ def add_integration_enabled_flags(config: Dict[str, Any]) -> None:
     else:
         calendar_config["enabled"] = False
     
-    # Crawl4AI
-    crawl4ai_config = integrations.get("crawl4ai", {})
-    crawl4ai_url = crawl4ai_config.get("api_url")
-    if crawl4ai_url:
-        crawl4ai_config["enabled"] = True
-    else:
-        crawl4ai_config["enabled"] = False
-
-def add_mcp_servers_config(config: Dict[str, Any]) -> None:
-    """
-    Add MCP servers configuration if Crawl4AI is configured.
-    
-    Args:
-        config: The configuration dictionary to modify
-    """
-    integrations = config.get("integrations", {})
-    
-    # Skip if MCP servers already configured
-    if "mcp" in integrations and "servers" in integrations["mcp"]:
-        return
-    
-    # Initialize MCP servers configuration
-    if "mcp" not in integrations:
-        integrations["mcp"] = {}
-    
-    integrations["mcp"]["servers"] = []
-    
-    # Add Crawl4AI server if configured
-    crawl4ai_config = integrations.get("crawl4ai", {})
-    if crawl4ai_config.get("api_url"):
-        crawl4ai_server = {
-            "id": "crawl4ai",
-            "name": "Crawl4AI Server",
-            "enabled": True,
-            "transport": "sse",
-            "url": f"{crawl4ai_config.get('api_url')}/mcp/sse",
-            "auth_token": crawl4ai_config.get("api_token"),
-            "tags": ["web", "search"]
-        }
-        
-        # Remove None values
-        crawl4ai_server = {k: v for k, v in crawl4ai_server.items() if v is not None}
-        
-        integrations["mcp"]["servers"].append(crawl4ai_server)
-
 def main() -> int:
     """
     Main function to convert .env to config.yaml.

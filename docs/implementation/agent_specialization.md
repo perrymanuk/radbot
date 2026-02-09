@@ -39,8 +39,6 @@ Create specialized agents that focus on specific domains, with each agent only h
 **Tools**:
 - `web_search`
 - WebSearch, WebFetch
-- Tavily search and extract tools
-- Crawl4AI tools (scrape, map, crawl, search, extract, etc.)
 
 ### 3. Memory Agent
 

@@ -41,8 +41,6 @@ def main():
     for key, value in api_keys_config.items():
         if key == "google" and value:
             print(f"  {key}: ****")
-        elif key == "tavily" and value:
-            print(f"  {key}: ****")
         else:
             print(f"  {key}: {value}")
     

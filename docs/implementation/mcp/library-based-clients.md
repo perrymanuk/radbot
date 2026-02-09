@@ -2,7 +2,7 @@
 
 ## Current State Analysis
 
-The current MCP client implementation in Radbot (`radbot/tools/mcp/client.py`) is a custom client that attempts to handle various MCP server implementations with different transport methods, endpoint patterns, and response formats. While it includes many resilience features, it has been experiencing connection issues with certain MCP servers like Crawl4AI.
+The current MCP client implementation in Radbot (`radbot/tools/mcp/client.py`) is a custom client that attempts to handle various MCP server implementations with different transport methods, endpoint patterns, and response formats. While it includes many resilience features, it has been experiencing connection issues with certain MCP servers.
 
 ### Key Challenges with Current Implementation
 
@@ -19,7 +19,7 @@ The current MCP client architecture consists of:
 
 1. `MCPSSEClient` in `client.py` - Main client implementation with custom SSE handling
 2. `MCPClientFactory` in `mcp_client_factory.py` - Factory to create and cache client instances
-3. Various server-specific implementations such as `mcp_crawl4ai_client.py`
+3. MCP core utilities in `mcp_core.py` for tool creation
 4. MCP core utilities in `mcp_core.py` for tool creation and integration with ADK
 
 ## Target State: MCP Python SDK Based Client
@@ -51,8 +51,8 @@ The new architecture will consist of:
    - Update the Makefile to include these dependencies
    
 2. **Create Test Environment**:
-   - Create a minimal test script to validate the new client with Crawl4AI
-   - Set up test cases for Home Assistant and other MCP servers
+   - Create minimal test scripts to validate the new client
+   - Set up test cases for MCP servers
    - Document test procedures and expected outcomes
 
 3. **Analysis of Integration Points**:
@@ -90,7 +90,7 @@ The new architecture will consist of:
    - Ensure test coverage for error cases and edge conditions
    
 2. **Integration Tests**:
-   - Test with Crawl4AI, Home Assistant, and other MCP servers
+   - Test with all configured MCP servers
    - Validate tool discovery and invocation
    - Ensure proper error handling and resilience
    
@@ -123,7 +123,7 @@ The new architecture will consist of:
 1. `/radbot/tools/mcp/client.py` - Replace with new implementation
 2. `/radbot/tools/mcp/mcp_client_factory.py` - Update to use new client
 3. `/radbot/tools/mcp/mcp_core.py` - Update tool creation logic
-4. `/radbot/tools/mcp/mcp_crawl4ai_client.py` - Update or remove
+4. `/radbot/tools/mcp/mcp_tools.py` - Update tool integration
 
 ### Dependencies
 

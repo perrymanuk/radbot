@@ -19,42 +19,12 @@ from radbot.tools.mcp.mcp_client_factory import MCPClientFactory, MCPClientError
 
 logger = logging.getLogger(__name__)
 
-# Flag to track if we have Tavily search capabilities
-HAVE_TAVILY = False
-
-# Check for either environment variable method or MCP server method
-tavily_mcp_configured = False
-try:
-    # First check if TAVILY_API_KEY is in the environment
-    tavily_api_key = os.environ.get("TAVILY_API_KEY")
-    if tavily_api_key:
-        logger.info("TAVILY_API_KEY found in environment, web search will be available")
-        HAVE_TAVILY = True
-        tavily_mcp_configured = True
-    else:
-        # Check for MCP Tavily server configuration
-        mcp_config = config_loader.get_config().get("integrations", {}).get("mcp", {})
-        if mcp_config:
-            servers = mcp_config.get("servers", [])
-            for server in servers:
-                if server.get("enabled", False) and ("tavily" in server.get("id", "") or "tavily" in server.get("description", "")):
-                    tavily_mcp_configured = True
-                    HAVE_TAVILY = True
-                    logger.info(f"Tavily MCP server configured: {server.get('id')}")
-                    break
-    
-    if not tavily_mcp_configured:
-        logger.warning("No Tavily MCP server configured. Add it to your config.yaml to enable web search.")
-        logger.warning("See config/mcp_proxy.yaml.example for examples and https://docs.tavily.com/documentation/mcp for setup instructions")
-except Exception as e:
-    logger.warning(f"Error checking for Tavily MCP configuration: {e}")
-
 def get_available_mcp_tools() -> List[Any]:
     """
     Get a list of all available MCP tools.
     
     This function returns a consolidated list of all available MCP tools
-    including Home Assistant, FileServer, Crawl4AI, and other MCP integrations.
+    including Home Assistant, FileServer, and other MCP integrations.
     
     Returns:
         List of available MCP tools

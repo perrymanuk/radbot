@@ -26,7 +26,7 @@ The integration will leverage our existing MCP client infrastructure, particular
 3. **Claude-specific Tools**
    - Create a dedicated set of ADK tools that encapsulate Claude CLI capabilities
    - Focus on the Bash/command execution capabilities initially
-   - Structure similar to other MCP tool integrations (e.g., Crawl4AI)
+   - Structure similar to other MCP tool integrations
 
 4. **Command Execution Security**
    - Implement request validation and sanitization

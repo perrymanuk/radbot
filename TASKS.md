@@ -44,7 +44,7 @@ This project aims to restructure our agent architecture into specialized agents 
 #### Completed
 
 ✅ Research MCP-Proxy architecture and endpoints from documentation
-✅ Design integration approach for MCP-Proxy similar to crawl4ai and claude-cli
+✅ Design integration approach for MCP-Proxy
 ✅ Create configuration template for MCP-Proxy integration in config.yaml
 ✅ Determine that existing MCPSSEClient supports the proxy connection pattern without modifications
 ✅ Verify that MCPClientFactory can properly handle these connections
@@ -54,7 +54,7 @@ This project aims to restructure our agent architecture into specialized agents 
 
 #### To Do
 
-⏱️ Test integration with each proxy endpoint (firecrawl-proxy, tavily-proxy, context7-proxy, webresearch-proxy, nomad-proxy)
+⏱️ Test integration with each proxy endpoint (firecrawl-proxy, context7-proxy, webresearch-proxy, nomad-proxy)
 ⏱️ Create example agent that uses multiple proxy tools together
 ⏱️ Document common use cases and examples for the proxy integration
 
@@ -94,13 +94,10 @@ Based on the analysis and migration plan in `docs/implementation/mcp/library_bas
 #### Completed
 
 ✅ Add MCP SDK dependencies to pyproject.toml
-✅ Create test script to validate the new MCP client with Crawl4AI
 ✅ Identify all code dependencies on the current MCP client
 ✅ Replace MCPSSEClient in client.py with the new implementation
 ✅ Update mcp_core.py for tool creation logic with new client
-✅ Test with Crawl4AI servers
 ✅ Update documentation with detailed implementation notes
-✅ Fix SSE connection issues for Crawl4AI servers
 ✅ Implement robust event handling for asynchronous tools
 ✅ Add persistent background thread for SSE connection
 
@@ -109,7 +106,7 @@ Based on the analysis and migration plan in `docs/implementation/mcp/library_bas
 ⏱️ Update MCPClientFactory to work better with the new client implementation
 ⏱️ Update/clean up server-specific implementations (e.g., Home Assistant)
 ⏱️ Update unit tests for MCP tools and utilities
-⏱️ Test with Home Assistant and other MCP servers
+⏱️ Test with MCP servers
 ⏱️ Validate proper ADK integration with all agent types
 ⏱️ Update examples that use MCP tools
 ⏱️ Clean up deprecated code and ensure consistent style
@@ -129,42 +126,6 @@ The MCPSSEClient implementation has been improved to fix freezing issues during 
 
 ⏱️ Add a simple test script to verify the improved client works correctly
 ⏱️ Extend error handling for different MCP server implementations
-
-### Migration of Crawl4AI to MCP Server Integration
-
-The direct Crawl4AI integration has been deprecated in favor of using the MCP server approach exclusively. This change simplifies the codebase and provides a more consistent integration pattern.
-
-#### Completed
-
-✅ Created compatibility stubs for backward compatibility
-✅ Updated imports in all affected files
-✅ Updated agent.py to use the MCP server approach
-✅ Added documentation for the migration
-✅ Fixed MCP SSE client implementation to avoid freezing during startup
-
-#### To Do
-
-⏱️ Remove the entire `radbot/tools/crawl4ai` directory
-⏱️ Update affected examples and tests
-
-Note: The `radbot/tools/crawl4ai` directory should be completely removed after verifying that all functionality works correctly through the MCP server integration. This includes:
-
-```
-radbot/tools/crawl4ai/__init__.py
-radbot/tools/crawl4ai/crawl4ai_extract_links.py
-radbot/tools/crawl4ai/crawl4ai_ingest_and_read.py
-radbot/tools/crawl4ai/crawl4ai_ingest_url.py
-radbot/tools/crawl4ai/crawl4ai_query.py
-radbot/tools/crawl4ai/crawl4ai_scan_links.py
-radbot/tools/crawl4ai/crawl4ai_two_step_crawl.py
-radbot/tools/crawl4ai/crawl4ai_vector_store.py
-radbot/tools/crawl4ai/mcp_crawl4ai_client.py
-radbot/tools/crawl4ai/utils.py
-```
-
-After removing this directory, you may need to update examples and test files that import directly from these modules.
-
-See the migration doc at `docs/implementation/fixes/crawl4ai_mcp_migration.md` for more details.
 
 ### ADK 0.4.0 FunctionTool Parameter Fix
 
@@ -202,27 +163,6 @@ See the migration doc at `docs/implementation/fixes/crawl4ai_mcp_migration.md` f
 ✅ Enhanced switchAgentContext function to ensure proper state persistence
 ✅ Added REST API fallback improvements for agent targeting
 ✅ Created documentation in docs/implementation/fixes/agent_transfer_persistence_fix.md
-
-### Async Crawl4AI Client Fix
-
-#### Completed
-
-✅ Identified syntax error in async_crawl4ai_client.py causing high token usage
-✅ Fixed function indentation to properly nest functions within async context manager
-✅ Added proper cleanup in finally blocks for async methods
-✅ Created documentation in docs/implementation/fixes/async_crawl4ai_client_fix.md
-✅ Verified the fix corrected the "expected 'except' or 'finally' block" error
-✅ Fixed indentation issues with nested functions in the implementation
-✅ Fixed "coroutine 'AsyncCrawl4AIClient.initialize' was never awaited" warning
-✅ Implemented proper async client handling in dynamic_tools_loader.py
-✅ Added proper event loop management for async clients
-✅ Fixed "Cannot run the event loop while another loop is running" error
-✅ Implemented thread-based approach for isolating async operations
-
-#### To Do
-
-⏱️ Add test for the async client to validate correct functionality
-⏱️ Update imports in related modules to use the fixed implementation
 
 ## 📋 Previously Completed Tasks
 

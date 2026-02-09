@@ -9,7 +9,7 @@ Usage:
     python test_direct_mcp_sdk.py <sse_url> [--auth-token TOKEN] [--debug]
 
 Example:
-    python test_direct_mcp_sdk.py https://crawl4ai.demonsafe.com/mcp/sse
+    python test_direct_mcp_sdk.py https://example.com/mcp/sse
 """
 
 import os
@@ -131,8 +131,7 @@ async def run_mcp_test(sse_url: str, auth_token: Optional[str] = None, debug: bo
                     # Try to call a tool if available
                     if tool_names:
                         # Choose a tool to test
-                        # Prefer common tools like 'md', 'crawl', 'html' for Crawl4AI
-                        # or 'HassTurnOn' for Home Assistant
+                        # Prefer common MCP tools for testing
                         test_candidates = ['md', 'crawl', 'html', 'HassTurnOn', 'screenshot', 'search']
                         test_tool = None
                         

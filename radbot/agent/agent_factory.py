@@ -160,18 +160,6 @@ class AgentFactory:
             setattr(ToolContext, "memory_service", memory_service)
             logger.info("Added memory service to tool context")
             
-            # Store API keys in ToolContext for tools to access
-            tavily_api_key = os.environ.get("TAVILY_API_KEY")
-            if tavily_api_key:
-                setattr(ToolContext, "tavily_api_key", tavily_api_key)
-                logger.info("Stored Tavily API key in global ToolContext")
-                
-            # Crawl4AI is now configured via MCP server in config.yaml
-            # This environment variable check is kept for backward compatibility
-            crawl4ai_api_token = os.environ.get("CRAWL4AI_API_TOKEN")
-            if crawl4ai_api_token:
-                setattr(ToolContext, "crawl4ai_api_token", crawl4ai_api_token)
-                logger.info("Stored Crawl4AI API token in global ToolContext (deprecated)")
         except Exception as e:
             logger.warning(f"Failed to initialize memory service: {str(e)}")
         
@@ -180,7 +168,6 @@ class AgentFactory:
             try:
                 # Use the equivalent of RadBotAgent.register_tool_handlers but for a plain Agent
                 from radbot.tools.mcp.mcp_fileserver_client import handle_fileserver_tool_call
-                from radbot.tools.mcp.mcp_crawl4ai_client import handle_crawl4ai_tool_call
                 from radbot.tools.memory.memory_tools import search_past_conversations, store_important_information
                 
                 # Register filesystem tool handlers
@@ -206,26 +193,6 @@ class AgentFactory:
                 agent.register_tool_handler(
                     "create_directory",
                     lambda params: handle_fileserver_tool_call("create_directory", params),
-                )
-                
-                # Crawl4AI tools are now provided via MCP server integration
-                # These handlers remain for backward compatibility only
-                # See radbot/tools/mcp/mcp_crawl4ai_client.py for more info
-                agent.register_tool_handler(
-                    "crawl4ai_scrape",
-                    lambda params: handle_crawl4ai_tool_call("crawl4ai_scrape", params),
-                )
-                agent.register_tool_handler(
-                    "crawl4ai_search",
-                    lambda params: handle_crawl4ai_tool_call("crawl4ai_search", params),
-                )
-                agent.register_tool_handler(
-                    "crawl4ai_extract",
-                    lambda params: handle_crawl4ai_tool_call("crawl4ai_extract", params),
-                )
-                agent.register_tool_handler(
-                    "crawl4ai_crawl",
-                    lambda params: handle_crawl4ai_tool_call("crawl4ai_crawl", params),
                 )
                 
                 # Register memory tools

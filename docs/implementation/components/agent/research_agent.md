@@ -55,7 +55,6 @@ The research agent uses the following tools from the main agent:
 
 - **Web Search Tool**: `web_search` - For searching the web for information
 - **File Operation Tools**: `list_files`, `read_file`, `get_file_info`, `write_file`, `copy_file`, `move_file`, `delete_file` - For interacting with the file system
-- **Crawl4AI Tools**: `crawl4ai_ingest_and_read`, `crawl4ai_ingest_url`, `crawl4ai_query`, `crawl4ai_two_step` - For advanced web crawling and analysis
 - **Shell Command Tool**: `execute_shell_command` - For executing system commands
 - **Memory Tools**: `search_past_conversations`, `store_important_information` - For accessing conversation history and storing important information
 
@@ -64,7 +63,7 @@ The research agent uses the following tools from the main agent:
 The `create_research_agent()` factory function simplifies the creation of research agents with:
 
 - Optional custom name, model, and instruction
-- Support for additional tools and Tavily search integration
+- Support for additional tools
 - Option to return either the `ResearchAgent` wrapper or the underlying ADK agent
 
 ### Integration with Main Agent
@@ -85,10 +84,9 @@ When a user asks a technical implementation question, the main agent can transfe
 
 1. Use web_search for retrieving external information from the web
 2. Use file tools (list_files, read_file, etc.) to access local documentation and code
-3. Use crawl4ai tools to ingest and analyze web content
-4. Use search_past_conversations to reference previous knowledge
-5. Use execute_shell_command when local command execution is needed
-6. Synthesize the findings and present them to the user
+3. Use search_past_conversations to reference previous knowledge
+4. Use execute_shell_command when local command execution is needed
+5. Synthesize the findings and present them to the user
 
 ### Design Discussions ("Rubber Ducking")
 

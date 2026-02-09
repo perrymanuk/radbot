@@ -30,8 +30,6 @@
     "delete_func",
     "resolve-library-id",
     "get-library-docs",
-    "tavily-search",
-    "tavily-extract",
     "Task",
     "Bash",
     "Batch",

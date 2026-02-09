@@ -7,7 +7,6 @@ This directory contains documentation for RadBot's integrations with external se
 
 ## Contents
 
-- [Crawl4AI](crawl4ai.md) - Implementation of web content extraction and search via Crawl4AI
 - [Google Calendar](google_calendar.md) - Google Calendar API integration
 
 ## Overview

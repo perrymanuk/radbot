@@ -61,9 +61,6 @@ cache:
 
 # API keys for various services
 api_keys:
-  # API key for Tavily web search service
-  tavily: "${TAVILY_API_KEY}"
-  
   # API key for Google APIs
   google: "${GOOGLE_API_KEY}"
 
@@ -144,20 +141,6 @@ integrations:
     # Email to impersonate for domain-wide delegation
     impersonation_email: "${GOOGLE_IMPERSONATION_EMAIL}"
 
-  # Crawl4AI integration settings
-  crawl4ai:
-    # Enable/disable Crawl4AI integration
-    enabled: true
-    
-    # Crawl4AI API URL
-    api_url: "http://localhost:11235"
-    
-    # Crawl4AI API token
-    api_token: "${CRAWL4AI_API_TOKEN}"
-    
-    # Collection name for Crawl4AI vector storage
-    collection: "crawl4ai_docs"
-
   # Filesystem access settings
   filesystem:
     # Root directory for filesystem access
@@ -173,21 +156,6 @@ integrations:
   mcp:
     # List of MCP server configurations
     servers:
-      # Crawl4AI MCP Server
-      - id: "crawl4ai"
-        name: "Crawl4AI Server"
-        enabled: true
-        transport: "sse"
-        url: "http://localhost:11235/mcp/sse"
-        auth_token: "${CRAWL4AI_TOKEN}"
-        timeout: 30
-        retry:
-          max_attempts: 3
-          backoff_factor: 0.5
-        tags:
-          - "web"
-          - "search"
-      
       # Home Assistant MCP Server
       - id: "home_assistant"
         name: "Home Assistant Server"

@@ -2,8 +2,8 @@
 """
 Test script for validating the new MCP client implementation.
 
-This script tests the new MCP client with Crawl4AI and Home Assistant
-servers to validate the implementation.
+This script tests the new MCP client with MCP servers to validate
+the implementation.
 
 Usage:
     python test_new_mcp_client.py --server-id <server_id> [--debug]
@@ -106,44 +106,6 @@ def test_client(server_id: str, debug: bool = False) -> bool:
                 if discovered_tools:
                     tool_names = discovered_tools
                     logger.info(f"Discovered tool names: {', '.join(tool_names)}")
-        
-        # Test tool invocation for Crawl4AI
-        if "crawl4ai" in server_id.lower() or "crawl4ai" in url.lower():
-            logger.info("Testing Crawl4AI tool invocation")
-            
-            # Find a suitable tool to test
-            test_tool = None
-            crawl4ai_tool_candidates = ["md", "crawl", "html", "screenshot"]
-            
-            # If we have tool names, check for a match
-            if tool_names:
-                for candidate in crawl4ai_tool_candidates:
-                    if candidate in tool_names:
-                        test_tool = candidate
-                        break
-            
-            # If no tool found but it's Crawl4AI, use standard tool
-            if not test_tool:
-                test_tool = "md"
-                logger.info(f"No matching tool found, using standard tool: {test_tool}")
-            
-            if test_tool:
-                logger.info(f"Testing tool: {test_tool}")
-                
-                # Prepare arguments
-                args = {"url": "https://example.com"}
-                
-                # Call the tool
-                result = client._call_tool(test_tool, args)
-                
-                # Check result
-                if isinstance(result, dict) and "error" in result:
-                    logger.error(f"Tool call failed: {result}")
-                    return False
-                
-                logger.info(f"Tool call succeeded: {result}")
-            else:
-                logger.warning("No suitable Crawl4AI tool found for testing")
         
         # Discover tools explicitly
         logger.info("Testing discover_tools method")

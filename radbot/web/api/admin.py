@@ -680,42 +680,6 @@ async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)
         return _err(f"Home Assistant connection failed: {e}")
 
 
-@router.post("/api/test/tavily")
-async def test_tavily(request: Request, _: None = Depends(_verify_admin)):
-    """Test Tavily API key with a test search."""
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    api_key = body.get("api_key", "")
-    if not api_key or api_key == "***":
-        store = get_credential_store()
-        if store.available:
-            api_key = store.get("tavily_api_key") or ""
-        if not api_key:
-            try:
-                from radbot.config.config_loader import config_loader
-                api_key = config_loader.get_config().get("api_keys", {}).get("tavily", "")
-            except Exception:
-                pass
-
-    if not api_key:
-        return _err("No Tavily API key configured")
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                "https://api.tavily.com/search",
-                json={"api_key": api_key, "query": "test", "max_results": 1},
-            )
-            if resp.status_code == 200:
-                return _ok("Tavily API key is valid")
-            return _err(f"Tavily returned HTTP {resp.status_code}: {resp.text[:200]}")
-    except Exception as e:
-        return _err(f"Tavily test failed: {e}")
-
-
 @router.post("/api/test/qdrant")
 async def test_qdrant(request: Request, _: None = Depends(_verify_admin)):
     """Test Qdrant vector DB connectivity."""
@@ -802,50 +766,6 @@ async def test_redis(request: Request, _: None = Depends(_verify_admin)):
     except Exception as e:
         return _err(f"Redis connection failed: {e}")
 
-
-@router.post("/api/test/crawl4ai")
-async def test_crawl4ai(request: Request, _: None = Depends(_verify_admin)):
-    """Test Crawl4AI connectivity via health endpoint."""
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    api_url = body.get("api_url", "")
-    api_token = body.get("api_token", "")
-
-    if not api_url:
-        try:
-            from radbot.config.config_loader import config_loader
-            c4 = config_loader.get_config().get("integrations", {}).get("crawl4ai", {})
-            api_url = api_url or c4.get("api_url", "")
-        except Exception:
-            pass
-    if not api_token or api_token == "***":
-        store = get_credential_store()
-        if store.available:
-            api_token = store.get("crawl4ai_api_token") or ""
-        if not api_token:
-            try:
-                from radbot.config.config_loader import config_loader
-                api_token = config_loader.get_config().get("integrations", {}).get("crawl4ai", {}).get("api_token", "")
-            except Exception:
-                pass
-
-    if not api_url:
-        return _err("No Crawl4AI API URL configured")
-
-    try:
-        hdrs: Dict[str, str] = {}
-        if api_token:
-            hdrs["Authorization"] = f"Bearer {api_token}"
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{api_url.rstrip('/')}/health", headers=hdrs)
-            if resp.status_code == 200:
-                return _ok("Crawl4AI is healthy")
-            return _err(f"Crawl4AI returned HTTP {resp.status_code}")
-    except Exception as e:
-        return _err(f"Crawl4AI connection failed: {e}")
 
 
 # ------------------------------------------------------------------
@@ -957,22 +877,6 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         status["home_assistant"] = {"status": "error", "message": "Enabled but missing config"}
     else:
         status["home_assistant"] = {"status": "unconfigured"}
-
-    # Tavily
-    tavily_key = _store_get("tavily_api_key") or cfg.get("api_keys", {}).get("tavily", "")
-    if tavily_key:
-        status["tavily"] = {"status": "ok"}
-    else:
-        status["tavily"] = {"status": "unconfigured"}
-
-    # Crawl4AI
-    c4_cfg = cfg.get("integrations", {}).get("crawl4ai", {})
-    if c4_cfg.get("api_url"):
-        status["crawl4ai"] = {"status": "ok"}
-    elif c4_cfg.get("enabled"):
-        status["crawl4ai"] = {"status": "error", "message": "Enabled but no API URL"}
-    else:
-        status["crawl4ai"] = {"status": "unconfigured"}
 
     # Qdrant
     vdb = cfg.get("vector_db", {})
