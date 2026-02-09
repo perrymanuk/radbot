@@ -639,16 +639,48 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
         async def handle_history_request(limit=50):
             logger.info(f"Handling history request for session {session_id}, limit={limit}")
 
-            # Get app name for this session
+            # Try to load history from persistent database first
+            try:
+                db_messages = chat_operations.get_messages_by_session_id(
+                    session_id=session_id,
+                    limit=limit
+                )
+                if db_messages:
+                    # Map DB fields to frontend-expected format
+                    messages = []
+                    for msg in db_messages:
+                        ts = msg.get("timestamp", "")
+                        # Convert ISO timestamp string to milliseconds
+                        try:
+                            dt = datetime.fromisoformat(ts) if ts else datetime.now()
+                            ts_ms = int(dt.timestamp() * 1000)
+                        except (ValueError, TypeError):
+                            ts_ms = int(time.time() * 1000)
+                        messages.append({
+                            "id": msg.get("message_id", str(uuid.uuid4())),
+                            "role": msg.get("role", "assistant"),
+                            "content": msg.get("content", ""),
+                            "timestamp": ts_ms,
+                            "agent": msg.get("agent_name"),
+                        })
+                    await websocket.send_json({
+                        "type": "history",
+                        "messages": messages
+                    })
+                    logger.info(f"Sent history response with {len(messages)} messages from DB for session {session_id}")
+                    return
+            except Exception as db_err:
+                logger.warning(f"Failed to load history from DB, falling back to ADK session: {db_err}")
+
+            # Fallback: read from ADK in-memory session
             app_name = runner.runner.app_name if hasattr(runner, 'runner') and hasattr(runner.runner, 'app_name') else "beto"
 
-            # Retrieve the session from ADK (get_session is async in ADK 1.21.0)
             session = await runner.session_service.get_session(
                 app_name=app_name,
                 user_id=runner.user_id,
                 session_id=session_id
             )
-            
+
             if not session:
                 logger.warning(f"No session found for history request with ID {session_id}")
                 await websocket.send_json({
@@ -656,20 +688,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
                     "messages": []
                 })
                 return
-            
-            # Get all messages from the session
+
             all_messages = get_events_from_session(session)
-            
-            # Limit the number of messages if needed
             messages = all_messages[-limit:] if limit and len(all_messages) > limit else all_messages
-            
-            # Send the history response
+
             await websocket.send_json({
                 "type": "history",
                 "messages": messages
             })
-            
-            logger.info(f"Sent history response with {len(messages)} messages for session {session_id}")
+
+            logger.info(f"Sent history response with {len(messages)} messages from ADK session for session {session_id}")
         
         while True:
             # Wait for a message from the client
