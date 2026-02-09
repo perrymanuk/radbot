@@ -6,9 +6,10 @@ All endpoints require a bearer token matching ``RADBOT_ADMIN_TOKEN``.
 import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.templating import Jinja2Templates
@@ -31,13 +32,19 @@ templates = Jinja2Templates(
 # Auth dependency
 # ------------------------------------------------------------------
 def _verify_admin(
+    request: Request,
     creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme),
 ) -> None:
     expected = os.environ.get(_ADMIN_TOKEN_ENV, "")
     if not expected:
         raise HTTPException(503, "Admin API disabled — RADBOT_ADMIN_TOKEN not set")
-    if creds is None or creds.credentials != expected:
-        raise HTTPException(401, "Invalid or missing admin bearer token")
+    # Accept Bearer header or ?token= query parameter (for OAuth redirect links)
+    if creds and creds.credentials == expected:
+        return
+    query_token = request.query_params.get("token", "")
+    if query_token == expected:
+        return
+    raise HTTPException(401, "Invalid or missing admin bearer token")
 
 
 def _require_store() -> CredentialStore:
@@ -78,6 +85,13 @@ async def store_credential(request: Request, _: None = Depends(_verify_admin)):
         raise HTTPException(400, "name and value are required")
 
     store.set(name, value, credential_type=cred_type, description=description)
+    # Reset HA client singleton when the HA token is updated
+    if name == "ha_token":
+        try:
+            from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
+            reset_ha_client()
+        except Exception:
+            pass
     return {"status": "ok", "name": name}
 
 
@@ -146,6 +160,13 @@ async def save_config_section(section: str, request: Request, _: None = Depends(
         config_loader.load_db_config()
     except Exception as e:
         logger.warning(f"Config hot-reload failed: {e}")
+    # Reset HA client singleton so next call picks up new config
+    if section == "integrations":
+        try:
+            from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
+            reset_ha_client()
+        except Exception:
+            pass
     return {"status": "ok", "section": section}
 
 
@@ -189,19 +210,39 @@ def _get_oauth_redirect_uri(request: Request, callback_path: str) -> str:
 
 
 @router.get("/api/credentials/gmail/setup")
-async def gmail_oauth_setup(request: Request, _: None = Depends(_verify_admin)):
+async def gmail_oauth_setup(
+    request: Request,
+    account: str = Query("default", description="Gmail account label"),
+    _: None = Depends(_verify_admin),
+):
     """Start the Gmail OAuth consent flow (server-side redirect)."""
-    store = _require_store()
-    client_json = store.get("gmail_oauth_client")
+    store = get_credential_store()
+    client_json = store.get("gmail_oauth_client") if store.available else None
 
     if not client_json:
-        from radbot.tools.gmail.gmail_auth import _get_client_file
-        client_file = _get_client_file()
+        # Try file-based client secret
+        client_file = ""
+        try:
+            from radbot.tools.gmail.gmail_auth import _get_client_file
+            client_file = _get_client_file()
+        except Exception:
+            pass
+        if not client_file:
+            # Also try config_loader directly
+            try:
+                from radbot.config.config_loader import config_loader
+                gmail_cfg = config_loader.get_config().get("integrations", {}).get("gmail", {})
+                client_file = gmail_cfg.get("oauth_client_file", "")
+                if client_file:
+                    client_file = os.path.expanduser(client_file)
+            except Exception:
+                pass
         if not client_file or not os.path.exists(client_file):
             raise HTTPException(
                 400,
                 "No Gmail OAuth client configured. "
-                "Store it as 'gmail_oauth_client' via the admin UI first.",
+                "Store it as 'gmail_oauth_client' via the admin UI, "
+                "or set integrations.gmail.oauth_client_file in config.yaml.",
             )
         with open(client_file) as f:
             client_json = f.read()
@@ -218,9 +259,15 @@ async def gmail_oauth_setup(request: Request, _: None = Depends(_verify_admin)):
         include_granted_scopes="true",
         prompt="consent",
     )
+    if not store.available:
+        raise HTTPException(
+            400,
+            "Gmail OAuth flow requires the credential store to save tokens. "
+            "Set RADBOT_CREDENTIAL_KEY to enable it.",
+        )
     store.set(
         "_oauth_state_gmail",
-        json.dumps({"state": state, "redirect_uri": redirect_uri}),
+        json.dumps({"state": state, "redirect_uri": redirect_uri, "account": account}),
         credential_type="internal",
         description="Temporary Gmail OAuth state",
     )
@@ -245,24 +292,44 @@ async def gmail_oauth_callback(request: Request, code: str = "", state: str = ""
 
     client_json = store.get("gmail_oauth_client")
     if not client_json:
-        from radbot.tools.gmail.gmail_auth import _get_client_file
-        client_file = _get_client_file()
-        with open(client_file) as f:
-            client_json = f.read()
+        client_file = ""
+        try:
+            from radbot.tools.gmail.gmail_auth import _get_client_file
+            client_file = _get_client_file()
+        except Exception:
+            pass
+        if not client_file:
+            try:
+                from radbot.config.config_loader import config_loader
+                gmail_cfg = config_loader.get_config().get("integrations", {}).get("gmail", {})
+                client_file = gmail_cfg.get("oauth_client_file", "")
+                if client_file:
+                    client_file = os.path.expanduser(client_file)
+            except Exception:
+                pass
+        if client_file and os.path.exists(client_file):
+            with open(client_file) as f:
+                client_json = f.read()
+        else:
+            raise HTTPException(400, "No Gmail OAuth client configured")
 
     client_config = json.loads(client_json)
     flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
     flow.fetch_token(code=code)
     creds = flow.credentials
 
+    account_label = state_data.get("account", "default")
     store.set(
-        "gmail_token_default",
+        f"gmail_token_{account_label}",
         creds.to_json(),
         credential_type="oauth_token",
-        description="Gmail OAuth token (default account)",
+        description=f"Gmail OAuth token ({account_label} account)",
     )
     store.delete("_oauth_state_gmail")
-    return HTMLResponse("<h2>Gmail token stored successfully.</h2><p><a href='/admin/'>Back to admin</a></p>")
+    return HTMLResponse(
+        f"<h2>Gmail token stored for account '{account_label}'.</h2>"
+        "<p><a href='/admin/'>Back to admin</a></p>"
+    )
 
 
 @router.get("/api/credentials/calendar/setup")
@@ -332,3 +399,524 @@ async def calendar_oauth_callback(request: Request, code: str = "", state: str =
     )
     store.delete("_oauth_state_calendar")
     return HTMLResponse("<h2>Calendar token stored successfully.</h2><p><a href='/admin/'>Back to admin</a></p>")
+
+
+# ------------------------------------------------------------------
+# Gmail accounts discovery
+# ------------------------------------------------------------------
+@router.get("/api/gmail/accounts")
+async def list_gmail_accounts(_: None = Depends(_verify_admin)):
+    """List all discovered Gmail accounts (credential store + file tokens)."""
+    try:
+        from radbot.tools.gmail.gmail_auth import discover_accounts
+        accounts = discover_accounts()
+        return {"accounts": accounts}
+    except Exception as e:
+        logger.warning(f"Gmail account discovery failed: {e}")
+        return {"accounts": [], "error": str(e)}
+
+
+# ------------------------------------------------------------------
+# Test connection endpoints
+# ------------------------------------------------------------------
+def _ok(message: str, **extra: Any) -> Dict[str, Any]:
+    return {"status": "ok", "message": message, **extra}
+
+
+def _err(message: str) -> Dict[str, Any]:
+    return {"status": "error", "message": message}
+
+
+@router.post("/api/test/google")
+async def test_google(request: Request, _: None = Depends(_verify_admin)):
+    """Test Google API key by listing models."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    api_key = body.get("api_key", "")
+    if not api_key:
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("google_api_key") or ""
+    if not api_key:
+        try:
+            from radbot.config.config_loader import config_loader
+            api_key = config_loader.get_config().get("api_keys", {}).get("google", "")
+        except Exception:
+            pass
+    if not api_key:
+        return _err("No Google API key configured")
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        models = list(client.models.list())
+        return _ok(f"Connected — {len(models)} models available")
+    except Exception as e:
+        return _err(f"Connection failed: {e}")
+
+
+@router.post("/api/test/gmail/{account}")
+async def test_gmail(account: str, _: None = Depends(_verify_admin)):
+    """Test Gmail token for a specific account."""
+    try:
+        from radbot.tools.gmail.gmail_auth import authenticate_gmail
+        from googleapiclient.discovery import build as gmail_build
+
+        creds = authenticate_gmail(account)
+        if not creds:
+            return _err(f"No valid credentials for account '{account}'")
+        service = gmail_build("gmail", "v1", credentials=creds, cache_discovery=False)
+        profile = service.users().getProfile(userId="me").execute()
+        email = profile.get("emailAddress", "unknown")
+        return _ok(f"Authenticated as {email}")
+    except Exception as e:
+        return _err(f"Gmail test failed: {e}")
+
+
+@router.post("/api/test/calendar")
+async def test_calendar(request: Request, _: None = Depends(_verify_admin)):
+    """Test Google Calendar connectivity by listing 1 event."""
+    try:
+        from radbot.tools.calendar.calendar_auth import get_calendar_service
+        from radbot.config.config_loader import config_loader
+
+        cal_cfg = config_loader.get_config().get("integrations", {}).get("calendar", {})
+        calendar_id = cal_cfg.get("calendar_id", "primary")
+        service = get_calendar_service()
+        if not service:
+            return _err("Could not create Calendar service — check credentials")
+        events_result = service.events().list(
+            calendarId=calendar_id, maxResults=1, singleEvents=True,
+            orderBy="startTime", timeMin="2020-01-01T00:00:00Z",
+        ).execute()
+        count = len(events_result.get("items", []))
+        return _ok(f"Calendar access OK (calendar: {calendar_id}, found {count} event(s))")
+    except ImportError:
+        return _err("Calendar module not available")
+    except Exception as e:
+        return _err(f"Calendar test failed: {e}")
+
+
+@router.post("/api/test/jira")
+async def test_jira(request: Request, _: None = Depends(_verify_admin)):
+    """Test Jira connectivity with provided or stored credentials."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("url", "")
+    email = body.get("email", "")
+    api_token = body.get("api_token", "")
+
+    # Fall back to stored config/credentials
+    if not url or not email:
+        try:
+            from radbot.config.config_loader import config_loader
+            jira_cfg = config_loader.get_config().get("integrations", {}).get("jira", {})
+            url = url or jira_cfg.get("url", "")
+            email = email or jira_cfg.get("email", "")
+        except Exception:
+            pass
+    if not api_token or api_token == "***":
+        store = get_credential_store()
+        if store.available:
+            api_token = store.get("jira_api_token") or ""
+        if not api_token:
+            try:
+                from radbot.config.config_loader import config_loader
+                api_token = config_loader.get_config().get("integrations", {}).get("jira", {}).get("api_token", "")
+            except Exception:
+                pass
+
+    if not url or not email or not api_token:
+        return _err("Jira URL, email, and API token are all required")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{url.rstrip('/')}/rest/api/2/myself",
+                auth=(email, api_token),
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return _ok(f"Connected as {data.get('displayName', data.get('name', 'unknown'))}")
+            return _err(f"Jira returned HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        return _err(f"Jira connection failed: {e}")
+
+
+@router.post("/api/test/home-assistant")
+async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)):
+    """Test Home Assistant connectivity."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    ha_url = body.get("url", "")
+    ha_token = body.get("token", "")
+
+    if not ha_url:
+        try:
+            from radbot.config.config_loader import config_loader
+            ha_cfg = config_loader.get_config().get("integrations", {}).get("home_assistant", {})
+            ha_url = ha_url or ha_cfg.get("url", "")
+        except Exception:
+            pass
+    if not ha_token or ha_token == "***":
+        store = get_credential_store()
+        if store.available:
+            ha_token = store.get("ha_token") or ""
+        if not ha_token:
+            try:
+                from radbot.config.config_loader import config_loader
+                ha_token = config_loader.get_config().get("integrations", {}).get("home_assistant", {}).get("token", "")
+            except Exception:
+                pass
+
+    if not ha_url or not ha_token:
+        return _err("Home Assistant URL and token are required")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{ha_url.rstrip('/')}/api/",
+                headers={"Authorization": f"Bearer {ha_token}"},
+            )
+            if resp.status_code == 200:
+                return _ok("Connected to Home Assistant")
+            return _err(f"Home Assistant returned HTTP {resp.status_code}")
+    except Exception as e:
+        return _err(f"Home Assistant connection failed: {e}")
+
+
+@router.post("/api/test/tavily")
+async def test_tavily(request: Request, _: None = Depends(_verify_admin)):
+    """Test Tavily API key with a test search."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    api_key = body.get("api_key", "")
+    if not api_key or api_key == "***":
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("tavily_api_key") or ""
+        if not api_key:
+            try:
+                from radbot.config.config_loader import config_loader
+                api_key = config_loader.get_config().get("api_keys", {}).get("tavily", "")
+            except Exception:
+                pass
+
+    if not api_key:
+        return _err("No Tavily API key configured")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                "https://api.tavily.com/search",
+                json={"api_key": api_key, "query": "test", "max_results": 1},
+            )
+            if resp.status_code == 200:
+                return _ok("Tavily API key is valid")
+            return _err(f"Tavily returned HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        return _err(f"Tavily test failed: {e}")
+
+
+@router.post("/api/test/qdrant")
+async def test_qdrant(request: Request, _: None = Depends(_verify_admin)):
+    """Test Qdrant vector DB connectivity."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("url", "")
+    api_key = body.get("api_key", "")
+    host = body.get("host", "")
+    port = body.get("port", None)
+
+    # Fall back to config
+    if not url and not host:
+        try:
+            from radbot.config.config_loader import config_loader
+            vdb = config_loader.get_config().get("vector_db", {})
+            url = url or vdb.get("url", "")
+            host = host or vdb.get("host", "")
+            port = port or vdb.get("port", None)
+        except Exception:
+            pass
+    if not api_key or api_key == "***":
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("qdrant_api_key") or ""
+        if not api_key:
+            try:
+                from radbot.config.config_loader import config_loader
+                api_key = config_loader.get_config().get("vector_db", {}).get("api_key", "")
+            except Exception:
+                pass
+
+    try:
+        from qdrant_client import QdrantClient
+        kwargs: Dict[str, Any] = {}
+        if url:
+            kwargs["url"] = url
+        elif host:
+            kwargs["host"] = host
+            if port:
+                kwargs["port"] = int(port)
+        else:
+            return _err("No Qdrant URL or host configured")
+        if api_key:
+            kwargs["api_key"] = api_key
+
+        client = QdrantClient(**kwargs, timeout=10)
+        collections = client.get_collections()
+        names = [c.name for c in collections.collections]
+        return _ok(f"Connected — {len(names)} collections: {', '.join(names[:5])}")
+    except Exception as e:
+        return _err(f"Qdrant connection failed: {e}")
+
+
+@router.post("/api/test/redis")
+async def test_redis(request: Request, _: None = Depends(_verify_admin)):
+    """Test Redis connectivity."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    redis_url = body.get("redis_url", "")
+    if not redis_url:
+        try:
+            from radbot.config.config_loader import config_loader
+            redis_url = config_loader.get_config().get("cache", {}).get("redis_url", "")
+        except Exception:
+            pass
+
+    if not redis_url:
+        return _err("No Redis URL configured")
+
+    try:
+        import redis
+        r = redis.from_url(redis_url, socket_timeout=5)
+        r.ping()
+        info = r.info("server")
+        version = info.get("redis_version", "unknown")
+        r.close()
+        return _ok(f"Connected — Redis {version}")
+    except Exception as e:
+        return _err(f"Redis connection failed: {e}")
+
+
+@router.post("/api/test/crawl4ai")
+async def test_crawl4ai(request: Request, _: None = Depends(_verify_admin)):
+    """Test Crawl4AI connectivity via health endpoint."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    api_url = body.get("api_url", "")
+    api_token = body.get("api_token", "")
+
+    if not api_url:
+        try:
+            from radbot.config.config_loader import config_loader
+            c4 = config_loader.get_config().get("integrations", {}).get("crawl4ai", {})
+            api_url = api_url or c4.get("api_url", "")
+        except Exception:
+            pass
+    if not api_token or api_token == "***":
+        store = get_credential_store()
+        if store.available:
+            api_token = store.get("crawl4ai_api_token") or ""
+        if not api_token:
+            try:
+                from radbot.config.config_loader import config_loader
+                api_token = config_loader.get_config().get("integrations", {}).get("crawl4ai", {}).get("api_token", "")
+            except Exception:
+                pass
+
+    if not api_url:
+        return _err("No Crawl4AI API URL configured")
+
+    try:
+        hdrs: Dict[str, str] = {}
+        if api_token:
+            hdrs["Authorization"] = f"Bearer {api_token}"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{api_url.rstrip('/')}/health", headers=hdrs)
+            if resp.status_code == 200:
+                return _ok("Crawl4AI is healthy")
+            return _err(f"Crawl4AI returned HTTP {resp.status_code}")
+    except Exception as e:
+        return _err(f"Crawl4AI connection failed: {e}")
+
+
+# ------------------------------------------------------------------
+# Aggregate status endpoint (powers sidebar dots)
+# ------------------------------------------------------------------
+@router.get("/api/status")
+async def get_integration_status(_: None = Depends(_verify_admin)):
+    """Return aggregate connectivity status for all integrations.
+
+    Uses config values (file + DB) and credential store.  Falls back
+    gracefully when the credential store is unavailable.
+    """
+    from radbot.config.config_loader import config_loader
+    cfg = config_loader.get_config()
+
+    # Credential store may not be available (RADBOT_CREDENTIAL_KEY not set)
+    store = get_credential_store()
+    store_ok = store.available
+
+    def _store_get(name: str) -> Optional[str]:
+        if store_ok:
+            try:
+                return store.get(name)
+            except Exception:
+                return None
+        return None
+
+    status: Dict[str, Dict[str, str]] = {}
+
+    # Google API — check if a key exists in credential store or config
+    api_key = _store_get("google_api_key") or cfg.get("api_keys", {}).get("google", "")
+    if api_key:
+        status["google"] = {"status": "ok"}
+    else:
+        status["google"] = {"status": "unconfigured"}
+
+    # Gmail — check credential store tokens AND file-based tokens
+    gmail_cfg = cfg.get("integrations", {}).get("gmail", {})
+    gmail_has_tokens = False
+    # Check credential store
+    if store_ok:
+        try:
+            for entry in store.list():
+                if entry["name"].startswith("gmail_token_"):
+                    gmail_has_tokens = True
+                    break
+        except Exception:
+            pass
+    # Check file-based tokens
+    if not gmail_has_tokens:
+        try:
+            from radbot.tools.gmail.gmail_auth import discover_accounts
+            accounts = discover_accounts()
+            if accounts:
+                gmail_has_tokens = True
+        except Exception:
+            pass
+    # Also check if token_file is configured and exists
+    if not gmail_has_tokens and gmail_cfg.get("token_file"):
+        import os as _os
+        token_path = _os.path.expanduser(gmail_cfg["token_file"])
+        if _os.path.exists(token_path):
+            gmail_has_tokens = True
+
+    if gmail_has_tokens:
+        status["gmail"] = {"status": "ok"}
+    elif gmail_cfg.get("enabled"):
+        status["gmail"] = {"status": "error", "message": "Enabled but no tokens found"}
+    else:
+        status["gmail"] = {"status": "unconfigured"}
+
+    # Calendar
+    cal_cfg = cfg.get("integrations", {}).get("calendar", {})
+    cal_token = _store_get("calendar_token")
+    cal_sa = _store_get("calendar_service_account")
+    if cal_token or cal_sa or cal_cfg.get("service_account_file"):
+        status["calendar"] = {"status": "ok"}
+    elif cal_cfg.get("enabled"):
+        status["calendar"] = {"status": "error", "message": "Enabled but no credentials"}
+    else:
+        status["calendar"] = {"status": "unconfigured"}
+
+    # Jira
+    jira_cfg = cfg.get("integrations", {}).get("jira", {})
+    jira_token = _store_get("jira_api_token") or jira_cfg.get("api_token", "")
+    if jira_cfg.get("url") and jira_token:
+        status["jira"] = {"status": "ok"}
+    elif jira_cfg.get("enabled"):
+        status["jira"] = {"status": "error", "message": "Enabled but missing config"}
+    else:
+        status["jira"] = {"status": "unconfigured"}
+
+    # Home Assistant
+    ha_cfg = cfg.get("integrations", {}).get("home_assistant", {})
+    ha_token = _store_get("ha_token") or ha_cfg.get("token", "")
+    if ha_cfg.get("url") and ha_token:
+        status["home_assistant"] = {"status": "ok"}
+    elif ha_cfg.get("enabled"):
+        status["home_assistant"] = {"status": "error", "message": "Enabled but missing config"}
+    else:
+        status["home_assistant"] = {"status": "unconfigured"}
+
+    # Tavily
+    tavily_key = _store_get("tavily_api_key") or cfg.get("api_keys", {}).get("tavily", "")
+    if tavily_key:
+        status["tavily"] = {"status": "ok"}
+    else:
+        status["tavily"] = {"status": "unconfigured"}
+
+    # Crawl4AI
+    c4_cfg = cfg.get("integrations", {}).get("crawl4ai", {})
+    if c4_cfg.get("api_url"):
+        status["crawl4ai"] = {"status": "ok"}
+    elif c4_cfg.get("enabled"):
+        status["crawl4ai"] = {"status": "error", "message": "Enabled but no API URL"}
+    else:
+        status["crawl4ai"] = {"status": "unconfigured"}
+
+    # Qdrant
+    vdb = cfg.get("vector_db", {})
+    if vdb.get("url") or vdb.get("host"):
+        try:
+            from qdrant_client import QdrantClient
+            qd_kwargs: Dict[str, Any] = {}
+            if vdb.get("url"):
+                qd_kwargs["url"] = vdb["url"]
+            else:
+                qd_kwargs["host"] = vdb["host"]
+                if vdb.get("port"):
+                    qd_kwargs["port"] = vdb["port"]
+            qd_key = _store_get("qdrant_api_key") or vdb.get("api_key", "")
+            if qd_key:
+                qd_kwargs["api_key"] = qd_key
+            qc = QdrantClient(**qd_kwargs, timeout=5)
+            qc.get_collections()
+            status["qdrant"] = {"status": "ok"}
+        except Exception as e:
+            status["qdrant"] = {"status": "error", "message": str(e)[:100]}
+    else:
+        status["qdrant"] = {"status": "unconfigured"}
+
+    # Redis
+    redis_url = cfg.get("cache", {}).get("redis_url", "")
+    if redis_url:
+        try:
+            import redis as redis_lib
+            r = redis_lib.from_url(redis_url, socket_timeout=3)
+            r.ping()
+            r.close()
+            status["redis"] = {"status": "ok"}
+        except Exception as e:
+            status["redis"] = {"status": "error", "message": str(e)[:100]}
+    else:
+        status["redis"] = {"status": "unconfigured"}
+
+    # PostgreSQL — always ok if we got this far (admin page loaded)
+    status["postgresql"] = {"status": "ok"}
+
+    # Credential store availability (needed for save operations)
+    status["_credential_store"] = {"status": "ok" if store_ok else "unavailable"}
+
+    return status

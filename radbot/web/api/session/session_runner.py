@@ -177,17 +177,12 @@ class SessionRunner:
                 # Load conversation history from DB into the new ADK session
                 await self._load_history_into_session(session)
             
-            # OPTIMIZATION: Limit event history to reduce context size
+            # OPTIMIZATION: Limit event history to reduce context size.
+            # Keep a fixed cap so long tool-invocation messages don't carry
+            # stale history that confuses the model on the first turn.
             try:
                 event_count = len(session.events) if hasattr(session, 'events') else 0
-                message_length = len(message.strip()) if isinstance(message, str) else 0
-
-                if message_length <= 5:
-                    MAX_EVENTS = 10
-                elif message_length <= 20:
-                    MAX_EVENTS = 20
-                else:
-                    MAX_EVENTS = 30
+                MAX_EVENTS = 20
 
                 if event_count > MAX_EVENTS:
                     logger.info(f"Truncating event history from {event_count} to {MAX_EVENTS} events")
@@ -254,6 +249,21 @@ class SessionRunner:
                             logger.info(f"  Event {i} part {j}: {', '.join(part_attrs)}")
                     else:
                         logger.info(f"  Event {i}: content has no parts")
+                        # Log content role for debugging empty responses
+                        if hasattr(event.content, 'role'):
+                            logger.info(f"  Event {i}: content.role={event.content.role}")
+
+                # Log actions (agent transfers) for debugging
+                if hasattr(event, 'actions') and event.actions:
+                    actions = event.actions
+                    if hasattr(actions, 'transfer_to_agent') and actions.transfer_to_agent:
+                        logger.info(f"  Event {i}: TRANSFER_TO_AGENT={actions.transfer_to_agent}")
+                    if hasattr(actions, 'escalate') and actions.escalate:
+                        logger.info(f"  Event {i}: ESCALATE=True")
+
+                # Log author for debugging
+                if hasattr(event, 'author'):
+                    logger.info(f"  Event {i}: author={event.author}")
 
             # Initialize variables for collecting event data
             final_response = None
@@ -901,10 +911,13 @@ class SessionRunner:
                             if server_tools:
                                 logger.info(f"Successfully loaded {len(server_tools)} tools from {server_name}")
                                 
-                                # Add unique tools
+                                # Add unique tools, filtering out blocklisted ones
+                                from radbot.tools.mcp.dynamic_tools_loader import _MCP_TOOL_BLOCKLIST
                                 for tool in server_tools:
                                     tool_name = getattr(tool, "name", None) or getattr(tool, "__name__", str(tool))
-                                    if tool_name not in existing_tool_names:
+                                    if tool_name in _MCP_TOOL_BLOCKLIST:
+                                        logger.info(f"Skipping blocklisted tool: {tool_name} from {server_name}")
+                                    elif tool_name not in existing_tool_names:
                                         tools_to_add.append(tool)
                                         existing_tool_names.add(tool_name)
                                         logger.info(f"Added tool: {tool_name} from {server_name}")
@@ -998,6 +1011,7 @@ class SessionRunner:
             session: The ADK session object to populate.
         """
         try:
+            import uuid
             from radbot.web.db import chat_operations
             from google.adk.events import Event
 
@@ -1016,6 +1030,10 @@ class SessionRunner:
             agent_name = root_agent.name if hasattr(root_agent, 'name') else "beto"
 
             loaded = 0
+            # Group user/assistant pairs under the same invocation_id.
+            # Each user message starts a new invocation; the following
+            # assistant message shares the same id (they're one turn).
+            current_invocation_id = str(uuid.uuid4())
             for msg in recent:
                 role = msg.get("role", "")
                 content_text = msg.get("content", "")
@@ -1023,12 +1041,16 @@ class SessionRunner:
                     continue
 
                 if role == "user":
+                    # New turn → new invocation id
+                    current_invocation_id = str(uuid.uuid4())
                     event = Event(
+                        invocation_id=current_invocation_id,
                         author="user",
                         content=Content(parts=[Part(text=content_text)], role="user"),
                     )
                 elif role == "assistant":
                     event = Event(
+                        invocation_id=current_invocation_id,
                         author=agent_name,
                         content=Content(parts=[Part(text=content_text)], role="model"),
                     )

@@ -18,6 +18,16 @@ from radbot.tools.mcp.mcp_client_factory import MCPClientFactory, MCPClientError
 
 logger = logging.getLogger(__name__)
 
+# Tools that should never be loaded from MCP servers into the Gemini agent.
+# These are Claude Code internal tools that are exposed by `claude mcp serve`
+# but are completely unusable by Google Gemini models.
+_MCP_TOOL_BLOCKLIST = {
+    "Task", "TaskOutput", "Bash", "Glob", "Grep", "Read", "Edit", "Write",
+    "NotebookEdit", "WebFetch", "TodoWrite", "WebSearch", "TaskStop",
+    "AskUserQuestion", "Skill", "EnterPlanMode", "ExitPlanMode", "ToolSearch",
+}
+
+
 def load_dynamic_mcp_tools() -> List[Any]:
     """
     Dynamically load tools from all enabled MCP servers defined in config.yaml.
@@ -107,11 +117,26 @@ def load_dynamic_mcp_tools() -> List[Any]:
                     logger.warning(f"No tools found for MCP server {server_id}")
                     continue
                     
-                # Add tools to our list
+                # Filter out blocklisted tools and add to our list
                 if tools:
-                    all_tools.extend(tools)
-                    server_tool_counts[server_name] = len(tools)
-                    logger.info(f"Added {len(tools)} tools from MCP server {server_name}")
+                    filtered_tools = []
+                    blocked_names = []
+                    for tool in tools:
+                        tool_name = getattr(tool, 'name', None) or getattr(tool, '__name__', str(tool))
+                        if tool_name in _MCP_TOOL_BLOCKLIST:
+                            blocked_names.append(tool_name)
+                        else:
+                            filtered_tools.append(tool)
+
+                    if blocked_names:
+                        logger.warning(
+                            f"Filtered {len(blocked_names)} blocklisted tools from "
+                            f"MCP server {server_name}: {blocked_names}"
+                        )
+
+                    all_tools.extend(filtered_tools)
+                    server_tool_counts[server_name] = len(filtered_tools)
+                    logger.info(f"Added {len(filtered_tools)} tools from MCP server {server_name}")
                 else:
                     logger.warning(f"No tools returned from MCP server {server_id}")
                     

@@ -137,6 +137,57 @@ async def initialize_app_startup():
         except Exception as cfg_err:
             logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
 
+        # Prune disabled MCP server tools from the root agent.
+        # The root agent is created at import time using config.yaml, before DB
+        # config overrides are loaded. This step removes tools from MCP servers
+        # that were disabled via the /admin UI (stored in DB).
+        try:
+            from agent import root_agent
+            from radbot.config.config_loader import config_loader as _cl
+            from radbot.tools.mcp.dynamic_tools_loader import _MCP_TOOL_BLOCKLIST
+
+            enabled_server_ids = {
+                s.get("id") for s in _cl.get_enabled_mcp_servers()
+            }
+            all_server_ids = {
+                s.get("id") for s in _cl.get_mcp_servers()
+            }
+            disabled_server_ids = all_server_ids - enabled_server_ids
+
+            if disabled_server_ids:
+                original_count = len(root_agent.tools)
+                # Build set of tool names to remove: blocklisted + tools from disabled servers
+                tools_to_remove = set(_MCP_TOOL_BLOCKLIST)
+
+                # Get tool names from disabled servers by checking the MCP client factory
+                try:
+                    from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
+                    for sid in disabled_server_ids:
+                        client = MCPClientFactory.get_client(sid) if MCPClientFactory else None
+                        if client:
+                            server_tools = client.tools if hasattr(client, 'tools') else []
+                            for t in (server_tools or []):
+                                name = getattr(t, 'name', None) or getattr(t, '__name__', None)
+                                if name:
+                                    tools_to_remove.add(name)
+                except Exception:
+                    pass  # If we can't get client tools, rely on the blocklist
+
+                root_agent.tools = [
+                    t for t in root_agent.tools
+                    if (getattr(t, '__name__', None) or getattr(t, 'name', ''))
+                    not in tools_to_remove
+                ]
+                removed = original_count - len(root_agent.tools)
+                if removed:
+                    logger.info(
+                        f"Pruned {removed} MCP tools from root agent "
+                        f"(disabled servers: {disabled_server_ids}). "
+                        f"Tools: {original_count} -> {len(root_agent.tools)}"
+                    )
+        except Exception as prune_err:
+            logger.warning(f"Error pruning disabled MCP tools: {prune_err}")
+
         # Start the scheduler engine
         logger.info("Starting scheduler engine...")
         try:

@@ -57,10 +57,12 @@ def get_ha_entity_state(entity_id: str) -> Dict[str, Any]:
     """
     Gets the current state and attributes of a specific entity in Home Assistant.
 
+    IMPORTANT: If you do not know the exact entity_id, call search_ha_entities
+    first with the user's description to find the correct ID before calling this.
+
     Args:
         entity_id: The unique identifier of the entity (e.g., 'sensor.temperature_probe').
-                  This ID must be known and provided accurately.
-                  
+
     Returns:
         A dictionary with status and data containing entity state information.
     """
@@ -92,10 +94,12 @@ def turn_on_ha_entity(entity_id: str) -> Dict[str, Any]:
     """
     Turns on a Home Assistant entity (e.g., light, switch, etc.).
 
+    IMPORTANT: If you do not know the exact entity_id, call search_ha_entities
+    first with the user's description to find the correct ID before calling this.
+
     Args:
-        entity_id: The unique identifier of the entity to turn on (e.g., 'light.bedroom_lamp').
-                  This ID must be known and provided accurately.
-                  
+        entity_id: The unique identifier of the entity to turn on (e.g., 'switch.basement_plant_lamp').
+
     Returns:
         A dictionary with status and message about the action result.
     """
@@ -129,10 +133,12 @@ def turn_off_ha_entity(entity_id: str) -> Dict[str, Any]:
     """
     Turns off a Home Assistant entity (e.g., light, switch, etc.).
 
+    IMPORTANT: If you do not know the exact entity_id, call search_ha_entities
+    first with the user's description to find the correct ID before calling this.
+
     Args:
-        entity_id: The unique identifier of the entity to turn off (e.g., 'light.bedroom_lamp').
-                  This ID must be known and provided accurately.
-                  
+        entity_id: The unique identifier of the entity to turn off (e.g., 'switch.basement_plant_lamp').
+
     Returns:
         A dictionary with status and message about the action result.
     """
@@ -165,12 +171,13 @@ def turn_off_ha_entity(entity_id: str) -> Dict[str, Any]:
 def toggle_ha_entity(entity_id: str) -> Dict[str, Any]:
     """
     Toggles the state of a Home Assistant entity (e.g., turns a light/switch on or off).
-    Assumes the entity supports the 'toggle' service common for lights and switches.
+
+    IMPORTANT: If you do not know the exact entity_id, call search_ha_entities
+    first with the user's description to find the correct ID before calling this.
 
     Args:
-        entity_id: The unique identifier of the entity to toggle (e.g., 'light.bedroom_lamp').
-                  This ID must be known and provided accurately.
-                  
+        entity_id: The unique identifier of the entity to toggle (e.g., 'switch.basement_plant_lamp').
+
     Returns:
         A dictionary with status and message about the action result.
     """
@@ -204,16 +211,18 @@ def toggle_ha_entity(entity_id: str) -> Dict[str, Any]:
 def search_ha_entities(search_term: str, domain_filter: Optional[str] = None) -> Dict[str, Any]:
     """
     Search for Home Assistant entities by name, ID, or other attributes.
-    
-    This is a simplified implementation that makes a direct call to the Home Assistant API
-    and filters the results based on the search term and optional domain filter.
-    
+    Use this tool FIRST to find entity IDs before calling turn_on/turn_off/toggle/get_state.
+
+    For example, if a user says "turn on the basement lights", call this with
+    search_term="basement" to discover the correct entity_id, then use that ID
+    with turn_on_ha_entity.
+
     Args:
-        search_term: Text to search for in entity names and IDs
-        domain_filter: Optional domain to restrict search to
-        
+        search_term: Text to search for in entity names and IDs (e.g., "basement", "kitchen light")
+        domain_filter: Optional domain to restrict search (e.g., "light", "switch", "sensor")
+
     Returns:
-        Dictionary with search results
+        Dictionary with matching entities including their entity_id, friendly_name, and state
     """
     logger.info(f"Searching for Home Assistant entities with term: '{search_term}', domain: '{domain_filter}'")
     
