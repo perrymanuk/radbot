@@ -35,24 +35,34 @@ def sanitize_before_model_callback(
         return None
 
     parts_cleaned = 0
-    for content in llm_request.contents:
+    total_parts = 0
+    details = []
+    for ci, content in enumerate(llm_request.contents):
         if not content.parts:
             continue
-        for part in content.parts:
+        role = getattr(content, "role", "unknown")
+        for pi, part in enumerate(content.parts):
             if hasattr(part, "text") and part.text:
+                total_parts += 1
                 cleaned = sanitize_text(
                     part.text,
                     source="before_model_callback",
                     strictness=cfg.get("strictness"),
                 )
                 if cleaned != part.text:
+                    chars_removed = len(part.text) - len(cleaned)
+                    details.append(
+                        f"content[{ci}].parts[{pi}] (role={role}): "
+                        f"removed {chars_removed} char(s)"
+                    )
                     part.text = cleaned
                     parts_cleaned += 1
 
     if parts_cleaned:
         logger.info(
-            "sanitize_callback: cleaned %d part(s) in LLM request",
-            parts_cleaned,
+            "sanitize_callback: cleaned %d/%d part(s) — %s",
+            parts_cleaned, total_parts,
+            "; ".join(details),
         )
 
     return None

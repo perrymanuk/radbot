@@ -248,10 +248,27 @@ class SessionRunner:
                                 part_attrs.append(f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}")
                             logger.info(f"  Event {i} part {j}: {', '.join(part_attrs)}")
                     else:
-                        logger.info(f"  Event {i}: content has no parts")
-                        # Log content role for debugging empty responses
-                        if hasattr(event.content, 'role'):
-                            logger.info(f"  Event {i}: content.role={event.content.role}")
+                        # Detailed diagnostics for empty content (no parts)
+                        role = getattr(event.content, 'role', 'unknown')
+                        parts_val = getattr(event.content, 'parts', 'MISSING')
+                        is_final = False
+                        if hasattr(event, 'is_final_response') and callable(getattr(event, 'is_final_response')):
+                            is_final = event.is_final_response()
+                        logger.warning(
+                            "  Event %d: EMPTY CONTENT — role=%s, parts=%r, is_final=%s, author=%s. "
+                            "This may cause session poisoning (subsequent requests can also return empty).",
+                            i, role, parts_val, is_final,
+                            getattr(event, 'author', 'unknown'),
+                        )
+                        # Inspect content object for any non-standard attributes
+                        content_attrs = {
+                            a: repr(getattr(event.content, a, None))[:120]
+                            for a in dir(event.content)
+                            if not a.startswith('_') and a not in ('parts', 'role')
+                            and getattr(event.content, a, None) is not None
+                        }
+                        if content_attrs:
+                            logger.warning("  Event %d: content attrs: %s", i, content_attrs)
 
                 # Log actions (agent transfers) for debugging
                 if hasattr(event, 'actions') and event.actions:
@@ -366,7 +383,30 @@ class SessionRunner:
                 final_response = last_text_response
 
             if not final_response:
-                logger.warning("No text response found in events, including malformed function handler")
+                # Build a summary of what the model actually returned
+                event_summary = []
+                for idx, ev in enumerate(events):
+                    etype = type(ev).__name__
+                    has_content = hasattr(ev, 'content') and ev.content is not None
+                    has_parts = has_content and hasattr(ev.content, 'parts') and ev.content.parts
+                    parts_count = len(ev.content.parts) if has_parts else 0
+                    role = getattr(ev.content, 'role', '?') if has_content else '?'
+                    author = getattr(ev, 'author', '?')
+                    is_final = False
+                    if hasattr(ev, 'is_final_response') and callable(getattr(ev, 'is_final_response')):
+                        is_final = ev.is_final_response()
+                    event_summary.append(
+                        f"  [{idx}] {etype}: author={author}, role={role}, "
+                        f"parts={parts_count}, is_final={is_final}"
+                    )
+                logger.warning(
+                    "NO TEXT RESPONSE found in %d events (session=%s). "
+                    "This usually means the model returned empty content which will poison "
+                    "the session history — all future requests in this session may also fail.\n"
+                    "Event breakdown:\n%s",
+                    len(events), self.session_id,
+                    "\n".join(event_summary) if event_summary else "  (no events)",
+                )
                 final_response = "I apologize, but I couldn't generate a response."
             
             # Filter events: keep non-model events (tool_call, agent_transfer, etc.)
