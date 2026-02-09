@@ -457,6 +457,7 @@ async def index(request: Request):
         # Rewrite asset paths: Vite outputs /assets/... but we serve from /static/dist/assets/...
         html = html.replace('"/assets/', '"/static/dist/assets/')
         html = html.replace("'/assets/", "'/static/dist/assets/")
+        html = html.replace('"/favicon.png"', '"/static/dist/favicon.png"')
         return HTMLResponse(content=html)
     return HTMLResponse(
         content="<h1>RadBot</h1><p>React frontend not built. Run <code>make build-frontend</code> first.</p>",
