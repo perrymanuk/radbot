@@ -1,4 +1,5 @@
 import { useAppStore } from "@/stores/app-store";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import type { Session } from "@/types";
 
@@ -9,13 +10,20 @@ interface Props {
 export default function SessionItem({ session }: Props) {
   const currentSessionId = useAppStore((s) => s.sessionId);
   const switchSession = useAppStore((s) => s.switchSession);
+  const setActivePanel = useAppStore((s) => s.setActivePanel);
   const isActive = session.id === currentSessionId;
+  const isMobile = useIsMobile();
+
+  const handleClick = () => {
+    switchSession(session.id);
+    if (isMobile) setActivePanel(null);
+  };
 
   return (
     <div
-      onClick={() => switchSession(session.id)}
+      onClick={handleClick}
       className={cn(
-        "px-2 py-1.5 mb-0.5 border border-border bg-bg-secondary text-[0.75rem] cursor-pointer transition-all",
+        "px-2 py-2 sm:py-1.5 mb-0.5 border border-border bg-bg-secondary text-[0.75rem] cursor-pointer transition-all",
         "hover:border-accent-blue hover:bg-bg-tertiary",
         isActive && "border-accent-blue bg-bg-tertiary shadow-[0_0_0_1px_#3584e4]",
       )}

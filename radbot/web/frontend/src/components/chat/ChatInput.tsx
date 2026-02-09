@@ -4,7 +4,7 @@ import { wsSend } from "@/hooks/use-websocket";
 import { useSTT } from "@/hooks/use-stt";
 import CommandSuggestions from "./CommandSuggestions";
 import EmojiSuggestions from "./EmojiSuggestions";
-import { cn } from "@/lib/utils";
+import { cn, uuid } from "@/lib/utils";
 
 const COMMANDS = [
   { name: "/sessions", description: "Toggle sessions panel" },
@@ -64,7 +64,7 @@ export default function ChatInput() {
         case "sessions":
           togglePanel("sessions");
           addMessage({
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: "system",
             content: "Sessions panel toggled",
             timestamp: Date.now(),
@@ -73,7 +73,7 @@ export default function ChatInput() {
         case "tasks":
           togglePanel("tasks");
           addMessage({
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: "system",
             content: "Tasks panel toggled",
             timestamp: Date.now(),
@@ -82,7 +82,7 @@ export default function ChatInput() {
         case "events":
           togglePanel("events");
           addMessage({
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: "system",
             content: "Events panel toggled",
             timestamp: Date.now(),
@@ -98,7 +98,7 @@ export default function ChatInput() {
           });
           msg += "\n**Controls:** Enter=send, Shift+Enter=newline, Up/Down=history";
           addMessage({
-            id: crypto.randomUUID(),
+            id: uuid(),
             role: "system",
             content: msg,
             timestamp: Date.now(),
@@ -113,7 +113,7 @@ export default function ChatInput() {
     } else {
       // Add user message to UI immediately
       addMessage({
-        id: crypto.randomUUID(),
+        id: uuid(),
         role: "user",
         content: trimmed,
         timestamp: Date.now(),
@@ -247,7 +247,7 @@ export default function ChatInput() {
           rows={1}
           className={cn(
             "flex-1 pl-6 pr-2 py-1.5 border border-border resize-none outline-none",
-            "text-[0.85rem] min-h-[30px] max-h-[120px] overflow-y-auto",
+            "text-base sm:text-[0.85rem] min-h-[44px] sm:min-h-[30px] max-h-[120px] overflow-y-auto",
             "bg-bg-secondary text-txt-primary font-mono",
             "caret-accent-blue transition-all",
             "focus:border-accent-blue focus:shadow-[0_0_5px_rgba(53,132,228,0.3)]",
@@ -264,6 +264,7 @@ export default function ChatInput() {
             "px-2 border border-border bg-bg-tertiary text-txt-primary",
             "cursor-pointer flex items-center justify-center transition-all",
             "uppercase tracking-wider text-[0.7rem] font-mono",
+            "min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0",
             "hover:bg-accent-blue hover:text-bg-primary",
             stt.state === "recording" &&
               "bg-terminal-red/20 border-terminal-red text-terminal-red animate-pulse",
@@ -282,6 +283,7 @@ export default function ChatInput() {
             "px-3 border border-border bg-bg-tertiary text-txt-primary",
             "cursor-pointer flex items-center justify-center transition-all",
             "uppercase tracking-wider text-[0.7rem] font-mono",
+            "min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0",
             "hover:bg-accent-blue hover:text-bg-primary",
             "disabled:border-accent-blue/30 disabled:text-accent-blue/30 disabled:bg-bg-tertiary disabled:cursor-not-allowed",
           )}

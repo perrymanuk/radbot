@@ -11,6 +11,7 @@ import type {
   EventCategory,
 } from "@/types";
 import * as api from "@/lib/api";
+import { uuid } from "@/lib/utils";
 
 interface AppState {
   // ── Session ─────────────────────────────────────────────
@@ -79,7 +80,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   initSession: () => {
     // Use existing session from localStorage or generate new one
     const stored = localStorage.getItem("radbot_session_id");
-    const id = stored || crypto.randomUUID();
+    const id = stored || uuid();
     if (!stored) localStorage.setItem("radbot_session_id", id);
     set({ sessionId: id });
     get().loadAgentInfo();
@@ -114,7 +115,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       get().loadSessions();
     } catch {
       // Fallback: generate locally
-      const id = crypto.randomUUID();
+      const id = uuid();
       get().switchSession(id);
     }
   },

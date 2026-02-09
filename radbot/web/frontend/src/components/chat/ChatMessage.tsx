@@ -95,7 +95,7 @@ export default function ChatMessage({ message }: Props) {
       <div className="py-0.5 break-words whitespace-pre-wrap relative leading-[1.15]">
         <span
           className={cn(
-            "font-normal tracking-[0.5px] text-[0.85rem]",
+            "font-normal tracking-[0.5px] text-sm sm:text-[0.85rem]",
             prompt.colorClass,
           )}
         >

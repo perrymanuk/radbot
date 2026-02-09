@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/stores/app-store";
 import SessionItem from "./SessionItem";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function SessionsPanel() {
   const sessions = useAppStore((s) => s.sessions);
   const loadSessions = useAppStore((s) => s.loadSessions);
   const createNewSession = useAppStore((s) => s.createNewSession);
+  const setActivePanel = useAppStore((s) => s.setActivePanel);
   const [search, setSearch] = useState("");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadSessions();
@@ -21,13 +24,21 @@ export default function SessionsPanel() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Header */}
-      <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2">
+      <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2 min-h-[44px] md:min-h-0">
+        {isMobile && (
+          <button
+            onClick={() => setActivePanel(null)}
+            className="px-2 py-1 text-txt-secondary hover:text-txt-primary font-mono text-sm"
+          >
+            &larr;
+          </button>
+        )}
         <span className="text-accent-blue text-[0.9rem] font-mono flex-1">
           Sessions
         </span>
         <button
           onClick={() => createNewSession()}
-          className="px-2 py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer"
+          className="px-2 py-1 sm:py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer min-h-[36px] sm:min-h-0"
         >
           + NEW
         </button>

@@ -40,14 +40,15 @@ export default function ChatHeader() {
   const modelName = agentInfo?.model ?? "";
 
   return (
-    <div className="flex items-center justify-between px-2 py-1 bg-bg-tertiary border-b border-border h-10 flex-shrink-0 z-10">
+    <div className="flex items-center justify-between px-2 py-1 bg-bg-tertiary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10">
       {/* Left: title + status */}
-      <div className="flex items-center gap-2">
-        <h1 className="text-[0.85rem] tracking-wider font-normal text-accent-blue uppercase font-mono m-0 whitespace-nowrap">
-          RadBot Terminal
+      <div className="flex items-center gap-2 min-w-0">
+        <h1 className="text-sm sm:text-[0.85rem] tracking-wider font-normal text-accent-blue uppercase font-mono m-0 whitespace-nowrap">
+          <span className="hidden sm:inline">RadBot Terminal</span>
+          <span className="sm:hidden">RadBot</span>
         </h1>
         <StatusDot status={status} />
-        <span className="text-[0.75rem] text-txt-secondary">
+        <span className="text-[0.75rem] text-txt-secondary hidden sm:inline">
           <span className="text-terminal-amber font-bold">{agentName}</span>
           {modelName && (
             <span className="text-txt-primary ml-2">{modelName}</span>
@@ -56,9 +57,10 @@ export default function ChatHeader() {
       </div>
 
       {/* Right: TTS toggle + panel toggle buttons */}
-      <div className="flex gap-1.5">
+      <div className="flex gap-1 sm:gap-1.5 flex-shrink-0">
         <PanelButton
           label={ttsAutoPlay ? "TTS:ON" : "TTS:OFF"}
+          mobileLabel={ttsAutoPlay ? "TTS" : "TTS"}
           active={ttsAutoPlay}
           onClick={toggleTtsAutoPlay}
         />
@@ -74,6 +76,7 @@ export default function ChatHeader() {
         />
         <PanelButton
           label="EVENTS"
+          mobileLabel="EVT"
           active={activePanel === "events"}
           onClick={() => togglePanel("events")}
         />
@@ -84,10 +87,12 @@ export default function ChatHeader() {
 
 function PanelButton({
   label,
+  mobileLabel,
   active,
   onClick,
 }: {
   label: string;
+  mobileLabel?: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -95,14 +100,15 @@ function PanelButton({
     <button
       onClick={onClick}
       className={cn(
-        "px-2 py-0.5 border text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-        "flex items-center gap-1",
+        "px-1.5 sm:px-2 py-1 sm:py-0.5 border text-[0.7rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+        "flex items-center gap-1 min-h-[36px] sm:min-h-0",
         active
           ? "bg-accent-blue text-bg-primary border-accent-blue"
           : "bg-bg-tertiary text-txt-primary border-border hover:bg-accent-blue hover:text-bg-primary",
       )}
     >
-      {label}
+      <span className="hidden sm:inline">{label}</span>
+      <span className="sm:hidden">{mobileLabel ?? label}</span>
     </button>
   );
 }

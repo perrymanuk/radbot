@@ -51,12 +51,17 @@ const config: Config = {
           "70%": { boxShadow: "0 0 0 5px rgba(53, 132, 228, 0)" },
           "100%": { boxShadow: "0 0 0 0 rgba(53, 132, 228, 0)" },
         },
+        "slide-in-right": {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
       },
       animation: {
         "terminal-blink": "terminal-blink 0.8s infinite",
         pulse: "pulse 2s infinite",
         "stt-pulse": "stt-pulse 1s ease-in-out infinite",
         "pulse-blue": "pulse-blue 2s infinite",
+        "slide-in-right": "slide-in-right 0.2s ease-out",
       },
     },
   },

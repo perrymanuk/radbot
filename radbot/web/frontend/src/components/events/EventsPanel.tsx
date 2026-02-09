@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAppStore } from "@/stores/app-store";
 import EventItem from "./EventItem";
 import EventDetails from "./EventDetails";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { AgentEvent, EventCategory } from "@/types";
 
 const FILTER_OPTIONS: { value: EventCategory | "all"; label: string }[] = [
@@ -17,7 +18,9 @@ export default function EventsPanel() {
   const events = useAppStore((s) => s.events);
   const eventFilter = useAppStore((s) => s.eventFilter);
   const setEventFilter = useAppStore((s) => s.setEventFilter);
+  const setActivePanel = useAppStore((s) => s.setActivePanel);
   const [selectedEvent, setSelectedEvent] = useState<AgentEvent | null>(null);
+  const isMobile = useIsMobile();
 
   const filtered =
     eventFilter === "all"
@@ -27,10 +30,10 @@ export default function EventsPanel() {
   if (selectedEvent) {
     return (
       <div className="flex flex-col h-full bg-bg-primary">
-        <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2">
+        <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2 min-h-[44px] md:min-h-0">
           <button
             onClick={() => setSelectedEvent(null)}
-            className="px-2 py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer"
+            className="px-2 py-1 sm:py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer min-h-[36px] sm:min-h-0"
           >
             BACK
           </button>
@@ -46,7 +49,15 @@ export default function EventsPanel() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Header */}
-      <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border">
+      <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2 min-h-[44px] md:min-h-0">
+        {isMobile && (
+          <button
+            onClick={() => setActivePanel(null)}
+            className="px-2 py-1 text-txt-secondary hover:text-txt-primary font-mono text-sm"
+          >
+            &larr;
+          </button>
+        )}
         <span className="text-accent-blue text-[0.9rem] font-mono">
           Events
         </span>

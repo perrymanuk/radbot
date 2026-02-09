@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "@/stores/app-store";
 import TaskItem from "./TaskItem";
 import TaskForm from "./TaskForm";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
@@ -22,7 +23,9 @@ export default function TasksPanel() {
   const setTaskStatusFilter = useAppStore((s) => s.setTaskStatusFilter);
   const setTaskProjectFilter = useAppStore((s) => s.setTaskProjectFilter);
   const setTaskSearch = useAppStore((s) => s.setTaskSearch);
+  const setActivePanel = useAppStore((s) => s.setActivePanel);
   const [showForm, setShowForm] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadTasks();
@@ -45,13 +48,21 @@ export default function TasksPanel() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Header */}
-      <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2">
+      <div className="px-2 py-1.5 bg-bg-tertiary border-b border-border flex items-center gap-2 min-h-[44px] md:min-h-0">
+        {isMobile && (
+          <button
+            onClick={() => setActivePanel(null)}
+            className="px-2 py-1 text-txt-secondary hover:text-txt-primary font-mono text-sm"
+          >
+            &larr;
+          </button>
+        )}
         <span className="text-accent-blue text-[0.9rem] font-mono flex-1">
           Tasks
         </span>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-2 py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer"
+          className="px-2 py-1 sm:py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer min-h-[36px] sm:min-h-0"
         >
           {showForm ? "CLOSE" : "+ NEW"}
         </button>

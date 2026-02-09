@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/stores/app-store";
+import { uuid } from "@/lib/utils";
 import type { Message, AgentEvent } from "@/types";
 
 const HEARTBEAT_INTERVAL = 90_000; // 90s
@@ -121,7 +122,7 @@ export function useWebSocket(sessionId: string | null) {
               ) {
                 setConnectionStatus("error");
                 addMessage({
-                  id: crypto.randomUUID(),
+                  id: uuid(),
                   role: "system",
                   content: data.content,
                   timestamp: Date.now(),
@@ -132,7 +133,7 @@ export function useWebSocket(sessionId: string | null) {
             case "message":
               if (typeof data.content === "string") {
                 addMessage({
-                  id: crypto.randomUUID(),
+                  id: uuid(),
                   role: data.role === "system" ? "system" : "assistant",
                   content: data.content,
                   timestamp: Date.now(),
@@ -153,7 +154,7 @@ export function useWebSocket(sessionId: string | null) {
                 );
                 if (finalResponse?.text) {
                   addMessage({
-                    id: crypto.randomUUID(),
+                    id: uuid(),
                     role: "assistant",
                     content: finalResponse.text,
                     timestamp: Date.now(),
