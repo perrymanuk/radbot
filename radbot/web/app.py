@@ -617,6 +617,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
                         })
                     await websocket.send_json({
                         "type": "history",
+                        "session_id": session_id,
                         "messages": messages
                     })
                     logger.info(f"Sent history response with {len(messages)} messages from DB for session {session_id}")
@@ -637,6 +638,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
                 logger.warning(f"No session found for history request with ID {session_id}")
                 await websocket.send_json({
                     "type": "history",
+                    "session_id": session_id,
                     "messages": []
                 })
                 return
@@ -646,6 +648,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
 
             await websocket.send_json({
                 "type": "history",
+                "session_id": session_id,
                 "messages": messages
             })
 

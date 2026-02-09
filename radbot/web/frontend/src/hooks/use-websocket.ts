@@ -16,6 +16,7 @@ export function useWebSocket(sessionId: string | null) {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageQueueRef = useRef<string[]>([]);
   const isConnectedRef = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
 
   const setConnectionStatus = useAppStore((s) => s.setConnectionStatus);
   const addMessage = useAppStore((s) => s.addMessage);
@@ -75,6 +76,7 @@ export function useWebSocket(sessionId: string | null) {
 
   const connect = useCallback(
     (sid: string) => {
+      sessionIdRef.current = sid;
       cleanup();
       setConnectionStatus("connecting");
 
@@ -102,6 +104,9 @@ export function useWebSocket(sessionId: string | null) {
       ws.onmessage = (evt) => {
         try {
           const data = JSON.parse(evt.data);
+
+          // Drop messages from stale WebSocket connections
+          if (sessionIdRef.current !== sid) return;
 
           switch (data.type) {
             case "heartbeat":
@@ -197,6 +202,9 @@ export function useWebSocket(sessionId: string | null) {
           heartbeatRef.current = null;
         }
 
+        // Skip reconnection if session has changed
+        if (sessionIdRef.current !== sid) return;
+
         setConnectionStatus("reconnecting");
 
         // Exponential backoff reconnect
@@ -208,7 +216,9 @@ export function useWebSocket(sessionId: string | null) {
 
         reconnectTimerRef.current = setTimeout(() => {
           const currentSession = useAppStore.getState().sessionId;
-          if (currentSession) connect(currentSession);
+          if (currentSession && currentSession === sessionIdRef.current) {
+            connect(currentSession);
+          }
         }, delay);
       };
 

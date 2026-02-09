@@ -17,7 +17,7 @@ interface AppState {
   // ── Session ─────────────────────────────────────────────
   sessionId: string | null;
   sessions: Session[];
-  initSession: () => void;
+  initSession: () => Promise<void>;
   setSessionId: (id: string) => void;
   loadSessions: () => Promise<void>;
   switchSession: (id: string) => void;
@@ -77,14 +77,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   sessionId: null,
   sessions: [],
 
-  initSession: () => {
-    // Use existing session from localStorage or generate new one
-    const stored = localStorage.getItem("radbot_session_id");
-    const id = stored || uuid();
-    if (!stored) localStorage.setItem("radbot_session_id", id);
-    set({ sessionId: id });
+  initSession: async () => {
+    try {
+      const sessions = await api.fetchSessions();
+      set({ sessions });
+      if (sessions.length > 0) {
+        set({ sessionId: sessions[0].id });
+      } else {
+        set({ sessionId: uuid() });
+      }
+    } catch {
+      set({ sessionId: uuid() });
+    }
     get().loadAgentInfo();
-    get().loadSessions();
   },
 
   setSessionId: (id) => set({ sessionId: id }),
@@ -99,7 +104,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   switchSession: (id) => {
-    localStorage.setItem("radbot_session_id", id);
+    if (id === get().sessionId) return;
     set({
       sessionId: id,
       messages: [],
