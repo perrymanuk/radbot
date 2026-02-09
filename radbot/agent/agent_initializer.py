@@ -90,6 +90,9 @@ from radbot.tools.scheduler import SCHEDULER_TOOLS, init_scheduler_schema
 # Import webhook tools
 from radbot.tools.webhooks import WEBHOOK_TOOLS, init_webhook_schema
 
+# Import reminder tools
+from radbot.tools.reminders import REMINDER_TOOLS, init_reminder_schema
+
 # Import Jira tools
 from radbot.tools.jira import JIRA_TOOLS
 

@@ -36,6 +36,7 @@ from radbot.web.api.webhooks import router as webhooks_router
 from radbot.web.api.tts import router as tts_router
 from radbot.web.api.stt import router as stt_router
 from radbot.web.api.admin import router as admin_router
+from radbot.web.api.reminders import router as reminders_router
 
 # Set up logging
 logging.basicConfig(
@@ -68,6 +69,7 @@ def create_app():
     app.include_router(tts_router)
     app.include_router(stt_router)
     app.include_router(admin_router)
+    app.include_router(reminders_router)
     logger.info("API routers registered during app initialization")
     
     return app
@@ -118,6 +120,14 @@ async def initialize_app_startup():
             logger.info("Webhook database schema initialized successfully")
         except Exception as wh_err:
             logger.error(f"Error initializing webhook database: {str(wh_err)}", exc_info=True)
+
+        logger.info("Initializing reminder database schema...")
+        try:
+            from radbot.tools.reminders.db import init_reminder_schema
+            init_reminder_schema()
+            logger.info("Reminder database schema initialized successfully")
+        except Exception as rem_err:
+            logger.error(f"Error initializing reminder database: {str(rem_err)}", exc_info=True)
 
         # Initialize credential store schema
         logger.info("Initializing credential store schema...")
@@ -549,7 +559,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
 
         # Send ready status
         await manager.send_status(session_id, "ready")
-        
+
+        # Deliver any reminders that fired while offline
+        try:
+            from radbot.tools.scheduler.engine import SchedulerEngine
+            engine = SchedulerEngine.get_instance()
+            if engine:
+                await engine.deliver_pending_reminders()
+        except Exception as rem_err:
+            logger.warning(f"Error delivering pending reminders on reconnect: {rem_err}")
+
         # Helper function to get events from a session
         def get_events_from_session(session):
             if not hasattr(session, 'events') or not session.events:

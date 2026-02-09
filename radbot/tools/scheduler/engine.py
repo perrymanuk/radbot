@@ -7,11 +7,12 @@ Results are pushed to active WebSocket connections.
 """
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,26 @@ class SchedulerEngine:
                 self.register_job(task)
         except Exception as e:
             logger.error(f"Error loading scheduled tasks from DB: {e}")
+
+        # Load pending reminders
+        try:
+            from radbot.tools.reminders.db import list_reminders
+            reminders = list_reminders(status="pending")
+            logger.info(f"Loading {len(reminders)} pending reminders")
+            now = datetime.now(timezone.utc)
+            for reminder in reminders:
+                remind_at = reminder["remind_at"]
+                if remind_at.tzinfo is None:
+                    remind_at = remind_at.replace(tzinfo=timezone.utc)
+                if remind_at <= now:
+                    # Past-due: mark completed but undelivered
+                    logger.info(f"Reminder {reminder['reminder_id']} is past-due, marking completed (undelivered)")
+                    from radbot.tools.reminders.db import mark_completed
+                    mark_completed(reminder["reminder_id"])
+                else:
+                    self.register_reminder(reminder)
+        except Exception as e:
+            logger.error(f"Error loading reminders from DB: {e}")
 
         self._scheduler.start()
         self._started = True
@@ -235,6 +256,120 @@ class SchedulerEngine:
             })
 
             self._update_last_run(task_id, f"error: {str(e)[:4000]}")
+
+    # -- reminder management --
+    def register_reminder(self, reminder_row: Dict[str, Any]) -> None:
+        """Register a one-shot reminder as a DateTrigger job."""
+        reminder_id = str(reminder_row["reminder_id"])
+        job_id = f"reminder_{reminder_id}"
+        message = reminder_row["message"]
+        remind_at = reminder_row["remind_at"]
+
+        # Ensure timezone-aware
+        if remind_at.tzinfo is None:
+            remind_at = remind_at.replace(tzinfo=timezone.utc)
+
+        # Remove existing job if present
+        existing = self._scheduler.get_job(job_id)
+        if existing:
+            existing.remove()
+
+        try:
+            trigger = DateTrigger(run_date=remind_at)
+            self._scheduler.add_job(
+                self._execute_reminder,
+                trigger=trigger,
+                id=job_id,
+                name=f"Reminder: {message[:50]}",
+                kwargs={"reminder_id": reminder_id, "message": message},
+                replace_existing=True,
+            )
+            logger.info(f"Registered reminder '{message[:50]}' ({reminder_id}), fires at {remind_at.isoformat()}")
+        except Exception as e:
+            logger.error(f"Failed to register reminder {reminder_id}: {e}")
+
+    def unregister_reminder(self, reminder_id: str) -> None:
+        """Remove a reminder job from the scheduler."""
+        job_id = f"reminder_{reminder_id}"
+        job = self._scheduler.get_job(job_id)
+        if job:
+            job.remove()
+            logger.info(f"Unregistered reminder job {reminder_id}")
+
+    async def _execute_reminder(self, reminder_id: str, message: str) -> None:
+        """Called by APScheduler when a reminder fires.
+
+        Always marks the reminder completed. If WebSocket connections are active,
+        broadcasts the reminder and processes through the agent. Otherwise leaves
+        it undelivered for reconnect delivery.
+        """
+        logger.info(f"=== REMINDER FIRED === ({reminder_id}): {message[:80]}")
+
+        # 1. Always mark completed in DB
+        try:
+            from radbot.tools.reminders.db import mark_completed
+            mark_completed(reminder_id)
+        except Exception as e:
+            logger.error(f"Failed to mark reminder {reminder_id} completed: {e}")
+
+        # 2. Check if we can deliver now
+        if not self._connection_manager or not self._connection_manager.has_connections():
+            logger.info(f"No active connections, reminder {reminder_id} will be delivered on reconnect")
+            return
+
+        # 3. Deliver the reminder
+        await self._deliver_single_reminder(reminder_id, message)
+
+    async def _deliver_single_reminder(self, reminder_id: str, message: str) -> None:
+        """Deliver a single reminder as a notification broadcast. No LLM processing."""
+        session_id = self._connection_manager.get_any_session_id()
+        if not session_id:
+            return
+
+        system_content = f"[Reminder] {message}"
+
+        # Broadcast as a system message notification
+        await self._broadcast_to_all({
+            "type": "message",
+            "role": "system",
+            "content": system_content,
+        })
+
+        # Persist to chat history DB
+        try:
+            from radbot.web.db import chat_operations
+            chat_operations.add_message(session_id, "system", system_content, user_id="web_user")
+        except Exception as e:
+            logger.warning(f"Failed to persist reminder system message to DB: {e}")
+
+        # Mark delivered
+        try:
+            from radbot.tools.reminders.db import mark_delivered
+            mark_delivered(reminder_id, "delivered")
+        except Exception as e:
+            logger.error(f"Failed to mark reminder {reminder_id} delivered: {e}")
+
+        logger.info(f"Reminder {reminder_id} delivered as notification")
+
+    async def deliver_pending_reminders(self) -> None:
+        """Deliver any completed-but-undelivered reminders.
+
+        Called when a WebSocket connection is established, to catch up on
+        reminders that fired while no connections were active.
+        """
+        try:
+            from radbot.tools.reminders.db import get_undelivered_completed
+            undelivered = get_undelivered_completed()
+            if not undelivered:
+                return
+
+            logger.info(f"Delivering {len(undelivered)} pending reminders on reconnect")
+            for reminder in undelivered:
+                reminder_id = str(reminder["reminder_id"])
+                message = reminder["message"]
+                await self._deliver_single_reminder(reminder_id, message)
+        except Exception as e:
+            logger.error(f"Error delivering pending reminders: {e}", exc_info=True)
 
     def _update_last_run(self, task_id: str, result: str) -> None:
         """Update the last_run_at timestamp in the DB."""

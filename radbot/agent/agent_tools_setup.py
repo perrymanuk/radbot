@@ -47,6 +47,10 @@ from radbot.agent.agent_initializer import (
     WEBHOOK_TOOLS,
     init_webhook_schema,
 
+    # Import reminder tools
+    REMINDER_TOOLS,
+    init_reminder_schema,
+
     # Import Jira tools
     JIRA_TOOLS,
     
@@ -108,6 +112,16 @@ def setup_before_agent_call(callback_context: CallbackContext):
         except Exception as e:
             logger.error(f"Failed to initialize Webhook database: {str(e)}")
             callback_context.state["webhook_init"] = False
+
+    # Initialize Reminder database schema if needed
+    if "reminder_init" not in callback_context.state:
+        try:
+            init_reminder_schema()
+            callback_context.state["reminder_init"] = True
+            logger.info("Reminder database schema initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Reminder database: {str(e)}")
+            callback_context.state["reminder_init"] = False
 
     # Initialize Home Assistant client if not already done
     if "ha_client_init" not in callback_context.state:
@@ -256,6 +270,13 @@ try:
     logger.info(f"Added {len(WEBHOOK_TOOLS)} Webhook tools")
 except Exception as e:
     logger.warning(f"Failed to add Webhook tools: {e}")
+
+# Add Reminder Tools
+try:
+    tools.extend(REMINDER_TOOLS)
+    logger.info(f"Added {len(REMINDER_TOOLS)} Reminder tools")
+except Exception as e:
+    logger.warning(f"Failed to add Reminder tools: {e}")
 
 # Add Jira Tools
 try:
