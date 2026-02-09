@@ -137,6 +137,14 @@ async def initialize_app_startup():
         except Exception as cfg_err:
             logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
 
+        # Re-run environment setup now that full config (including DB overrides) is loaded
+        try:
+            from radbot.config.adk_config import setup_vertex_environment
+            setup_vertex_environment()
+            logger.info("Re-initialized vertex/API-key environment after DB config load")
+        except Exception as env_err:
+            logger.warning(f"Error re-initializing environment: {env_err}")
+
         # Prune disabled MCP server tools from the root agent.
         # The root agent is created at import time using config.yaml, before DB
         # config overrides are loaded. This step removes tools from MCP servers

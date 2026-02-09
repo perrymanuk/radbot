@@ -188,10 +188,27 @@ def HassTurnOff(entity_id: str):
 
 async def setup_agent() -> Optional[RadBotAgent]:
     """Set up and configure the agent with tools and memory.
-    
+
     Returns:
         Configured RadBotAgent instance or None if setup fails
     """
+    # Initialize credential store schema and load DB config overrides
+    try:
+        from radbot.credentials.store import CredentialStore
+        CredentialStore.init_schema()
+        from radbot.config.config_loader import config_loader
+        config_loader.load_db_config()
+        logger.info("Loaded config overrides from credential store")
+    except Exception as e:
+        logger.warning(f"Could not load DB config: {e}")
+
+    # Re-run environment setup now that full config (including DB overrides) is loaded
+    try:
+        from radbot.config.adk_config import setup_vertex_environment
+        setup_vertex_environment()
+    except Exception:
+        pass
+
     try:
         # Import the Home Assistant agent factory and memory agent factory
         from radbot.agent.home_assistant_agent_factory import create_home_assistant_agent_factory

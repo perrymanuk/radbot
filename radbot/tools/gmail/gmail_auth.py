@@ -70,6 +70,21 @@ def _get_token_path(account: Optional[str] = None) -> str:
     return DEFAULT_TOKEN_PATH
 
 
+def _get_client_json_from_store() -> Optional[str]:
+    """Try to load the OAuth client JSON from the credential store."""
+    try:
+        from radbot.credentials.store import get_credential_store
+        store = get_credential_store()
+        if store.available:
+            client_json = store.get("gmail_oauth_client")
+            if client_json:
+                logger.info("Using Gmail OAuth client from credential store")
+                return client_json
+    except Exception as e:
+        logger.debug(f"Credential store lookup for gmail_oauth_client failed: {e}")
+    return None
+
+
 def _get_client_file() -> str:
     """Get the OAuth2 client credentials file path from config or environment."""
     client_file = os.environ.get("GMAIL_OAUTH_CLIENT_FILE", "")
@@ -203,7 +218,21 @@ def _try_adc() -> Optional[Credentials]:
 
 
 def _try_oauth_flow(client_file: str, token_path: str) -> Optional[Credentials]:
-    """Run the OAuth2 browser consent flow using a client_secret.json file."""
+    """Run the OAuth2 browser consent flow using a client_secret.json file or credential store."""
+    # Try credential store first
+    client_json = _get_client_json_from_store()
+    if client_json:
+        try:
+            client_config = json.loads(client_json)
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+            creds = flow.run_local_server(port=0)
+            logger.info("Gmail OAuth2 consent flow completed (credential store client)")
+            _save_token(creds, token_path)
+            return _apply_quota_project(creds)
+        except Exception as e:
+            logger.error(f"Gmail OAuth2 flow failed (credential store client): {e}")
+            return None
+
     if not client_file or not os.path.exists(client_file):
         return None
 
@@ -337,9 +366,20 @@ def run_setup(port: int = 0, account: Optional[str] = None) -> bool:
     token_path = _get_token_path(account)
     label = account or "default"
 
-    # Try client_secret.json first
+    # Try credential store first, then client_secret.json file
+    client_json = _get_client_json_from_store()
     client_file = _get_client_file()
-    if client_file and os.path.exists(client_file):
+
+    if client_json:
+        print("Using OAuth client from credential store")
+        try:
+            client_config = json.loads(client_json)
+            flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
+            creds = flow.run_local_server(port=port, open_browser=(port == 0))
+        except Exception as e:
+            print(f"OAuth flow failed: {e}")
+            return False
+    elif client_file and os.path.exists(client_file):
         print(f"Using OAuth client from: {client_file}")
         try:
             flow = InstalledAppFlow.from_client_secrets_file(client_file, SCOPES)

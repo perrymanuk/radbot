@@ -35,6 +35,13 @@ class CredentialStore:
     def __init__(self, master_key: Optional[str] = None):
         self._master_key = master_key or os.environ.get(_ENV_KEY, "")
         if not self._master_key:
+            # Fall back to config.yaml credential_key
+            try:
+                from radbot.config.config_loader import config_loader
+                self._master_key = config_loader.get_config().get("credential_key") or ""
+            except Exception:
+                pass
+        if not self._master_key:
             logger.warning(
                 "RADBOT_CREDENTIAL_KEY not set — credential store will be unavailable"
             )

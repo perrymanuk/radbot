@@ -3,9 +3,17 @@
   "title": "Radbot Configuration Schema",
   "description": "Schema for validating radbot YAML configuration",
   "type": "object",
-  "additionalProperties": false,
-  "required": ["agent"],
+  "additionalProperties": true,
+  "required": ["database"],
   "properties": {
+    "credential_key": {
+      "type": ["string", "null"],
+      "description": "Master encryption key for the credential store (overridden by RADBOT_CREDENTIAL_KEY env var)"
+    },
+    "admin_token": {
+      "type": ["string", "null"],
+      "description": "Bearer token for admin API authentication (overridden by RADBOT_ADMIN_TOKEN env var)"
+    },
     "claude_templates": {
       "type": "object",
       "description": "Templates for /claude command prompts",

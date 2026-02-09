@@ -37,6 +37,13 @@ def _verify_admin(
 ) -> None:
     expected = os.environ.get(_ADMIN_TOKEN_ENV, "")
     if not expected:
+        # Fall back to config.yaml admin_token
+        try:
+            from radbot.config.config_loader import config_loader
+            expected = config_loader.get_config().get("admin_token") or ""
+        except Exception:
+            pass
+    if not expected:
         raise HTTPException(503, "Admin API disabled — RADBOT_ADMIN_TOKEN not set")
     # Accept Bearer header or ?token= query parameter (for OAuth redirect links)
     if creds and creds.credentials == expected:
@@ -315,6 +322,8 @@ async def gmail_oauth_callback(request: Request, code: str = "", state: str = ""
 
     client_config = json.loads(client_json)
     flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
+    # Google may return additional scopes (e.g. cloud-platform); accept them
+    os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     flow.fetch_token(code=code)
     creds = flow.credentials
 
