@@ -186,11 +186,6 @@ async def _process_and_broadcast(webhook_id: str, webhook_name: str, prompt: str
             "response": response_text,
             "timestamp": datetime.now().isoformat(),
         }
-        connections = dict(manager.active_connections)
-        for session_id, ws in connections.items():
-            try:
-                await ws.send_json(message_payload)
-            except Exception as e:
-                logger.warning(f"Failed to send webhook result to session {session_id}: {e}")
+        await manager.broadcast_to_all_sessions(message_payload)
     except Exception as e:
         logger.error(f"Failed to broadcast webhook result: {e}")

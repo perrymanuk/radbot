@@ -316,76 +316,121 @@ templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
+        self.active_connections: Dict[str, List[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
-        self.active_connections[session_id] = websocket
+        if session_id not in self.active_connections:
+            self.active_connections[session_id] = []
+        self.active_connections[session_id].append(websocket)
+        count = len(self.active_connections[session_id])
+        logger.info(f"WebSocket connected for session {session_id} ({count} connection(s) now)")
 
     def disconnect(self, session_id: str, websocket: WebSocket = None):
-        if session_id in self.active_connections:
-            # Only remove if it's the same websocket (avoids old handler removing new connection)
-            if websocket is None or self.active_connections[session_id] is websocket:
+        if session_id not in self.active_connections:
+            return
+        if websocket is None:
+            del self.active_connections[session_id]
+        else:
+            self.active_connections[session_id] = [
+                ws for ws in self.active_connections[session_id] if ws is not websocket
+            ]
+            if not self.active_connections[session_id]:
                 del self.active_connections[session_id]
 
+    async def _send_to_all(self, session_id: str, payload: dict) -> None:
+        """Send payload to all WebSocket connections for a session, removing dead ones."""
+        if session_id not in self.active_connections:
+            return
+        dead: List[WebSocket] = []
+        for ws in self.active_connections[session_id]:
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                dead.append(ws)
+        if dead:
+            self.active_connections[session_id] = [
+                ws for ws in self.active_connections[session_id] if ws not in dead
+            ]
+            if not self.active_connections[session_id]:
+                del self.active_connections[session_id]
+
+    async def broadcast_to_all_sessions(self, payload: dict) -> int:
+        """Send payload to every connection across all sessions. Returns send count."""
+        sent = 0
+        for session_id in list(self.active_connections):
+            for ws in list(self.active_connections.get(session_id, [])):
+                try:
+                    await ws.send_json(payload)
+                    sent += 1
+                except Exception as e:
+                    logger.warning(f"Failed to send to session {session_id}: {e}")
+        return sent
+
+    def get_any_session_id(self) -> Optional[str]:
+        """Return the first active session_id, or None."""
+        return next(iter(self.active_connections), None)
+
+    def has_connections(self) -> bool:
+        """Return True if there is at least one active connection."""
+        return bool(self.active_connections)
+
     async def send_message(self, session_id: str, message: str):
-        if session_id in self.active_connections:
-            await self.active_connections[session_id].send_json({
-                "type": "message",
-                "content": message
-            })
+        await self._send_to_all(session_id, {
+            "type": "message",
+            "content": message
+        })
 
     async def send_status(self, session_id: str, status: str):
-        if session_id in self.active_connections:
-            await self.active_connections[session_id].send_json({
-                "type": "status",
-                "content": status
-            })
-            
+        await self._send_to_all(session_id, {
+            "type": "status",
+            "content": status
+        })
+
     async def send_events(self, session_id: str, events: list):
-        if session_id in self.active_connections:
-            # Check for excessively large messages
-            import json
-            events_json = json.dumps({"type": "events", "content": events})
-            max_size = 1024 * 1024  # 1MB limit
-            
-            if len(events_json) > max_size:
-                # Log the oversized message
-                logger.warning(f"Event payload too large: {len(events_json)} bytes. Splitting into chunks.")
-                
-                # Process events individually to find large ones
-                for event in events:
-                    single_event_json = json.dumps({"type": "events", "content": [event]})
-                    event_size = len(single_event_json)
-                    event_type = event.get('type', 'unknown')
-                    event_summary = event.get('summary', 'no summary')
-                    
-                    if event_size > max_size:
-                        # This event is too large - truncate any text content
-                        logger.warning(f"Oversized event: {event_type} - {event_summary}: {event_size} bytes")
-                        if 'text' in event and isinstance(event['text'], str) and len(event['text']) > 100000:
-                            # Truncate text and add indicator
-                            original_length = len(event['text'])
-                            event['text'] = event['text'][:100000] + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"
-                            logger.info(f"Truncated event text from {original_length} to {len(event['text'])} characters")
-                            
-                            # Send this single truncated event
-                            await self.active_connections[session_id].send_json({
-                                "type": "events",
-                                "content": [event]
-                            })
-                    else:
-                        # Send normal-sized events individually
-                        await self.active_connections[session_id].send_json({
+        if session_id not in self.active_connections:
+            return
+        # Check for excessively large messages
+        import json
+        events_json = json.dumps({"type": "events", "content": events})
+        max_size = 1024 * 1024  # 1MB limit
+
+        if len(events_json) > max_size:
+            # Log the oversized message
+            logger.warning(f"Event payload too large: {len(events_json)} bytes. Splitting into chunks.")
+
+            # Process events individually to find large ones
+            for event in events:
+                single_event_json = json.dumps({"type": "events", "content": [event]})
+                event_size = len(single_event_json)
+                event_type = event.get('type', 'unknown')
+                event_summary = event.get('summary', 'no summary')
+
+                if event_size > max_size:
+                    # This event is too large - truncate any text content
+                    logger.warning(f"Oversized event: {event_type} - {event_summary}: {event_size} bytes")
+                    if 'text' in event and isinstance(event['text'], str) and len(event['text']) > 100000:
+                        # Truncate text and add indicator
+                        original_length = len(event['text'])
+                        event['text'] = event['text'][:100000] + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"
+                        logger.info(f"Truncated event text from {original_length} to {len(event['text'])} characters")
+
+                        await self._send_to_all(session_id, {
                             "type": "events",
                             "content": [event]
                         })
-            else:
-                # Send as normal if not oversized
-                await self.active_connections[session_id].send_json({
-                    "type": "events",
-                    "content": events
-                })
+                else:
+                    # Send normal-sized events individually
+                    await self._send_to_all(session_id, {
+                        "type": "events",
+                        "content": [event]
+                    })
+        else:
+            # Send as normal if not oversized
+            await self._send_to_all(session_id, {
+                "type": "events",
+                "content": events
+            })
 
 # Create connection manager
 manager = ConnectionManager()

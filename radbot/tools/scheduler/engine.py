@@ -136,19 +136,7 @@ class SchedulerEngine:
         """
         if not self._connection_manager:
             return 0
-
-        connections = dict(self._connection_manager.active_connections)
-        if not connections:
-            return 0
-
-        sent = 0
-        for session_id, ws in connections.items():
-            try:
-                await ws.send_json(payload)
-                sent += 1
-            except Exception as e:
-                logger.warning(f"Failed to send to session {session_id}: {e}")
-        return sent
+        return await self._connection_manager.broadcast_to_all_sessions(payload)
 
     # -- execution --
     async def _execute_job(self, task_id: str, prompt: str, name: str) -> None:
@@ -165,14 +153,13 @@ class SchedulerEngine:
             self._update_last_run(task_id, "skipped: no connection manager")
             return
 
-        connections = dict(self._connection_manager.active_connections)
-        if not connections:
+        if not self._connection_manager.has_connections():
             logger.info(f"No active WebSocket connections, skipping task '{name}'")
             self._update_last_run(task_id, "skipped: no active connections")
             return
 
         # Pick the first active session_id for agent processing
-        session_id = next(iter(connections))
+        session_id = self._connection_manager.get_any_session_id()
         logger.info(f"Using session {session_id} for scheduled task '{name}' processing")
 
         # 1. Broadcast system message to all connections
