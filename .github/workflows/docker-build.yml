@@ -17,12 +17,46 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compute next version
+        id: version
+        run: |
+          git fetch --tags --force
+
+          # Find the highest major version tag (v1, v2, etc.)
+          MAJOR=$(git tag -l 'v[0-9]*' | sed -n 's/^v\([0-9]*\)$/\1/p' | sort -rn | head -1)
+          if [ -z "$MAJOR" ]; then
+            MAJOR=0
+          fi
+
+          # Find the highest build number for this major version (v1.1, v1.2, etc.)
+          BUILD=$(git tag -l "v${MAJOR}.[0-9]*" | sed -n "s/^v${MAJOR}\.\([0-9]*\)$/\1/p" | sort -rn | head -1)
+          if [ -z "$BUILD" ]; then
+            BUILD=0
+          fi
+
+          NEXT_BUILD=$((BUILD + 1))
+          VERSION="v${MAJOR}.${NEXT_BUILD}"
+
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Computed next version: ${VERSION}"
+
+      - name: Create and push version tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
 
       - name: Log in to Container registry
         uses: docker/login-action@v3
@@ -38,6 +72,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=v${{ steps.version.outputs.major }}
             type=sha,prefix=sha-
 
       - name: Build and push Docker image
