@@ -58,57 +58,70 @@ instruction = config_manager.get_instruction("main_agent")
 
 # Initialize memory service from vector_db configuration
 memory_service = None
-try:
-    # Get Qdrant settings from config_loader
-    vector_db_config = config_loader.get_config().get("vector_db", {})
-    url = vector_db_config.get("url")
-    api_key = vector_db_config.get("api_key")
-    host = vector_db_config.get("host", "localhost")
-    port = vector_db_config.get("port", 6333)
-    collection = vector_db_config.get("collection", "radbot_memories")
-    
-    # Fallback to environment variables for backward compatibility
-    if not url:
-        url = os.getenv("QDRANT_URL")
-    if not api_key:
-        api_key = os.getenv("QDRANT_API_KEY")
-    if not host or host == "localhost":
-        host = os.getenv("QDRANT_HOST", host)
-    if port == 6333:
-        port = os.getenv("QDRANT_PORT", port)
-    if collection == "radbot_memories":
-        collection = os.getenv("QDRANT_COLLECTION", collection)
-    
-    # Log memory service configuration
-    logger.info(f"Initializing QdrantMemoryService with host={host}, port={port}, collection={collection}")
-    if url:
-        logger.info(f"Using Qdrant URL: {url}")
-    
-    # Create memory service
-    memory_service = QdrantMemoryService(
-        collection_name=collection,
-        host=host,
-        port=int(port) if isinstance(port, str) else port,
-        url=url,
-        api_key=api_key
-    )
-    logger.info(f"Successfully initialized QdrantMemoryService with collection '{collection}'")
-    
-    # Add memory tools to the tools list if they're not already included
-    memory_tools = [search_past_conversations, store_important_information]
-    tool_names = [tool.__name__ if hasattr(tool, '__name__') else tool.name if hasattr(tool, 'name') else None for tool in tools]
-    
-    for memory_tool in memory_tools:
-        tool_name = memory_tool.__name__ if hasattr(memory_tool, '__name__') else None
-        if tool_name and tool_name not in tool_names:
-            tools.append(memory_tool)
-            logger.info(f"Added memory tool: {tool_name}")
-    
-except Exception as e:
-    logger.error(f"Failed to initialize QdrantMemoryService: {str(e)}")
-    logger.warning("Memory service will not be available for this session")
-    import traceback
-    logger.debug(f"Memory service initialization traceback: {traceback.format_exc()}")
+
+def initialize_memory_service():
+    """Initialize (or re-initialize) QdrantMemoryService from current config.
+
+    Called at import time with file-based config, and again from
+    initialize_app_startup() after DB config overrides are loaded.
+    """
+    global memory_service
+    try:
+        # Get Qdrant settings from config_loader (includes DB overrides if loaded)
+        vector_db_config = config_loader.get_config().get("vector_db", {})
+        url = vector_db_config.get("url")
+        api_key = vector_db_config.get("api_key")
+        host = vector_db_config.get("host", "localhost")
+        port = vector_db_config.get("port", 6333)
+        collection = vector_db_config.get("collection", "radbot_memories")
+
+        # Fallback to environment variables for backward compatibility
+        if not url:
+            url = os.getenv("QDRANT_URL")
+        if not api_key:
+            api_key = os.getenv("QDRANT_API_KEY")
+        if not host or host == "localhost":
+            host = os.getenv("QDRANT_HOST", host)
+        if port == 6333:
+            port = os.getenv("QDRANT_PORT", port)
+        if collection == "radbot_memories":
+            collection = os.getenv("QDRANT_COLLECTION", collection)
+
+        # Log memory service configuration
+        logger.info(f"Initializing QdrantMemoryService with host={host}, port={port}, collection={collection}")
+        if url:
+            logger.info(f"Using Qdrant URL: {url}")
+
+        # Create memory service
+        memory_service = QdrantMemoryService(
+            collection_name=collection,
+            host=host,
+            port=int(port) if isinstance(port, str) else port,
+            url=url,
+            api_key=api_key
+        )
+        logger.info(f"Successfully initialized QdrantMemoryService with collection '{collection}'")
+
+        # Add memory tools to the tools list if they're not already included
+        memory_tools = [search_past_conversations, store_important_information]
+        tool_names = [tool.__name__ if hasattr(tool, '__name__') else tool.name if hasattr(tool, 'name') else None for tool in tools]
+
+        for memory_tool in memory_tools:
+            tool_name = memory_tool.__name__ if hasattr(memory_tool, '__name__') else None
+            if tool_name and tool_name not in tool_names:
+                tools.append(memory_tool)
+                logger.info(f"Added memory tool: {tool_name}")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize QdrantMemoryService: {str(e)}")
+        logger.warning("Memory service will not be available for this session")
+        import traceback
+        logger.debug(f"Memory service initialization traceback: {traceback.format_exc()}")
+
+# NOTE: Do not call initialize_memory_service() at import time.
+# DB config overrides (e.g. Qdrant host) aren't loaded yet.
+# Web startup calls it in initialize_app_startup() after load_db_config().
+# CLI calls it in its entry point.
 
 # Get the model name from config
 model_name = config_manager.get_main_model()

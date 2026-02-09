@@ -146,6 +146,19 @@ async def initialize_app_startup():
         except Exception as cfg_err:
             logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
 
+        # Re-initialize memory service now that DB config (including Qdrant host) is loaded
+        try:
+            from radbot.agent.agent_core import initialize_memory_service, memory_service
+            from agent import root_agent
+            initialize_memory_service()
+            # Re-attach to root_agent
+            from radbot.agent import agent_core
+            if agent_core.memory_service:
+                root_agent._memory_service = agent_core.memory_service
+                logger.info("Re-initialized memory service with DB config overrides")
+        except Exception as mem_err:
+            logger.warning(f"Error re-initializing memory service: {mem_err}")
+
         # Refresh config_manager and apply DB model overrides to root agent
         try:
             from radbot.config import config_manager

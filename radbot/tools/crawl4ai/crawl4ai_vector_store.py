@@ -361,20 +361,20 @@ class Crawl4AIVectorStore:
             
             # Perform the search
             logger.info(f"Performing vector search in collection '{self.collection_name}'")
-            search_results = self.client.search(
+            query_response = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 limit=limit,
                 with_payload=True,
-                with_vectors=False,  # We don't need the vectors in the response
+                with_vectors=False,
             )
-            
+
             # Log search stats
-            logger.info(f"Search returned {len(search_results)} results")
-            
+            logger.info(f"Search returned {len(query_response.points)} results")
+
             # Process the results
             results = []
-            for result in search_results:
+            for result in query_response.points:
                 # Extract the payload
                 payload = result.payload
                 

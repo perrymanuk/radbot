@@ -182,6 +182,18 @@ async def save_config_section(section: str, request: Request, _: None = Depends(
             config_manager.apply_model_config(root_agent)
         except Exception as e:
             logger.warning(f"Agent model hot-reload failed: {e}")
+    # Re-initialize memory service when vector_db config changes
+    if section == "vector_db":
+        try:
+            from radbot.agent.agent_core import initialize_memory_service
+            from radbot.agent import agent_core
+            from agent import root_agent
+            initialize_memory_service()
+            if agent_core.memory_service:
+                root_agent._memory_service = agent_core.memory_service
+                logger.info("Re-initialized memory service after vector_db config change")
+        except Exception as e:
+            logger.warning(f"Memory service hot-reload failed: {e}")
     # Reset client singletons so next call picks up new config
     if section == "integrations":
         try:

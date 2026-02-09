@@ -132,46 +132,53 @@ class QdrantMemoryService(BaseMemoryService):
                 collections = self.client.get_collections()
                 collection_names = [c.name for c in collections.collections]
                 
-                if self.collection_name not in collection_names:
-                    # Create the collection
-                    self.client.create_collection(
-                        collection_name=self.collection_name,
-                        vectors_config=models.VectorParams(
-                            size=self.vector_size,
-                            distance=models.Distance.COSINE
-                        ),
-                        # Add payload schema for searchable fields
-                        # These fields will have additional indexes to speed up filtering
-                        optimizers_config=models.OptimizersConfigDiff(
-                            indexing_threshold=10000  # Good balance for medium collections
-                        ),
-                        # Define the payload schema for indexing key fields
-                        # This optimizes filtering performance
-                        on_disk_payload=True  # Store payloads on disk to save RAM
-                    )
-                    
-                    # Create payload indexes for common filter fields
-                    self.client.create_payload_index(
-                        collection_name=self.collection_name,
-                        field_name="user_id",
-                        field_schema=models.PayloadSchemaType.KEYWORD
-                    )
-                    
-                    self.client.create_payload_index(
-                        collection_name=self.collection_name,
-                        field_name="timestamp",
-                        field_schema=models.PayloadSchemaType.DATETIME
-                    )
-                    
-                    self.client.create_payload_index(
-                        collection_name=self.collection_name,
-                        field_name="memory_type",
-                        field_schema=models.PayloadSchemaType.KEYWORD
-                    )
-                    
-                    logger.info(f"Created Qdrant collection '{self.collection_name}'")
-                else:
-                    logger.info(f"Using existing Qdrant collection '{self.collection_name}'")
+                if self.collection_name in collection_names:
+                    # Validate vector dimensions match
+                    collection_info = self.client.get_collection(self.collection_name)
+                    existing_size = collection_info.config.params.vectors.size
+                    if existing_size != self.vector_size:
+                        logger.warning(
+                            f"Collection '{self.collection_name}' has vector size {existing_size}, "
+                            f"expected {self.vector_size}. Recreating collection."
+                        )
+                        self.client.delete_collection(self.collection_name)
+                    else:
+                        logger.info(f"Using existing Qdrant collection '{self.collection_name}'")
+                        return
+
+                # Create the collection
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=models.VectorParams(
+                        size=self.vector_size,
+                        distance=models.Distance.COSINE
+                    ),
+                    optimizers_config=models.OptimizersConfigDiff(
+                        indexing_threshold=10000
+                    ),
+                    on_disk_payload=True
+                )
+
+                # Create payload indexes for common filter fields
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="user_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="timestamp",
+                    field_schema=models.PayloadSchemaType.DATETIME
+                )
+
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="memory_type",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+
+                logger.info(f"Created Qdrant collection '{self.collection_name}' with vector size {self.vector_size}")
                 
                 # If we got here, everything succeeded
                 return
@@ -406,18 +413,18 @@ class QdrantMemoryService(BaseMemoryService):
             )
             
             # Perform the search
-            search_results = self.client.search(
+            query_response = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 query_filter=search_filter,
                 limit=limit,
                 with_payload=True,
-                with_vectors=False,  # We don't need the vectors in the response
+                with_vectors=False,
             )
-            
+
             # Process the results
             results = []
-            for result in search_results:
+            for result in query_response.points:
                 # Extract the payload
                 payload = result.payload
                 

@@ -202,6 +202,18 @@ async def setup_agent() -> Optional[RadBotAgent]:
     except Exception as e:
         logger.warning(f"Could not load DB config: {e}")
 
+    # Initialize memory service now that DB config is loaded
+    try:
+        from radbot.agent.agent_core import initialize_memory_service
+        from radbot.agent import agent_core
+        from agent import root_agent
+        initialize_memory_service()
+        if agent_core.memory_service:
+            root_agent._memory_service = agent_core.memory_service
+            logger.info("Initialized memory service with DB config")
+    except Exception as e:
+        logger.warning(f"Could not initialize memory service: {e}")
+
     # Refresh config_manager and apply DB model overrides to root agent
     try:
         from radbot.config import config_manager
