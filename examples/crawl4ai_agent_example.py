@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from radbot.agent import create_agent
-from radbot.tools import create_crawl4ai_enabled_agent, test_crawl4ai_connection
+from radbot.tools.crawl4ai import create_crawl4ai_toolset, test_crawl4ai_connection
 from radbot.tools.basic_tools import get_current_time
 
 # Configure logging
@@ -46,9 +46,12 @@ def main():
     
     # Create an agent with Crawl4AI capabilities
     print("\nCreating agent with Crawl4AI capabilities...")
-    agent = create_crawl4ai_enabled_agent(
-        agent_factory=create_agent,
-        base_tools=[get_current_time],  # Add basic time tool
+    tools = [get_current_time]
+    crawl4ai_tools = create_crawl4ai_toolset()
+    if crawl4ai_tools:
+        tools.extend(crawl4ai_tools)
+    agent = create_agent(
+        tools=tools,
         name="crawl4ai_demo_agent",
         instruction="You are a helpful assistant with web knowledge retrieval capabilities. "
                    "You can ingest web content and answer questions based on the ingested information. "

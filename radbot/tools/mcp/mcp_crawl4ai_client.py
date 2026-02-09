@@ -28,28 +28,6 @@ def create_crawl4ai_toolset():
     )
     return []
 
-def create_crawl4ai_enabled_agent(*args, **kwargs):
-    """
-    DEPRECATED - Adds Crawl4AI tools to an agent.
-    
-    This function is deprecated and will now return the agent as-is.
-    Please use the Crawl4AI MCP server instead.
-    
-    Returns:
-        The agent as provided without adding any tools
-    """
-    logger.warning(
-        "The direct Crawl4AI integration has been deprecated. "
-        "Please use the Crawl4AI MCP server integration instead."
-    )
-    
-    # Just call the agent factory with the original args
-    if args and callable(args[0]):
-        agent_factory = args[0]
-        base_tools = args[1] if len(args) > 1 else kwargs.get('base_tools')
-        return agent_factory(tools=base_tools, **kwargs)
-    return None
-
 def test_crawl4ai_connection():
     """
     DEPRECATED - Tests the connection to Crawl4AI.

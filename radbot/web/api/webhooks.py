@@ -31,21 +31,9 @@ async def list_webhook_definitions():
     """List all webhook definitions."""
     try:
         from radbot.tools.webhooks.db import list_webhooks
+        from radbot.tools.shared.serialization import serialize_rows
         webhooks = list_webhooks()
-        result = []
-        for w in webhooks:
-            item = {}
-            for k, v in w.items():
-                if k == "secret":
-                    item[k] = "***" if v else None
-                elif isinstance(v, uuid.UUID):
-                    item[k] = str(v)
-                elif hasattr(v, "isoformat"):
-                    item[k] = v.isoformat()
-                else:
-                    item[k] = v
-            result.append(item)
-        return result
+        return serialize_rows(webhooks, mask_fields={"secret": "***"})
     except Exception as e:
         logger.error(f"Error listing webhooks: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

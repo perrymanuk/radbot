@@ -20,43 +20,31 @@ logger = logging.getLogger(__name__)
 
 def init_webhook_schema() -> None:
     """Create the webhook_definitions table if it doesn't exist."""
-    try:
-        with get_db_connection() as conn:
-            with get_db_cursor(conn, commit=True) as cursor:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_name = 'webhook_definitions'
-                    );
-                """)
-                table_exists = cursor.fetchone()[0]
+    from radbot.tools.shared.db_schema import init_table_schema
 
-                if not table_exists:
-                    logger.info("Creating webhook_definitions table")
-                    cursor.execute("""
-                        CREATE TABLE webhook_definitions (
-                            webhook_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                            name TEXT NOT NULL UNIQUE,
-                            path_suffix TEXT NOT NULL UNIQUE,
-                            prompt_template TEXT NOT NULL,
-                            secret TEXT,
-                            enabled BOOLEAN NOT NULL DEFAULT TRUE,
-                            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                            last_triggered_at TIMESTAMPTZ,
-                            trigger_count INTEGER NOT NULL DEFAULT 0,
-                            metadata JSONB
-                        );
-                    """)
-                    cursor.execute("""
-                        CREATE INDEX idx_webhook_definitions_path
-                        ON webhook_definitions (path_suffix);
-                    """)
-                    logger.info("webhook_definitions table created successfully")
-                else:
-                    logger.info("webhook_definitions table already exists")
-    except Exception as e:
-        logger.error(f"Error creating webhook schema: {e}")
-        raise
+    init_table_schema(
+        table_name="webhook_definitions",
+        create_table_sql="""
+            CREATE TABLE webhook_definitions (
+                webhook_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name TEXT NOT NULL UNIQUE,
+                path_suffix TEXT NOT NULL UNIQUE,
+                prompt_template TEXT NOT NULL,
+                secret TEXT,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                last_triggered_at TIMESTAMPTZ,
+                trigger_count INTEGER NOT NULL DEFAULT 0,
+                metadata JSONB
+            );
+        """,
+        create_index_sqls=[
+            """
+            CREATE INDEX idx_webhook_definitions_path
+            ON webhook_definitions (path_suffix);
+            """,
+        ],
+    )
 
 
 def create_webhook(

@@ -412,48 +412,6 @@ def test_crawl4ai_connection() -> Dict[str, Any]:
             "api_url": api_url
         }
         
-def create_crawl4ai_enabled_agent(agent_factory, base_tools=None, **kwargs):
-    """
-    Create an agent with Crawl4AI tools enabled.
-    
-    Args:
-        agent_factory: Function to create an agent (like create_agent)
-        base_tools: Optional list of base tools to include
-        **kwargs: Additional arguments to pass to agent_factory
-        
-    Returns:
-        Agent: The created agent with Crawl4AI tools
-    """
-    try:
-        # Start with base tools or empty list
-        tools = list(base_tools or [])
-        
-        # Check if Crawl4AI is enabled in configuration
-        crawl4ai_config = config_loader.get_integrations_config().get("crawl4ai", {})
-        enabled = crawl4ai_config.get("enabled", False)
-        
-        if not enabled:
-            logger.info("Crawl4AI integration is disabled in configuration. Skipping tool creation.")
-            return agent_factory(tools=tools, **kwargs)
-        
-        # Create Crawl4AI tools
-        crawl4ai_tools = create_crawl4ai_toolset()
-        
-        if crawl4ai_tools and len(crawl4ai_tools) > 0:
-            # Add the tools to our list
-            tools.extend(crawl4ai_tools)
-            logger.info(f"Added {len(crawl4ai_tools)} Crawl4AI tools to agent")
-        else:
-            logger.warning("No Crawl4AI tools were created")
-            
-        # Create the agent with the tools
-        agent = agent_factory(tools=tools, **kwargs)
-        return agent
-    except Exception as e:
-        logger.error(f"Error creating agent with Crawl4AI tools: {str(e)}")
-        # Create agent without Crawl4AI tools as fallback
-        return agent_factory(tools=base_tools, **kwargs)
-
 # Register cleanup function
 atexit.register(cleanup_crawl4ai)
 

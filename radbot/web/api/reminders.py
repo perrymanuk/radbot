@@ -32,22 +32,10 @@ async def list_reminders(status: str = "pending"):
     """List reminders, optionally filtered by status."""
     try:
         from radbot.tools.reminders.db import list_reminders as db_list
+        from radbot.tools.shared.serialization import serialize_rows
 
         reminders = db_list(status=status if status != "all" else None)
-
-        # Serialise
-        result = []
-        for r in reminders:
-            item = {}
-            for k, v in r.items():
-                if isinstance(v, uuid.UUID):
-                    item[k] = str(v)
-                elif hasattr(v, "isoformat"):
-                    item[k] = v.isoformat()
-                else:
-                    item[k] = v
-            result.append(item)
-        return result
+        return serialize_rows(reminders)
     except Exception as e:
         logger.error(f"Error listing reminders: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

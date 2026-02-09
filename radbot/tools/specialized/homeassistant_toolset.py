@@ -73,16 +73,6 @@ def create_homeassistant_toolset() -> List[Any]:
         except Exception as e:
             logger.error(f"Failed to add HA MCP tools: {e}")
     
-    # Try to add dynamically loaded HA tools from MCP if available
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        ha_dynamic_tools = get_mcp_tools("homeassistant")
-        if ha_dynamic_tools:
-            toolset.extend(ha_dynamic_tools)
-            logger.info(f"Added {len(ha_dynamic_tools)} dynamic HA tools to Home Assistant toolset")
-    except Exception as e:
-        logger.error(f"Failed to add dynamic HA tools: {e}")
-    
     return toolset
 
 # Register the toolset with the system

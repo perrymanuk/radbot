@@ -7,11 +7,13 @@ webhook definitions.
 
 import logging
 import traceback
-import uuid
 from typing import Dict, Any, Optional
 
 from google.adk.tools import FunctionTool
 
+from radbot.tools.shared.errors import truncate_error
+from radbot.tools.shared.serialization import serialize_rows
+from radbot.tools.shared.validation import validate_uuid
 from . import db as webhook_db
 
 logger = logging.getLogger(__name__)
@@ -59,7 +61,7 @@ def create_webhook(
         error_message = f"Failed to create webhook: {str(e)}"
         logger.error(f"Error in create_webhook: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 def list_webhooks() -> Dict[str, Any]:
@@ -72,28 +74,16 @@ def list_webhooks() -> Dict[str, Any]:
     """
     try:
         webhooks = webhook_db.list_webhooks()
-        serialised = []
-        for w in webhooks:
-            item = {}
-            for k, v in w.items():
-                if k == "secret":
-                    # Mask secrets
-                    item[k] = "***" if v else None
-                elif isinstance(v, uuid.UUID):
-                    item[k] = str(v)
-                elif hasattr(v, "isoformat"):
-                    item[k] = v.isoformat()
-                else:
-                    item[k] = v
+        serialised = serialize_rows(webhooks, mask_fields={"secret": "***"})
+        for item, w in zip(serialised, webhooks):
             item["trigger_url"] = f"/api/webhooks/trigger/{w['path_suffix']}"
-            serialised.append(item)
 
         return {"status": "success", "webhooks": serialised}
     except Exception as e:
         error_message = f"Failed to list webhooks: {str(e)}"
         logger.error(f"Error in list_webhooks: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 def delete_webhook(webhook_id: str) -> Dict[str, Any]:
@@ -108,13 +98,9 @@ def delete_webhook(webhook_id: str) -> Dict[str, Any]:
         On failure: {"status": "error", "message": "..."}
     """
     try:
-        try:
-            wh_uuid = uuid.UUID(webhook_id)
-        except ValueError:
-            return {
-                "status": "error",
-                "message": f"Invalid webhook ID format: {webhook_id}. Must be a valid UUID.",
-            }
+        wh_uuid, err = validate_uuid(webhook_id, "webhook ID")
+        if err:
+            return err
 
         success = webhook_db.delete_webhook(wh_uuid)
         if success:
@@ -125,7 +111,7 @@ def delete_webhook(webhook_id: str) -> Dict[str, Any]:
         error_message = f"Failed to delete webhook: {str(e)}"
         logger.error(f"Error in delete_webhook: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 # Wrap as ADK FunctionTools

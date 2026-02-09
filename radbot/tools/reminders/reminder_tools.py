@@ -7,12 +7,14 @@ reminders that fire at a specific datetime.
 
 import logging
 import traceback
-import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
 from google.adk.tools import FunctionTool
 
+from radbot.tools.shared.errors import truncate_error
+from radbot.tools.shared.serialization import serialize_rows
+from radbot.tools.shared.validation import validate_uuid
 from . import db as reminder_db
 
 logger = logging.getLogger(__name__)
@@ -131,7 +133,7 @@ def create_reminder(
         error_message = f"Failed to create reminder: {str(e)}"
         logger.error(f"Error in create_reminder: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 def list_reminders(status: str = "pending") -> Dict[str, Any]:
@@ -148,26 +150,12 @@ def list_reminders(status: str = "pending") -> Dict[str, Any]:
     """
     try:
         reminders = reminder_db.list_reminders(status=status if status != "all" else None)
-
-        # Serialise UUIDs and datetimes
-        serialised = []
-        for r in reminders:
-            item = {}
-            for k, v in r.items():
-                if isinstance(v, uuid.UUID):
-                    item[k] = str(v)
-                elif hasattr(v, "isoformat"):
-                    item[k] = v.isoformat()
-                else:
-                    item[k] = v
-            serialised.append(item)
-
-        return {"status": "success", "reminders": serialised}
+        return {"status": "success", "reminders": serialize_rows(reminders)}
     except Exception as e:
         error_message = f"Failed to list reminders: {str(e)}"
         logger.error(f"Error in list_reminders: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 def delete_reminder(reminder_id: str) -> Dict[str, Any]:
@@ -182,13 +170,9 @@ def delete_reminder(reminder_id: str) -> Dict[str, Any]:
         On failure: {"status": "error", "message": "..."}
     """
     try:
-        try:
-            reminder_uuid = uuid.UUID(reminder_id)
-        except ValueError:
-            return {
-                "status": "error",
-                "message": f"Invalid reminder ID format: {reminder_id}. Must be a valid UUID.",
-            }
+        reminder_uuid, err = validate_uuid(reminder_id, "reminder ID")
+        if err:
+            return err
 
         # Unregister from the running engine first
         try:
@@ -211,7 +195,7 @@ def delete_reminder(reminder_id: str) -> Dict[str, Any]:
         error_message = f"Failed to delete reminder: {str(e)}"
         logger.error(f"Error in delete_reminder: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 # Wrap as ADK FunctionTools

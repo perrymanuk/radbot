@@ -52,24 +52,6 @@ def create_scout_toolset() -> List[Any]:
         except Exception as e:
             logger.error(f"Failed to add sequential_thinking tool: {e}")
     
-    # Add MCP tools for research if available
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        
-        # Get sequential thinking MCP tools
-        sequential_thinking_tools = get_mcp_tools("sequentialthinking")
-        if sequential_thinking_tools:
-            toolset.extend(sequential_thinking_tools)
-            logger.info(f"Added {len(sequential_thinking_tools)} sequential thinking MCP tools")
-        
-        # Get web research MCP tools - Scout can use web research tools directly
-        webresearch_tools = get_mcp_tools("webresearch")
-        if webresearch_tools:
-            toolset.extend(webresearch_tools)
-            logger.info(f"Added {len(webresearch_tools)} web research MCP tools to Scout toolset")
-    except Exception as e:
-        logger.error(f"Failed to add Scout MCP tools: {e}")
-    
     return toolset
 
 # Register the toolset with the system

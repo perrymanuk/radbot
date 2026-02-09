@@ -54,16 +54,6 @@ def create_calendar_toolset() -> List[Any]:
             except Exception as e:
                 logger.error(f"Failed to add {name}: {e}")
     
-    # Try to add calendar-related MCP tools if available
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        calendar_mcp_tools = get_mcp_tools("calendar")
-        if calendar_mcp_tools:
-            toolset.extend(calendar_mcp_tools)
-            logger.info(f"Added {len(calendar_mcp_tools)} calendar MCP tools to calendar toolset")
-    except Exception as e:
-        logger.error(f"Failed to add calendar MCP tools: {e}")
-    
     return toolset
 
 # Register the toolset with the system

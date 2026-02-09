@@ -7,7 +7,6 @@ It enables web content ingestion, storage, and semantic search capabilities.
 
 from .mcp_crawl4ai_client import (
     create_crawl4ai_toolset,
-    create_crawl4ai_enabled_agent,
     test_crawl4ai_connection,
     get_crawl4ai_config,
 )
@@ -17,7 +16,6 @@ from .crawl4ai_vector_store import get_crawl4ai_vector_store, Crawl4AIVectorStor
 
 __all__ = [
     'create_crawl4ai_toolset',
-    'create_crawl4ai_enabled_agent',
     'test_crawl4ai_connection',
     'get_crawl4ai_config',
     'crawl4ai_two_step',

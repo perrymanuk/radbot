@@ -7,11 +7,13 @@ recurring scheduled tasks.
 
 import logging
 import traceback
-import uuid
 from typing import Dict, Any, Optional
 
 from google.adk.tools import FunctionTool
 
+from radbot.tools.shared.errors import truncate_error
+from radbot.tools.shared.serialization import serialize_rows
+from radbot.tools.shared.validation import validate_uuid
 from . import db as scheduler_db
 
 logger = logging.getLogger(__name__)
@@ -69,7 +71,7 @@ def create_scheduled_task(
         error_message = f"Failed to create scheduled task: {str(e)}"
         logger.error(f"Error in create_scheduled_task: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 def list_scheduled_tasks() -> Dict[str, Any]:
@@ -94,25 +96,12 @@ def list_scheduled_tasks() -> Dict[str, Any]:
         except Exception:
             pass
 
-        # Serialise UUIDs and datetimes
-        serialised = []
-        for t in tasks:
-            item = {}
-            for k, v in t.items():
-                if isinstance(v, uuid.UUID):
-                    item[k] = str(v)
-                elif hasattr(v, "isoformat"):
-                    item[k] = v.isoformat()
-                else:
-                    item[k] = v
-            serialised.append(item)
-
-        return {"status": "success", "tasks": serialised}
+        return {"status": "success", "tasks": serialize_rows(tasks)}
     except Exception as e:
         error_message = f"Failed to list scheduled tasks: {str(e)}"
         logger.error(f"Error in list_scheduled_tasks: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 def delete_scheduled_task(task_id: str) -> Dict[str, Any]:
@@ -127,13 +116,9 @@ def delete_scheduled_task(task_id: str) -> Dict[str, Any]:
         On failure: {"status": "error", "message": "..."}
     """
     try:
-        try:
-            task_uuid = uuid.UUID(task_id)
-        except ValueError:
-            return {
-                "status": "error",
-                "message": f"Invalid task ID format: {task_id}. Must be a valid UUID.",
-            }
+        task_uuid, err = validate_uuid(task_id, "task ID")
+        if err:
+            return err
 
         # Unregister from the running engine first
         try:
@@ -156,7 +141,7 @@ def delete_scheduled_task(task_id: str) -> Dict[str, Any]:
         error_message = f"Failed to delete scheduled task: {str(e)}"
         logger.error(f"Error in delete_scheduled_task: {error_message}")
         logger.debug(traceback.format_exc())
-        return {"status": "error", "message": error_message[:200]}
+        return {"status": "error", "message": truncate_error(error_message)}
 
 
 # Wrap as ADK FunctionTools

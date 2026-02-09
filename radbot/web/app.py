@@ -11,10 +11,9 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Form, HTTPException, Depends
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -320,9 +319,6 @@ async def mount_static_files_on_startup():
     """Mount static files during application startup after routes are registered."""
     mount_static_files()
 
-# Set up Jinja2 templates
-templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
-
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
@@ -453,88 +449,24 @@ def _react_index_path() -> Optional[str]:
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Render the main chat interface.
-
-    If a React build exists in static/dist/, serve the React SPA.
-    Otherwise fall back to the legacy Jinja2 template.
-    """
+    """Render the main chat interface (React SPA)."""
     react_index = _react_index_path()
     if react_index:
-        # Serve the Vite-generated index.html directly (it contains hashed asset references)
         with open(react_index, "r") as f:
             html = f.read()
         # Rewrite asset paths: Vite outputs /assets/... but we serve from /static/dist/assets/...
         html = html.replace('"/assets/', '"/static/dist/assets/')
         html = html.replace("'/assets/", "'/static/dist/assets/")
         return HTMLResponse(content=html)
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request}
+    return HTMLResponse(
+        content="<h1>RadBot</h1><p>React frontend not built. Run <code>make build-frontend</code> first.</p>",
+        status_code=503,
     )
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "ok"}
-
-@app.post("/api/chat")
-async def chat(
-    message: str = Form(...),
-    session_id: Optional[str] = Form(None),
-    session_manager: SessionManager = Depends(get_session_manager)
-):
-    """Process a user message and return the agent's response.
-    
-    Args:
-        message: The user's message
-        session_id: Optional session ID (if not provided, a new one will be created)
-        
-    Returns:
-        JSON response with session_id and agent's response
-    """
-    # Generate a session ID if not provided
-    if not session_id:
-        session_id = str(uuid.uuid4())
-        logger.info(f"Created new session ID: {session_id}")
-    else:
-        logger.info(f"Using existing session ID: {session_id}")
-    
-    # Get or create a runner for this session
-    runner = await get_or_create_runner_for_session(session_id, session_manager)
-    
-    try:
-        # Process the message
-        logger.info(f"Processing message for session {session_id}: {message[:50]}{'...' if len(message) > 50 else ''}")
-        result = await runner.process_message(message)
-
-        # Extract response and events
-        response = result.get("response", "")
-        events = result.get("events", [])
-        
-        # Process events for size constraints to match WebSocket behavior
-        max_size = 1024 * 1024  # 1MB limit
-        processed_events = []
-        
-        for event in events:
-            if 'text' in event and isinstance(event['text'], str) and len(event['text']) > 100000:
-                # Truncate large text events
-                event_copy = event.copy()  # Create a copy to avoid modifying the original
-                original_length = len(event_copy['text'])
-                event_copy['text'] = event_copy['text'][:100000] + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"
-                logger.info(f"Truncated REST API event text from {original_length} to {len(event_copy['text'])} characters")
-                processed_events.append(event_copy)
-            else:
-                processed_events.append(event)
-        
-        # Return the response with session information and processed events
-        return {
-            "session_id": session_id,
-            "response": response,
-            "events": processed_events
-        }
-    except Exception as e:
-        logger.error(f"Error processing message: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str, session_manager: SessionManager = Depends(get_session_manager)):
@@ -940,26 +872,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
         logger.error(f"WebSocket error: {str(e)}", exc_info=True)
         manager.disconnect(session_id, websocket)
 
-@app.get("/api/sessions/{session_id}/reset")
-async def reset_session(
-    session_id: str,
-    session_manager: SessionManager = Depends(get_session_manager)
-):
-    """Reset a session's conversation history.
-    
-    Args:
-        session_id: The session ID to reset
-        
-    Returns:
-        JSON response with status
-    """
-    try:
-        await session_manager.reset_session(session_id)
-        return {"status": "ok", "message": "Session reset successfully"}
-    except Exception as e:
-        logger.error(f"Error resetting session: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error resetting session: {str(e)}")
-
 @app.post("/api/tasks")
 async def create_task_endpoint(request: Request):
     """Create a new task.
@@ -1121,67 +1033,6 @@ async def get_projects():
     except Exception as e:
         logger.error(f"Error getting projects: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error getting projects: {str(e)}")
-
-@app.get("/api/tools")
-async def get_available_tools(session_id: Optional[str] = None, session_manager: SessionManager = Depends(get_session_manager)):
-    """Get the list of available tools from the root agent.
-    
-    Args:
-        session_id: Optional session ID to get tools from a specific session
-        
-    Returns:
-        JSON list of tools with their details
-    """
-    try:
-        # Import the root_agent directly
-        from agent import root_agent
-        
-        # Use the specific session's runner if a session_id is provided
-        if session_id:
-            runner = await get_or_create_runner_for_session(session_id, session_manager)
-            if hasattr(runner, "runner") and hasattr(runner.runner, "agent"):
-                agent = runner.runner.agent
-            else:
-                agent = root_agent
-        else:
-            agent = root_agent
-            
-        # Check if agent has tools
-        if not hasattr(agent, "tools") or not agent.tools:
-            logger.warning("Agent has no tools attribute or tools list is empty")
-            return []
-            
-        # Convert tools to a serializable format
-        serializable_tools = []
-        for tool in agent.tools:
-            tool_dict = {
-                "name": str(tool.name) if hasattr(tool, "name") else "unknown",
-                "description": str(tool.description) if hasattr(tool, "description") else "",
-            }
-            
-            # Add schema information if available
-            if hasattr(tool, "input_schema"):
-                if hasattr(tool.input_schema, "schema"):
-                    tool_dict["input_schema"] = tool.input_schema.schema()
-                elif hasattr(tool.input_schema, "to_dict"):
-                    tool_dict["input_schema"] = tool.input_schema.to_dict()
-                else:
-                    tool_dict["input_schema"] = str(tool.input_schema)
-                    
-            # Add any other tool attributes that might be useful
-            if hasattr(tool, "metadata"):
-                tool_dict["metadata"] = tool.metadata
-                
-            serializable_tools.append(tool_dict)
-        
-        logger.info(f"Retrieved {len(serializable_tools)} tools")
-        return serializable_tools
-    except Exception as e:
-        logger.error(f"Error getting tools: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting tools: {str(e)}")
-
-# Mock events endpoint has been replaced with the real events API
-# provided by radbot.web.api.events
 
 def start_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
     """Start the FastAPI server.

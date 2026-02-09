@@ -53,16 +53,6 @@ def create_utility_toolset() -> List[Any]:
     except Exception as e:
         logger.error(f"Failed to add weather_connector: {e}")
     
-    # Try to add utility MCP tools if available
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        utility_mcp_tools = get_mcp_tools("utility")
-        if utility_mcp_tools:
-            toolset.extend(utility_mcp_tools)
-            logger.info(f"Added {len(utility_mcp_tools)} utility MCP tools")
-    except Exception as e:
-        logger.error(f"Failed to add utility MCP tools: {e}")
-    
     return toolset
 
 # Register the toolset with the system

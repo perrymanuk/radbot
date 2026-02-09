@@ -32,21 +32,9 @@ async def list_scheduled_tasks():
     """List all scheduled tasks."""
     try:
         from radbot.tools.scheduler.db import list_tasks
+        from radbot.tools.shared.serialization import serialize_rows
         tasks = list_tasks()
-
-        # Serialise
-        result = []
-        for t in tasks:
-            item = {}
-            for k, v in t.items():
-                if isinstance(v, uuid.UUID):
-                    item[k] = str(v)
-                elif hasattr(v, "isoformat"):
-                    item[k] = v.isoformat()
-                else:
-                    item[k] = v
-            result.append(item)
-        return result
+        return serialize_rows(tasks)
     except Exception as e:
         logger.error(f"Error listing scheduled tasks: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

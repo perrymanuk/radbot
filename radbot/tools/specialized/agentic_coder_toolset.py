@@ -62,16 +62,6 @@ def create_agentic_coder_toolset() -> List[Any]:
         except Exception as e:
             logger.error(f"Failed to add direct_prompt_claude: {e}")
     
-    # Try to add additional MCP model tools if available
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        model_mcp_tools = get_mcp_tools("model_delegation")
-        if model_mcp_tools:
-            toolset.extend(model_mcp_tools)
-            logger.info(f"Added {len(model_mcp_tools)} model delegation MCP tools")
-    except Exception as e:
-        logger.error(f"Failed to add model delegation MCP tools: {e}")
-    
     # Add Context7 MCP tools if available
     try:
         from radbot.tools.mcp.context7_client import get_context7_tools
@@ -82,17 +72,7 @@ def create_agentic_coder_toolset() -> List[Any]:
                 logger.info(f"Added {len(context7_tools)} Context7 tools to agentic coder toolset")
     except Exception as e:
         logger.error(f"Failed to add Context7 tools: {e}")
-    
-    # Try to get Context7 MCP tools from dynamic loader
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        context7_mcp_tools = get_mcp_tools("context7")
-        if context7_mcp_tools:
-            toolset.extend(context7_mcp_tools)
-            logger.info(f"Added {len(context7_mcp_tools)} Context7 MCP tools")
-    except Exception as e:
-        logger.error(f"Failed to add Context7 MCP tools: {e}")
-    
+
     return toolset
 
 # Register the toolset with the system

@@ -648,12 +648,6 @@
                         "description": "Maximum number of retry attempts",
                         "minimum": 0,
                         "default": 3
-                      },
-                      "backoff_factor": {
-                        "type": "number",
-                        "description": "Exponential backoff factor",
-                        "minimum": 0,
-                        "default": 0.5
                       }
                     }
                   },
@@ -782,11 +776,6 @@
           "minimum": -20.0,
           "maximum": 20.0,
           "default": 0.0
-        },
-        "auto_play": {
-          "type": "boolean",
-          "description": "Auto-play TTS for agent responses",
-          "default": false
         }
       }
     },

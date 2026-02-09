@@ -12,7 +12,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.templating import Jinja2Templates
 
 from radbot.credentials.store import CredentialStore, get_credential_store
 
@@ -22,10 +21,6 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 _ADMIN_TOKEN_ENV = "RADBOT_ADMIN_TOKEN"
 _bearer_scheme = HTTPBearer(auto_error=False)
-
-templates = Jinja2Templates(
-    directory=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
-)
 
 
 # ------------------------------------------------------------------
@@ -66,11 +61,7 @@ def _require_store() -> CredentialStore:
 # ------------------------------------------------------------------
 @router.get("/", response_class=HTMLResponse)
 async def admin_page(request: Request):
-    """Serve the admin page.
-
-    If a React build exists in static/dist/, serve the React SPA.
-    Otherwise fall back to the legacy Jinja2 admin template.
-    """
+    """Serve the admin page (React SPA)."""
     dist_index = os.path.join(
         os.path.dirname(os.path.dirname(__file__)), "static", "dist", "index.html"
     )
@@ -80,7 +71,10 @@ async def admin_page(request: Request):
         html = html.replace('"/assets/', '"/static/dist/assets/')
         html = html.replace("'/assets/", "'/static/dist/assets/")
         return HTMLResponse(content=html)
-    return templates.TemplateResponse("admin.html", {"request": request})
+    return HTMLResponse(
+        content="<h1>RadBot Admin</h1><p>React frontend not built. Run <code>make build-frontend</code> first.</p>",
+        status_code=503,
+    )
 
 
 # ------------------------------------------------------------------

@@ -10,9 +10,8 @@ import asyncio
 
 # Update to use the new import path
 from radbot.tools.crawl4ai.mcp_crawl4ai_client import (
-    create_crawl4ai_toolset, 
+    create_crawl4ai_toolset,
     test_crawl4ai_connection,
-    create_crawl4ai_enabled_agent
 )
 
 
@@ -88,36 +87,6 @@ class TestCrawl4AIIntegration(unittest.TestCase):
         
         # Verify the async function was called
         mock_async.assert_called_once()
-    
-    @patch('radbot.tools.crawl4ai.mcp_crawl4ai_client.create_crawl4ai_toolset')
-    def test_create_agent(self, mock_toolset):
-        """Test creating an agent with Crawl4AI tools."""
-        # Mock the toolset function
-        mock_toolset.return_value = ["tool1", "tool2"]
-        
-        # Create a mock agent factory
-        mock_agent_factory = MagicMock()
-        mock_agent = MagicMock()
-        mock_agent_factory.return_value = mock_agent
-        
-        # Test the function
-        agent = create_crawl4ai_enabled_agent(
-            agent_factory=mock_agent_factory,
-            base_tools=["base_tool"],
-            name="test_agent"
-        )
-        
-        # Check the agent was created correctly
-        self.assertEqual(agent, mock_agent)
-        
-        # Verify the factory was called with the correct tools
-        mock_agent_factory.assert_called_once()
-        args, kwargs = mock_agent_factory.call_args
-        self.assertEqual(kwargs["name"], "test_agent")
-        self.assertEqual(len(kwargs["tools"]), 3)  # base_tool + 2 crawl4ai tools
-        self.assertIn("base_tool", kwargs["tools"])
-        self.assertIn("tool1", kwargs["tools"])
-        self.assertIn("tool2", kwargs["tools"])
     
     @patch('radbot.tools.crawl4ai.mcp_crawl4ai_client.asyncio.run')
     def test_ingest_document(self, mock_run):

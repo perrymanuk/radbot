@@ -20,50 +20,29 @@ logger = logging.getLogger(__name__)
 
 def init_reminder_schema() -> None:
     """Create the reminders table if it doesn't exist."""
-    try:
-        with get_db_connection() as conn:
-            with get_db_cursor(conn, commit=True) as cursor:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_name = 'reminders'
-                    );
-                """)
-                table_exists = cursor.fetchone()[0]
+    from radbot.tools.shared.db_schema import init_table_schema
 
-                if not table_exists:
-                    logger.info("Creating reminders table")
-                    cursor.execute("""
-                        CREATE TABLE reminders (
-                            reminder_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                            message TEXT NOT NULL,
-                            remind_at TIMESTAMPTZ NOT NULL,
-                            status TEXT NOT NULL DEFAULT 'pending',
-                            delivered BOOLEAN NOT NULL DEFAULT FALSE,
-                            session_id TEXT,
-                            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                            completed_at TIMESTAMPTZ,
-                            delivery_result TEXT
-                        );
-                    """)
-                    cursor.execute("""
-                        CREATE INDEX idx_reminders_status
-                        ON reminders (status);
-                    """)
-                    cursor.execute("""
-                        CREATE INDEX idx_reminders_pending_at
-                        ON reminders (remind_at) WHERE status = 'pending';
-                    """)
-                    cursor.execute("""
-                        CREATE INDEX idx_reminders_undelivered
-                        ON reminders (delivered) WHERE status = 'completed' AND delivered = FALSE;
-                    """)
-                    logger.info("reminders table created successfully")
-                else:
-                    logger.info("reminders table already exists")
-    except Exception as e:
-        logger.error(f"Error creating reminder schema: {e}")
-        raise
+    init_table_schema(
+        table_name="reminders",
+        create_table_sql="""
+            CREATE TABLE reminders (
+                reminder_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                message TEXT NOT NULL,
+                remind_at TIMESTAMPTZ NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                delivered BOOLEAN NOT NULL DEFAULT FALSE,
+                session_id TEXT,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMPTZ,
+                delivery_result TEXT
+            );
+        """,
+        create_index_sqls=[
+            "CREATE INDEX idx_reminders_status ON reminders (status);",
+            "CREATE INDEX idx_reminders_pending_at ON reminders (remind_at) WHERE status = 'pending';",
+            "CREATE INDEX idx_reminders_undelivered ON reminders (delivered) WHERE status = 'completed' AND delivered = FALSE;",
+        ],
+    )
 
 
 def create_reminder(

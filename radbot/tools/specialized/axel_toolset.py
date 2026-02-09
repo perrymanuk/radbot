@@ -87,18 +87,6 @@ def create_axel_toolset() -> List[Any]:
         except Exception as e:
             logger.error(f"Failed to add sequential_thinking tool: {e}")
     
-    # Add MCP tools for Axel's dynamic worker system
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        
-        # Sequential thinking for structured implementation
-        sequential_thinking_tools = get_mcp_tools("sequentialthinking")
-        if sequential_thinking_tools:
-            toolset.extend(sequential_thinking_tools)
-            logger.info(f"Added {len(sequential_thinking_tools)} sequential thinking MCP tools")
-    except Exception as e:
-        logger.error(f"Failed to add Axel MCP tools: {e}")
-    
     return toolset
 
 # Register the toolset with the system

@@ -18,12 +18,6 @@ except ImportError:
     search_past_conversations = None
     store_important_information = None
 
-# Import enhanced memory tools if available
-try:
-    from radbot.memory.enhanced_memory.memory_manager import get_memory_tools
-except ImportError:
-    get_memory_tools = None
-
 # Import base toolset for registration
 from .base_toolset import register_toolset
 
@@ -52,26 +46,6 @@ def create_memory_toolset() -> List[Any]:
             logger.info("Added store_important_information to memory toolset")
         except Exception as e:
             logger.error(f"Failed to add store_important_information: {e}")
-    
-    # Add enhanced memory tools if available
-    if get_memory_tools:
-        try:
-            enhanced_tools = get_memory_tools()
-            if enhanced_tools:
-                toolset.extend(enhanced_tools)
-                logger.info(f"Added {len(enhanced_tools)} enhanced memory tools to memory toolset")
-        except Exception as e:
-            logger.error(f"Failed to add enhanced memory tools: {e}")
-    
-    # Add memory-related MCP tools if available
-    try:
-        from radbot.tools.mcp.mcp_tools import get_mcp_tools
-        memory_mcp_tools = get_mcp_tools("memory")
-        if memory_mcp_tools:
-            toolset.extend(memory_mcp_tools)
-            logger.info(f"Added {len(memory_mcp_tools)} memory MCP tools to memory toolset")
-    except Exception as e:
-        logger.error(f"Failed to add memory MCP tools: {e}")
     
     return toolset
 

@@ -20,46 +20,34 @@ logger = logging.getLogger(__name__)
 
 def init_scheduler_schema() -> None:
     """Create the scheduled_tasks table if it doesn't exist."""
-    try:
-        with get_db_connection() as conn:
-            with get_db_cursor(conn, commit=True) as cursor:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables
-                        WHERE table_name = 'scheduled_tasks'
-                    );
-                """)
-                table_exists = cursor.fetchone()[0]
+    from radbot.tools.shared.db_schema import init_table_schema
 
-                if not table_exists:
-                    logger.info("Creating scheduled_tasks table")
-                    cursor.execute("""
-                        CREATE TABLE scheduled_tasks (
-                            task_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                            name TEXT NOT NULL,
-                            cron_expression TEXT NOT NULL,
-                            prompt TEXT NOT NULL,
-                            description TEXT,
-                            session_id TEXT,
-                            enabled BOOLEAN NOT NULL DEFAULT TRUE,
-                            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                            last_run_at TIMESTAMPTZ,
-                            last_result TEXT,
-                            run_count INTEGER NOT NULL DEFAULT 0,
-                            metadata JSONB
-                        );
-                    """)
-                    cursor.execute("""
-                        CREATE INDEX idx_scheduled_tasks_enabled
-                        ON scheduled_tasks (enabled);
-                    """)
-                    logger.info("scheduled_tasks table created successfully")
-                else:
-                    logger.info("scheduled_tasks table already exists")
-    except Exception as e:
-        logger.error(f"Error creating scheduler schema: {e}")
-        raise
+    init_table_schema(
+        table_name="scheduled_tasks",
+        create_table_sql="""
+            CREATE TABLE scheduled_tasks (
+                task_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name TEXT NOT NULL,
+                cron_expression TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                description TEXT,
+                session_id TEXT,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                last_run_at TIMESTAMPTZ,
+                last_result TEXT,
+                run_count INTEGER NOT NULL DEFAULT 0,
+                metadata JSONB
+            );
+        """,
+        create_index_sqls=[
+            """
+            CREATE INDEX idx_scheduled_tasks_enabled
+            ON scheduled_tasks (enabled);
+            """,
+        ],
+    )
 
 
 def create_task(
