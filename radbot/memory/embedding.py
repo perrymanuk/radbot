@@ -33,13 +33,9 @@ def get_embedding_model() -> EmbeddingModel:
     """
     embed_model = os.getenv("radbot_EMBED_MODEL", "gemini").lower()
 
-    if embed_model == "gemini":
-        return _initialize_gemini_embedding()
-    elif embed_model == "sentence-transformers":
-        return _initialize_sentence_transformers()
-    else:
+    if embed_model != "gemini":
         logger.warning(f"Unknown embedding model '{embed_model}', falling back to Gemini")
-        return _initialize_gemini_embedding()
+    return _initialize_gemini_embedding()
 
 
 def _initialize_gemini_embedding() -> EmbeddingModel:
@@ -73,28 +69,6 @@ def _initialize_gemini_embedding() -> EmbeddingModel:
     )
 
 
-def _initialize_sentence_transformers() -> EmbeddingModel:
-    """
-    Initialize a sentence-transformers embedding model.
-
-    Returns:
-        EmbeddingModel: The initialized embedding model
-    """
-    try:
-        from sentence_transformers import SentenceTransformer
-
-        model_name = os.getenv("SENTENCE_TRANSFORMERS_MODEL", "all-MiniLM-L6-v2")
-        model = SentenceTransformer(model_name)
-
-        return EmbeddingModel(
-            name=model_name,
-            vector_size=model.get_sentence_embedding_dimension(),
-            client=model
-        )
-    except ImportError:
-        logger.error("Failed to import sentence_transformers. Please install with: pip install sentence-transformers")
-        raise
-
 
 def embed_text(text: str, model: EmbeddingModel, is_query: bool = True, source: str = "agent_memory") -> List[float]:
     """
@@ -122,11 +96,6 @@ def embed_text(text: str, model: EmbeddingModel, is_query: bool = True, source: 
                 }
             )
             return list(result.embeddings[0].values)
-
-        elif hasattr(model.client, 'encode'):
-            # Sentence Transformers embedding
-            embedding = model.client.encode(text)
-            return embedding.tolist()
 
         else:
             logger.error(f"Unsupported embedding model: {model.name}")

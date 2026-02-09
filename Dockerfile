@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy and install Python dependencies first (layer caching)
-COPY pyproject.toml README.md .
+COPY pyproject.toml README.md ./
 RUN pip install --no-cache-dir -e ".[web]" || true
 
 # Copy application code
