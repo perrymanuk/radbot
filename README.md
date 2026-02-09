@@ -38,6 +38,17 @@ APScheduler-based cron engine for recurring tasks, persisted in PostgreSQL.
 *   **`delete_scheduled_task`**: Remove a scheduled task
 *   Task results are processed through the agent and broadcast to all connected WebSocket clients
 
+### Reminders
+
+One-shot reminders that fire at a specific date/time, persisted in PostgreSQL with offline delivery support.
+
+*   **`create_reminder`**: Set a reminder with an absolute time (`remind_at`) or relative delay (`delay_minutes`)
+*   **`list_reminders`**: View reminders filtered by status (pending/completed/cancelled/all)
+*   **`delete_reminder`**: Cancel and remove a reminder
+*   Reminders fire as system message notifications broadcast to all connected WebSocket clients
+*   Offline delivery: reminders that fire while disconnected are delivered on WebSocket reconnect
+*   REST API at `/api/reminders`
+
 ### Webhooks
 
 External POST triggers with template rendering.
@@ -184,7 +195,7 @@ The Vite dev server binds to all interfaces (`host: true`) for mobile testing on
 ## Project Structure
 
 - `/radbot/agent`: Core agent logic, initializer, and persona definitions
-- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, webhooks, TTS, STT, shell, search)
+- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, TTS, STT, shell, search)
 - `/radbot/memory`: Qdrant-backed semantic memory system
 - `/radbot/web`: FastAPI server, WebSocket handler, React frontend
 - `/radbot/web/frontend`: React SPA source (Vite + TypeScript + Tailwind)
