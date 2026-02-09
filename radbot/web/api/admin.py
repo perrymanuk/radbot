@@ -66,7 +66,20 @@ def _require_store() -> CredentialStore:
 # ------------------------------------------------------------------
 @router.get("/", response_class=HTMLResponse)
 async def admin_page(request: Request):
-    """Serve the admin credentials management page."""
+    """Serve the admin page.
+
+    If a React build exists in static/dist/, serve the React SPA.
+    Otherwise fall back to the legacy Jinja2 admin template.
+    """
+    dist_index = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "static", "dist", "index.html"
+    )
+    if os.path.isfile(dist_index):
+        with open(dist_index, "r") as f:
+            html = f.read()
+        html = html.replace('"/assets/', '"/static/dist/assets/')
+        html = html.replace("'/assets/", "'/static/dist/assets/")
+        return HTMLResponse(content=html)
     return templates.TemplateResponse("admin.html", {"request": request})
 
 

@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web test test-unit test-integration lint format run-cli run-web run-web-custom run-scheduler clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -22,6 +22,9 @@ help:
 	@echo "run-web        : Start the radbot web interface using ADK"
 	@echo "run-web-custom : Start the custom FastAPI web interface"
 	@echo "run-scheduler  : Run the scheduler with optional arguments (use ARGS=\"--your-args\")"
+	@echo "setup-frontend : Install React frontend npm dependencies"
+	@echo "dev-frontend   : Start the Vite dev server (proxies API to FastAPI)"
+	@echo "build-frontend : Build the React frontend for production"
 	@echo "clean          : Remove build artifacts and cache files"
 	@echo ""
 	@echo "Example usage:"
@@ -73,6 +76,15 @@ run-web-custom: setup setup-web
 
 run-scheduler:
 	$(PYTHON) -m radbot.cli.scheduler $(ARGS)
+
+setup-frontend:
+	cd radbot/web/frontend && npm install
+
+dev-frontend:
+	cd radbot/web/frontend && npm run dev
+
+build-frontend:
+	cd radbot/web/frontend && npm run build
 
 clean:
 	rm -rf build/

@@ -25,6 +25,7 @@ class SchedulerEngine:
     def __init__(self):
         self._scheduler = AsyncIOScheduler()
         self._connection_manager = None  # set by inject()
+        self._session_manager = None  # set by inject()
         self._started = False
 
     # -- singleton --
@@ -42,9 +43,10 @@ class SchedulerEngine:
         return _instance
 
     # -- dependency injection --
-    def inject(self, connection_manager: Any) -> None:
-        """Inject the ConnectionManager for broadcasting notifications."""
+    def inject(self, connection_manager: Any, session_manager: Any = None) -> None:
+        """Inject the ConnectionManager and optional SessionManager."""
         self._connection_manager = connection_manager
+        self._session_manager = session_manager
 
     # -- lifecycle --
     async def start(self) -> None:
@@ -126,60 +128,131 @@ class SchedulerEngine:
             return job.next_run_time
         return None
 
+    # -- helpers --
+    async def _broadcast_to_all(self, payload: dict) -> int:
+        """Send a JSON payload to ALL active WebSocket connections.
+
+        Returns the number of successful sends.
+        """
+        if not self._connection_manager:
+            return 0
+
+        connections = dict(self._connection_manager.active_connections)
+        if not connections:
+            return 0
+
+        sent = 0
+        for session_id, ws in connections.items():
+            try:
+                await ws.send_json(payload)
+                sent += 1
+            except Exception as e:
+                logger.warning(f"Failed to send to session {session_id}: {e}")
+        return sent
+
     # -- execution --
     async def _execute_job(self, task_id: str, prompt: str, name: str) -> None:
         """Called by APScheduler when a job fires.
 
-        Broadcasts the prompt directly as a notification to the web UI.
-        The prompt is NOT sent to the LLM - it is the reminder message itself.
+        Processes the prompt through the agent and broadcasts results to all
+        active WebSocket connections.
         """
         logger.info(f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), prompt: {prompt[:80]}")
 
-        # Persist run in DB
-        try:
-            from radbot.tools.scheduler.db import update_last_run
-            update_last_run(task_id, prompt[:4000])
-        except Exception as e:
-            logger.error(f"Failed to update last_run for scheduled task {task_id}: {e}")
-
-        # Push directly to all active WebSocket connections (no LLM processing)
-        if self._connection_manager:
-            try:
-                await self._broadcast_result(task_id, name, prompt)
-            except Exception as e:
-                logger.error(f"Failed to broadcast scheduled task result: {e}", exc_info=True)
-        else:
-            logger.warning(f"No connection_manager set, cannot broadcast task '{name}' result")
-
-    async def _broadcast_result(
-        self, task_id: str, name: str, prompt: str
-    ) -> None:
-        """Send the scheduled task notification to all active WebSocket connections."""
+        # Snapshot active connections; skip if none
         if not self._connection_manager:
-            logger.warning("No connection_manager available, cannot broadcast scheduled task result")
+            logger.warning(f"No connection_manager set, cannot process task '{name}'")
+            self._update_last_run(task_id, "skipped: no connection manager")
             return
 
-        message_payload = {
-            "type": "scheduled_task_result",
-            "task_id": task_id,
-            "task_name": name,
-            "prompt": prompt,
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        # Iterate over a copy of the active connections
         connections = dict(self._connection_manager.active_connections)
         if not connections:
-            logger.warning(f"No active WebSocket connections to broadcast scheduled task '{name}' result to")
+            logger.info(f"No active WebSocket connections, skipping task '{name}'")
+            self._update_last_run(task_id, "skipped: no active connections")
             return
 
-        logger.info(f"Broadcasting scheduled task '{name}' notification to {len(connections)} active connection(s)")
-        sent_count = 0
-        for session_id, ws in connections.items():
-            try:
-                await ws.send_json(message_payload)
-                sent_count += 1
-                logger.info(f"Sent scheduled task notification to session {session_id}")
-            except Exception as e:
-                logger.warning(f"Failed to send scheduled notification to session {session_id}: {e}")
-        logger.info(f"Broadcast complete: sent to {sent_count}/{len(connections)} connections")
+        # Pick the first active session_id for agent processing
+        session_id = next(iter(connections))
+        logger.info(f"Using session {session_id} for scheduled task '{name}' processing")
+
+        # 1. Broadcast system message to all connections
+        system_content = f"[Scheduled Task: {name}] {prompt}"
+        await self._broadcast_to_all({
+            "type": "message",
+            "role": "system",
+            "content": system_content,
+        })
+
+        # 2. Broadcast "thinking" status
+        await self._broadcast_to_all({
+            "type": "status",
+            "content": "thinking",
+        })
+
+        # 3. Persist system message to DB
+        try:
+            from radbot.web.db import chat_operations
+            chat_operations.add_message(session_id, "system", system_content, user_id="web_user")
+        except Exception as e:
+            logger.warning(f"Failed to persist system message to DB: {e}")
+
+        # 4. Process through agent
+        try:
+            # Lazy import to avoid circular dependencies
+            from radbot.web.api.session.dependencies import get_or_create_runner_for_session
+
+            runner = await get_or_create_runner_for_session(session_id, self._session_manager)
+            result = await runner.process_message(prompt)
+
+            response = result.get("response", "")
+            events = result.get("events", [])
+
+            # 5. Persist assistant response to DB
+            if response:
+                try:
+                    from radbot.web.db import chat_operations
+                    chat_operations.add_message(session_id, "assistant", response, user_id="web_user")
+                except Exception as e:
+                    logger.warning(f"Failed to persist assistant response to DB: {e}")
+
+            # 6. Broadcast events to all connections
+            if events:
+                sent = await self._broadcast_to_all({
+                    "type": "events",
+                    "content": events,
+                })
+                logger.info(f"Broadcast {len(events)} events to {sent} connections")
+
+            # 7. Broadcast "ready" status
+            await self._broadcast_to_all({
+                "type": "status",
+                "content": "ready",
+            })
+
+            # 8. Update last run in DB
+            self._update_last_run(task_id, response[:4000] if response else "completed (no response)")
+
+            logger.info(f"Scheduled task '{name}' processed successfully")
+
+        except Exception as e:
+            logger.error(f"Error processing scheduled task '{name}': {e}", exc_info=True)
+
+            # Broadcast error and ready status
+            await self._broadcast_to_all({
+                "type": "status",
+                "content": f"error: Scheduled task '{name}' failed: {e}",
+            })
+            await self._broadcast_to_all({
+                "type": "status",
+                "content": "ready",
+            })
+
+            self._update_last_run(task_id, f"error: {str(e)[:4000]}")
+
+    def _update_last_run(self, task_id: str, result: str) -> None:
+        """Update the last_run_at timestamp in the DB."""
+        try:
+            from radbot.tools.scheduler.db import update_last_run
+            update_last_run(task_id, result)
+        except Exception as e:
+            logger.error(f"Failed to update last_run for scheduled task {task_id}: {e}")

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: "Source Code Pro", monospace;
+    background-color: #0e1419;
+    color: #e2e2e2;
+    min-height: 100vh;
+    line-height: 1.1;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0e1419;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #3584e4;
+    border-radius: 0;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3584e4 #0e1419;
+  }
+
+  /* Prism.js overrides for terminal theme */
+  pre[class*="language-"],
+  code[class*="language-"] {
+    font-family: "Source Code Pro", monospace !important;
+    font-size: 0.9rem !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    text-shadow: none !important;
+  }
+}

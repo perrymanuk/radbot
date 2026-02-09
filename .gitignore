@@ -40,3 +40,7 @@ Thumbs.db
 !.env.example
 CLAUDE.md
 config.yaml
+
+# React frontend build output
+radbot/web/static/dist/
+radbot/web/frontend/node_modules/

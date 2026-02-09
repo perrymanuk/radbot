@@ -202,7 +202,7 @@ async def initialize_app_startup():
             from radbot.tools.scheduler.engine import SchedulerEngine
 
             engine = SchedulerEngine.create_instance()
-            engine.inject(connection_manager=manager)
+            engine.inject(connection_manager=manager, session_manager=get_session_manager())
             await engine.start()
             logger.info("Scheduler engine started successfully")
         except Exception as engine_err:
@@ -390,11 +390,30 @@ class ConnectionManager:
 # Create connection manager
 manager = ConnectionManager()
 
+def _react_index_path() -> Optional[str]:
+    """Return the path to the React build index.html if it exists."""
+    dist_index = os.path.join(os.path.dirname(__file__), "static", "dist", "index.html")
+    return dist_index if os.path.isfile(dist_index) else None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Render the main chat interface."""
+    """Render the main chat interface.
+
+    If a React build exists in static/dist/, serve the React SPA.
+    Otherwise fall back to the legacy Jinja2 template.
+    """
+    react_index = _react_index_path()
+    if react_index:
+        # Serve the Vite-generated index.html directly (it contains hashed asset references)
+        with open(react_index, "r") as f:
+            html = f.read()
+        # Rewrite asset paths: Vite outputs /assets/... but we serve from /static/dist/assets/...
+        html = html.replace('"/assets/', '"/static/dist/assets/')
+        html = html.replace("'/assets/", "'/static/dist/assets/")
+        return HTMLResponse(content=html)
     return templates.TemplateResponse(
-        "index.html", 
+        "index.html",
         {"request": request}
     )
 
