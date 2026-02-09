@@ -461,6 +461,96 @@ export function JiraPanel() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// OverseerrPanel
+// ═══════════════════════════════════════════════════════════
+
+export function OverseerrPanel() {
+  const { loadLiveConfig, mergeConfigSection, saveCredential, testConnection, toast, loadStatus, status } =
+    useAdminStore();
+
+  const [enabled, setEnabled] = useState(false);
+  const [overseerrUrl, setOverseerrUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testResult, setTestResult] = useState<{ status: string; message: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    loadLiveConfig().then((cfg) => {
+      const overseerr = dig(cfg, "integrations.overseerr", {});
+      setEnabled(!!overseerr.enabled);
+      setOverseerrUrl(overseerr.url || "");
+      if (overseerr.api_key) setApiKey(MASKED);
+    });
+  }, [loadLiveConfig]);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const body: Record<string, string> = { url: overseerrUrl };
+      if (apiKey && apiKey !== MASKED) body.api_key = apiKey;
+      const result = await testConnection("overseerr", body);
+      setTestResult(result);
+    } catch (e: any) {
+      setTestResult({ status: "error", message: e.message });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (apiKey && apiKey !== MASKED) {
+        await saveCredential("overseerr_api_key", apiKey, "api_key", "Overseerr API key");
+      }
+      await mergeConfigSection("integrations", {
+        overseerr: {
+          enabled,
+          url: overseerrUrl || undefined,
+        },
+      });
+      toast("Overseerr settings saved", "success");
+      loadStatus();
+    } catch (e: any) {
+      toast("Save failed: " + e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const overseerrStatus = status?.overseerr?.status || "unconfigured";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5 mb-4">
+        <h2 className="text-lg font-semibold text-[#eee]">Overseerr</h2>
+        <StatusBadge status={overseerrStatus} />
+      </div>
+
+      <Card title="Configuration">
+        <FormToggle label="Enabled" checked={enabled} onChange={setEnabled} />
+        <FormInput
+          label="Overseerr URL"
+          value={overseerrUrl}
+          onChange={setOverseerrUrl}
+          placeholder="https://overseerr.example.com"
+        />
+        <FormInput
+          label="API Key"
+          value={apiKey}
+          onChange={setApiKey}
+          type="password"
+        />
+      </Card>
+
+      <ActionBar onSave={handleSave} onTest={handleTest} testResult={testResult} testing={testing} saving={saving} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // HomeAssistantPanel
 // ═══════════════════════════════════════════════════════════
 

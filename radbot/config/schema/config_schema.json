@@ -513,6 +513,26 @@
             }
           }
         },
+        "overseerr": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Overseerr media request integration settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Overseerr integration",
+              "default": false
+            },
+            "url": {
+              "type": ["string", "null"],
+              "description": "Overseerr base URL (e.g. https://overseerr.example.com)"
+            },
+            "api_key": {
+              "type": ["string", "null"],
+              "description": "Overseerr API key"
+            }
+          }
+        },
         "crawl4ai": {
           "type": "object",
           "additionalProperties": false,

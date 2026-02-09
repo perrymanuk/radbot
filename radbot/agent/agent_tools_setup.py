@@ -53,7 +53,10 @@ from radbot.agent.agent_initializer import (
 
     # Import Jira tools
     JIRA_TOOLS,
-    
+
+    # Import Overseerr tools
+    OVERSEERR_TOOLS,
+
     # Import calendar tools
     list_calendar_events_tool,
     create_calendar_event_tool,
@@ -284,6 +287,13 @@ try:
     logger.info(f"Added {len(JIRA_TOOLS)} Jira tools")
 except Exception as e:
     logger.warning(f"Failed to add Jira tools: {e}")
+
+# Add Overseerr Tools
+try:
+    tools.extend(OVERSEERR_TOOLS)
+    logger.info(f"Added {len(OVERSEERR_TOOLS)} Overseerr tools")
+except Exception as e:
+    logger.warning(f"Failed to add Overseerr tools: {e}")
 
 # Add memory tools
 tools.extend([

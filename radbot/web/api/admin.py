@@ -174,11 +174,16 @@ async def save_config_section(section: str, request: Request, _: None = Depends(
         config_loader.load_db_config()
     except Exception as e:
         logger.warning(f"Config hot-reload failed: {e}")
-    # Reset HA client singleton so next call picks up new config
+    # Reset client singletons so next call picks up new config
     if section == "integrations":
         try:
             from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
             reset_ha_client()
+        except Exception:
+            pass
+        try:
+            from radbot.tools.overseerr.overseerr_client import reset_overseerr_client
+            reset_overseerr_client()
         except Exception:
             pass
     return {"status": "ok", "section": section}
@@ -563,6 +568,53 @@ async def test_jira(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Jira connection failed: {e}")
 
 
+@router.post("/api/test/overseerr")
+async def test_overseerr(request: Request, _: None = Depends(_verify_admin)):
+    """Test Overseerr connectivity with provided or stored credentials."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("url", "")
+    api_key = body.get("api_key", "")
+
+    # Fall back to stored config/credentials
+    if not url:
+        try:
+            from radbot.config.config_loader import config_loader
+            overseerr_cfg = config_loader.get_config().get("integrations", {}).get("overseerr", {})
+            url = url or overseerr_cfg.get("url", "")
+        except Exception:
+            pass
+    if not api_key or api_key == "***":
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("overseerr_api_key") or ""
+        if not api_key:
+            try:
+                from radbot.config.config_loader import config_loader
+                api_key = config_loader.get_config().get("integrations", {}).get("overseerr", {}).get("api_key", "")
+            except Exception:
+                pass
+
+    if not url or not api_key:
+        return _err("Overseerr URL and API key are both required")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{url.rstrip('/')}/api/v1/status",
+                headers={"X-Api-Key": api_key},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return _ok(f"Connected to Overseerr v{data.get('version', '?')}")
+            return _err(f"Overseerr returned HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        return _err(f"Overseerr connection failed: {e}")
+
+
 @router.post("/api/test/home-assistant")
 async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)):
     """Test Home Assistant connectivity."""
@@ -865,6 +917,16 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         status["jira"] = {"status": "error", "message": "Enabled but missing config"}
     else:
         status["jira"] = {"status": "unconfigured"}
+
+    # Overseerr
+    overseerr_cfg = cfg.get("integrations", {}).get("overseerr", {})
+    overseerr_key = _store_get("overseerr_api_key") or overseerr_cfg.get("api_key", "")
+    if overseerr_cfg.get("url") and overseerr_key:
+        status["overseerr"] = {"status": "ok"}
+    elif overseerr_cfg.get("enabled"):
+        status["overseerr"] = {"status": "error", "message": "Enabled but missing config"}
+    else:
+        status["overseerr"] = {"status": "unconfigured"}
 
     # Home Assistant
     ha_cfg = cfg.get("integrations", {}).get("home_assistant", {})

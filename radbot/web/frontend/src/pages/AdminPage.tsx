@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // Panel imports
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
-import { GmailPanel, CalendarPanel, JiraPanel, HomeAssistantPanel, TavilyPanel, Crawl4aiPanel, FilesystemPanel } from "@/components/admin/panels/ConnectionPanels";
+import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPanel, TavilyPanel, Crawl4aiPanel, FilesystemPanel } from "@/components/admin/panels/ConnectionPanels";
 import { PostgresqlPanel, QdrantPanel, RedisPanel } from "@/components/admin/panels/InfrastructurePanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
 import { SchedulerPanel, WebhooksPanel } from "@/components/admin/panels/AutomationPanels";
@@ -30,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "gmail", label: "Gmail", group: "Connections", statusKey: "gmail" },
   { id: "calendar", label: "Calendar", group: "Connections", statusKey: "calendar" },
   { id: "jira", label: "Jira", group: "Connections", statusKey: "jira" },
+  { id: "overseerr", label: "Overseerr", group: "Connections", statusKey: "overseerr" },
   { id: "home_assistant", label: "Home Assistant", group: "Connections", statusKey: "home_assistant" },
   { id: "tavily", label: "Tavily Search", group: "Connections", statusKey: "tavily" },
   { id: "crawl4ai", label: "Crawl4AI", group: "Connections", statusKey: "crawl4ai" },
@@ -59,6 +60,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   gmail: GmailPanel,
   calendar: CalendarPanel,
   jira: JiraPanel,
+  overseerr: OverseerrPanel,
   home_assistant: HomeAssistantPanel,
   tavily: TavilyPanel,
   crawl4ai: Crawl4aiPanel,

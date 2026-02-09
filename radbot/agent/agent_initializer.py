@@ -96,6 +96,9 @@ from radbot.tools.reminders import REMINDER_TOOLS, init_reminder_schema
 # Import Jira tools
 from radbot.tools.jira import JIRA_TOOLS
 
+# Import Overseerr tools
+from radbot.tools.overseerr import OVERSEERR_TOOLS
+
 # Log startup
 logger.info("agent_initializer.py loaded - initialization module for root agent.py")
 # Removed debug message for MCP_FS_ROOT_DIR
