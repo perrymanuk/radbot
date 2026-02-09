@@ -8,6 +8,7 @@ import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPane
 import { PostgresqlPanel, QdrantPanel, RedisPanel } from "@/components/admin/panels/InfrastructurePanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
 import { SchedulerPanel, WebhooksPanel } from "@/components/admin/panels/AutomationPanels";
+import { SanitizationPanel } from "@/components/admin/panels/SecurityPanels";
 import { MCPServersPanel } from "@/components/admin/panels/MCPPanel";
 import { CredentialsPanel } from "@/components/admin/panels/CredentialsPanel";
 import { RawConfigPanel } from "@/components/admin/panels/RawConfigPanel";
@@ -43,6 +44,8 @@ const NAV_ITEMS: NavItem[] = [
   // Automation
   { id: "scheduler", label: "Scheduler", group: "Automation" },
   { id: "webhooks", label: "Webhooks", group: "Automation" },
+  // Security
+  { id: "sanitization", label: "Sanitization", group: "Security" },
   // Advanced
   { id: "mcp_servers", label: "MCP Servers", group: "Advanced" },
   { id: "credentials", label: "Credentials", group: "Advanced" },
@@ -68,6 +71,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   stt: STTPanel,
   scheduler: SchedulerPanel,
   webhooks: WebhooksPanel,
+  sanitization: SanitizationPanel,
   mcp_servers: MCPServersPanel,
   credentials: CredentialsPanel,
   raw_config: RawConfigPanel,
