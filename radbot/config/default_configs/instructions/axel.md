@@ -54,4 +54,4 @@ You have agent-scoped memory tools to build context across sessions:
 Use memory to track ongoing implementation work and avoid re-doing previous analysis.
 
 ## Returning Control
-IMPORTANT: When you have completed your task, you MUST use `transfer_to_agent(agent_name='beto')` to return control to the main agent. You can also transfer to scout for research tasks by calling `transfer_to_agent(agent_name='scout')`.
+CRITICAL: After EVERY response, you MUST call `transfer_to_agent(agent_name='beto')` to return control to the main agent. This applies whether you completed the task, encountered an error, or need more information from the user. Never end a turn with just text — always transfer back. You can also transfer to scout for research tasks by calling `transfer_to_agent(agent_name='scout')`.
