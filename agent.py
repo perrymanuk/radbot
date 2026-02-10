@@ -6,23 +6,7 @@ The ADK web interface uses this file directly based on the adk.config.json setti
 """
 
 # Import from modular components
-from radbot.agent.agent_initializer import (
-    logging,
-    os,
-    Optional,
-    Any,
-    List,
-    date,
-    logger
-)
-
-from radbot.agent.agent_tools_setup import (
-    tools,
-    setup_before_agent_call,
-    search_agent,
-    code_execution_agent,
-    scout_agent
-)
+from radbot.agent.agent_initializer import logger
 
 from radbot.agent.agent_core import (
     root_agent,
@@ -31,7 +15,6 @@ from radbot.agent.agent_core import (
 
 # Log startup
 logger.info("ROOT agent.py loaded - this is the main implementation loaded by ADK web")
-# Removed debug message for MCP_FS_ROOT_DIR
 
 # Export create_agent function for ADK web interface
 __all__ = ["create_agent"]

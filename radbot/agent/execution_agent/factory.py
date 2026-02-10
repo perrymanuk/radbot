@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Union
 
 from google.adk.agents import Agent
 
-from radbot.agent.agent_initializer import config_manager
+from radbot.config import config_manager
 from radbot.agent.execution_agent.agent import ExecutionAgent, AxelExecutionAgent
 
 # Set up logging
@@ -65,6 +65,43 @@ def create_execution_agent(
 
     # Note: transfer_to_agent is NOT added here explicitly — ADK auto-injects it
     # for any agent that is part of a sub_agents tree.
+
+    # Add agent-scoped memory tools
+    try:
+        from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+        memory_tools = create_agent_memory_tools("axel")
+        agent_tools.extend(memory_tools)
+        logger.info("Added agent-scoped memory tools to Axel")
+    except Exception as e:
+        logger.warning(f"Failed to add memory tools to Axel: {e}")
+
+    # Add filesystem tools via MCP
+    try:
+        from radbot.tools.mcp import create_fileserver_toolset
+        fs_tools = create_fileserver_toolset()
+        if fs_tools:
+            agent_tools.extend(fs_tools)
+            logger.info(f"Added {len(fs_tools)} filesystem tools to Axel")
+    except Exception as e:
+        logger.warning(f"Failed to add filesystem tools to Axel: {e}")
+
+    # Add dynamic MCP tools
+    try:
+        from radbot.tools.mcp.dynamic_tools_loader import load_dynamic_mcp_tools
+        mcp_tools = load_dynamic_mcp_tools()
+        if mcp_tools:
+            agent_tools.extend(mcp_tools)
+            logger.info(f"Added {len(mcp_tools)} dynamic MCP tools to Axel")
+    except Exception as e:
+        logger.warning(f"Failed to add dynamic MCP tools to Axel: {e}")
+
+    # Add artifacts loading tool
+    try:
+        from google.adk.tools import load_artifacts
+        agent_tools.append(load_artifacts)
+        logger.info("Added load_artifacts tool to Axel")
+    except Exception as e:
+        logger.warning(f"Failed to add load_artifacts to Axel: {e}")
 
     # Add code execution tool if enabled
     if enable_code_execution:

@@ -144,6 +144,16 @@ class QdrantMemoryService(BaseMemoryService):
                         self.client.delete_collection(self.collection_name)
                     else:
                         logger.info(f"Using existing Qdrant collection '{self.collection_name}'")
+                        # Ensure source_agent index exists on existing collections
+                        try:
+                            self.client.create_payload_index(
+                                collection_name=self.collection_name,
+                                field_name="source_agent",
+                                field_schema=models.PayloadSchemaType.KEYWORD
+                            )
+                            logger.info("Created source_agent index on existing collection")
+                        except Exception:
+                            pass  # Index already exists
                         return
 
                 # Create the collection
@@ -175,6 +185,12 @@ class QdrantMemoryService(BaseMemoryService):
                 self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name="memory_type",
+                    field_schema=models.PayloadSchemaType.KEYWORD
+                )
+
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="source_agent",
                     field_schema=models.PayloadSchemaType.KEYWORD
                 )
 
@@ -380,6 +396,14 @@ class QdrantMemoryService(BaseMemoryService):
             
             # Add additional filter conditions if provided
             if filter_conditions:
+                if "source_agent" in filter_conditions:
+                    must_conditions.append(
+                        models.FieldCondition(
+                            key="source_agent",
+                            match=models.MatchValue(value=filter_conditions["source_agent"])
+                        )
+                    )
+
                 if "memory_type" in filter_conditions:
                     must_conditions.append(
                         models.FieldCondition(

@@ -70,6 +70,17 @@ def create_research_agent(
     # Get the ADK agent
     adk_agent = research_agent.get_adk_agent()
 
+    # Add agent-scoped memory tools to scout
+    try:
+        from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+        memory_tools = create_agent_memory_tools("scout")
+        current_tools = list(adk_agent.tools) if adk_agent.tools else []
+        current_tools.extend(memory_tools)
+        adk_agent.tools = current_tools
+        logger.info("Added agent-scoped memory tools to Scout")
+    except Exception as e:
+        logger.warning(f"Failed to add memory tools to Scout: {e}")
+
     # Note: transfer_to_agent is NOT added here explicitly — ADK auto-injects it
     # for any agent that is part of a sub_agents tree. Adding it explicitly causes
     # a "Duplicate function declaration" error from the Gemini API.

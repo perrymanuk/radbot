@@ -44,7 +44,7 @@ def add_event(session_id: str, event: Dict[str, Any]) -> None:
             existing_event.get('summary') == event.get('summary') and
             existing_event.get('timestamp') == event.get('timestamp')):
             is_duplicate = True
-            logger.info(f"Skipping duplicate event: {event.get('type')} - {event.get('summary')}")
+            logger.debug(f"Skipping duplicate event: {event.get('type')} - {event.get('summary')}")
             break
     
     # Only add if not a duplicate

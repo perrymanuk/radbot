@@ -1,8 +1,8 @@
 """
 Factory for creating specialized agents in the RadBot system.
 
-This module implements the specialized agent pattern as described in
-the agent_specialization.md documentation.
+Creates all domain-specific sub-agents (casa, planner, tracker, comms, axel)
+and registers them with the root agent.
 """
 
 import logging
@@ -11,56 +11,39 @@ from typing import List, Any, Optional
 from google.adk.agents import Agent
 
 from radbot.config import config_manager
-from radbot.agent.execution_agent import create_execution_agent
-from radbot.agent.execution_agent.tools import execution_tools
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-def create_axel_agent(root_agent: Agent) -> Optional[Agent]:
-    """
-    Create the Axel agent for implementation tasks and register it with the root agent.
-
-    All agents (search_agent, code_execution_agent, scout, axel) are siblings
-    under beto. ADK's transfer_to_agent tool can find any agent in the tree
-    by name, so no manual bidirectional linking is needed.
-
-    Args:
-        root_agent: The root agent to attach Axel to
+def _create_axel_agent() -> Optional[Agent]:
+    """Create the Axel agent for implementation tasks.
 
     Returns:
-        The created Axel agent or None if creation failed
+        The created Axel agent or None if creation failed.
     """
     try:
-        # Get the model from config
+        from radbot.agent.execution_agent import create_execution_agent
+        from radbot.agent.execution_agent.tools import execution_tools
+
         axel_model = config_manager.get_agent_model("axel_agent_model")
         if not axel_model:
             axel_model = config_manager.get_agent_model("axel_agent")
             if not axel_model:
-                axel_model = "gemini-2.5-flash"
-                logger.info(f"Using fallback model for Axel: {axel_model}")
-            else:
-                logger.info(f"Using configured model for Axel: {axel_model}")
-        else:
-            logger.info(f"Using configured model for Axel: {axel_model}")
+                axel_model = config_manager.get_sub_model()
 
-        # Create the Axel agent using our factory function
+        logger.info(f"Using model for Axel: {axel_model}")
+
         adk_agent = create_execution_agent(
             name="axel",
             model=axel_model,
             tools=execution_tools,
             as_subagent=True,
             enable_code_execution=True,
-            app_name=root_agent.name if hasattr(root_agent, 'name') else "beto"
+            app_name="beto",
         )
 
-        # Add Axel to beto's sub-agents list
-        current_sub_agents = list(root_agent.sub_agents) if hasattr(root_agent, 'sub_agents') and root_agent.sub_agents else []
-        current_sub_agents.append(adk_agent)
-        root_agent.sub_agents = current_sub_agents
-
-        logger.info(f"Successfully created and registered Axel agent with {len(execution_tools)} tools")
+        logger.info(f"Successfully created Axel agent with {len(execution_tools)} tools")
         return adk_agent
 
     except Exception as e:
@@ -71,22 +54,59 @@ def create_axel_agent(root_agent: Agent) -> Optional[Agent]:
 
 
 def create_specialized_agents(root_agent: Agent) -> List[Agent]:
-    """
-    Create all specialized agents and register them with the root agent.
+    """Create all specialized agents and register them with the root agent.
 
     Args:
-        root_agent: The root agent to attach specialized agents to
+        root_agent: The root agent to attach specialized agents to.
 
     Returns:
-        List of created specialized agents
+        List of created specialized agents.
     """
     specialized_agents = []
 
-    # Create and register Axel agent
-    axel_agent = create_axel_agent(root_agent)
-    if axel_agent:
-        specialized_agents.append(axel_agent)
+    # Import factories lazily to avoid circular imports
+    from radbot.agent.home_agent.factory import create_home_agent
+    from radbot.agent.planner_agent.factory import create_planner_agent
+    from radbot.agent.tracker_agent.factory import create_tracker_agent
+    from radbot.agent.comms_agent.factory import create_comms_agent
 
-    # Future specialized agents would be created here
+    # Create all domain agents
+    factories = [
+        ("casa", create_home_agent),
+        ("planner", create_planner_agent),
+        ("tracker", create_tracker_agent),
+        ("comms", create_comms_agent),
+        ("axel", _create_axel_agent),
+    ]
+
+    for agent_name, factory in factories:
+        try:
+            agent = factory()
+            if agent:
+                specialized_agents.append(agent)
+                logger.info(f"Created {agent_name} agent")
+            else:
+                logger.warning(f"Factory returned None for {agent_name} agent")
+        except Exception as e:
+            logger.error(f"Failed to create {agent_name} agent: {e}")
+
+    # Add all specialized agents to root agent's sub_agents list
+    current_sub_agents = list(root_agent.sub_agents) if root_agent.sub_agents else []
+    current_sub_agents.extend(specialized_agents)
+    root_agent.sub_agents = current_sub_agents
+
+    # Manually set parent_agent on each new agent.
+    # ADK only sets parent_agent during model_post_init (at construction time),
+    # so agents added to sub_agents after construction need this set explicitly.
+    # Without it, transfer_to_agent("beto") fails on these agents.
+    for agent in specialized_agents:
+        if agent.parent_agent is None:
+            agent.parent_agent = root_agent
+            logger.debug(f"Set parent_agent on {agent.name} -> {root_agent.name}")
+
+    logger.info(
+        f"Registered {len(specialized_agents)} specialized agents. "
+        f"Total sub-agents on beto: {len(root_agent.sub_agents)}"
+    )
 
     return specialized_agents
