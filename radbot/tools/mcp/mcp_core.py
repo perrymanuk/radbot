@@ -11,7 +11,7 @@ import asyncio
 from typing import Dict, Any, Optional, List, Tuple, Union, Callable
 from contextlib import AsyncExitStack
 
-from google.adk.tools.mcp_tool import MCPToolset
+from google.adk.tools.mcp_tool import McpToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import SseServerParams
 
 from radbot.config.config_loader import config_loader

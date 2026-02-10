@@ -44,12 +44,12 @@ def create_code_execution_agent(
     # Use provided config or default
     cfg = config or config_manager
 
-    # Get the model name (must be a Gemini 2 model)
+    # Get the model name (must be a Gemini 2+ model)
     model_name = model or cfg.get_agent_model("code_execution_agent")
-    if not any(n in model_name.lower() for n in ["gemini-2", "gemini-2.0", "gemini-2.5"]):
+    if not any(n in model_name.lower() for n in ["gemini-2", "gemini-2.0", "gemini-2.5", "gemini-3"]):
         logger.warning(
             f"Model {model_name} may not be compatible with code execution. "
-            "Code Execution tool requires Gemini 2 models."
+            "Code Execution tool requires Gemini 2+ models."
         )
 
     # Get the instruction

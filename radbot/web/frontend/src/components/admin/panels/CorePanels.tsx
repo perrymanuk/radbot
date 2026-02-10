@@ -13,13 +13,10 @@ import {
 } from "@/components/admin/FormFields";
 
 const MODEL_OPTIONS = [
-  "gemini-3-pro-preview",
+  "gemini-3.0-pro",
   "gemini-2.5-pro",
   "gemini-2.5-flash",
   "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-pro",
-  "gemini-1.5-flash",
 ];
 
 // Display labels and their config keys in agent_models
@@ -263,7 +260,7 @@ export function AgentModelsPanel() {
             label="Sub-Agent Default Model"
             value={subAgentModel}
             onChange={setSubAgentModel}
-            placeholder="gemini-2.0-flash"
+            placeholder="gemini-2.5-flash"
             datalist={MODEL_OPTIONS}
           />
         </FormRow>

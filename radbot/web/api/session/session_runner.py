@@ -83,7 +83,7 @@ class SessionRunner:
         # Log agent tree structure
         self._log_agent_tree()
         
-        # Create the ADK Runner with app_name matching the agent name for ADK 0.4.0+
+        # Create the ADK Runner with app_name matching the agent name
         app_name = root_agent.name if hasattr(root_agent, 'name') else "beto"
         logger.info(f"Using app_name='{app_name}' for session management")
         

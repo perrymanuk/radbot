@@ -8,8 +8,7 @@ import pytest
 import uuid
 from unittest.mock import patch, MagicMock
 
-# For Google ADK 0.3.0+, we use our own SseServerParams class
-from google.adk.tools.mcp_tool import MCPToolset
+from google.adk.tools.mcp_tool import McpToolset
 from radbot.tools.mcp_tools import SseServerParams
 
 from radbot.tools.mcp_tools import create_home_assistant_toolset, create_ha_mcp_enabled_agent
@@ -50,7 +49,7 @@ class TestHomeAssistantIntegration:
         else:
             os.environ.pop("HA_AUTH_TOKEN", None)
 
-    @patch('radbot.tools.mcp_tools.MCPToolset')
+    @patch('radbot.tools.mcp_tools.McpToolset')
     def test_create_toolset_with_environment_variables(self, mock_mcp_toolset):
         """Test that environment variables are correctly used when creating a toolset."""
         # Setup mock
@@ -64,7 +63,7 @@ class TestHomeAssistantIntegration:
         assert result is mock_instance
         mock_mcp_toolset.assert_called_once()
         
-        # Check that correct parameters were passed to MCPToolset
+        # Check that correct parameters were passed to McpToolset
         args, kwargs = mock_mcp_toolset.call_args
         server_params = kwargs.get("server_params", {})
         

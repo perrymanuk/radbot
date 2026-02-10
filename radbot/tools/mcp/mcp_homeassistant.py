@@ -11,7 +11,7 @@ import asyncio
 from typing import Dict, Any, Optional, List, Tuple
 from contextlib import AsyncExitStack
 
-from google.adk.tools.mcp_tool import MCPToolset
+from google.adk.tools.mcp_tool import McpToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import SseServerParams
 
 from radbot.config.config_loader import config_loader
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 async def _create_home_assistant_toolset_async() -> Tuple[List[Any], Optional[AsyncExitStack]]:
     """
-    Async function to create an MCPToolset for Home Assistant's MCP Server using ADK 0.3.0 API.
-    
+    Async function to create an McpToolset for Home Assistant's MCP Server.
+
     Returns:
         Tuple[List[MCPTool], AsyncExitStack]: The list of tools and exit stack, or ([], None) if configuration fails
     """
@@ -81,17 +81,15 @@ async def _create_home_assistant_toolset_async() -> Tuple[List[Any], Optional[As
         exit_stack = AsyncExitStack()
         
         try:
-            # Use from_server static method instead of direct constructor in ADK 0.3.0
-            # This returns a tuple of (tools_list, exit_stack)
-            tools, _ = await MCPToolset.from_server(
+            tools, _ = await McpToolset.from_server(
                 connection_params=ha_mcp_params,
                 async_exit_stack=exit_stack
             )
             
-            logger.info(f"Successfully loaded {len(tools)} Home Assistant MCP tools with ADK 0.3.0 API")
+            logger.info(f"Successfully loaded {len(tools)} Home Assistant MCP tools")
             return tools, exit_stack
         except Exception as e:
-            logger.error(f"Failed to create MCPToolset: {str(e)}")
+            logger.error(f"Failed to create McpToolset: {str(e)}")
             # Try to clean up resources if exit_stack was used
             try:
                 await exit_stack.aclose()
@@ -101,7 +99,7 @@ async def _create_home_assistant_toolset_async() -> Tuple[List[Any], Optional[As
         
     except ImportError as ie:
         logger.error(f"Failed to import required modules: {str(ie)}")
-        logger.error("Make sure google-adk>=0.3.0 is installed")
+        logger.error("Make sure google-adk>=1.22.0 is installed")
         return [], None
     except Exception as e:
         logger.error(f"Failed to create Home Assistant MCP toolset: {str(e)}")
@@ -109,10 +107,10 @@ async def _create_home_assistant_toolset_async() -> Tuple[List[Any], Optional[As
 
 def create_home_assistant_toolset() -> List[Any]:
     """
-    Create Home Assistant MCP tools using ADK 0.3.0 API.
-    
+    Create Home Assistant MCP tools using McpToolset.
+
     Uses environment variables for configuration (HA_MCP_SSE_URL, HA_AUTH_TOKEN).
-    
+
     Returns:
         List[MCPTool]: List of Home Assistant MCP tools, or empty list if configuration fails
     """

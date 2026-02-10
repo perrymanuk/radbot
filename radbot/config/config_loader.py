@@ -247,7 +247,7 @@ class ConfigLoader:
         return {
             "agent": {
                 "main_model": os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
-                "sub_agent_model": os.getenv("RADBOT_SUB_MODEL", "gemini-2.0-flash"),
+                "sub_agent_model": os.getenv("RADBOT_SUB_MODEL", "gemini-2.5-flash"),
                 "agent_models": {
                     "code_execution_agent": os.getenv("RADBOT_CODE_AGENT_MODEL", ""),
                     "search_agent": os.getenv("RADBOT_SEARCH_AGENT_MODEL", ""),

@@ -38,7 +38,7 @@ def create_axel_agent(root_agent: Agent) -> Optional[Agent]:
         if not axel_model:
             axel_model = config_manager.get_agent_model("axel_agent")
             if not axel_model:
-                axel_model = "gemini-1.5-pro"
+                axel_model = "gemini-2.5-flash"
                 logger.info(f"Using fallback model for Axel: {axel_model}")
             else:
                 logger.info(f"Using configured model for Axel: {axel_model}")

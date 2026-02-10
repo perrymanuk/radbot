@@ -73,7 +73,7 @@ class ConfigManager:
             "gemini_model": os.getenv("GEMINI_MODEL"),
             
             # Model for simpler sub-agents
-            "sub_agent_model": agent_config.get("sub_agent_model") or os.getenv("RADBOT_SUB_MODEL", "gemini-2.0-flash"),
+            "sub_agent_model": agent_config.get("sub_agent_model") or os.getenv("RADBOT_SUB_MODEL", "gemini-2.5-flash"),
             
             # Agent-specific models
             "agent_models": merged_agent_models,

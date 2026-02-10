@@ -1,7 +1,7 @@
 agent:
   # Main model configuration
-  main_model: "gemini-1.5-pro-latest"
-  sub_agent_model: "gemini-1.5-flash-latest"
+  main_model: "gemini-2.5-pro"
+  sub_agent_model: "gemini-2.5-flash"
   
   # Using Vertex AI is typically required for specialized agents
   use_vertex_ai: true
@@ -13,59 +13,59 @@ agent:
     # Scout agent (research and design)
     scout:
       enabled: true
-      model: "gemini-1.5-pro-latest"
+      model: "gemini-2.5-pro"
     
     # Axel agent (implementation and execution)
     axel:
       enabled: true
-      model: "gemini-1.5-pro-latest"
+      model: "gemini-2.5-pro"
       dynamic_workers: true
       max_workers: 5
     
     # Web research agent
     web_research:
       enabled: true
-      model: "gemini-1.5-pro-latest"
+      model: "gemini-2.5-pro"
     
     # Code execution agent
     code_execution:
       enabled: true
-      model: "gemini-1.5-pro-latest"
+      model: "gemini-2.5-pro"
     
     # Filesystem agent
     filesystem:
       enabled: true
-      model: "gemini-1.5-flash-latest"
+      model: "gemini-2.5-flash"
     
     # Memory agent
     memory:
       enabled: true
-      model: "gemini-1.5-flash-latest"
+      model: "gemini-2.5-flash"
     
     # Todo agent
     todo:
       enabled: true
-      model: "gemini-1.5-flash-latest"
+      model: "gemini-2.5-flash"
     
     # Calendar agent
     calendar:
       enabled: true
-      model: "gemini-1.5-flash-latest"
+      model: "gemini-2.5-flash"
     
     # Home Assistant agent
     homeassistant:
       enabled: true
-      model: "gemini-1.5-flash-latest"
+      model: "gemini-2.5-flash"
     
     # Agentic coder agent (for prompt_claude delegations)
     agentic_coder:
       enabled: true
-      model: "gemini-1.5-pro-latest"
+      model: "gemini-2.5-pro"
     
     # Utility agent
     utility:
       enabled: true
-      model: "gemini-1.5-flash-latest"
+      model: "gemini-2.5-flash"
 
 # If you have specific MCP servers for specialized agents
 integrations:

@@ -20,8 +20,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-adk>=0.4.0",
-    "google-genai>=1.11.0",  # New recommended Google GenAI SDK
+    "google-adk>=1.22.0",
+    "google-genai>=1.57.0",
     "qdrant-client>=1.13.0,<1.17",
     "modelcontextprotocol>=0.1.0",
     "zoneinfo; python_version < '3.9'",
@@ -42,7 +42,7 @@ dependencies = [
     "google-cloud-texttospeech>=2.14.0",  # Required for TTS synthesis
     "atlassian-python-api>=3.41.0",        # Required for Jira Cloud integration
     "cryptography>=42.0.0",                # Required for credential store encryption
-    # Removed gcsa due to dependency conflict with ADK 0.4.0 (tzlocal version conflict)
+    # Removed gcsa due to dependency conflict with ADK (tzlocal version conflict)
 ]
 
 [project.optional-dependencies]

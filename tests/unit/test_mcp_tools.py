@@ -11,16 +11,16 @@ from radbot.tools.mcp.mcp_tools import create_home_assistant_toolset, create_ha_
 
 class TestCreateHomeAssistantToolset:
     @patch('radbot.tools.mcp.mcp_tools.os.getenv')
-    @patch('radbot.tools.mcp.mcp_tools.MCPToolset.from_server')
+    @patch('radbot.tools.mcp.mcp_tools.McpToolset.from_server')
     def test_create_home_assistant_toolset_success(self, mock_from_server, mock_getenv):
-        """Test successful creation of Home Assistant MCPToolset."""
+        """Test successful creation of Home Assistant McpToolset."""
         # Setup environment variables
         mock_getenv.side_effect = lambda key: {
             "HA_MCP_SSE_URL": "http://homeassistant:8123/api/mcp/stream",
             "HA_AUTH_TOKEN": "fake_token_123"
         }.get(key)
         
-        # Setup mock MCPToolset.from_server to return a list of tools and an exit stack
+        # Setup mock McpToolset.from_server to return a list of tools and an exit stack
         mock_tools = [MagicMock(), MagicMock()]
         mock_exit_stack = MagicMock()
         mock_from_server.return_value = mock_tools, mock_exit_stack
@@ -28,7 +28,7 @@ class TestCreateHomeAssistantToolset:
         # Call function
         result = create_home_assistant_toolset()
         
-        # Assertions - now we expect a list of tools, not a MCPToolset instance
+        # Assertions - now we expect a list of tools, not a McpToolset instance
         assert result == mock_tools
         mock_getenv.assert_any_call("HA_MCP_SSE_URL")
         mock_getenv.assert_any_call("HA_AUTH_TOKEN")
@@ -67,7 +67,7 @@ class TestCreateHomeAssistantToolset:
         mock_getenv.assert_any_call("HA_AUTH_TOKEN")
     
     @patch('radbot.tools.mcp.mcp_tools.os.getenv')
-    @patch('radbot.tools.mcp.mcp_tools.MCPToolset.from_server')
+    @patch('radbot.tools.mcp.mcp_tools.McpToolset.from_server')
     def test_exception_handling(self, mock_from_server, mock_getenv):
         """Test exception handling during toolset creation."""
         # Setup environment variables
@@ -76,7 +76,7 @@ class TestCreateHomeAssistantToolset:
             "HA_AUTH_TOKEN": "fake_token_123"
         }.get(key)
         
-        # Setup exception in MCPToolset.from_server
+        # Setup exception in McpToolset.from_server
         mock_from_server.side_effect = Exception("Test exception")
         
         # Call function
