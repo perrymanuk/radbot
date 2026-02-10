@@ -31,35 +31,41 @@ class ConfigLoader:
     """
     Loads and manages YAML configuration with environment variable interpolation.
     """
-    
+
     def __init__(self, config_path: Optional[Union[str, Path]] = None):
         """
         Initialize the configuration loader.
-        
+
         Args:
             config_path: Optional explicit path to config.yaml
         """
+        self.env = os.getenv("RADBOT_ENV", "").strip().lower() or None
         self.config_path = self._find_config_path(config_path)
         self.schema_path = Path(__file__).parent / "schema" / "config_schema.json"
         self.config = self._load_config()
+        env_label = self.env or "production"
+        logger.info(f"ConfigLoader: env={env_label}, config={self.config_path}")
         
     def _find_config_path(self, config_path: Optional[Union[str, Path]] = None) -> Path:
         """
         Find the configuration file path.
-        
+
         Looks in the following locations (in order):
         1. Explicit path provided to constructor
-        2. Path specified by RADBOT_CONFIG environment variable
+        2. Path specified by RADBOT_CONFIG / RADBOT_CONFIG_FILE environment variable
         3. Current working directory
         4. User's config directory (~/.config/radbot/)
         5. Project root directory
-        
+
+        When ``RADBOT_ENV`` is set (e.g. ``dev``), each directory is first checked
+        for ``config.{env}.yaml`` before falling back to ``config.yaml``.
+
         Args:
             config_path: Optional explicit path to config.yaml
-            
+
         Returns:
             Path to the configuration file
-            
+
         Raises:
             ConfigError: If config.yaml cannot be found
         """
@@ -70,45 +76,54 @@ class ConfigLoader:
                 return path
             else:
                 logger.warning(f"Specified config path does not exist: {path}")
-        
-        # Check environment variable
-        env_path = os.getenv("RADBOT_CONFIG")
+
+        # Check environment variable (support both RADBOT_CONFIG and RADBOT_CONFIG_FILE)
+        env_path = os.getenv("RADBOT_CONFIG") or os.getenv("RADBOT_CONFIG_FILE")
         if env_path:
             path = Path(env_path)
             if path.exists():
                 return path
             else:
                 logger.warning(f"Config path from environment variable does not exist: {path}")
-        
+
+        # Build candidate filenames: env-specific first, then generic
+        candidates: List[str] = []
+        if self.env:
+            candidates.append(f"config.{self.env}.yaml")
+        candidates.append("config.yaml")
+
         # Check current working directory
-        cwd_path = Path.cwd() / "config.yaml"
-        if cwd_path.exists():
-            return cwd_path
-        
+        for name in candidates:
+            cwd_path = Path.cwd() / name
+            if cwd_path.exists():
+                return cwd_path
+
         # Check user's config directory
         user_config_dir = Path.home() / ".config" / "radbot"
-        user_config_path = user_config_dir / "config.yaml"
-        if user_config_path.exists():
-            return user_config_path
-        
+        for name in candidates:
+            user_config_path = user_config_dir / name
+            if user_config_path.exists():
+                return user_config_path
+
         # Check project root directory
         project_root = Path(__file__).parent.parent.parent
-        project_config_path = project_root / "config.yaml"
-        if project_config_path.exists():
-            return project_config_path
-        
+        for name in candidates:
+            project_config_path = project_root / name
+            if project_config_path.exists():
+                return project_config_path
+
         # Check for example file to copy
         example_path = project_root / "examples" / "config.yaml.example"
         if example_path.exists():
             logger.warning(
                 f"No config.yaml found. You can copy the example from {example_path} "
-                f"to {project_config_path} and customize it."
+                f"to {project_root / 'config.yaml'} and customize it."
             )
-        
+
         # If we reach here, we couldn't find config.yaml
         # Instead of raising an error, return a default path for potential creation
         logger.warning(f"No config.yaml found. Using default configuration with environment variables.")
-        return project_config_path
+        return project_root / "config.yaml"
 
     def _load_schema(self) -> Dict[str, Any]:
         """

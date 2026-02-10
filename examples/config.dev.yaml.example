@@ -1,0 +1,24 @@
+# RadBot Development Configuration
+# Copy to project root as config.dev.yaml and set RADBOT_ENV=dev in .env
+#
+# Uses the same homelab PostgreSQL and Qdrant instances as production,
+# but with separate database names and Qdrant collection names so that
+# dev data never touches production data.
+#
+# Integration config (HA, Jira, Overseerr, etc.) is shared — those live
+# in the credential store which is copied from prod via:
+#   uv run python scripts/migrate_credentials_to_dev.py \
+#     --prod-db radbot_todos --dev-db radbot_dev --prod-key '<prod_key>'
+
+database:
+  host: "postgres.service.consul"
+  port: 5432
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASSWORD}"
+  db_name: "radbot_dev"
+
+vector_db:
+  collection: "radbot_dev"
+
+credential_key: "${RADBOT_CREDENTIAL_KEY}"
+admin_token: "local-dev-admin-token"

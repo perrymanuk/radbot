@@ -81,6 +81,18 @@ app = create_app()
 async def initialize_app_startup():
     """Initialize database schema and MCP server tools on application startup."""
     try:
+        # Log environment banner
+        from radbot.config.config_loader import config_loader as _cl
+        _env_label = _cl.env or "production"
+        _db_name = _cl.get_config().get("database", {}).get("db_name", "(default)")
+        _qdrant_coll = _cl.get_config().get("vector_db", {}).get("collection", "radbot_memories")
+        logger.info("=" * 60)
+        logger.info(f"RadBot starting  env={_env_label}")
+        logger.info(f"  config : {_cl.config_path}")
+        logger.info(f"  database: {_db_name}")
+        logger.info(f"  qdrant  : {_qdrant_coll}")
+        logger.info("=" * 60)
+
         # First initialize the chat history database schema
         logger.info("Initializing chat history database schema...")
         try:
