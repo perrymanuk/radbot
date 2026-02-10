@@ -1,0 +1,26 @@
+# Radbot Configuration (minimal bootstrap)
+# All other config sections (agent, api_keys, integrations, etc.) are stored
+# in the PostgreSQL credential store as config:<section> entries.
+# Use the admin UI (/admin/) or scripts/migrate_yaml_to_db.py to manage them.
+
+database:
+  host: postgres.service.consul
+  port: 5432
+  user: postgres
+  password: nonosquare
+  db_name: radbot_dev
+  api_port: 8001
+
+vector_db:
+  collection: "radbot_dev"
+
+# Master encryption key for the credential store.
+# Can also be set via RADBOT_CREDENTIAL_KEY env var (env var takes precedence).
+# Fernet master key for encrypting credentials in the DB
+# Generate a real one with:
+#   python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+credential_key: ''
+
+# Bearer token for admin API authentication.
+# Can also be set via RADBOT_ADMIN_TOKEN env var (env var takes precedence).
+admin_token: ''
