@@ -165,15 +165,17 @@ class SchedulerEngine:
         try:
             from radbot.tools.ntfy.ntfy_client import get_ntfy_client
             client = get_ntfy_client()
-            if client:
-                await client.publish(
-                    title=title,
-                    message=message,
-                    tags=tags,
-                    session_id=session_id,
-                )
+            if not client:
+                logger.debug("ntfy client not available (unconfigured or disabled)")
+                return
+            await client.publish(
+                title=title,
+                message=message,
+                tags=tags,
+                session_id=session_id,
+            )
         except Exception as e:
-            logger.debug(f"ntfy notification failed (non-fatal): {e}")
+            logger.warning(f"ntfy notification failed (non-fatal): {e}")
 
     async def _execute_job(self, task_id: str, prompt: str, name: str) -> None:
         """Called by APScheduler when a job fires.
