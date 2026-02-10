@@ -124,6 +124,89 @@ def delete_task(task_id: uuid.UUID) -> bool:
         raise
 
 
+def init_pending_results_schema() -> None:
+    """Create the scheduler_pending_results table if it doesn't exist."""
+    from radbot.tools.shared.db_schema import init_table_schema
+
+    init_table_schema(
+        table_name="scheduler_pending_results",
+        create_table_sql="""
+            CREATE TABLE scheduler_pending_results (
+                result_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                task_name TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                response TEXT,
+                session_id TEXT,
+                delivered BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+        """,
+        create_index_sqls=[
+            """
+            CREATE INDEX idx_pending_results_undelivered
+            ON scheduler_pending_results (delivered) WHERE delivered = FALSE;
+            """,
+        ],
+    )
+
+
+def queue_pending_result(
+    task_name: str,
+    prompt: str,
+    response: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Queue a scheduler result for later WebSocket delivery."""
+    sql = """
+        INSERT INTO scheduler_pending_results (task_name, prompt, response, session_id)
+        VALUES (%s, %s, %s, %s)
+        RETURNING result_id, task_name, prompt, response, session_id, delivered, created_at;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(sql, (task_name, prompt, response, session_id))
+                conn.commit()
+                row = cursor.fetchone()
+                return dict(row) if row else {}
+    except psycopg2.Error as e:
+        logger.error(f"Database error queuing pending result: {e}")
+        raise
+
+
+def get_undelivered_results() -> List[Dict[str, Any]]:
+    """Get all undelivered pending scheduler results."""
+    sql = """
+        SELECT * FROM scheduler_pending_results
+        WHERE delivered = FALSE
+        ORDER BY created_at ASC;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(sql)
+                return [dict(row) for row in cursor.fetchall()]
+    except psycopg2.Error as e:
+        logger.error(f"Database error getting undelivered results: {e}")
+        raise
+
+
+def mark_result_delivered(result_id: uuid.UUID) -> None:
+    """Mark a pending result as delivered."""
+    sql = """
+        UPDATE scheduler_pending_results
+        SET delivered = TRUE
+        WHERE result_id = %s;
+    """
+    try:
+        with get_db_connection() as conn:
+            with get_db_cursor(conn, commit=True) as cursor:
+                cursor.execute(sql, (str(result_id),))
+    except psycopg2.Error as e:
+        logger.error(f"Database error marking result {result_id} delivered: {e}")
+        raise
+
+
 def update_last_run(task_id: uuid.UUID, result: Optional[str] = None) -> None:
     """Update the last_run_at timestamp and increment run_count."""
     sql = """

@@ -160,32 +160,50 @@ class SchedulerEngine:
         return await self._connection_manager.broadcast_to_all_sessions(payload)
 
     # -- execution --
+    async def _send_ntfy(self, title: str, message: str, tags: str = "robot", session_id: Optional[str] = None) -> None:
+        """Send a push notification via ntfy if configured."""
+        try:
+            from radbot.tools.ntfy.ntfy_client import get_ntfy_client
+            client = get_ntfy_client()
+            if client:
+                await client.publish(
+                    title=title,
+                    message=message,
+                    tags=tags,
+                    session_id=session_id,
+                )
+        except Exception as e:
+            logger.debug(f"ntfy notification failed (non-fatal): {e}")
+
     async def _execute_job(self, task_id: str, prompt: str, name: str) -> None:
         """Called by APScheduler when a job fires.
 
-        Processes the prompt through the agent and broadcasts results to all
-        active WebSocket connections.
+        Always processes the prompt through the agent regardless of WebSocket
+        connection state. Results are broadcast to active connections and/or
+        queued for delivery on reconnect. A push notification is sent via ntfy.
         """
         from radbot.tools.shared.sanitize import sanitize_text
         prompt = sanitize_text(prompt, source="scheduler")
         logger.info(f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), prompt: {prompt[:80]}")
 
-        # Snapshot active connections; skip if none
         if not self._connection_manager:
             logger.warning(f"No connection_manager set, cannot process task '{name}'")
             self._update_last_run(task_id, "skipped: no connection manager")
             return
 
-        if not self._connection_manager.has_connections():
-            logger.info(f"No active WebSocket connections, skipping task '{name}'")
-            self._update_last_run(task_id, "skipped: no active connections")
-            return
+        has_connections = self._connection_manager.has_connections()
 
-        # Pick the first active session_id for agent processing
-        session_id = self._connection_manager.get_any_session_id()
+        # Pick a session_id: use an active connection's session, or generate
+        # a fixed offline session ID so the agent can still process.
+        if has_connections:
+            session_id = self._connection_manager.get_any_session_id()
+        else:
+            session_id = "scheduler-offline"
+            logger.info(f"No active WebSocket connections; using offline session for task '{name}'")
+
         logger.info(f"Using session {session_id} for scheduled task '{name}' processing")
 
-        # 1. Broadcast system message to all connections
+        # 1. Broadcast system message to all connections (no-op if none)
         system_content = f"[Scheduled Task: {name}] {prompt}"
         await self._broadcast_to_all({
             "type": "message",
@@ -241,6 +259,28 @@ class SchedulerEngine:
 
             # 8. Update last run in DB
             self._update_last_run(task_id, response[:4000] if response else "completed (no response)")
+
+            # 9. Send push notification via ntfy
+            await self._send_ntfy(
+                title=f"Scheduled: {name}",
+                message=response[:2000] if response else "(no response)",
+                tags="robot,clock",
+                session_id=session_id,
+            )
+
+            # 10. If no WS connections were active, queue result for reconnect delivery
+            if not has_connections and response:
+                try:
+                    from radbot.tools.scheduler.db import queue_pending_result
+                    queue_pending_result(
+                        task_name=name,
+                        prompt=prompt,
+                        response=response[:4000],
+                        session_id=session_id,
+                    )
+                    logger.info(f"Queued offline result for task '{name}' for later WS delivery")
+                except Exception as q_err:
+                    logger.warning(f"Failed to queue pending result: {q_err}")
 
             logger.info(f"Scheduled task '{name}' processed successfully")
 
@@ -301,9 +341,9 @@ class SchedulerEngine:
     async def _execute_reminder(self, reminder_id: str, message: str) -> None:
         """Called by APScheduler when a reminder fires.
 
-        Always marks the reminder completed. If WebSocket connections are active,
-        broadcasts the reminder and processes through the agent. Otherwise leaves
-        it undelivered for reconnect delivery.
+        Always marks the reminder completed and sends a push notification.
+        If WebSocket connections are active, broadcasts the reminder.
+        Otherwise leaves it undelivered for reconnect delivery.
         """
         logger.info(f"=== REMINDER FIRED === ({reminder_id}): {message[:80]}")
 
@@ -314,12 +354,19 @@ class SchedulerEngine:
         except Exception as e:
             logger.error(f"Failed to mark reminder {reminder_id} completed: {e}")
 
-        # 2. Check if we can deliver now
+        # 2. Always send push notification via ntfy
+        await self._send_ntfy(
+            title="Reminder",
+            message=message,
+            tags="bell",
+        )
+
+        # 3. Check if we can deliver via WS now
         if not self._connection_manager or not self._connection_manager.has_connections():
             logger.info(f"No active connections, reminder {reminder_id} will be delivered on reconnect")
             return
 
-        # 3. Deliver the reminder
+        # 4. Deliver the reminder via WebSocket
         await self._deliver_single_reminder(reminder_id, message)
 
     async def _deliver_single_reminder(self, reminder_id: str, message: str) -> None:
@@ -374,6 +421,40 @@ class SchedulerEngine:
                 await self._deliver_single_reminder(reminder_id, message)
         except Exception as e:
             logger.error(f"Error delivering pending reminders: {e}", exc_info=True)
+
+    async def deliver_pending_scheduler_results(self) -> None:
+        """Deliver any queued scheduler results from offline execution.
+
+        Called when a WebSocket connection is established, to catch up on
+        scheduled task results that ran while no connections were active.
+        """
+        try:
+            from radbot.tools.scheduler.db import get_undelivered_results, mark_result_delivered
+            undelivered = get_undelivered_results()
+            if not undelivered:
+                return
+
+            logger.info(f"Delivering {len(undelivered)} pending scheduler results on reconnect")
+            for row in undelivered:
+                result_id = row["result_id"]
+                task_name = row["task_name"]
+                response = row.get("response", "")
+
+                system_content = f"[Offline Scheduled Task: {task_name}] {response}"
+                await self._broadcast_to_all({
+                    "type": "message",
+                    "role": "system",
+                    "content": system_content,
+                })
+
+                try:
+                    mark_result_delivered(result_id)
+                except Exception as e:
+                    logger.error(f"Failed to mark result {result_id} delivered: {e}")
+
+                logger.info(f"Delivered pending result for task '{task_name}'")
+        except Exception as e:
+            logger.error(f"Error delivering pending scheduler results: {e}", exc_info=True)
 
     def _update_last_run(self, task_id: str, result: str) -> None:
         """Update the last_run_at timestamp in the DB."""

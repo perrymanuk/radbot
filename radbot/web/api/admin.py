@@ -206,6 +206,11 @@ async def save_config_section(section: str, request: Request, _: None = Depends(
             reset_overseerr_client()
         except Exception:
             pass
+        try:
+            from radbot.tools.ntfy.ntfy_client import reset_ntfy_client
+            reset_ntfy_client()
+        except Exception:
+            pass
     return {"status": "ok", "section": section}
 
 
@@ -736,6 +741,62 @@ async def test_qdrant(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Qdrant connection failed: {e}")
 
 
+@router.post("/api/test/ntfy")
+async def test_ntfy(request: Request, _: None = Depends(_verify_admin)):
+    """Test ntfy push notification by sending a test message."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("url", "")
+    topic = body.get("topic", "")
+    token = body.get("token", "")
+
+    # Fall back to stored config
+    if not url or not topic:
+        try:
+            from radbot.config.config_loader import config_loader
+            ntfy_cfg = config_loader.get_config().get("integrations", {}).get("ntfy", {})
+            url = url or ntfy_cfg.get("url", "https://ntfy.sh")
+            topic = topic or ntfy_cfg.get("topic", "")
+        except Exception:
+            pass
+    if not token or token == "***":
+        store = get_credential_store()
+        if store.available:
+            token = store.get("ntfy_token") or ""
+        if not token:
+            try:
+                from radbot.config.config_loader import config_loader
+                token = config_loader.get_config().get("integrations", {}).get("ntfy", {}).get("token", "")
+            except Exception:
+                pass
+
+    if not topic:
+        return _err("ntfy topic is required")
+
+    try:
+        headers: Dict[str, str] = {
+            "Title": "RadBot Test",
+            "Tags": "white_check_mark,robot",
+        }
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{url.rstrip('/')}/{topic}",
+                content="Push notifications are working!",
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                return _ok(f"Test notification sent to {topic}")
+            return _err(f"ntfy returned HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        return _err(f"ntfy test failed: {e}")
+
+
 @router.post("/api/test/redis")
 async def test_redis(request: Request, _: None = Depends(_verify_admin)):
     """Test Redis connectivity."""
@@ -867,6 +928,16 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         status["overseerr"] = {"status": "error", "message": "Enabled but missing config"}
     else:
         status["overseerr"] = {"status": "unconfigured"}
+
+    # ntfy
+    ntfy_cfg = cfg.get("integrations", {}).get("ntfy", {})
+    ntfy_topic = ntfy_cfg.get("topic", "")
+    if ntfy_topic and ntfy_cfg.get("enabled", True):
+        status["ntfy"] = {"status": "ok"}
+    elif ntfy_cfg.get("enabled") and not ntfy_topic:
+        status["ntfy"] = {"status": "error", "message": "Enabled but no topic configured"}
+    else:
+        status["ntfy"] = {"status": "unconfigured"}
 
     # Home Assistant
     ha_cfg = cfg.get("integrations", {}).get("home_assistant", {})

@@ -49,6 +49,16 @@ One-shot reminders that fire at a specific date/time, persisted in PostgreSQL wi
 *   Offline delivery: reminders that fire while disconnected are delivered on WebSocket reconnect
 *   REST API at `/api/reminders`
 
+### Push Notifications (ntfy)
+
+Push notifications via [ntfy.sh](https://ntfy.sh) for scheduled task results and reminders.
+
+*   Sends notifications even when no browser tab is open
+*   Works with Android (ntfy app), Linux desktop (ntfy CLI / notify-send), and any ntfy subscriber
+*   Scheduled tasks now always execute (no longer skipped when offline); results are queued for WebSocket delivery on reconnect
+*   Configurable server URL, topic, access token, priority, and click-through URL
+*   Admin UI panel for configuration and test notifications
+
 ### Webhooks
 
 External POST triggers with template rendering.
@@ -190,7 +200,7 @@ The Vite dev server binds to all interfaces (`host: true`) for mobile testing on
 ## Project Structure
 
 - `/radbot/agent`: Core agent logic, initializer, and persona definitions
-- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, TTS, STT, shell, search)
+- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, ntfy, TTS, STT, shell, search)
 - `/radbot/memory`: Qdrant-backed semantic memory system
 - `/radbot/web`: FastAPI server, WebSocket handler, React frontend
 - `/radbot/web/frontend`: React SPA source (Vite + TypeScript + Tailwind)

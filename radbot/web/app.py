@@ -106,8 +106,9 @@ async def initialize_app_startup():
         # Initialize scheduler and webhook database schemas
         logger.info("Initializing scheduler database schema...")
         try:
-            from radbot.tools.scheduler.db import init_scheduler_schema
+            from radbot.tools.scheduler.db import init_scheduler_schema, init_pending_results_schema
             init_scheduler_schema()
+            init_pending_results_schema()
             logger.info("Scheduler database schema initialized successfully")
         except Exception as sched_err:
             logger.error(f"Error initializing scheduler database: {str(sched_err)}", exc_info=True)
@@ -520,8 +521,9 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str, session_mana
             engine = SchedulerEngine.get_instance()
             if engine:
                 await engine.deliver_pending_reminders()
+                await engine.deliver_pending_scheduler_results()
         except Exception as rem_err:
-            logger.warning(f"Error delivering pending reminders on reconnect: {rem_err}")
+            logger.warning(f"Error delivering pending items on reconnect: {rem_err}")
 
         # Helper function to get events from a session
         def get_events_from_session(session):

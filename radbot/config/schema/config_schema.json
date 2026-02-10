@@ -529,6 +529,41 @@
             }
           }
         },
+        "ntfy": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "ntfy.sh push notification settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable ntfy push notifications",
+              "default": false
+            },
+            "url": {
+              "type": "string",
+              "description": "ntfy server URL",
+              "default": "https://ntfy.sh"
+            },
+            "topic": {
+              "type": ["string", "null"],
+              "description": "ntfy topic name to publish to"
+            },
+            "token": {
+              "type": ["string", "null"],
+              "description": "ntfy access token (for private topics)"
+            },
+            "default_priority": {
+              "type": "string",
+              "description": "Default notification priority",
+              "enum": ["min", "low", "default", "high", "max"],
+              "default": "default"
+            },
+            "click_base_url": {
+              "type": ["string", "null"],
+              "description": "Base URL for notification click-through (e.g. https://radbot.example.com)"
+            }
+          }
+        },
         "filesystem": {
           "type": "object",
           "additionalProperties": false,
