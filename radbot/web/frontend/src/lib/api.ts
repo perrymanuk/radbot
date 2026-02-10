@@ -17,7 +17,7 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
 
 // ── Sessions ──────────────────────────────────────────────
 export async function fetchSessions(): Promise<Session[]> {
-  const data = await json<{ sessions: Session[] }>("/api/sessions");
+  const data = await json<{ sessions: Session[] }>("/api/sessions/");
   return data.sessions;
 }
 

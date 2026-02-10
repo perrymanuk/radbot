@@ -314,6 +314,11 @@ async def shutdown_scheduler():
     except Exception as e:
         logger.error(f"Error shutting down scheduler engine: {e}", exc_info=True)
 
+# Handle X-Forwarded-Proto/Host behind reverse proxies (Traefik, etc.)
+# This ensures redirects use the correct scheme (https) when behind a proxy.
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
