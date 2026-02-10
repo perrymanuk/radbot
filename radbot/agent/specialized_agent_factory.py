@@ -79,10 +79,19 @@ def create_specialized_agents(root_agent: Agent) -> List[Agent]:
         ("axel", _create_axel_agent),
     ]
 
+    # Import telemetry callback for sub-agents
+    try:
+        from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+    except Exception:
+        telemetry_after_model_callback = None
+
     for agent_name, factory in factories:
         try:
             agent = factory()
             if agent:
+                # Attach telemetry callback to each sub-agent
+                if telemetry_after_model_callback and not agent.after_model_callback:
+                    agent.after_model_callback = telemetry_after_model_callback
                 specialized_agents.append(agent)
                 logger.info(f"Created {agent_name} agent")
             else:

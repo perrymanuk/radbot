@@ -140,3 +140,15 @@ class RadBotAgent:
                 app_name=self.app_name,
                 session_service=self.session_service
             )
+
+        # Enable ADK context caching to reduce API costs
+        try:
+            from google.adk.agents.context_cache_config import ContextCacheConfig
+            self.runner.context_cache_config = ContextCacheConfig(
+                cache_intervals=10,
+                ttl_seconds=1800,
+                min_tokens=4096,
+            )
+            logger.info("Enabled context caching on CLI Runner")
+        except Exception as e:
+            logger.warning(f"Could not enable context caching: {e}")

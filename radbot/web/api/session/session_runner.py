@@ -111,6 +111,20 @@ class SessionRunner:
             artifact_service=self.artifact_service,  # Pass artifact service to Runner
             memory_service=memory_service  # Pass memory service to Runner
         )
+
+        # Enable ADK context caching to reduce API costs.
+        # System instructions + tool schemas are identical across requests,
+        # so cached tokens (billed at 10% rate) approach 100% hit rate.
+        try:
+            from google.adk.agents.context_cache_config import ContextCacheConfig
+            self.runner.context_cache_config = ContextCacheConfig(
+                cache_intervals=10,
+                ttl_seconds=1800,
+                min_tokens=4096,
+            )
+            logger.info("Enabled context caching on web Runner (ttl=1800s, min_tokens=4096)")
+        except Exception as e:
+            logger.warning(f"Could not enable context caching: {e}")
     
     def _log_agent_tree(self):
         """Log the agent tree structure for debugging."""
@@ -178,18 +192,46 @@ class SessionRunner:
                 await self._load_history_into_session(session)
             
             # OPTIMIZATION: Limit event history to reduce context size.
-            # Keep a fixed cap so long tool-invocation messages don't carry
-            # stale history that confuses the model on the first turn.
+            # Priority-based: keep conversation events (user/model text)
+            # over tool events (function_call/function_response), since
+            # stale tool results consume the most tokens with the least value.
             try:
                 event_count = len(session.events) if hasattr(session, 'events') else 0
                 MAX_EVENTS = 20
 
                 if event_count > MAX_EVENTS:
-                    logger.info(f"Truncating event history from {event_count} to {MAX_EVENTS} events")
-                    session.events[:] = session.events[-MAX_EVENTS:]
-                    logger.info(f"Event history truncated to {len(session.events)} events")
+                    conversation_events = []
+                    tool_events = []
+                    for ev in session.events:
+                        is_tool = False
+                        if hasattr(ev, 'content') and ev.content and hasattr(ev.content, 'parts') and ev.content.parts:
+                            for part in ev.content.parts:
+                                if (hasattr(part, 'function_call') and part.function_call) or \
+                                   (hasattr(part, 'function_response') and part.function_response):
+                                    is_tool = True
+                                    break
+                        if is_tool:
+                            tool_events.append(ev)
+                        else:
+                            conversation_events.append(ev)
+
+                    # Keep all recent conversation events, fill remaining with tool events
+                    kept_conversation = conversation_events[-MAX_EVENTS:]
+                    remaining_slots = MAX_EVENTS - len(kept_conversation)
+                    kept_tools = tool_events[-remaining_slots:] if remaining_slots > 0 else []
+
+                    # Merge and sort by original position to preserve ordering
+                    original_order = {id(ev): i for i, ev in enumerate(session.events)}
+                    merged = kept_conversation + kept_tools
+                    merged.sort(key=lambda ev: original_order.get(id(ev), 0))
+
+                    session.events[:] = merged
+                    logger.info(
+                        f"Optimized event history: {event_count} -> {len(merged)} events "
+                        f"({len(kept_conversation)} conversation, {len(kept_tools)} tool)"
+                    )
             except Exception as e:
-                logger.warning(f"Could not truncate event history: {e}")
+                logger.warning(f"Could not optimize event history: {e}")
             
             # Use the runner to process the message
             logger.info(f"Running agent with message: {message[:50]}{'...' if len(message) > 50 else ''}")

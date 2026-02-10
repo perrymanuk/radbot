@@ -830,6 +830,24 @@ async def test_redis(request: Request, _: None = Depends(_verify_admin)):
 
 
 # ------------------------------------------------------------------
+# Telemetry endpoints
+# ------------------------------------------------------------------
+@router.get("/api/telemetry/usage")
+async def get_telemetry_usage(_: None = Depends(_verify_admin)):
+    """Return token usage and estimated cost stats."""
+    from radbot.telemetry.usage_tracker import usage_tracker
+    return usage_tracker.get_stats()
+
+
+@router.post("/api/telemetry/reset")
+async def reset_telemetry(_: None = Depends(_verify_admin)):
+    """Reset all telemetry counters."""
+    from radbot.telemetry.usage_tracker import usage_tracker
+    usage_tracker.reset()
+    return {"status": "ok", "message": "Telemetry counters reset"}
+
+
+# ------------------------------------------------------------------
 # Aggregate status endpoint (powers sidebar dots)
 # ------------------------------------------------------------------
 @router.get("/api/status")

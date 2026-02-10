@@ -36,6 +36,9 @@ from radbot.config.config_loader import config_loader
 # Import sanitization callback
 from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
 
+# Import telemetry callback
+from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+
 # Get the instruction from the config manager
 instruction = config_manager.get_instruction("main_agent")
 
@@ -118,6 +121,7 @@ root_agent = Agent(
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
     before_model_callback=sanitize_before_model_callback,
+    after_model_callback=telemetry_after_model_callback,
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
 

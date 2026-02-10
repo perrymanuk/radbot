@@ -100,3 +100,12 @@ from radbot.agent.research_agent.factory import create_research_agent
 search_agent = create_search_agent(name="search_agent")
 code_execution_agent = create_code_execution_agent(name="code_execution_agent")
 scout_agent = create_research_agent(name="scout", as_subagent=False)
+
+# Attach telemetry callback to builtin sub-agents
+try:
+    from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+    for _sa in (search_agent, code_execution_agent, scout_agent):
+        if _sa and not _sa.after_model_callback:
+            _sa.after_model_callback = telemetry_after_model_callback
+except Exception:
+    pass
