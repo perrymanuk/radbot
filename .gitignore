@@ -38,9 +38,11 @@ Thumbs.db
 **/.claude/settings.local.json
 .env*
 !.env.example
+!.env.docker
 CLAUDE.md
 config.yaml
 config.*.yaml
+!docker/config.yaml
 
 # React frontend build output
 radbot/web/static/dist/

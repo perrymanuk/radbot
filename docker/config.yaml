@@ -1,0 +1,18 @@
+# Minimal bootstrap config for Docker Compose development.
+# Mirrors the Nomad production pattern: only database + vector_db here,
+# everything else is configured via the Admin UI (/admin/) and stored
+# in the PostgreSQL credential store.
+#
+# Environment variables are interpolated by config_loader at startup.
+
+database:
+  host: "${POSTGRES_HOST}"
+  port: ${POSTGRES_PORT}
+  user: "${POSTGRES_USER}"
+  password: "${POSTGRES_PASSWORD}"
+  db_name: "${POSTGRES_DB}"
+
+vector_db:
+  host: "${QDRANT_HOST}"
+  port: ${QDRANT_PORT}
+  collection: "radbot_memories"
