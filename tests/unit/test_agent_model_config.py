@@ -68,6 +68,8 @@ class TestAgentModelConfig(unittest.TestCase):
         # Configure the mock to return a specific model
         mock_config_manager.get_agent_model.return_value = "gemini-2.5-pro-latest"
         mock_config_manager.get_instruction.return_value = "Test instruction"
+        # resolve_model passes Gemini strings through unchanged
+        mock_config_manager.resolve_model.side_effect = lambda m: m
 
         # Create a code execution agent
         agent = create_code_execution_agent()
@@ -84,6 +86,8 @@ class TestAgentModelConfig(unittest.TestCase):
         # Configure the mock to return a specific model
         mock_config_manager.get_agent_model.return_value = "gemini-2.5-pro"
         mock_config_manager.get_instruction.return_value = "Test instruction"
+        # resolve_model passes Gemini strings through unchanged
+        mock_config_manager.resolve_model.side_effect = lambda m: m
 
         # Create a search agent
         agent = create_search_agent()
@@ -101,6 +105,8 @@ class TestAgentModelConfig(unittest.TestCase):
         # Configure the mock to return a specific model
         mock_config_manager.get_agent_model.return_value = "gemini-2.5-pro-latest"
         mock_config_manager.get_main_model.return_value = "gemini-2.5-pro"
+        # resolve_model passes Gemini strings through unchanged
+        mock_config_manager.resolve_model.side_effect = lambda m: m
 
         # Set up the ResearchAgent mock
         mock_instance = MagicMock()
@@ -113,10 +119,10 @@ class TestAgentModelConfig(unittest.TestCase):
         # Verify the get_agent_model was called with the correct agent name
         mock_config_manager.get_agent_model.assert_called_with("scout_agent")
 
-        # Verify ResearchAgent was created with the correct model
+        # Verify ResearchAgent was created with the resolved model
         mock_research_agent.assert_called_with(
             name="scout",
-            model=mock_config_manager.get_agent_model.return_value,
+            model="gemini-2.5-pro-latest",
             instruction=None,
             tools=None,
             enable_sequential_thinking=True,

@@ -46,16 +46,27 @@ def create_search_agent(
     # Use provided config or default
     cfg = config or config_manager
 
-    # Get the model name (must be a Gemini 2 model)
+    # Get the model name (must be a Gemini 2 model for google_search grounding)
     # First try to get agent-specific model, then fall back to provided model or defaults
     model_name = model or cfg.get_agent_model("search_agent")
-    if not any(
+
+    # Warn when using Ollama — google_search is a Gemini-only grounding tool
+    if model_name.startswith("ollama_chat/") or model_name.startswith("ollama/"):
+        logger.warning(
+            "search_agent model '%s' is an Ollama model. "
+            "google_search grounding tool requires a Gemini model and will NOT work with Ollama.",
+            model_name,
+        )
+    elif not any(
         name in model_name.lower() for name in ["gemini-2", "gemini-2.0", "gemini-2.5"]
     ):
         logger.warning(
             f"Model {model_name} may not be compatible with google_search tool. "
             "Google Search tool requires Gemini 2 models."
         )
+
+    # Resolve model (LiteLlm for Ollama, string for Gemini)
+    resolved_model = cfg.resolve_model(model_name)
 
     # Get the instruction
     try:
@@ -80,7 +91,7 @@ def create_search_agent(
     # Control returns to the caller automatically when the agent finishes.
     search_agent = Agent(
         name=name,
-        model=model_name,
+        model=resolved_model,
         instruction=instruction,
         description="A specialized agent that can search the web using Google Search.",
         tools=tools,

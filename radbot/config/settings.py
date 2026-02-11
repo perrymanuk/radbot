@@ -6,7 +6,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
 
@@ -113,6 +113,71 @@ class ConfigManager:
         """Re-read model configuration from config_loader (after DB config changes)."""
         self.model_config = self._load_model_config()
 
+    def _get_ollama_config(self) -> dict:
+        """Fetch Ollama settings from config_loader, credential store, then env.
+
+        Returns dict with keys: api_base, api_key, enabled.
+        """
+        try:
+            cfg = config_loader.get_integrations_config().get("ollama", {})
+        except Exception:
+            cfg = {}
+
+        api_base = cfg.get("api_base") or os.environ.get("OLLAMA_API_BASE")
+        api_key = cfg.get("api_key") or os.environ.get("OLLAMA_API_KEY")
+        enabled = cfg.get("enabled", True)
+
+        if not api_key:
+            try:
+                from radbot.credentials.store import get_credential_store
+
+                store = get_credential_store()
+                if store.available:
+                    api_key = store.get("ollama_api_key")
+            except Exception:
+                pass
+
+        return {"api_base": api_base, "api_key": api_key, "enabled": enabled}
+
+    def resolve_model(self, model_string: str) -> Union[str, Any]:
+        """Resolve a model string, wrapping Ollama models in LiteLlm.
+
+        If *model_string* starts with ``ollama_chat/`` or ``ollama/``, returns
+        a :class:`google.adk.models.lite_llm.LiteLlm` instance configured with
+        the Ollama ``api_base``.  Otherwise the string is returned unchanged
+        (the Gemini path).
+        """
+        if not model_string:
+            return model_string
+
+        if model_string.startswith("ollama_chat/") or model_string.startswith("ollama/"):
+            from google.adk.models.lite_llm import LiteLlm
+
+            ollama_cfg = self._get_ollama_config()
+            kwargs: Dict[str, Any] = {}
+            if ollama_cfg.get("api_base"):
+                kwargs["api_base"] = ollama_cfg["api_base"]
+            if ollama_cfg.get("api_key"):
+                kwargs["api_key"] = ollama_cfg["api_key"]
+
+            _logger = logging.getLogger(__name__)
+            _logger.info(
+                "Resolved Ollama model '%s' (api_base=%s)",
+                model_string,
+                kwargs.get("api_base", "<default>"),
+            )
+            return LiteLlm(model=model_string, **kwargs)
+
+        return model_string
+
+    @staticmethod
+    def _model_name(model: Any) -> str:
+        """Extract a printable model name from either a string or LiteLlm object."""
+        if isinstance(model, str):
+            return model
+        # LiteLlm stores its model name in .model
+        return getattr(model, "model", str(model))
+
     def apply_model_config(self, root_agent) -> None:
         """Reload model config and apply to root_agent and its sub-agents.
 
@@ -123,23 +188,24 @@ class ConfigManager:
         _logger = logging.getLogger(__name__)
         self.reload_model_config()
 
-        new_model = self.get_main_model()
-        old_model = root_agent.model
-        if old_model != new_model:
-            root_agent.model = new_model
-            _logger.info(f"Applied model config: {old_model} -> {new_model}")
+        new_model_str = self.get_main_model()
+        old_name = self._model_name(root_agent.model)
+        if old_name != new_model_str:
+            root_agent.model = self.resolve_model(new_model_str)
+            _logger.info(f"Applied model config: {old_name} -> {new_model_str}")
 
         for sa in root_agent.sub_agents or []:
             name = getattr(sa, "name", None)
             if not name:
                 continue
             lookup = name if name.endswith("_agent") else f"{name}_agent"
-            new_sa_model = self.get_agent_model(lookup)
-            if sa.model != new_sa_model:
+            new_sa_model_str = self.get_agent_model(lookup)
+            old_sa_name = self._model_name(sa.model)
+            if old_sa_name != new_sa_model_str:
                 _logger.info(
-                    f"Applied sub-agent '{name}' model: {sa.model} -> {new_sa_model}"
+                    f"Applied sub-agent '{name}' model: {old_sa_name} -> {new_sa_model_str}"
                 )
-                sa.model = new_sa_model
+                sa.model = self.resolve_model(new_sa_model_str)
 
     def _load_home_assistant_config(self) -> Dict[str, Any]:
         """

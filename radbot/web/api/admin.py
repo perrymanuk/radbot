@@ -229,6 +229,12 @@ async def save_config_section(
             reset_ntfy_client()
         except Exception:
             pass
+        try:
+            from radbot.tools.ollama.ollama_client import reset_ollama_client
+
+            reset_ollama_client()
+        except Exception:
+            pass
     return {"status": "ok", "section": section}
 
 
@@ -899,6 +905,108 @@ async def test_ntfy(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"ntfy test failed: {e}")
 
 
+@router.post("/api/test/ollama")
+async def test_ollama(request: Request, _: None = Depends(_verify_admin)):
+    """Test Ollama connectivity by fetching server version."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    api_base = body.get("api_base", "")
+    api_key = body.get("api_key", "")
+
+    # Fall back to stored config
+    if not api_base:
+        try:
+            from radbot.config.config_loader import config_loader
+
+            ollama_cfg = (
+                config_loader.get_config().get("integrations", {}).get("ollama", {})
+            )
+            api_base = api_base or ollama_cfg.get("api_base", "")
+        except Exception:
+            pass
+    if not api_base:
+        api_base = os.environ.get("OLLAMA_API_BASE", "")
+    if not api_key or api_key == "***":
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("ollama_api_key") or ""
+
+    if not api_base:
+        return _err("Ollama API base URL is required")
+
+    try:
+        headers: Dict[str, str] = {"Accept": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{api_base.rstrip('/')}/api/version",
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return _ok(f"Connected to Ollama {data.get('version', '?')}")
+            return _err(f"Ollama returned HTTP {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        return _err(f"Ollama connection failed: {e}")
+
+
+# ------------------------------------------------------------------
+# Ollama model management
+# ------------------------------------------------------------------
+@router.get("/api/ollama/models")
+async def list_ollama_models(_: None = Depends(_verify_admin)):
+    """List downloaded Ollama models."""
+    try:
+        from radbot.tools.ollama.ollama_client import get_ollama_client
+
+        client = get_ollama_client()
+        if not client:
+            return {"models": [], "error": "Ollama not configured"}
+        models = client.list_models()
+        return {"models": models}
+    except Exception as e:
+        return {"models": [], "error": str(e)}
+
+
+@router.post("/api/ollama/pull")
+async def pull_ollama_model(request: Request, _: None = Depends(_verify_admin)):
+    """Pull an Ollama model (may take several minutes for large models)."""
+    body = await request.json()
+    model_name = body.get("model", "").strip()
+    if not model_name:
+        raise HTTPException(400, "model name is required")
+
+    try:
+        from radbot.tools.ollama.ollama_client import get_ollama_client
+
+        client = get_ollama_client()
+        if not client:
+            return _err("Ollama not configured")
+        result = client.pull_model(model_name)
+        return _ok(f"Pulled model '{model_name}'", result=result)
+    except Exception as e:
+        return _err(f"Failed to pull model: {e}")
+
+
+@router.delete("/api/ollama/models/{model_name:path}")
+async def delete_ollama_model(model_name: str, _: None = Depends(_verify_admin)):
+    """Delete a downloaded Ollama model."""
+    try:
+        from radbot.tools.ollama.ollama_client import get_ollama_client
+
+        client = get_ollama_client()
+        if not client:
+            return _err("Ollama not configured")
+        client.delete_model(model_name)
+        return _ok(f"Deleted model '{model_name}'")
+    except Exception as e:
+        return _err(f"Failed to delete model: {e}")
+
+
 @router.post("/api/test/redis")
 async def test_redis(request: Request, _: None = Depends(_verify_admin)):
     """Test Redis connectivity."""
@@ -1073,6 +1181,16 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         }
     else:
         status["ntfy"] = {"status": "unconfigured"}
+
+    # Ollama
+    ollama_cfg = cfg.get("integrations", {}).get("ollama", {})
+    ollama_base = ollama_cfg.get("api_base") or os.environ.get("OLLAMA_API_BASE", "")
+    if ollama_base and ollama_cfg.get("enabled", True):
+        status["ollama"] = {"status": "ok"}
+    elif ollama_base and not ollama_cfg.get("enabled", True):
+        status["ollama"] = {"status": "error", "message": "Configured but disabled"}
+    else:
+        status["ollama"] = {"status": "unconfigured"}
 
     # Home Assistant
     ha_cfg = cfg.get("integrations", {}).get("home_assistant", {})

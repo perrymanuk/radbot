@@ -564,6 +564,26 @@
             }
           }
         },
+        "ollama": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Ollama local LLM server settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Ollama integration",
+              "default": false
+            },
+            "api_base": {
+              "type": ["string", "null"],
+              "description": "Ollama server base URL (e.g. https://ollama.example.com)"
+            },
+            "api_key": {
+              "type": ["string", "null"],
+              "description": "Optional API key for authenticated Ollama servers"
+            }
+          }
+        },
         "filesystem": {
           "type": "object",
           "additionalProperties": false,

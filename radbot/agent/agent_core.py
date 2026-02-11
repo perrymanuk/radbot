@@ -107,8 +107,9 @@ def initialize_memory_service():
 # Web startup calls it in initialize_app_startup() after load_db_config().
 # CLI calls it in its entry point.
 
-# Get the model name from config
+# Get the model name from config and resolve (wraps Ollama models in LiteLlm)
 model_name = config_manager.get_main_model()
+resolved_model = config_manager.resolve_model(model_name)
 logger.info(f"Using model: {model_name}")
 
 # Get today's date for the global instruction
@@ -119,7 +120,7 @@ beto_tools = create_agent_memory_tools("beto")
 
 # Create the root agent — no domain tools, only memory tools
 root_agent = Agent(
-    model=model_name,
+    model=resolved_model,
     name="beto",
     instruction=instruction,
     global_instruction=f"""Today's date: {today}""",

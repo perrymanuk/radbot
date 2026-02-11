@@ -212,7 +212,7 @@ The Vite dev server binds to all interfaces (`host: true`) for mobile testing on
 ## Tech Stack
 
 - **Agent framework**: Google ADK 1.21.0
-- **LLM**: Google Gemini (configurable per agent)
+- **LLM**: Google Gemini or Ollama local models (configurable per agent via `resolve_model()`)
 - **Backend**: FastAPI, WebSockets, APScheduler
 - **Frontend**: React 18, Vite 6, TypeScript, Tailwind CSS, Zustand
 - **Database**: PostgreSQL (tasks, scheduler, webhooks, credentials)

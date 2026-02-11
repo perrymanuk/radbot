@@ -110,3 +110,31 @@ export async function getStatus(token: string): Promise<IntegrationStatus> {
 export async function getGmailAccounts(token: string): Promise<{ accounts: any[]; error?: string }> {
   return adminFetch("/admin/api/gmail/accounts", { token });
 }
+
+// ── Ollama ───────────────────────────────────────────────
+export interface OllamaModel {
+  name: string;
+  size: number;
+  modified_at: string;
+  digest?: string;
+  details?: Record<string, any>;
+}
+
+export async function listOllamaModels(token: string): Promise<{ models: OllamaModel[]; error?: string }> {
+  return adminFetch("/admin/api/ollama/models", { token });
+}
+
+export async function pullOllamaModel(token: string, model: string): Promise<TestResult & { result?: any }> {
+  return adminFetch("/admin/api/ollama/pull", {
+    token,
+    method: "POST",
+    body: JSON.stringify({ model }),
+  });
+}
+
+export async function deleteOllamaModel(token: string, modelName: string): Promise<TestResult> {
+  return adminFetch(`/admin/api/ollama/models/${encodeURIComponent(modelName)}`, {
+    token,
+    method: "DELETE",
+  });
+}

@@ -28,11 +28,12 @@ def create_home_agent() -> Optional[Agent]:
         The created Casa ADK Agent, or None if creation failed.
     """
     try:
-        # Get model
-        model = config_manager.get_agent_model("casa_agent")
-        if not model:
-            model = config_manager.get_sub_model()
-        logger.info(f"Casa agent model: {model}")
+        # Get model and resolve (wraps Ollama models in LiteLlm)
+        model_str = config_manager.get_agent_model("casa_agent")
+        if not model_str:
+            model_str = config_manager.get_sub_model()
+        model = config_manager.resolve_model(model_str)
+        logger.info(f"Casa agent model: {model_str}")
 
         # Get instruction
         try:

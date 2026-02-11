@@ -62,8 +62,9 @@ def create_research_agent(
 
     # Use agent-specific model or fall back to default
     if model is None:
-        model = config_manager.get_agent_model("scout_agent")
-        logger.info(f"Using model from config for scout_agent: {model}")
+        model_str = config_manager.get_agent_model("scout_agent")
+        model = config_manager.resolve_model(model_str)
+        logger.info(f"Using model from config for scout_agent: {model_str}")
 
     # Create the research agent with explicit name and app_name
     research_agent = ResearchAgent(

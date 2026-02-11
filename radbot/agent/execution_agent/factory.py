@@ -43,8 +43,9 @@ def create_execution_agent(
     """
     # Use agent-specific model from config or fall back to default
     if model is None:
-        model = config_manager.get_agent_model("axel_agent")
-        logger.info(f"Using model from config for axel_agent: {model}")
+        model_str = config_manager.get_agent_model("axel_agent")
+        model = config_manager.resolve_model(model_str)
+        logger.info(f"Using model from config for axel_agent: {model_str}")
 
     # Get the instruction file or use the provided custom instruction
     if custom_instruction:

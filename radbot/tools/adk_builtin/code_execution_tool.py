@@ -46,9 +46,18 @@ def create_code_execution_agent(
     # Use provided config or default
     cfg = config or config_manager
 
-    # Get the model name (must be a Gemini 2+ model)
+    # Get the model name (must be a Gemini 2+ model for BuiltInCodeExecutor)
     model_name = model or cfg.get_agent_model("code_execution_agent")
-    if not any(
+
+    # Warn when using Ollama — BuiltInCodeExecutor is Gemini-only
+    if model_name.startswith("ollama_chat/") or model_name.startswith("ollama/"):
+        logger.warning(
+            "code_execution_agent model '%s' is an Ollama model. "
+            "BuiltInCodeExecutor requires a Gemini model and will NOT work with Ollama. "
+            "Use the shell tool on axel as an alternative.",
+            model_name,
+        )
+    elif not any(
         n in model_name.lower()
         for n in ["gemini-2", "gemini-2.0", "gemini-2.5", "gemini-3"]
     ):
@@ -56,6 +65,9 @@ def create_code_execution_agent(
             f"Model {model_name} may not be compatible with code execution. "
             "Code Execution tool requires Gemini 2+ models."
         )
+
+    # Resolve model (LiteLlm for Ollama, string for Gemini)
+    resolved_model = cfg.resolve_model(model_name)
 
     # Get the instruction
     try:
@@ -81,7 +93,7 @@ def create_code_execution_agent(
 
     code_agent = Agent(
         name=name,
-        model=model_name,
+        model=resolved_model,
         instruction=instruction + transfer_instructions,
         description="A specialized agent that can execute Python code securely.",
         # Note: transfer_to_agent is auto-injected by ADK for sub_agents

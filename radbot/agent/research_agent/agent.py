@@ -70,10 +70,11 @@ class ResearchAgent:
         """
         logger.info(f"Initializing ResearchAgent with name: {name}")
 
-        # Use default model from config if not specified
+        # Use default model from config if not specified, then resolve
         if model is None:
-            model = config_manager.get_main_model()
-            logger.info(f"Using model from config: {model}")
+            model_str = config_manager.get_main_model()
+            model = config_manager.resolve_model(model_str)
+            logger.info(f"Using model from config: {model_str}")
 
         # Use default instruction if not specified
         if instruction is None:
