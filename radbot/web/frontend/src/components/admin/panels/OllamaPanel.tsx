@@ -236,7 +236,19 @@ export function OllamaPanel() {
               <tbody>
                 {models.map((m) => (
                   <tr key={m.name} className="border-t border-[#2a3a5c] hover:bg-[#0f3460]/30">
-                    <td className="py-2 px-3 font-mono text-[#eee]">{m.name}</td>
+                    <td className="py-2 px-3 font-mono text-[#eee]">
+                      <span>{m.name}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`ollama_chat/${m.name}`);
+                          toast(`Copied ollama_chat/${m.name}`);
+                        }}
+                        className="ml-2 text-[#e94560] hover:text-[#ff6b81] text-xs cursor-pointer bg-transparent border-none"
+                        title={`Copy ollama_chat/${m.name} to clipboard`}
+                      >
+                        Copy
+                      </button>
+                    </td>
                     <td className="py-2 px-3 text-right text-[#999]">{formatSize(m.size)}</td>
                     <td className="py-2 px-3 text-right text-[#999]">{formatDate(m.modified_at)}</td>
                     <td className="py-2 px-3 text-right">

@@ -11,8 +11,9 @@ import {
   StatusBadge,
   Note,
 } from "@/components/admin/FormFields";
+import * as adminApi from "@/lib/admin-api";
 
-const MODEL_OPTIONS = [
+const GEMINI_OPTIONS = [
   "gemini-3.0-pro",
   "gemini-2.5-pro",
   "gemini-2.5-flash",
@@ -181,7 +182,7 @@ export function GooglePanel() {
 // ── AgentModelsPanel ──────────────────────────────────────────
 
 export function AgentModelsPanel() {
-  const { liveConfig, loadLiveConfig, mergeConfigSection, toast } = useAdminStore();
+  const { liveConfig, loadLiveConfig, mergeConfigSection, toast, token } = useAdminStore();
 
   const [mainModel, setMainModel] = useState("");
   const [subAgentModel, setSubAgentModel] = useState("");
@@ -190,9 +191,16 @@ export function AgentModelsPanel() {
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [overridesOpen, setOverridesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
 
   useEffect(() => {
     loadLiveConfig();
+    // Fetch Ollama models for datalist suggestions
+    adminApi.listOllamaModels(token).then((data) => {
+      if (data.models?.length) {
+        setOllamaModels(data.models.map((m) => `ollama_chat/${m.name}`));
+      }
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -213,6 +221,8 @@ export function AgentModelsPanel() {
     }
     setOverrides(init);
   }, [liveConfig]);
+
+  const modelOptions = [...GEMINI_OPTIONS, ...ollamaModels];
 
   const setOverride = (agent: string, value: string) => {
     setOverrides((prev) => ({ ...prev, [agent]: value }));
@@ -254,14 +264,14 @@ export function AgentModelsPanel() {
             value={mainModel}
             onChange={setMainModel}
             placeholder="gemini-2.5-pro"
-            datalist={MODEL_OPTIONS}
+            datalist={modelOptions}
           />
           <FormInput
             label="Sub-Agent Default Model"
             value={subAgentModel}
             onChange={setSubAgentModel}
             placeholder="gemini-2.5-flash"
-            datalist={MODEL_OPTIONS}
+            datalist={modelOptions}
           />
         </FormRow>
         <FormToggle label="Enable ADK Search" checked={enableSearch} onChange={setEnableSearch} />
@@ -297,7 +307,7 @@ export function AgentModelsPanel() {
                   value={overrides[agent] || ""}
                   onChange={(v) => setOverride(agent, v)}
                   placeholder="(default)"
-                  datalist={MODEL_OPTIONS}
+                  datalist={modelOptions}
                 />
               ))}
             </div>
