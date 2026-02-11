@@ -38,7 +38,6 @@ Thumbs.db
 **/.claude/settings.local.json
 .env*
 !.env.example
-CLAUDE.md
 config.yaml
 config.*.yaml
 
