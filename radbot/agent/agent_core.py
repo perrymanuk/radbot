@@ -6,7 +6,6 @@ live on specialized sub-agents created by specialized_agent_factory.py.
 """
 
 import logging
-import os
 from datetime import date
 from typing import Any, List, Optional
 
@@ -60,18 +59,6 @@ def initialize_memory_service():
         host = vector_db_config.get("host", "localhost")
         port = vector_db_config.get("port", 6333)
         collection = vector_db_config.get("collection", "radbot_memories")
-
-        # Fallback to environment variables for backward compatibility
-        if not url:
-            url = os.getenv("QDRANT_URL")
-        if not api_key:
-            api_key = os.getenv("QDRANT_API_KEY")
-        if not host or host == "localhost":
-            host = os.getenv("QDRANT_HOST", host)
-        if port == 6333:
-            port = os.getenv("QDRANT_PORT", port)
-        if collection == "radbot_memories":
-            collection = os.getenv("QDRANT_COLLECTION", collection)
 
         # Log memory service configuration
         logger.info(

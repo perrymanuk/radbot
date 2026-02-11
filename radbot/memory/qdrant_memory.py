@@ -4,7 +4,6 @@ Custom memory service implementation using Qdrant as the vector database.
 
 import json
 import logging
-import os
 import uuid
 from typing import Any, Dict, List, Optional, Union
 
@@ -80,10 +79,8 @@ class QdrantMemoryService(BaseMemoryService):
             if url and api_key:
                 self.client = QdrantClient(url=url, api_key=api_key, prefer_grpc=False)
                 logger.info(f"Connected to Qdrant Cloud at {url} (gRPC disabled)")
-            # Second priority: Use provided or environment URL (with or without API key)
-            elif url or os.getenv("QDRANT_URL"):
-                url = url or os.getenv("QDRANT_URL")
-                api_key = api_key or os.getenv("QDRANT_API_KEY")
+            # Second priority: Use provided URL (with or without API key)
+            elif url:
                 # Determine if we should use HTTPS based on URL prefix
                 use_https = url.lower().startswith("https://") if url else False
 
@@ -103,18 +100,16 @@ class QdrantMemoryService(BaseMemoryService):
                     )
             # Last priority: Use host/port (local or self-hosted)
             else:
-                host = host or os.getenv("QDRANT_HOST", "localhost")
-                port = port or int(os.getenv("QDRANT_PORT", "6333"))
+                host = host or "localhost"
+                port = port or 6333
                 self.client = QdrantClient(host=host, port=port, prefer_grpc=False)
                 logger.info(f"Connected to Qdrant at {host}:{port} (gRPC disabled)")
         except Exception as e:
             logger.error(f"Failed to connect to Qdrant: {str(e)}")
             raise
 
-        # Use collection name from environment or default to provided/default value
-        self.collection_name = (
-            os.getenv("QDRANT_COLLECTION") or collection_name or "radbot_memories"
-        )
+        # Use provided collection name or default
+        self.collection_name = collection_name or "radbot_memories"
         logger.info(f"Using collection name: {self.collection_name}")
 
         # Get embedding model info

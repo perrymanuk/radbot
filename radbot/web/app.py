@@ -217,16 +217,9 @@ async def initialize_app_startup():
         except Exception as mem_err:
             logger.warning(f"Error re-initializing memory service: {mem_err}")
 
-        # Refresh config_manager and apply DB model overrides to root agent
-        try:
-            from agent import root_agent
-            from radbot.config import config_manager
-
-            config_manager.apply_model_config(root_agent)
-        except Exception as model_err:
-            logger.warning(f"Error applying DB model config: {model_err}")
-
-        # Re-run environment setup now that full config (including DB overrides) is loaded
+        # Re-run environment setup now that full config (including DB overrides) is loaded.
+        # This MUST run before apply_model_config so GOOGLE_API_KEY is set for
+        # sub-agents that still use Gemini when the main model is Ollama.
         try:
             from radbot.config.adk_config import setup_vertex_environment
 
@@ -236,6 +229,15 @@ async def initialize_app_startup():
             )
         except Exception as env_err:
             logger.warning(f"Error re-initializing environment: {env_err}")
+
+        # Refresh config_manager and apply DB model overrides to root agent
+        try:
+            from agent import root_agent
+            from radbot.config import config_manager
+
+            config_manager.apply_model_config(root_agent)
+        except Exception as model_err:
+            logger.warning(f"Error applying DB model config: {model_err}")
 
         # Prune disabled MCP server tools from the root agent.
         # The root agent is created at import time using config.yaml, before DB

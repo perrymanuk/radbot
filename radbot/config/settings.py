@@ -121,6 +121,18 @@ class ConfigManager:
             # sub-agent calls through Vertex, which may not be configured.
             os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
 
+            # Ensure GOOGLE_API_KEY is set for sub-agents that still use Gemini
+            # (search_agent, code_execution_agent always require Gemini).
+            if not os.environ.get("GOOGLE_API_KEY"):
+                try:
+                    from radbot.config.adk_config import get_google_api_key
+
+                    api_key = get_google_api_key()
+                    if api_key:
+                        os.environ["GOOGLE_API_KEY"] = api_key
+                except Exception:
+                    pass
+
             _logger = logging.getLogger(__name__)
             _logger.info(
                 "Resolved Ollama model '%s' (api_base=%s)",
