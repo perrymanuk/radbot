@@ -35,6 +35,7 @@ def _verify_admin(
         # Fall back to config.yaml admin_token
         try:
             from radbot.config.config_loader import config_loader
+
             expected = config_loader.get_config().get("admin_token") or ""
         except Exception:
             pass
@@ -52,7 +53,9 @@ def _verify_admin(
 def _require_store() -> CredentialStore:
     store = get_credential_store()
     if not store.available:
-        raise HTTPException(503, "Credential store unavailable — RADBOT_CREDENTIAL_KEY not set")
+        raise HTTPException(
+            503, "Credential store unavailable — RADBOT_CREDENTIAL_KEY not set"
+        )
     return store
 
 
@@ -103,6 +106,7 @@ async def store_credential(request: Request, _: None = Depends(_verify_admin)):
     if name == "ha_token":
         try:
             from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
+
             reset_ha_client()
         except Exception:
             pass
@@ -123,6 +127,7 @@ async def delete_credential(name: str, _: None = Depends(_verify_admin)):
 # Config entries are stored with name "config:<section>" and type "config".
 # The value is a JSON string of that config section.
 
+
 @router.get("/api/config")
 async def get_all_config(_: None = Depends(_verify_admin)):
     """Return all config sections stored in the DB (as a merged dict)."""
@@ -132,7 +137,7 @@ async def get_all_config(_: None = Depends(_verify_admin)):
         name = entry["name"]
         if not name.startswith("config:"):
             continue
-        section = name[len("config:"):]
+        section = name[len("config:") :]
         raw = store.get(name)
         if raw:
             try:
@@ -156,10 +161,15 @@ async def get_config_section(section: str, _: None = Depends(_verify_admin)):
 
 
 @router.put("/api/config/{section}")
-async def save_config_section(section: str, request: Request, _: None = Depends(_verify_admin)):
+async def save_config_section(
+    section: str, request: Request, _: None = Depends(_verify_admin)
+):
     """Save a config section to the DB.  Body is the JSON object for that section."""
     if section == "database":
-        raise HTTPException(400, "Cannot override database config from admin — it is the bootstrap config")
+        raise HTTPException(
+            400,
+            "Cannot override database config from admin — it is the bootstrap config",
+        )
     store = _require_store()
     body = await request.json()
     store.set(
@@ -171,43 +181,51 @@ async def save_config_section(section: str, request: Request, _: None = Depends(
     # Hot-reload into the running config
     try:
         from radbot.config.config_loader import config_loader
+
         config_loader.load_db_config()
     except Exception as e:
         logger.warning(f"Config hot-reload failed: {e}")
     # Hot-reload agent model when agent config changes
     if section == "agent":
         try:
-            from radbot.config import config_manager
             from agent import root_agent
+            from radbot.config import config_manager
+
             config_manager.apply_model_config(root_agent)
         except Exception as e:
             logger.warning(f"Agent model hot-reload failed: {e}")
     # Re-initialize memory service when vector_db config changes
     if section == "vector_db":
         try:
-            from radbot.agent.agent_core import initialize_memory_service
-            from radbot.agent import agent_core
             from agent import root_agent
+            from radbot.agent import agent_core
+            from radbot.agent.agent_core import initialize_memory_service
+
             initialize_memory_service()
             if agent_core.memory_service:
                 root_agent._memory_service = agent_core.memory_service
-                logger.info("Re-initialized memory service after vector_db config change")
+                logger.info(
+                    "Re-initialized memory service after vector_db config change"
+                )
         except Exception as e:
             logger.warning(f"Memory service hot-reload failed: {e}")
     # Reset client singletons so next call picks up new config
     if section == "integrations":
         try:
             from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
+
             reset_ha_client()
         except Exception:
             pass
         try:
             from radbot.tools.overseerr.overseerr_client import reset_overseerr_client
+
             reset_overseerr_client()
         except Exception:
             pass
         try:
             from radbot.tools.ntfy.ntfy_client import reset_ntfy_client
+
             reset_ntfy_client()
         except Exception:
             pass
@@ -229,9 +247,11 @@ async def delete_config_section(section: str, _: None = Depends(_verify_admin)):
 @router.get("/api/config-live")
 async def get_live_config(_: None = Depends(_verify_admin)):
     """Return the current merged config (file + DB overrides)."""
-    from radbot.config.config_loader import config_loader
     # Return a copy, redacting sensitive fields
     import copy
+
+    from radbot.config.config_loader import config_loader
+
     cfg = copy.deepcopy(config_loader.get_config())
     # Redact known sensitive fields
     if "database" in cfg and "password" in cfg["database"]:
@@ -268,6 +288,7 @@ async def gmail_oauth_setup(
         client_file = ""
         try:
             from radbot.tools.gmail.gmail_auth import _get_client_file
+
             client_file = _get_client_file()
         except Exception:
             pass
@@ -275,7 +296,10 @@ async def gmail_oauth_setup(
             # Also try config_loader directly
             try:
                 from radbot.config.config_loader import config_loader
-                gmail_cfg = config_loader.get_config().get("integrations", {}).get("gmail", {})
+
+                gmail_cfg = (
+                    config_loader.get_config().get("integrations", {}).get("gmail", {})
+                )
                 client_file = gmail_cfg.get("oauth_client_file", "")
                 if client_file:
                     client_file = os.path.expanduser(client_file)
@@ -294,10 +318,14 @@ async def gmail_oauth_setup(
     from google_auth_oauthlib.flow import Flow
 
     SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
-    redirect_uri = _get_oauth_redirect_uri(request, "/admin/api/credentials/gmail/callback")
+    redirect_uri = _get_oauth_redirect_uri(
+        request, "/admin/api/credentials/gmail/callback"
+    )
 
     client_config = json.loads(client_json)
-    flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(
+        client_config, scopes=SCOPES, redirect_uri=redirect_uri
+    )
     auth_url, state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -339,13 +367,17 @@ async def gmail_oauth_callback(request: Request, code: str = "", state: str = ""
         client_file = ""
         try:
             from radbot.tools.gmail.gmail_auth import _get_client_file
+
             client_file = _get_client_file()
         except Exception:
             pass
         if not client_file:
             try:
                 from radbot.config.config_loader import config_loader
-                gmail_cfg = config_loader.get_config().get("integrations", {}).get("gmail", {})
+
+                gmail_cfg = (
+                    config_loader.get_config().get("integrations", {}).get("gmail", {})
+                )
                 client_file = gmail_cfg.get("oauth_client_file", "")
                 if client_file:
                     client_file = os.path.expanduser(client_file)
@@ -358,7 +390,9 @@ async def gmail_oauth_callback(request: Request, code: str = "", state: str = ""
             raise HTTPException(400, "No Gmail OAuth client configured")
 
     client_config = json.loads(client_json)
-    flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(
+        client_config, scopes=SCOPES, redirect_uri=redirect_uri
+    )
     # Google may return additional scopes (e.g. cloud-platform); accept them
     os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     flow.fetch_token(code=code)
@@ -394,10 +428,14 @@ async def calendar_oauth_setup(request: Request, _: None = Depends(_verify_admin
     from google_auth_oauthlib.flow import Flow
 
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
-    redirect_uri = _get_oauth_redirect_uri(request, "/admin/api/credentials/calendar/callback")
+    redirect_uri = _get_oauth_redirect_uri(
+        request, "/admin/api/credentials/calendar/callback"
+    )
 
     client_config = json.loads(client_json)
-    flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(
+        client_config, scopes=SCOPES, redirect_uri=redirect_uri
+    )
     auth_url, state = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -433,7 +471,9 @@ async def calendar_oauth_callback(request: Request, code: str = "", state: str =
         raise HTTPException(400, "No Calendar OAuth client configured")
 
     client_config = json.loads(client_json)
-    flow = Flow.from_client_config(client_config, scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(
+        client_config, scopes=SCOPES, redirect_uri=redirect_uri
+    )
     flow.fetch_token(code=code)
     creds = flow.credentials
 
@@ -444,7 +484,9 @@ async def calendar_oauth_callback(request: Request, code: str = "", state: str =
         description="Google Calendar OAuth token",
     )
     store.delete("_oauth_state_calendar")
-    return HTMLResponse("<h2>Calendar token stored successfully.</h2><p><a href='/admin/'>Back to admin</a></p>")
+    return HTMLResponse(
+        "<h2>Calendar token stored successfully.</h2><p><a href='/admin/'>Back to admin</a></p>"
+    )
 
 
 # ------------------------------------------------------------------
@@ -455,6 +497,7 @@ async def list_gmail_accounts(_: None = Depends(_verify_admin)):
     """List all discovered Gmail accounts (credential store + file tokens)."""
     try:
         from radbot.tools.gmail.gmail_auth import discover_accounts
+
         accounts = discover_accounts()
         return {"accounts": accounts}
     except Exception as e:
@@ -488,6 +531,7 @@ async def test_google(request: Request, _: None = Depends(_verify_admin)):
     if not api_key:
         try:
             from radbot.config.config_loader import config_loader
+
             api_key = config_loader.get_config().get("api_keys", {}).get("google", "")
         except Exception:
             pass
@@ -495,6 +539,7 @@ async def test_google(request: Request, _: None = Depends(_verify_admin)):
         return _err("No Google API key configured")
     try:
         from google import genai
+
         client = genai.Client(api_key=api_key)
         models = list(client.models.list())
         return _ok(f"Connected — {len(models)} models available")
@@ -506,8 +551,9 @@ async def test_google(request: Request, _: None = Depends(_verify_admin)):
 async def test_gmail(account: str, _: None = Depends(_verify_admin)):
     """Test Gmail token for a specific account."""
     try:
-        from radbot.tools.gmail.gmail_auth import authenticate_gmail
         from googleapiclient.discovery import build as gmail_build
+
+        from radbot.tools.gmail.gmail_auth import authenticate_gmail
 
         creds = authenticate_gmail(account)
         if not creds:
@@ -524,20 +570,29 @@ async def test_gmail(account: str, _: None = Depends(_verify_admin)):
 async def test_calendar(request: Request, _: None = Depends(_verify_admin)):
     """Test Google Calendar connectivity by listing 1 event."""
     try:
-        from radbot.tools.calendar.calendar_auth import get_calendar_service
         from radbot.config.config_loader import config_loader
+        from radbot.tools.calendar.calendar_auth import get_calendar_service
 
         cal_cfg = config_loader.get_config().get("integrations", {}).get("calendar", {})
         calendar_id = cal_cfg.get("calendar_id", "primary")
-        service = get_calendar_service()
+        service = get_calendar_service(force_new=True)
         if not service:
             return _err("Could not create Calendar service — check credentials")
-        events_result = service.events().list(
-            calendarId=calendar_id, maxResults=1, singleEvents=True,
-            orderBy="startTime", timeMin="2020-01-01T00:00:00Z",
-        ).execute()
+        events_result = (
+            service.events()
+            .list(
+                calendarId=calendar_id,
+                maxResults=1,
+                singleEvents=True,
+                orderBy="startTime",
+                timeMin="2020-01-01T00:00:00Z",
+            )
+            .execute()
+        )
         count = len(events_result.get("items", []))
-        return _ok(f"Calendar access OK (calendar: {calendar_id}, found {count} event(s))")
+        return _ok(
+            f"Calendar access OK (calendar: {calendar_id}, found {count} event(s))"
+        )
     except ImportError:
         return _err("Calendar module not available")
     except Exception as e:
@@ -560,7 +615,10 @@ async def test_jira(request: Request, _: None = Depends(_verify_admin)):
     if not url or not email:
         try:
             from radbot.config.config_loader import config_loader
-            jira_cfg = config_loader.get_config().get("integrations", {}).get("jira", {})
+
+            jira_cfg = (
+                config_loader.get_config().get("integrations", {}).get("jira", {})
+            )
             url = url or jira_cfg.get("url", "")
             email = email or jira_cfg.get("email", "")
         except Exception:
@@ -572,7 +630,13 @@ async def test_jira(request: Request, _: None = Depends(_verify_admin)):
         if not api_token:
             try:
                 from radbot.config.config_loader import config_loader
-                api_token = config_loader.get_config().get("integrations", {}).get("jira", {}).get("api_token", "")
+
+                api_token = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("jira", {})
+                    .get("api_token", "")
+                )
             except Exception:
                 pass
 
@@ -587,7 +651,9 @@ async def test_jira(request: Request, _: None = Depends(_verify_admin)):
             )
             if resp.status_code == 200:
                 data = resp.json()
-                return _ok(f"Connected as {data.get('displayName', data.get('name', 'unknown'))}")
+                return _ok(
+                    f"Connected as {data.get('displayName', data.get('name', 'unknown'))}"
+                )
             return _err(f"Jira returned HTTP {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         return _err(f"Jira connection failed: {e}")
@@ -608,7 +674,10 @@ async def test_overseerr(request: Request, _: None = Depends(_verify_admin)):
     if not url:
         try:
             from radbot.config.config_loader import config_loader
-            overseerr_cfg = config_loader.get_config().get("integrations", {}).get("overseerr", {})
+
+            overseerr_cfg = (
+                config_loader.get_config().get("integrations", {}).get("overseerr", {})
+            )
             url = url or overseerr_cfg.get("url", "")
         except Exception:
             pass
@@ -619,7 +688,13 @@ async def test_overseerr(request: Request, _: None = Depends(_verify_admin)):
         if not api_key:
             try:
                 from radbot.config.config_loader import config_loader
-                api_key = config_loader.get_config().get("integrations", {}).get("overseerr", {}).get("api_key", "")
+
+                api_key = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("overseerr", {})
+                    .get("api_key", "")
+                )
             except Exception:
                 pass
 
@@ -635,7 +710,9 @@ async def test_overseerr(request: Request, _: None = Depends(_verify_admin)):
             if resp.status_code == 200:
                 data = resp.json()
                 return _ok(f"Connected to Overseerr v{data.get('version', '?')}")
-            return _err(f"Overseerr returned HTTP {resp.status_code}: {resp.text[:200]}")
+            return _err(
+                f"Overseerr returned HTTP {resp.status_code}: {resp.text[:200]}"
+            )
     except Exception as e:
         return _err(f"Overseerr connection failed: {e}")
 
@@ -654,7 +731,12 @@ async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)
     if not ha_url:
         try:
             from radbot.config.config_loader import config_loader
-            ha_cfg = config_loader.get_config().get("integrations", {}).get("home_assistant", {})
+
+            ha_cfg = (
+                config_loader.get_config()
+                .get("integrations", {})
+                .get("home_assistant", {})
+            )
             ha_url = ha_url or ha_cfg.get("url", "")
         except Exception:
             pass
@@ -665,7 +747,13 @@ async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)
         if not ha_token:
             try:
                 from radbot.config.config_loader import config_loader
-                ha_token = config_loader.get_config().get("integrations", {}).get("home_assistant", {}).get("token", "")
+
+                ha_token = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("home_assistant", {})
+                    .get("token", "")
+                )
             except Exception:
                 pass
 
@@ -702,6 +790,7 @@ async def test_qdrant(request: Request, _: None = Depends(_verify_admin)):
     if not url and not host:
         try:
             from radbot.config.config_loader import config_loader
+
             vdb = config_loader.get_config().get("vector_db", {})
             url = url or vdb.get("url", "")
             host = host or vdb.get("host", "")
@@ -715,12 +804,16 @@ async def test_qdrant(request: Request, _: None = Depends(_verify_admin)):
         if not api_key:
             try:
                 from radbot.config.config_loader import config_loader
-                api_key = config_loader.get_config().get("vector_db", {}).get("api_key", "")
+
+                api_key = (
+                    config_loader.get_config().get("vector_db", {}).get("api_key", "")
+                )
             except Exception:
                 pass
 
     try:
         from qdrant_client import QdrantClient
+
         kwargs: Dict[str, Any] = {}
         if url:
             kwargs["url"] = url
@@ -757,7 +850,10 @@ async def test_ntfy(request: Request, _: None = Depends(_verify_admin)):
     if not url or not topic:
         try:
             from radbot.config.config_loader import config_loader
-            ntfy_cfg = config_loader.get_config().get("integrations", {}).get("ntfy", {})
+
+            ntfy_cfg = (
+                config_loader.get_config().get("integrations", {}).get("ntfy", {})
+            )
             url = url or ntfy_cfg.get("url", "https://ntfy.sh")
             topic = topic or ntfy_cfg.get("topic", "")
         except Exception:
@@ -769,7 +865,13 @@ async def test_ntfy(request: Request, _: None = Depends(_verify_admin)):
         if not token:
             try:
                 from radbot.config.config_loader import config_loader
-                token = config_loader.get_config().get("integrations", {}).get("ntfy", {}).get("token", "")
+
+                token = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("ntfy", {})
+                    .get("token", "")
+                )
             except Exception:
                 pass
 
@@ -809,6 +911,7 @@ async def test_redis(request: Request, _: None = Depends(_verify_admin)):
     if not redis_url:
         try:
             from radbot.config.config_loader import config_loader
+
             redis_url = config_loader.get_config().get("cache", {}).get("redis_url", "")
         except Exception:
             pass
@@ -818,6 +921,7 @@ async def test_redis(request: Request, _: None = Depends(_verify_admin)):
 
     try:
         import redis
+
         r = redis.from_url(redis_url, socket_timeout=5)
         r.ping()
         info = r.info("server")
@@ -828,7 +932,6 @@ async def test_redis(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Redis connection failed: {e}")
 
 
-
 # ------------------------------------------------------------------
 # Telemetry endpoints
 # ------------------------------------------------------------------
@@ -836,6 +939,7 @@ async def test_redis(request: Request, _: None = Depends(_verify_admin)):
 async def get_telemetry_usage(_: None = Depends(_verify_admin)):
     """Return token usage and estimated cost stats."""
     from radbot.telemetry.usage_tracker import usage_tracker
+
     return usage_tracker.get_stats()
 
 
@@ -843,6 +947,7 @@ async def get_telemetry_usage(_: None = Depends(_verify_admin)):
 async def reset_telemetry(_: None = Depends(_verify_admin)):
     """Reset all telemetry counters."""
     from radbot.telemetry.usage_tracker import usage_tracker
+
     usage_tracker.reset()
     return {"status": "ok", "message": "Telemetry counters reset"}
 
@@ -858,6 +963,7 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     gracefully when the credential store is unavailable.
     """
     from radbot.config.config_loader import config_loader
+
     cfg = config_loader.get_config()
 
     # Credential store may not be available (RADBOT_CREDENTIAL_KEY not set)
@@ -897,6 +1003,7 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if not gmail_has_tokens:
         try:
             from radbot.tools.gmail.gmail_auth import discover_accounts
+
             accounts = discover_accounts()
             if accounts:
                 gmail_has_tokens = True
@@ -905,6 +1012,7 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     # Also check if token_file is configured and exists
     if not gmail_has_tokens and gmail_cfg.get("token_file"):
         import os as _os
+
         token_path = _os.path.expanduser(gmail_cfg["token_file"])
         if _os.path.exists(token_path):
             gmail_has_tokens = True
@@ -923,7 +1031,10 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if cal_token or cal_sa or cal_cfg.get("service_account_file"):
         status["calendar"] = {"status": "ok"}
     elif cal_cfg.get("enabled"):
-        status["calendar"] = {"status": "error", "message": "Enabled but no credentials"}
+        status["calendar"] = {
+            "status": "error",
+            "message": "Enabled but no credentials",
+        }
     else:
         status["calendar"] = {"status": "unconfigured"}
 
@@ -943,7 +1054,10 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if overseerr_cfg.get("url") and overseerr_key:
         status["overseerr"] = {"status": "ok"}
     elif overseerr_cfg.get("enabled"):
-        status["overseerr"] = {"status": "error", "message": "Enabled but missing config"}
+        status["overseerr"] = {
+            "status": "error",
+            "message": "Enabled but missing config",
+        }
     else:
         status["overseerr"] = {"status": "unconfigured"}
 
@@ -953,7 +1067,10 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if ntfy_topic and ntfy_cfg.get("enabled", True):
         status["ntfy"] = {"status": "ok"}
     elif ntfy_cfg.get("enabled") and not ntfy_topic:
-        status["ntfy"] = {"status": "error", "message": "Enabled but no topic configured"}
+        status["ntfy"] = {
+            "status": "error",
+            "message": "Enabled but no topic configured",
+        }
     else:
         status["ntfy"] = {"status": "unconfigured"}
 
@@ -963,7 +1080,10 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if ha_cfg.get("url") and ha_token:
         status["home_assistant"] = {"status": "ok"}
     elif ha_cfg.get("enabled"):
-        status["home_assistant"] = {"status": "error", "message": "Enabled but missing config"}
+        status["home_assistant"] = {
+            "status": "error",
+            "message": "Enabled but missing config",
+        }
     else:
         status["home_assistant"] = {"status": "unconfigured"}
 
@@ -972,6 +1092,7 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if vdb.get("url") or vdb.get("host"):
         try:
             from qdrant_client import QdrantClient
+
             qd_kwargs: Dict[str, Any] = {}
             if vdb.get("url"):
                 qd_kwargs["url"] = vdb["url"]
@@ -995,6 +1116,7 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     if redis_url:
         try:
             import redis as redis_lib
+
             r = redis_lib.from_url(redis_url, socket_timeout=3)
             r.ping()
             r.close()
