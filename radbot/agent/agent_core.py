@@ -31,11 +31,29 @@ from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
 
 # Import telemetry callback
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+
+# Import tool call repair callback (catches text-based tool calls from small models)
+from radbot.callbacks.tool_call_repair_callback import (
+    tool_call_repair_after_model_callback,
+)
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
 from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+
+def _combined_after_model_callback(callback_context, llm_response):
+    """Chain repair + telemetry after-model callbacks.
+
+    ADK only supports a single after_model_callback, so this wrapper
+    runs tool-call repair first (may modify the response) then telemetry
+    (read-only observer).
+    """
+    result = tool_call_repair_after_model_callback(callback_context, llm_response)
+    effective_response = result if result is not None else llm_response
+    telemetry_after_model_callback(callback_context, effective_response)
+    return result  # None = pass-through, or modified response
+
 
 # Get the instruction from the config manager
 instruction = config_manager.get_instruction("main_agent")
@@ -115,7 +133,7 @@ root_agent = Agent(
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
     before_model_callback=sanitize_before_model_callback,
-    after_model_callback=telemetry_after_model_callback,
+    after_model_callback=_combined_after_model_callback,
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
 
