@@ -139,26 +139,57 @@ class ConfigManager:
                 model_string,
                 kwargs.get("api_base", "<default>"),
             )
-            instance = LiteLlm(model=model_string, **kwargs)
 
-            # ADK sets litellm.add_function_to_prompt = True which injects
-            # tool definitions as text into the system prompt.  Ollama models
-            # (qwen2.5, mistral, etc.) support native tool calling via the
-            # API — the prompt-injected definitions confuse them into
-            # outputting text like ``transfer_to_agent(agent_name="casa")``
-            # instead of structured tool_calls.  Disable it so native
-            # function calling is used.
+            # Register the model in litellm's model_cost database so it
+            # knows the model supports native function calling.  Without
+            # this, litellm.get_model_info() fails (tries to call the
+            # local Ollama API), falls into the exception handler in
+            # OllamaChatConfig.map_openai_params, and force-enables
+            # add_function_to_prompt — which injects tool definitions as
+            # text into the prompt.  The model then outputs Python-like
+            # ``transfer_to_agent(agent_name="casa")`` as text instead of
+            # structured tool_calls.
             try:
                 import litellm as _litellm_mod
 
+                # Extract bare model name (e.g. "qwen2.5:7b-instruct")
+                if model_string.startswith("ollama_chat/"):
+                    bare_model = model_string[len("ollama_chat/"):]
+                else:
+                    bare_model = model_string[len("ollama/"):]
+
+                _model_info = {
+                    "input_cost_per_token": 0.0,
+                    "output_cost_per_token": 0.0,
+                    "max_input_tokens": 32768,
+                    "max_output_tokens": 32768,
+                    "max_tokens": 32768,
+                    "mode": "chat",
+                    "supports_function_calling": True,
+                }
+                # Register under both ollama/ and ollama_chat/ prefixes
+                # so map_openai_params (uses ollama/) can find it.
+                for prefix, provider in [
+                    ("ollama/", "ollama"),
+                    ("ollama_chat/", "ollama_chat"),
+                ]:
+                    key = f"{prefix}{bare_model}"
+                    _litellm_mod.model_cost[key] = {
+                        **_model_info,
+                        "litellm_provider": provider,
+                    }
+
                 _litellm_mod.add_function_to_prompt = False
                 _logger.info(
-                    "Disabled litellm.add_function_to_prompt for native tool calling"
+                    "Registered Ollama model '%s' with native function calling support",
+                    bare_model,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _logger.warning(
+                    "Failed to register Ollama model in litellm: %s", exc
+                )
 
-            return instance
+            return LiteLlm(model=model_string, **kwargs)
 
         return model_string
 
