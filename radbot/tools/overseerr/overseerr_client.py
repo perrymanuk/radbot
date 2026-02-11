@@ -2,14 +2,12 @@
 Lazy-initialized singleton Overseerr HTTP client.
 
 Reads config from ``integrations.overseerr`` (merged file+DB config) first,
-then falls back to the credential store (``overseerr_api_key``), then to
-OVERSEERR_URL / OVERSEERR_API_KEY environment variables.
+then falls back to the credential store (``overseerr_api_key``).
 
 Returns None when unconfigured so tools can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
@@ -28,7 +26,7 @@ _initialized = False
 
 
 def _get_config() -> dict:
-    """Pull Overseerr settings from config manager, credential store, then env."""
+    """Pull Overseerr settings from DB config, then credential store."""
     try:
         from radbot.config.config_loader import config_loader
 
@@ -36,8 +34,8 @@ def _get_config() -> dict:
     except Exception:
         cfg = {}
 
-    url = cfg.get("url") or os.environ.get("OVERSEERR_URL")
-    api_key = cfg.get("api_key") or os.environ.get("OVERSEERR_API_KEY")
+    url = cfg.get("url")
+    api_key = cfg.get("api_key")
     enabled = cfg.get("enabled", True)
 
     # Try credential store for API key if not found above

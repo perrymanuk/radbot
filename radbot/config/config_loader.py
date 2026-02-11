@@ -251,43 +251,34 @@ class ConfigLoader:
 
     def _get_default_config(self) -> Dict[str, Any]:
         """
-        Get a default configuration based on environment variables.
+        Get a default configuration with hardcoded sensible defaults.
+
+        All runtime configuration comes from the DB credential store
+        (``config:<section>`` entries), managed via the Admin UI.  This method
+        only provides baseline defaults for a fresh install before the admin
+        has configured anything.
 
         Returns:
             Dictionary containing the default configuration
         """
-        # Load from environment variables similar to settings.py
         return {
             "agent": {
-                "main_model": os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
-                "sub_agent_model": os.getenv("RADBOT_SUB_MODEL", "gemini-2.5-flash"),
-                "agent_models": {
-                    "code_execution_agent": os.getenv("RADBOT_CODE_AGENT_MODEL", ""),
-                    "search_agent": os.getenv("RADBOT_SEARCH_AGENT_MODEL", ""),
-                    "scout_agent": os.getenv("RADBOT_SCOUT_AGENT_MODEL", ""),
-                    "todo_agent": os.getenv("RADBOT_TODO_AGENT_MODEL", ""),
-                },
-                "use_vertex_ai": os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE").upper()
-                == "TRUE",
-                "vertex_project": os.getenv("GOOGLE_CLOUD_PROJECT"),
-                "vertex_location": os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+                "main_model": "gemini-2.5-pro",
+                "sub_agent_model": "gemini-2.5-flash",
+                "agent_models": {},
+                "use_vertex_ai": False,
+                "vertex_project": None,
+                "vertex_location": "us-central1",
             },
             "cache": {
-                "enabled": os.getenv("RADBOT_CACHE_ENABLED", "TRUE").upper()
-                in ("TRUE", "YES", "1"),
-                "ttl": int(os.getenv("RADBOT_CACHE_TTL", "3600")),
-                "max_size": int(os.getenv("RADBOT_CACHE_MAX_SIZE", "1000")),
-                "selective": os.getenv("RADBOT_CACHE_SELECTIVE", "TRUE").upper()
-                in ("TRUE", "YES", "1"),
-                "min_tokens": int(os.getenv("RADBOT_CACHE_MIN_TOKENS", "50")),
-                "redis_url": os.getenv("REDIS_URL"),
+                "enabled": True,
+                "ttl": 3600,
+                "max_size": 1000,
+                "selective": True,
+                "min_tokens": 50,
+                "redis_url": None,
             },
             "integrations": {
-                "home_assistant": {
-                    "enabled": bool(os.getenv("HA_URL") and os.getenv("HA_TOKEN")),
-                    "url": os.getenv("HA_URL"),
-                    "token": os.getenv("HA_TOKEN"),
-                },
                 "mcp": {"servers": []},
             },
         }

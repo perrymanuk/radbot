@@ -240,8 +240,24 @@ export function OllamaPanel() {
                       <span>{m.name}</span>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText(`ollama_chat/${m.name}`);
-                          toast(`Copied ollama_chat/${m.name}`);
+                          const text = `ollama_chat/${m.name}`;
+                          if (navigator.clipboard?.writeText) {
+                            navigator.clipboard.writeText(text).then(
+                              () => toast(`Copied ${text}`),
+                              () => toast(`Model name: ${text}`),
+                            );
+                          } else {
+                            // Fallback for non-HTTPS contexts
+                            const ta = document.createElement("textarea");
+                            ta.value = text;
+                            ta.style.position = "fixed";
+                            ta.style.opacity = "0";
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(ta);
+                            toast(`Copied ${text}`);
+                          }
                         }}
                         className="ml-2 text-[#e94560] hover:text-[#ff6b81] text-xs cursor-pointer bg-transparent border-none"
                         title={`Copy ollama_chat/${m.name} to clipboard`}

@@ -9,7 +9,6 @@ import logging
 import os
 from typing import Any, Callable, Dict, List, Optional
 
-from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.tool_context import ToolContext
@@ -23,9 +22,6 @@ from radbot.memory.enhanced_memory import (
 )
 from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory import search_past_conversations, store_important_information
-
-# Load environment variables (for backward compatibility)
-load_dotenv()
 
 # Set up logging
 logger = logging.getLogger(__name__)

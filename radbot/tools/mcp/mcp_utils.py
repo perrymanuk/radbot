@@ -10,13 +10,9 @@ import os
 import re
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from dotenv import load_dotenv
 from google.adk.tools import FunctionTool
 
 from radbot.tools.mcp.mcp_tools import create_home_assistant_toolset
-
-# Load environment variables
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 

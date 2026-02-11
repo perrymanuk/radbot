@@ -2,7 +2,6 @@
 Test agent-specific model configuration.
 """
 
-import os
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -131,30 +130,31 @@ class TestAgentModelConfig(unittest.TestCase):
             app_name="beto",
         )
 
-    @patch.dict(
-        os.environ,
-        {
-            "RADBOT_CODE_AGENT_MODEL": "env-gemini-2.5-pro-latest",
-            "RADBOT_SEARCH_AGENT_MODEL": "env-gemini-2.5-pro",
-            "RADBOT_SCOUT_AGENT_MODEL": "env-gemini-2.5-pro-latest",
-            "RADBOT_TODO_AGENT_MODEL": "env-gemini-2.0-flash",
-        },
-    )
-    def test_environment_variable_override(self):
-        """Test that environment variables override config settings."""
-        # Create a real ConfigManager to test env var handling
-        config = ConfigManager()
+    def test_db_config_agent_model_override(self):
+        """Test that per-agent model overrides from DB config are applied."""
+        from radbot.config.config_loader import config_loader
 
-        # Get the agent models from loaded config
-        agent_models = config.model_config.get("agent_models", {})
+        db_agent_config = {
+            "main_model": "gemini-2.5-pro",
+            "sub_agent_model": "gemini-2.5-flash",
+            "agent_models": {
+                "code_execution_agent": "gemini-2.5-pro-latest",
+                "search_agent": "gemini-2.5-pro",
+                "scout_agent": "gemini-2.5-pro-latest",
+                "todo_agent": "gemini-2.0-flash",
+            },
+        }
+        with patch.object(config_loader, "get_agent_config", return_value=db_agent_config):
+            config = ConfigManager()
 
-        # Verify environment variables were picked up
-        self.assertEqual(
-            agent_models.get("code_execution_agent"), "env-gemini-2.5-pro-latest"
-        )
-        self.assertEqual(agent_models.get("search_agent"), "env-gemini-2.5-pro")
-        self.assertEqual(agent_models.get("scout_agent"), "env-gemini-2.5-pro-latest")
-        self.assertEqual(agent_models.get("todo_agent"), "env-gemini-2.0-flash")
+            agent_models = config.model_config.get("agent_models", {})
+
+            self.assertEqual(
+                agent_models.get("code_execution_agent"), "gemini-2.5-pro-latest"
+            )
+            self.assertEqual(agent_models.get("search_agent"), "gemini-2.5-pro")
+            self.assertEqual(agent_models.get("scout_agent"), "gemini-2.5-pro-latest")
+            self.assertEqual(agent_models.get("todo_agent"), "gemini-2.0-flash")
 
 
 if __name__ == "__main__":

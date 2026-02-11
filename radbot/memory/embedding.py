@@ -5,14 +5,8 @@ Uses the google-genai package (not google-generativeai) for Gemini embeddings.
 """
 
 import logging
-import os
 from dataclasses import dataclass
 from typing import Any, List, Optional
-
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +22,11 @@ class EmbeddingModel:
 
 def get_embedding_model() -> EmbeddingModel:
     """
-    Initialize and return the appropriate embedding model based on configuration.
+    Initialize and return the Gemini embedding model.
 
     Returns:
         EmbeddingModel: The configured embedding model
     """
-    embed_model = os.getenv("radbot_EMBED_MODEL", "gemini").lower()
-
-    if embed_model != "gemini":
-        logger.warning(
-            f"Unknown embedding model '{embed_model}', falling back to Gemini"
-        )
     return _initialize_gemini_embedding()
 
 
@@ -51,8 +39,15 @@ def _initialize_gemini_embedding() -> EmbeddingModel:
     """
     from google import genai
 
-    # Get API key: try env var first, then config
-    api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+    # Get API key from credential store or config
+    api_key = None
+    try:
+        from radbot.config.adk_config import get_google_api_key
+
+        api_key = get_google_api_key()
+    except Exception as e:
+        logger.warning(f"Could not load API key via adk_config: {e}")
+
     if not api_key:
         try:
             from radbot.config.config_loader import config_loader
@@ -64,7 +59,7 @@ def _initialize_gemini_embedding() -> EmbeddingModel:
 
     if not api_key:
         raise ValueError(
-            "No Google API key found. Set GOOGLE_API_KEY env var or api_keys.google in config.yaml"
+            "No Google API key found. Configure via Admin UI or credential store."
         )
 
     client = genai.Client(api_key=api_key)

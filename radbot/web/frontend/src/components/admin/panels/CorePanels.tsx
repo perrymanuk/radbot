@@ -67,7 +67,7 @@ export function GooglePanel() {
     const agent = liveConfig.agent || {};
 
     if (apiKeys.google) setApiKey(apiKeys.google);
-    if (agent.use_vertex !== undefined) setUseVertex(!!agent.use_vertex);
+    if (agent.use_vertex_ai !== undefined) setUseVertex(!!agent.use_vertex_ai);
     if (agent.vertex_project) setVertexProject(agent.vertex_project);
     if (agent.vertex_location) setVertexLocation(agent.vertex_location);
   }, [liveConfig]);
@@ -104,7 +104,7 @@ export function GooglePanel() {
 
       // Save Vertex settings to agent config section
       await mergeConfigSection("agent", {
-        use_vertex: useVertex,
+        use_vertex_ai: useVertex,
         ...(useVertex
           ? {
               vertex_project: vertexProject,

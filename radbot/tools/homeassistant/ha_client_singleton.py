@@ -5,7 +5,6 @@ This module provides a shared Home Assistant client instance to avoid circular i
 """
 
 import logging
-import os
 from typing import Optional
 
 from radbot.config.config_loader import config_loader
@@ -31,7 +30,6 @@ def get_ha_client() -> Optional[HomeAssistantRESTClient]:
     Reads HA config from (in order of priority):
     1. Merged config (config.yaml + DB overrides via load_db_config)
     2. Credential store (``ha_token`` entry stored by admin UI)
-    3. Environment variables (``HA_URL``, ``HA_TOKEN``)
 
     Returns:
         The Home Assistant client instance, or None if configuration is invalid.
@@ -59,15 +57,9 @@ def get_ha_client() -> Optional[HomeAssistantRESTClient]:
         except Exception as e:
             logger.debug(f"Could not check credential store for ha_token: {e}")
 
-    # Fall back to environment variables if not found
-    if not ha_url:
-        ha_url = os.getenv("HA_URL")
-    if not ha_token:
-        ha_token = os.getenv("HA_TOKEN")
-
     if not ha_url or not ha_token:
         logger.warning(
-            "Home Assistant URL or token not found in config, credential store, or environment variables."
+            "Home Assistant URL or token not found in config or credential store."
         )
         return None
 

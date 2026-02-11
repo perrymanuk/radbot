@@ -2,14 +2,12 @@
 Lazy-initialized singleton ntfy HTTP client.
 
 Reads config from ``integrations.ntfy`` (merged file+DB config) first,
-then falls back to the credential store (``ntfy_token``), then to
-NTFY_URL / NTFY_TOPIC / NTFY_TOKEN environment variables.
+then falls back to the credential store (``ntfy_token``).
 
 Returns None when unconfigured so callers can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, Optional
 
 import httpx
@@ -21,7 +19,7 @@ _initialized = False
 
 
 def _get_config() -> dict:
-    """Pull ntfy settings from config manager, credential store, then env."""
+    """Pull ntfy settings from DB config, then credential store."""
     try:
         from radbot.config.config_loader import config_loader
 
@@ -29,14 +27,12 @@ def _get_config() -> dict:
     except Exception:
         cfg = {}
 
-    url = cfg.get("url") or os.environ.get("NTFY_URL") or "https://ntfy.sh"
-    topic = cfg.get("topic") or os.environ.get("NTFY_TOPIC") or ""
-    token = cfg.get("token") or os.environ.get("NTFY_TOKEN") or ""
+    url = cfg.get("url") or "https://ntfy.sh"
+    topic = cfg.get("topic") or ""
+    token = cfg.get("token") or ""
     enabled = cfg.get("enabled", True)
     default_priority = cfg.get("default_priority", "default")
-    click_base_url = (
-        cfg.get("click_base_url") or os.environ.get("NTFY_CLICK_BASE_URL") or ""
-    )
+    click_base_url = cfg.get("click_base_url") or ""
 
     # Try credential store for token if not found above
     if not token:

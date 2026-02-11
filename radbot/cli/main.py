@@ -11,8 +11,6 @@ import sys
 import uuid
 from typing import Optional
 
-from dotenv import load_dotenv
-
 from radbot.agent.agent import RadBotAgent, create_agent
 from radbot.config import config_manager
 from radbot.tools.basic import get_current_time
@@ -24,9 +22,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
-
-# Load environment variables
-load_dotenv()
 
 
 def check_home_assistant_status() -> dict:

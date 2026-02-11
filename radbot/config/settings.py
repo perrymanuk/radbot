@@ -1,5 +1,9 @@
 """
 Configuration settings and management for the radbot agent framework.
+
+All runtime configuration comes from the DB credential store (managed via
+the Admin UI).  Only ``database``, ``credential_key``, and ``admin_token``
+live in ``config.yaml``.
 """
 
 import json
@@ -8,12 +12,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Import the new YAML config loader
+# Import the YAML/DB config loader
 from radbot.config.config_loader import config_loader
 
 # Default paths
@@ -41,72 +40,27 @@ class ConfigManager:
 
     def _load_model_config(self) -> Dict[str, Any]:
         """
-        Load model configuration from YAML config or environment variables as fallback.
+        Load model configuration from the DB-merged config (via config_loader).
+
+        All runtime configuration is stored in the DB credential store and
+        managed through the Admin UI.  Hardcoded defaults are used only when
+        the DB has no value yet (fresh install).
 
         Returns:
             Dictionary of model configuration settings
         """
-        # First try to get from YAML config
         agent_config = config_loader.get_agent_config()
 
-        # Get agent-specific models from config or use default values
-        agent_models = agent_config.get("agent_models", {})
-
-        # Allow for environment variable overrides for specific agents
-        agent_models_from_env = {
-            "code_execution_agent": os.getenv("RADBOT_CODE_AGENT_MODEL", None),
-            "search_agent": os.getenv("RADBOT_SEARCH_AGENT_MODEL", None),
-            "scout_agent": os.getenv("RADBOT_SCOUT_AGENT_MODEL", None),
-            "todo_agent": os.getenv("RADBOT_TODO_AGENT_MODEL", None),
-        }
-
-        # Filter out None values
-        agent_models_from_env = {
-            k: v for k, v in agent_models_from_env.items() if v is not None
-        }
-
-        # Merge with config values, prioritizing environment variables
-        merged_agent_models = {**agent_models, **agent_models_from_env}
-
         return {
-            # Primary model for main agent
-            "main_model": agent_config.get("main_model")
-            or agent_config.get("model")
-            or os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
-            # Also check GEMINI_MODEL env var for compatibility
-            "gemini_model": os.getenv("GEMINI_MODEL"),
-            # Model for simpler sub-agents
-            "sub_agent_model": agent_config.get("sub_agent_model")
-            or os.getenv("RADBOT_SUB_MODEL", "gemini-2.5-flash"),
-            # Agent-specific models
-            "agent_models": merged_agent_models,
-            # Use Vertex AI flag
-            "use_vertex_ai": (
-                agent_config.get("use_vertex_ai", False)
-                if "use_vertex_ai" in agent_config
-                else os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE").upper() == "TRUE"
-            ),
-            # Vertex AI project ID
-            "vertex_project": agent_config.get("vertex_project")
-            or os.getenv("GOOGLE_CLOUD_PROJECT"),
-            # Vertex AI location
-            "vertex_location": agent_config.get("vertex_location")
-            or os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
-            # Vertex AI service account file
-            "service_account_file": agent_config.get("service_account_file")
-            or os.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
-            # ADK Built-in Tools Configuration
-            "enable_adk_search": (
-                agent_config.get("enable_adk_search", False)
-                if "enable_adk_search" in agent_config
-                else os.getenv("RADBOT_ENABLE_ADK_SEARCH", "FALSE").upper() == "TRUE"
-            ),
-            # Enable ADK Code Execution Tool
-            "enable_adk_code_execution": (
-                agent_config.get("enable_adk_code_execution", False)
-                if "enable_adk_code_execution" in agent_config
-                else os.getenv("RADBOT_ENABLE_ADK_CODE_EXEC", "FALSE").upper() == "TRUE"
-            ),
+            "main_model": agent_config.get("main_model") or "gemini-2.5-pro",
+            "sub_agent_model": agent_config.get("sub_agent_model") or "gemini-2.5-flash",
+            "agent_models": agent_config.get("agent_models", {}),
+            "use_vertex_ai": bool(agent_config.get("use_vertex_ai", False)),
+            "vertex_project": agent_config.get("vertex_project"),
+            "vertex_location": agent_config.get("vertex_location", "us-central1"),
+            "service_account_file": agent_config.get("service_account_file"),
+            "enable_adk_search": bool(agent_config.get("enable_adk_search", False)),
+            "enable_adk_code_execution": bool(agent_config.get("enable_adk_code_execution", False)),
         }
 
     def reload_model_config(self) -> None:
@@ -114,7 +68,7 @@ class ConfigManager:
         self.model_config = self._load_model_config()
 
     def _get_ollama_config(self) -> dict:
-        """Fetch Ollama settings from config_loader, credential store, then env.
+        """Fetch Ollama settings from DB config and credential store.
 
         Returns dict with keys: api_base, api_key, enabled.
         """
@@ -123,8 +77,8 @@ class ConfigManager:
         except Exception:
             cfg = {}
 
-        api_base = cfg.get("api_base") or os.environ.get("OLLAMA_API_BASE")
-        api_key = cfg.get("api_key") or os.environ.get("OLLAMA_API_KEY")
+        api_base = cfg.get("api_base")
+        api_key = cfg.get("api_key")
         enabled = cfg.get("enabled", True)
 
         if not api_key:
@@ -157,8 +111,15 @@ class ConfigManager:
             kwargs: Dict[str, Any] = {}
             if ollama_cfg.get("api_base"):
                 kwargs["api_base"] = ollama_cfg["api_base"]
+                # Set env var as fallback so litellm can always find Ollama
+                os.environ["OLLAMA_API_BASE"] = ollama_cfg["api_base"]
             if ollama_cfg.get("api_key"):
                 kwargs["api_key"] = ollama_cfg["api_key"]
+
+            # Ensure Vertex AI is disabled when using Ollama models —
+            # the env var would cause ADK/google-genai to route Gemini
+            # sub-agent calls through Vertex, which may not be configured.
+            os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "FALSE"
 
             _logger = logging.getLogger(__name__)
             _logger.info(
@@ -209,27 +170,21 @@ class ConfigManager:
 
     def _load_home_assistant_config(self) -> Dict[str, Any]:
         """
-        Load Home Assistant configuration from YAML config or environment variables.
+        Load Home Assistant configuration from DB config.
 
         Returns:
             Dictionary of Home Assistant configuration settings
         """
-        # First try to get from YAML config
-        ha_yaml_config = config_loader.get_home_assistant_config()
+        ha_config = config_loader.get_home_assistant_config()
 
-        # Get REST API configuration, first from YAML then from env vars
-        ha_url = ha_yaml_config.get("url") or os.getenv("HA_URL")
-        ha_token = ha_yaml_config.get("token") or os.getenv("HA_TOKEN")
-        ha_mcp_sse_url = ha_yaml_config.get("mcp_sse_url") or os.getenv(
-            "HA_MCP_SSE_URL"
-        )
-        ha_enabled = ha_yaml_config.get("enabled", bool(ha_url and ha_token))
+        ha_url = ha_config.get("url")
+        ha_token = ha_config.get("token")
+        ha_mcp_sse_url = ha_config.get("mcp_sse_url")
+        ha_enabled = ha_config.get("enabled", bool(ha_url and ha_token))
 
         return {
-            # Overall configuration
-            "use_rest_api": True,  # Always use REST API approach
+            "use_rest_api": True,
             "enabled": ha_enabled,
-            # REST API configuration
             "url": ha_url,
             "token": ha_token,
             "mcp_sse_url": ha_mcp_sse_url,
@@ -288,22 +243,12 @@ class ConfigManager:
 
     def get_main_model(self) -> str:
         """
-        Get the main agent model name.
-
-        Order of precedence:
-        1. RADBOT_MAIN_MODEL env var
-        2. GEMINI_MODEL env var
-        3. Default model (gemini-2.5-pro)
+        Get the main agent model name from DB config.
 
         Returns:
             The configured main model name
         """
-        # First try RADBOT_MAIN_MODEL, then GEMINI_MODEL, then default
-        return (
-            self.model_config["main_model"]
-            or self.model_config.get("gemini_model")
-            or "gemini-2.5-pro"
-        )
+        return self.model_config["main_model"] or "gemini-2.5-pro"
 
     def get_sub_agent_model(self) -> str:
         """

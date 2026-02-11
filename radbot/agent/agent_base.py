@@ -9,7 +9,6 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -20,9 +19,6 @@ logger = logging.getLogger(__name__)
 
 # Type alias for backward compatibility
 SessionService = InMemorySessionService
-
-# Load environment variables
-load_dotenv()
 
 # Import our configuration modules
 from radbot.config import config_manager

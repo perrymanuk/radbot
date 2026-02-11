@@ -9,7 +9,6 @@ import uuid
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
 
 # Import ADK components
@@ -39,9 +38,6 @@ except ImportError:
 
 # Import local modules
 from radbot.memory.embedding import embed_text, get_embedding_model
-
-# Load environment variables
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 

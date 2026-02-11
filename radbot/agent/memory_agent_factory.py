@@ -6,7 +6,6 @@ import logging
 import os
 from typing import Any, List, Optional
 
-from dotenv import load_dotenv
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 
@@ -18,9 +17,6 @@ from radbot.config import config_manager
 from radbot.config.config_loader import config_loader
 from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory import search_past_conversations, store_important_information
-
-# Load environment variables (for backward compatibility)
-load_dotenv()
 
 
 def create_memory_enabled_agent(

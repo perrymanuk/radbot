@@ -22,7 +22,6 @@ from radbot.agent.agent_base import (
     SessionService,
     Union,
     config_manager,
-    load_dotenv,
     logging,
     os,
     setup_vertex_environment,

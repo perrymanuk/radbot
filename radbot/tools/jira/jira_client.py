@@ -1,14 +1,13 @@
 """
 Lazy-initialized singleton Jira Cloud client.
 
-Reads credentials from config.yaml ``integrations.jira`` first, then falls
-back to JIRA_URL / JIRA_EMAIL / JIRA_API_TOKEN environment variables.
+Reads credentials from DB config ``integrations.jira`` first, then falls
+back to the credential store (``jira_api_token``).
 
 Returns None when unconfigured so tools can handle gracefully.
 """
 
 import logging
-import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ _initialized = False
 
 
 def _get_config() -> dict:
-    """Pull Jira settings from config manager, falling back to credential store then env vars."""
+    """Pull Jira settings from DB config, falling back to credential store."""
     try:
         from radbot.config.config_loader import config_loader
 
@@ -27,12 +26,12 @@ def _get_config() -> dict:
     except Exception:
         jira_cfg = {}
 
-    url = jira_cfg.get("url") or os.environ.get("JIRA_URL")
-    email = jira_cfg.get("email") or os.environ.get("JIRA_EMAIL")
-    api_token = jira_cfg.get("api_token") or os.environ.get("JIRA_API_TOKEN")
+    url = jira_cfg.get("url")
+    email = jira_cfg.get("email")
+    api_token = jira_cfg.get("api_token")
     enabled = jira_cfg.get("enabled", True)
 
-    # Try credential store for API token if not found in config/env
+    # Try credential store for API token if not found in config
     if not api_token:
         try:
             from radbot.credentials.store import get_credential_store
@@ -74,7 +73,7 @@ def get_jira_client():
     if not all([url, email, api_token]):
         logger.info(
             "Jira integration not configured — set integrations.jira in "
-            "config.yaml or JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN env vars"
+            "the Admin UI"
         )
         return None
 

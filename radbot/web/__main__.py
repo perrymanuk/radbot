@@ -10,12 +10,7 @@ import logging
 import os
 import sys
 
-from dotenv import load_dotenv
-
 from radbot.web.app import start_server
-
-# Load environment variables
-load_dotenv()
 
 # Set up logging
 logging.basicConfig(

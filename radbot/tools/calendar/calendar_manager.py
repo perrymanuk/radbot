@@ -48,13 +48,16 @@ class CalendarManager:
             True if authentication was successful, False otherwise.
         """
         try:
-            # Get the service account path from init or environment
-            credentials_path = self.service_account_path or os.environ.get(
-                "GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE"
+            from radbot.tools.calendar.calendar_auth import (
+                _get_service_account_json,
+                _get_service_account_path,
             )
 
-            # Check if using JSON from environment, skip path check in that case
-            if not os.environ.get("GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON"):
+            # Get the service account path from init or DB config
+            credentials_path = self.service_account_path or _get_service_account_path()
+
+            # Check if using JSON from credential store, skip path check in that case
+            if not _get_service_account_json():
                 if credentials_path and not os.path.exists(credentials_path):
                     logger.error(
                         f"Service account file not found at {credentials_path}"
@@ -100,13 +103,16 @@ class CalendarManager:
             True if authentication was successful, False otherwise.
         """
         try:
-            # Get the service account path
-            credentials_path = self.service_account_path or os.environ.get(
-                "GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE"
+            from radbot.tools.calendar.calendar_auth import (
+                _get_service_account_json,
+                _get_service_account_path,
             )
 
-            # Check if using JSON from environment, skip path check in that case
-            if not os.environ.get("GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON"):
+            # Get the service account path from init or DB config
+            credentials_path = self.service_account_path or _get_service_account_path()
+
+            # Check if using JSON from credential store, skip path check in that case
+            if not _get_service_account_json():
                 if credentials_path and not os.path.exists(credentials_path):
                     logger.error(
                         f"Service account file not found at {credentials_path}"

@@ -39,19 +39,50 @@ DEFAULT_SERVICE_ACCOUNT_PATH = os.path.join(
     os.path.dirname(__file__), "credentials", "service-account.json"
 )
 
-# Try to get service account path from environment variable first
-CALENDAR_SERVICE_ACCOUNT_PATH = os.environ.get(
-    "GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE", DEFAULT_SERVICE_ACCOUNT_PATH
-)
-
-# Default calendar ID and environment variable configuration
+# Defaults (overridden by DB config at runtime)
 DEFAULT_CALENDAR_ID = "primary"
 DEFAULT_TIMEZONE = "UTC"
 
-# Get calendar ID from environment variable or use default
-CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", DEFAULT_CALENDAR_ID)
-# Get default timezone from environment variable or use default
-CALENDAR_TIMEZONE = os.environ.get("GOOGLE_CALENDAR_TIMEZONE", DEFAULT_TIMEZONE)
+
+def _get_calendar_config() -> dict:
+    """Pull calendar settings from DB config."""
+    try:
+        from radbot.config.config_loader import config_loader
+
+        return config_loader.get_integrations_config().get("calendar", {})
+    except Exception:
+        return {}
+
+
+def _get_service_account_path() -> str:
+    """Get service account file path from DB config or use default."""
+    cfg = _get_calendar_config()
+    return cfg.get("service_account_file") or DEFAULT_SERVICE_ACCOUNT_PATH
+
+
+def _get_service_account_json() -> Optional[str]:
+    """Get service account JSON from DB credential store."""
+    try:
+        from radbot.credentials.store import get_credential_store
+
+        store = get_credential_store()
+        if store.available:
+            return store.get("calendar_service_account")
+    except Exception:
+        pass
+    return None
+
+
+def _get_impersonation_email() -> Optional[str]:
+    """Get impersonation email from DB config."""
+    return _get_calendar_config().get("impersonation_email")
+
+
+# Module-level accessors (lazy, read from DB config)
+CALENDAR_SERVICE_ACCOUNT_PATH = DEFAULT_SERVICE_ACCOUNT_PATH  # updated lazily
+
+CALENDAR_ID = DEFAULT_CALENDAR_ID
+CALENDAR_TIMEZONE = DEFAULT_TIMEZONE
 
 # Global service instance
 _calendar_service = None
@@ -182,7 +213,7 @@ def get_calendar_service(
                 sa_creds = service_account.Credentials.from_service_account_info(
                     sa_info, scopes=scopes
                 )
-                impersonation_email = os.environ.get("GOOGLE_IMPERSONATION_EMAIL")
+                impersonation_email = _get_impersonation_email()
                 if impersonation_email:
                     sa_creds = sa_creds.with_subject(impersonation_email)
                 _calendar_service = build("calendar", "v3", credentials=sa_creds)
@@ -199,7 +230,7 @@ def get_calendar_service(
         if oauth_creds:
             _calendar_service = build("calendar", "v3", credentials=oauth_creds)
             try:
-                calendar_id = os.environ.get("GOOGLE_CALENDAR_ID", CALENDAR_ID)
+                calendar_id = _get_calendar_config().get("calendar_id") or CALENDAR_ID
                 calendar = (
                     _calendar_service.calendars().get(calendarId=calendar_id).execute()
                 )
@@ -248,23 +279,20 @@ def get_calendar_service(
 
     try:
         # Get the impersonation email for domain-wide delegation if set
-        impersonation_email = os.environ.get("GOOGLE_IMPERSONATION_EMAIL")
+        impersonation_email = _get_impersonation_email()
 
-        # Get service account credentials path from environment or use default
-        credentials_path = os.environ.get(
-            "GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE", service_account_path
-        )
+        # Get service account credentials path from DB config or use default
+        credentials_path = _get_service_account_path() or service_account_path
 
-        # Check JSON string from environment
-        service_account_json = os.environ.get("GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON")
+        # Check for service account JSON in credential store
+        service_account_json = _get_service_account_json()
 
         use_file_path = True
         if service_account_json and service_account_json.strip():
             try:
-                # Try to parse the JSON string from environment variable
                 service_account_info = json.loads(service_account_json)
                 logger.info(
-                    "Using GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON environment variable"
+                    "Using service account JSON from credential store"
                 )
 
                 # Create credentials from JSON string
@@ -273,17 +301,15 @@ def get_calendar_service(
                 )
                 use_file_path = False
             except json.JSONDecodeError as e:
-                # Fall back to file path if JSON parsing fails
                 logger.warning(
-                    f"Error parsing GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: {e}. Falling back to file path method."
+                    f"Error parsing service account JSON: {e}. Falling back to file path method."
                 )
-                # Continue to the file path method
                 use_file_path = True
 
         if use_file_path:
             # Use file path
             if credentials_path is None:
-                error_msg = "No credentials path provided and GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE is not set"
+                error_msg = "No credentials path provided"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 
@@ -361,21 +387,18 @@ def get_workspace_calendar_service(
         scopes = [FULL_ACCESS_SCOPE]
 
     try:
-        # Get service account credentials path from environment or use default
-        credentials_path = os.environ.get(
-            "GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE", service_account_path
-        )
+        # Get service account credentials path from DB config or use default
+        credentials_path = _get_service_account_path() or service_account_path
 
-        # Check JSON string from environment
-        service_account_json = os.environ.get("GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON")
+        # Check for service account JSON in credential store
+        service_account_json = _get_service_account_json()
 
         use_file_path = True
         if service_account_json and service_account_json.strip():
             try:
-                # Try to parse the JSON string from environment variable
                 service_account_info = json.loads(service_account_json)
                 logger.info(
-                    "Using GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON environment variable"
+                    "Using service account JSON from credential store"
                 )
 
                 # Create credentials from JSON string
@@ -384,17 +407,15 @@ def get_workspace_calendar_service(
                 )
                 use_file_path = False
             except json.JSONDecodeError as e:
-                # Fall back to file path if JSON parsing fails
                 logger.warning(
-                    f"Error parsing GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON: {e}. Falling back to file path method."
+                    f"Error parsing service account JSON: {e}. Falling back to file path method."
                 )
-                # Continue to the file path method
                 use_file_path = True
 
         if use_file_path:
             # Use file path
             if credentials_path is None:
-                error_msg = "No credentials path provided and GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE is not set"
+                error_msg = "No credentials path provided"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
 

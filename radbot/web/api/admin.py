@@ -192,8 +192,10 @@ async def save_config_section(
             from radbot.config import config_manager
 
             config_manager.apply_model_config(root_agent)
+            model_name = config_manager._model_name(root_agent.model)
+            logger.info(f"Agent model hot-reload OK: root_agent.model={model_name}")
         except Exception as e:
-            logger.warning(f"Agent model hot-reload failed: {e}")
+            logger.warning(f"Agent model hot-reload failed: {e}", exc_info=True)
     # Re-initialize memory service when vector_db config changes
     if section == "vector_db":
         try:
@@ -924,11 +926,9 @@ async def test_ollama(request: Request, _: None = Depends(_verify_admin)):
             ollama_cfg = (
                 config_loader.get_config().get("integrations", {}).get("ollama", {})
             )
-            api_base = api_base or ollama_cfg.get("api_base", "")
+            api_base = ollama_cfg.get("api_base", "")
         except Exception:
             pass
-    if not api_base:
-        api_base = os.environ.get("OLLAMA_API_BASE", "")
     if not api_key or api_key == "***":
         store = get_credential_store()
         if store.available:
@@ -1184,7 +1184,7 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
 
     # Ollama
     ollama_cfg = cfg.get("integrations", {}).get("ollama", {})
-    ollama_base = ollama_cfg.get("api_base") or os.environ.get("OLLAMA_API_BASE", "")
+    ollama_base = ollama_cfg.get("api_base", "")
     if ollama_base and ollama_cfg.get("enabled", True):
         status["ollama"] = {"status": "ok"}
     elif ollama_base and not ollama_cfg.get("enabled", True):

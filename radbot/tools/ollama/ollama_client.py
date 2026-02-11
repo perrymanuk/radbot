@@ -1,14 +1,12 @@
 """Lazy-initialized singleton Ollama HTTP client for admin operations.
 
 Reads config from ``integrations.ollama`` (merged file+DB config) first,
-then falls back to the credential store (``ollama_api_key``), then to
-``OLLAMA_API_BASE`` / ``OLLAMA_API_KEY`` environment variables.
+then falls back to the credential store (``ollama_api_key``).
 
 Returns None when unconfigured so admin endpoints can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -20,7 +18,7 @@ _initialized = False
 
 
 def _get_config() -> dict:
-    """Pull Ollama settings from config manager, credential store, then env."""
+    """Pull Ollama settings from DB config, then credential store."""
     try:
         from radbot.config.config_loader import config_loader
 
@@ -28,8 +26,8 @@ def _get_config() -> dict:
     except Exception:
         cfg = {}
 
-    api_base = cfg.get("api_base") or os.environ.get("OLLAMA_API_BASE")
-    api_key = cfg.get("api_key") or os.environ.get("OLLAMA_API_KEY")
+    api_base = cfg.get("api_base")
+    api_key = cfg.get("api_key")
     enabled = cfg.get("enabled", True)
 
     # Try credential store for API key if not found above
