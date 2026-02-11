@@ -3,12 +3,12 @@
 import uuid
 from datetime import datetime, timezone
 
+from radbot.tools.shared.errors import truncate_error
 from radbot.tools.shared.serialization import serialize_row, serialize_rows
 from radbot.tools.shared.validation import validate_uuid
-from radbot.tools.shared.errors import truncate_error
-
 
 # ── serialization ────────────────────────────────────────────────────────────
+
 
 class TestSerializeRow:
     def test_uuid_converted_to_str(self):
@@ -39,8 +39,10 @@ class TestSerializeRow:
         row = {"id": uid, "ts": dt, "name": "test", "count": 5}
         result = serialize_row(row)
         assert result == {
-            "id": str(uid), "ts": dt.isoformat(),
-            "name": "test", "count": 5,
+            "id": str(uid),
+            "ts": dt.isoformat(),
+            "name": "test",
+            "count": 5,
         }
 
 
@@ -61,6 +63,7 @@ class TestSerializeRows:
 
 
 # ── validation ───────────────────────────────────────────────────────────────
+
 
 class TestValidateUuid:
     def test_valid_uuid(self):
@@ -83,6 +86,7 @@ class TestValidateUuid:
 
 
 # ── errors ───────────────────────────────────────────────────────────────────
+
 
 class TestTruncateError:
     def test_short_message_unchanged(self):

@@ -42,7 +42,9 @@ _BIDI_CONTROLS: Set[int] = set(range(0x202A, 0x202F)) | set(range(0x2066, 0x206A
 _TAG_CHARS: Set[int] = set(range(0xE0000, 0xE0080))
 
 # C0 controls minus tab (0x09), newline (0x0A), carriage return (0x0D)
-_CONTROL_CHARS: Set[int] = (set(range(0x0000, 0x0020)) - {0x09, 0x0A, 0x0D}) | set(range(0x007F, 0x00A0))
+_CONTROL_CHARS: Set[int] = (set(range(0x0000, 0x0020)) - {0x09, 0x0A, 0x0D}) | set(
+    range(0x007F, 0x00A0)
+)
 
 _SOFT_HYPHEN: Set[int] = {0x00AD}
 
@@ -53,7 +55,9 @@ _INTERLINEAR: Set[int] = {0xFFF9, 0xFFFA, 0xFFFB}
 _PUA: Set[int] = set(range(0xE000, 0xF900))
 
 # Pre-built strip sets per strictness level (cached at module load)
-_RELAXED_SET: frozenset = frozenset(_ZERO_WIDTH | _BIDI_CONTROLS | _TAG_CHARS | _CONTROL_CHARS)
+_RELAXED_SET: frozenset = frozenset(
+    _ZERO_WIDTH | _BIDI_CONTROLS | _TAG_CHARS | _CONTROL_CHARS
+)
 _STANDARD_SET: frozenset = frozenset(
     _RELAXED_SET | _SOFT_HYPHEN | _VARIATION_SELECTORS | _INTERLINEAR
 )
@@ -70,6 +74,7 @@ _STRIP_SETS = {
 # Config helper
 # ---------------------------------------------------------------------------
 
+
 def _get_sanitize_config() -> Dict[str, Any]:
     """Load sanitization config from the config system.
 
@@ -83,6 +88,7 @@ def _get_sanitize_config() -> Dict[str, Any]:
     }
     try:
         from radbot.config.config_loader import config_loader
+
         security_cfg = config_loader.get_config().get("security", {})
         sanitize_cfg = security_cfg.get("sanitize", {})
         # Merge with defaults
@@ -97,6 +103,7 @@ def _get_sanitize_config() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Core sanitization
 # ---------------------------------------------------------------------------
+
 
 def sanitize_text(
     text: str,
@@ -201,6 +208,7 @@ def sanitize_external_content(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _sanitize_value(value: Any, source: str, strictness: Optional[str]) -> Any:
     """Recursively sanitize a value."""

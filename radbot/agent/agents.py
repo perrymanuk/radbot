@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 # Import the canonical agent instances from agent_tools_setup
 # These are the same instances used as beto's sub_agents in agent_core.py
 from radbot.agent.agent_tools_setup import (
-    search_agent,
     code_execution_agent,
-    scout_agent
+    scout_agent,
+    search_agent,
 )
 
 # Export all agents

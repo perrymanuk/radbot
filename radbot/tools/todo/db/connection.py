@@ -6,14 +6,15 @@ using the psycopg2 library with connection pooling.
 Connection pool is initialized lazily on first use.
 """
 
-import os
 import logging
-import psycopg2
-import psycopg2.pool
-import psycopg2.extras  # For RealDictCursor
+import os
 import uuid
 from contextlib import contextmanager
 from typing import Generator
+
+import psycopg2
+import psycopg2.extras  # For RealDictCursor
+import psycopg2.pool
 
 # Import configuration
 from radbot.config import config_loader
@@ -22,7 +23,9 @@ from radbot.config import config_loader
 logger = logging.getLogger(__name__)
 
 # Register UUID adapter for psycopg2
-psycopg2.extensions.register_adapter(uuid.UUID, lambda u: psycopg2.extensions.adapt(str(u)))
+psycopg2.extensions.register_adapter(
+    uuid.UUID, lambda u: psycopg2.extensions.adapt(str(u))
+)
 
 # --- Lazy Connection Pool ---
 
@@ -74,7 +77,9 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
         host=db_host,
         port=db_port,
     )
-    logger.info(f"Database connection pool initialized (Min: {MIN_CONN}, Max: {MAX_CONN})")
+    logger.info(
+        f"Database connection pool initialized (Min: {MIN_CONN}, Max: {MAX_CONN})"
+    )
     logger.info(f"Connected to PostgreSQL database '{db_name}' at {db_host}:{db_port}")
     return _pool
 
@@ -97,7 +102,9 @@ def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]
 
 
 @contextmanager
-def get_db_cursor(conn: psycopg2.extensions.connection, commit: bool = False) -> Generator[psycopg2.extensions.cursor, None, None]:
+def get_db_cursor(
+    conn: psycopg2.extensions.connection, commit: bool = False
+) -> Generator[psycopg2.extensions.cursor, None, None]:
     """Provides a cursor from a connection, handling commit/rollback."""
     with conn.cursor() as cursor:
         try:
@@ -105,7 +112,9 @@ def get_db_cursor(conn: psycopg2.extensions.connection, commit: bool = False) ->
             if commit:
                 conn.commit()
         except psycopg2.Error as e:
-            logger.error(f"Database operation failed. Rolling back transaction. Error: {e}")
+            logger.error(
+                f"Database operation failed. Rolling back transaction. Error: {e}"
+            )
             conn.rollback()
             raise  # Re-raise the original psycopg2 error
         # No finally block needed for cursor, 'with' handles closing

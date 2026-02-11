@@ -1,8 +1,10 @@
 """
 Unit tests for basic tools.
 """
-import pytest
+
 from unittest.mock import MagicMock
+
+import pytest
 
 from radbot.tools.basic import get_current_time
 

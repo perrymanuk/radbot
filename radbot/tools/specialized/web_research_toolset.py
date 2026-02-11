@@ -5,12 +5,13 @@ and information extraction from online sources.
 """
 
 import logging
-from typing import List, Any, Optional
+from typing import Any, List, Optional
 
 # Import base toolset for registration
 from .base_toolset import register_toolset
 
 logger = logging.getLogger(__name__)
+
 
 def create_web_research_toolset() -> List[Any]:
     """Create the set of tools for the web research specialized agent.
@@ -22,10 +23,11 @@ def create_web_research_toolset() -> List[Any]:
 
     return toolset
 
+
 # Register the toolset with the system
 register_toolset(
     name="web_research",
     toolset_func=create_web_research_toolset,
     description="Agent specialized in web research and information retrieval",
-    allowed_transfers=[]  # Scout can transfer to this agent, handled elsewhere
+    allowed_transfers=[],  # Scout can transfer to this agent, handled elsewhere
 )

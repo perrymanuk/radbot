@@ -83,3 +83,5 @@ warn_unused_configs = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["tools", "examples", ".git", ".venv", "node_modules", "build", "dist"]
+collect_ignore_glob = ["tools/*", "examples/*"]

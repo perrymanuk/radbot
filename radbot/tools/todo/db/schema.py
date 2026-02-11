@@ -5,10 +5,12 @@ This module handles schema creation and management for the Todo Tool database.
 """
 
 import logging
+
 from .connection import get_db_connection, get_db_cursor
 
 # Setup logging
 logger = logging.getLogger(__name__)
+
 
 def create_schema_if_not_exists() -> None:
     """
@@ -25,13 +27,13 @@ def create_schema_if_not_exists() -> None:
                     );
                 """)
                 enum_exists = cursor.fetchone()[0]
-                
+
                 if not enum_exists:
                     logger.info("Creating task_status ENUM type")
                     cursor.execute("""
                         CREATE TYPE task_status AS ENUM ('backlog', 'inprogress', 'done');
                     """)
-                
+
                 # Check if the tasks table exists
                 cursor.execute("""
                     SELECT EXISTS (
@@ -39,7 +41,7 @@ def create_schema_if_not_exists() -> None:
                     );
                 """)
                 table_exists = cursor.fetchone()[0]
-                
+
                 if not table_exists:
                     logger.info("Creating tasks table")
                     cursor.execute("""
@@ -54,12 +56,12 @@ def create_schema_if_not_exists() -> None:
                             related_info JSONB
                         );
                     """)
-                    
+
                     # Create an index on project_id and status for faster filtering
                     cursor.execute("""
                         CREATE INDEX idx_tasks_project_status ON tasks (project_id, status);
                     """)
-                    
+
                     logger.info("Database schema created successfully")
                 else:
                     logger.info("Tasks table already exists")
@@ -83,7 +85,7 @@ def create_schema_if_not_exists() -> None:
                     );
                 """)
                 projects_table_exists = cursor.fetchone()[0]
-                
+
                 if not projects_table_exists:
                     logger.info("Creating projects table")
                     cursor.execute("""

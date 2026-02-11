@@ -14,18 +14,26 @@ import argparse
 from radbot.tools.gmail.gmail_auth import discover_accounts, run_setup
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Set up Gmail authentication for radbot")
-    parser.add_argument(
-        "--account", type=str, default=None,
-        help="Account label (e.g. 'personal', 'work'). Creates a named token file."
+    parser = argparse.ArgumentParser(
+        description="Set up Gmail authentication for radbot"
     )
     parser.add_argument(
-        "--port", type=int, default=0,
-        help="Fixed port for OAuth callback (default: auto). Use with SSH tunnel for remote machines."
+        "--account",
+        type=str,
+        default=None,
+        help="Account label (e.g. 'personal', 'work'). Creates a named token file.",
     )
     parser.add_argument(
-        "--list", action="store_true", dest="list_accounts",
-        help="List all configured Gmail accounts and exit."
+        "--port",
+        type=int,
+        default=0,
+        help="Fixed port for OAuth callback (default: auto). Use with SSH tunnel for remote machines.",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_accounts",
+        help="List all configured Gmail accounts and exit.",
     )
     args = parser.parse_args()
 
@@ -44,7 +52,9 @@ if __name__ == "__main__":
     print(f"=== Gmail Account Setup ({label}) ===")
     if args.port:
         print(f"Listening on port {args.port} for OAuth callback.")
-        print(f"If remote, tunnel with: ssh -L {args.port}:localhost:{args.port} user@this-machine")
+        print(
+            f"If remote, tunnel with: ssh -L {args.port}:localhost:{args.port} user@this-machine"
+        )
     print("Sign in with the Gmail account you want radbot to use.\n")
 
     success = run_setup(port=args.port, account=args.account)

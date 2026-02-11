@@ -35,12 +35,16 @@ def _decode_body(payload: Dict[str, Any]) -> str:
 
         if mime_type == "text/plain" and body_data and not plain_text:
             try:
-                plain_text = base64.urlsafe_b64decode(body_data).decode("utf-8", errors="replace")
+                plain_text = base64.urlsafe_b64decode(body_data).decode(
+                    "utf-8", errors="replace"
+                )
             except Exception:
                 pass
         elif mime_type == "text/html" and body_data and not html_text:
             try:
-                html_text = base64.urlsafe_b64decode(body_data).decode("utf-8", errors="replace")
+                html_text = base64.urlsafe_b64decode(body_data).decode(
+                    "utf-8", errors="replace"
+                )
             except Exception:
                 pass
 
@@ -56,6 +60,7 @@ def _decode_body(payload: Dict[str, Any]) -> str:
     if html_text:
         # Simple HTML tag stripping (no extra dependencies)
         import re
+
         text = re.sub(r"<br\s*/?>", "\n", html_text, flags=re.IGNORECASE)
         text = re.sub(r"<[^>]+>", "", text)
         text = re.sub(r"&nbsp;", " ", text)
@@ -81,14 +86,17 @@ def _parse_message(raw_message: Dict[str, Any]) -> Dict[str, Any]:
 
     # Extract attachment metadata
     attachments = []
+
     def _find_attachments(part: Dict[str, Any]):
         filename = part.get("filename", "")
         if filename:
-            attachments.append({
-                "filename": filename,
-                "mimeType": part.get("mimeType", ""),
-                "size": part.get("body", {}).get("size", 0),
-            })
+            attachments.append(
+                {
+                    "filename": filename,
+                    "mimeType": part.get("mimeType", ""),
+                    "size": part.get("body", {}).get("size", 0),
+                }
+            )
         for sub_part in part.get("parts", []):
             _find_attachments(sub_part)
 
@@ -97,18 +105,23 @@ def _parse_message(raw_message: Dict[str, Any]) -> Dict[str, Any]:
     body = _decode_body(payload)
 
     from radbot.tools.shared.sanitize import sanitize_dict
-    return sanitize_dict({
-        "id": raw_message.get("id", ""),
-        "threadId": raw_message.get("threadId", ""),
-        "snippet": raw_message.get("snippet", ""),
-        "subject": headers.get("subject", "(no subject)"),
-        "from": headers.get("from", ""),
-        "to": headers.get("to", ""),
-        "date": headers.get("date", ""),
-        "body": body,
-        "attachments": attachments,
-        "labelIds": raw_message.get("labelIds", []),
-    }, source="gmail", keys=["snippet", "subject", "from", "to", "body"])
+
+    return sanitize_dict(
+        {
+            "id": raw_message.get("id", ""),
+            "threadId": raw_message.get("threadId", ""),
+            "snippet": raw_message.get("snippet", ""),
+            "subject": headers.get("subject", "(no subject)"),
+            "from": headers.get("from", ""),
+            "to": headers.get("to", ""),
+            "date": headers.get("date", ""),
+            "body": body,
+            "attachments": attachments,
+            "labelIds": raw_message.get("labelIds", []),
+        },
+        source="gmail",
+        keys=["snippet", "subject", "from", "to", "body"],
+    )
 
 
 def list_messages(
@@ -151,32 +164,51 @@ def list_messages(
         enriched = []
         for msg_stub in messages:
             try:
-                msg = service.users().messages().get(
-                    userId="me",
-                    id=msg_stub["id"],
-                    format="metadata",
-                    metadataHeaders=["Subject", "From", "Date"],
-                ).execute()
-                headers = {h["name"].lower(): h["value"] for h in msg.get("payload", {}).get("headers", [])}
+                msg = (
+                    service.users()
+                    .messages()
+                    .get(
+                        userId="me",
+                        id=msg_stub["id"],
+                        format="metadata",
+                        metadataHeaders=["Subject", "From", "Date"],
+                    )
+                    .execute()
+                )
+                headers = {
+                    h["name"].lower(): h["value"]
+                    for h in msg.get("payload", {}).get("headers", [])
+                }
                 from radbot.tools.shared.sanitize import sanitize_dict
-                enriched.append(sanitize_dict({
-                    "id": msg.get("id", ""),
-                    "threadId": msg.get("threadId", ""),
-                    "snippet": msg.get("snippet", ""),
-                    "subject": headers.get("subject", "(no subject)"),
-                    "from": headers.get("from", ""),
-                    "date": headers.get("date", ""),
-                }, source="gmail", keys=["snippet", "subject", "from"]))
+
+                enriched.append(
+                    sanitize_dict(
+                        {
+                            "id": msg.get("id", ""),
+                            "threadId": msg.get("threadId", ""),
+                            "snippet": msg.get("snippet", ""),
+                            "subject": headers.get("subject", "(no subject)"),
+                            "from": headers.get("from", ""),
+                            "date": headers.get("date", ""),
+                        },
+                        source="gmail",
+                        keys=["snippet", "subject", "from"],
+                    )
+                )
             except HttpError as e:
-                logger.warning(f"Failed to fetch metadata for message {msg_stub['id']}: {e}")
-                enriched.append({
-                    "id": msg_stub.get("id", ""),
-                    "threadId": msg_stub.get("threadId", ""),
-                    "snippet": "",
-                    "subject": "(error fetching)",
-                    "from": "",
-                    "date": "",
-                })
+                logger.warning(
+                    f"Failed to fetch metadata for message {msg_stub['id']}: {e}"
+                )
+                enriched.append(
+                    {
+                        "id": msg_stub.get("id", ""),
+                        "threadId": msg_stub.get("threadId", ""),
+                        "snippet": "",
+                        "subject": "(error fetching)",
+                        "from": "",
+                        "date": "",
+                    }
+                )
 
         return enriched
 
@@ -201,11 +233,16 @@ def get_message(
         Parsed message dict or None on error.
     """
     try:
-        raw = service.users().messages().get(
-            userId="me",
-            id=message_id,
-            format=msg_format,
-        ).execute()
+        raw = (
+            service.users()
+            .messages()
+            .get(
+                userId="me",
+                id=message_id,
+                format=msg_format,
+            )
+            .execute()
+        )
         return _parse_message(raw)
     except HttpError as e:
         logger.error(f"Error getting Gmail message {message_id}: {e}")

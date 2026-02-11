@@ -5,9 +5,9 @@ This module provides factory functions for creating agents with MCP capabilities
 including tools from Home Assistant, FileServer, and other MCP integrations.
 """
 
-import os
 import logging
-from typing import Dict, Any, Optional, List, Callable
+import os
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 from radbot.config.config_loader import config_loader
 from radbot.tools.mcp.mcp_core import get_available_mcp_tools
 
-def create_mcp_enabled_agent(agent_factory: Callable, base_tools: Optional[List[Any]] = None, **kwargs) -> Any:
+
+def create_mcp_enabled_agent(
+    agent_factory: Callable, base_tools: Optional[List[Any]] = None, **kwargs
+) -> Any:
     """
     Create an agent with all MCP tools enabled.
 

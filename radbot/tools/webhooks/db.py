@@ -5,10 +5,10 @@ Handles schema creation and CRUD operations for webhook definitions,
 reusing the existing PostgreSQL connection pool.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import psycopg2
 import psycopg2.extras

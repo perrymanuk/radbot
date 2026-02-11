@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _format_issue(issue: Dict[str, Any], base_url: str = "") -> Dict[str, Any]:
     """Normalise a raw Jira API issue dict into a compact representation."""
     fields = issue.get("fields", {})
@@ -34,18 +35,23 @@ def _format_issue(issue: Dict[str, Any], base_url: str = "") -> Dict[str, Any]:
 
     key = issue.get("key", "")
     from radbot.tools.shared.sanitize import sanitize_dict
-    return sanitize_dict({
-        "key": key,
-        "summary": fields.get("summary"),
-        "status": _name(fields.get("status")),
-        "priority": _name(fields.get("priority")),
-        "type": _name(fields.get("issuetype")),
-        "assignee": _name(fields.get("assignee")),
-        "reporter": _name(fields.get("reporter")),
-        "created": fields.get("created"),
-        "updated": fields.get("updated"),
-        "url": f"{base_url.rstrip('/')}/browse/{key}" if base_url else key,
-    }, source="jira", keys=["summary", "status", "priority", "type", "assignee", "reporter"])
+
+    return sanitize_dict(
+        {
+            "key": key,
+            "summary": fields.get("summary"),
+            "status": _name(fields.get("status")),
+            "priority": _name(fields.get("priority")),
+            "type": _name(fields.get("issuetype")),
+            "assignee": _name(fields.get("assignee")),
+            "reporter": _name(fields.get("reporter")),
+            "created": fields.get("created"),
+            "updated": fields.get("updated"),
+            "url": f"{base_url.rstrip('/')}/browse/{key}" if base_url else key,
+        },
+        source="jira",
+        keys=["summary", "status", "priority", "type", "assignee", "reporter"],
+    )
 
 
 def _client_or_error():
@@ -65,6 +71,7 @@ def _client_or_error():
 # ---------------------------------------------------------------------------
 # Tool functions
 # ---------------------------------------------------------------------------
+
 
 def list_my_jira_issues(
     project: Optional[str] = None,
@@ -149,9 +156,7 @@ def get_jira_issue(issue_key: str) -> Dict[str, Any]:
         formatted["fix_versions"] = [
             v.get("name") for v in (fields.get("fixVersions") or [])
         ]
-        formatted["comment_count"] = (
-            fields.get("comment", {}).get("total", 0)
-        )
+        formatted["comment_count"] = fields.get("comment", {}).get("total", 0)
 
         return {"status": "success", "issue": formatted}
     except Exception as e:
@@ -183,7 +188,8 @@ def get_issue_transitions(issue_key: str) -> Dict[str, Any]:
         transitions = client.get_issue_transitions(issue_key)
         items = [
             {"id": str(t["id"]), "name": t["name"]}
-            for t in transitions.get("transitions", transitions) if isinstance(t, dict)
+            for t in transitions.get("transitions", transitions)
+            if isinstance(t, dict)
         ]
         return {
             "status": "success",
@@ -254,7 +260,9 @@ def add_jira_comment(
 
     try:
         result = client.issue_add_comment(issue_key, comment)
-        comment_id = result.get("id", "unknown") if isinstance(result, dict) else str(result)
+        comment_id = (
+            result.get("id", "unknown") if isinstance(result, dict) else str(result)
+        )
         logger.info("Added comment to %s", issue_key)
         return {
             "status": "success",

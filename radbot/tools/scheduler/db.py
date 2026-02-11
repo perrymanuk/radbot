@@ -5,10 +5,10 @@ This module handles schema creation and CRUD operations for scheduled tasks,
 reusing the existing PostgreSQL connection pool from radbot.tools.todo.db.connection.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import psycopg2
 import psycopg2.extras

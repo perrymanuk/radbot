@@ -43,6 +43,7 @@ MEDIA_STATUS = {
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _client_or_error():
     """Return (client, None) or (None, error_dict)."""
     client = get_overseerr_client()
@@ -82,12 +83,14 @@ def _format_search_result(item: Dict[str, Any]) -> Dict[str, Any]:
             media_info.get("status", 0), "Unknown"
         )
     from radbot.tools.shared.sanitize import sanitize_dict
+
     return sanitize_dict(result, source="overseerr", keys=["title", "overview"])
 
 
 # ---------------------------------------------------------------------------
 # Tool functions
 # ---------------------------------------------------------------------------
+
 
 def search_overseerr_media(
     query: str,
@@ -166,11 +169,13 @@ def get_overseerr_media_details(
             seasons = []
             for s in raw.get("seasons", []):
                 if s.get("seasonNumber", 0) > 0:  # skip specials (season 0)
-                    seasons.append({
-                        "season_number": s.get("seasonNumber"),
-                        "episode_count": s.get("episodeCount", 0),
-                        "name": s.get("name", ""),
-                    })
+                    seasons.append(
+                        {
+                            "season_number": s.get("seasonNumber"),
+                            "episode_count": s.get("episodeCount", 0),
+                            "name": s.get("name", ""),
+                        }
+                    )
             details = {
                 "media_type": "tv",
                 "tmdb_id": raw.get("id"),
@@ -235,12 +240,12 @@ def request_overseerr_media(
             ]
 
         result = client.create_request(media_type, tmdb_id, seasons=tv_seasons)
-        req_status = REQUEST_STATUS.get(
-            result.get("status", 0), "Submitted"
-        )
+        req_status = REQUEST_STATUS.get(result.get("status", 0), "Submitted")
         logger.info(
             "Overseerr request created: %s %s (id=%s)",
-            media_type, tmdb_id, result.get("id"),
+            media_type,
+            tmdb_id,
+            result.get("id"),
         )
         return {
             "status": "success",
@@ -290,12 +295,8 @@ def list_overseerr_requests(
                 "request_id": req.get("id"),
                 "media_type": req.get("type"),
                 "tmdb_id": media.get("tmdbId"),
-                "request_status": REQUEST_STATUS.get(
-                    req.get("status", 0), "Unknown"
-                ),
-                "media_status": MEDIA_STATUS.get(
-                    media.get("status", 0), "Unknown"
-                ),
+                "request_status": REQUEST_STATUS.get(req.get("status", 0), "Unknown"),
+                "media_status": MEDIA_STATUS.get(media.get("status", 0), "Unknown"),
                 "requested_by": info.get("displayName") or info.get("email", ""),
                 "created_at": req.get("createdAt", ""),
             }

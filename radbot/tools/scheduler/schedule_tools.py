@@ -7,13 +7,14 @@ recurring scheduled tasks.
 
 import logging
 import traceback
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 
 from radbot.tools.shared.errors import truncate_error
 from radbot.tools.shared.serialization import serialize_rows
 from radbot.tools.shared.validation import validate_uuid
+
 from . import db as scheduler_db
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ def create_scheduled_task(
         # Register with the running scheduler engine if it exists
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.register_job(row)
@@ -88,6 +90,7 @@ def list_scheduled_tasks() -> Dict[str, Any]:
         # Enrich with next run time from the engine if available
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 for task in tasks:
@@ -123,6 +126,7 @@ def delete_scheduled_task(task_id: str) -> Dict[str, Any]:
         # Unregister from the running engine first
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.unregister_job(task_id)

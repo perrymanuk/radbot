@@ -58,6 +58,7 @@ class STTService:
 
         try:
             from radbot.config.adk_config import get_google_api_key
+
             key = get_google_api_key()
             if key:
                 self._api_key = key
@@ -142,5 +143,7 @@ class STTService:
         if not transcript:
             raise ValueError("No speech detected in audio")
 
-        logger.info(f"STT transcribed {len(audio_bytes)} bytes to {len(transcript)} chars")
+        logger.info(
+            f"STT transcribed {len(audio_bytes)} bytes to {len(transcript)} chars"
+        )
         return transcript

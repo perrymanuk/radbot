@@ -3,6 +3,7 @@ Basic tools for radbot agents.
 
 This module implements simple tools like time services.
 """
+
 import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
@@ -12,13 +13,16 @@ from google.adk.tools.tool_context import ToolContext
 # Import the tool decorator if available (for ADK >=0.3.0)
 try:
     from google.adk.tools.decorators import tool
+
     HAVE_TOOL_DECORATOR = True
 except ImportError:
     HAVE_TOOL_DECORATOR = False
+
     # Create a no-op decorator for compatibility
     def tool(*args, **kwargs):
         def decorator(func):
             return func
+
         return decorator
 
 
@@ -29,11 +33,13 @@ except ImportError:
         "city": {
             "type": "string",
             "description": "The city name (e.g., 'New York', 'London'). Defaults to UTC if not specified.",
-            "default": "UTC"
+            "default": "UTC",
         }
-    }
+    },
 )
-def get_current_time(city: str = "UTC", tool_context: Optional[ToolContext] = None) -> str:
+def get_current_time(
+    city: str = "UTC", tool_context: Optional[ToolContext] = None
+) -> str:
     """
     Gets the current time for a specified city or defaults to UTC.
 
@@ -47,9 +53,10 @@ def get_current_time(city: str = "UTC", tool_context: Optional[ToolContext] = No
         A string with the current time information or error message.
     """
     import logging
+
     logger = logging.getLogger(__name__)
     logger.info(f"get_current_time tool called with city: {city}")
-    
+
     # Example mapping, expand as needed
     tz_map = {
         "new york": "America/New_York",
@@ -58,7 +65,7 @@ def get_current_time(city: str = "UTC", tool_context: Optional[ToolContext] = No
         "paris": "Europe/Paris",
         "sydney": "Australia/Sydney",
         "los angeles": "America/Los_Angeles",
-        "utc": "UTC"
+        "utc": "UTC",
     }
     tz_identifier = tz_map.get(city.lower())
 
@@ -70,17 +77,17 @@ def get_current_time(city: str = "UTC", tool_context: Optional[ToolContext] = No
     try:
         tz = ZoneInfo(tz_identifier)
         now = datetime.datetime.now(tz)
-        report = f'The current time in {city} is {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}'
-        
+        report = (
+            f'The current time in {city} is {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}'
+        )
+
         # Optionally save something to state if tool_context is provided
         if tool_context:
-            tool_context.state['last_time_city'] = city
-        
+            tool_context.state["last_time_city"] = city
+
         logger.info(f"Returning time for {city}: {report}")
         return report
     except Exception as e:
         error_msg = f"An error occurred while fetching the time for {city}: {str(e)}"
         logger.error(f"Error in get_current_time: {error_msg}")
         return error_msg
-
-

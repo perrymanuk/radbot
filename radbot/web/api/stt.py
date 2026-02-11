@@ -4,7 +4,7 @@ FastAPI router for Speech-to-Text transcription.
 
 import logging
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 logger = logging.getLogger(__name__)
 
@@ -51,4 +51,6 @@ async def transcribe(audio: UploadFile = File(...)):
         )
     except Exception as e:
         logger.error(f"STT transcription error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"STT transcription failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"STT transcription failed: {str(e)}"
+        )

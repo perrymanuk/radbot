@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -34,6 +34,13 @@ help:
 	@echo "  make run-web            # Start the web interface using ADK"
 	@echo "  make run-web-custom     # Start the custom FastAPI web interface"
 	@echo "  make run-scheduler ARGS=\"--additional-args\""
+	@echo ""
+	@echo "Docker targets:"
+	@echo "  make docker-build   # Build the radbot Docker image"
+	@echo "  make docker-up      # Start all services (postgres, qdrant, radbot)"
+	@echo "  make docker-down    # Stop all services"
+	@echo "  make docker-logs    # Tail radbot container logs"
+	@echo "  make docker-clean   # Stop all services and remove volumes"
 
 # Set help as the default target
 .DEFAULT_GOAL := help
@@ -85,6 +92,21 @@ dev-frontend:
 
 build-frontend:
 	cd radbot/web/frontend && npm run build
+
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up 
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f radbot
+
+docker-clean:
+	docker compose down -v
 
 clean:
 	rm -rf build/

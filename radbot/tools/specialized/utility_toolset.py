@@ -5,7 +5,7 @@ such as time functions and general utilities.
 """
 
 import logging
-from typing import List, Any, Optional
+from typing import Any, List, Optional
 
 # Import basic utility tools
 try:
@@ -17,6 +17,7 @@ except ImportError:
 from .base_toolset import register_toolset
 
 logger = logging.getLogger(__name__)
+
 
 def create_utility_toolset() -> List[Any]:
     """Create the set of tools for the utility specialized agent.
@@ -36,10 +37,11 @@ def create_utility_toolset() -> List[Any]:
 
     return toolset
 
+
 # Register the toolset with the system
 register_toolset(
     name="utility",
     toolset_func=create_utility_toolset,
     description="Agent providing common utility functions",
-    allowed_transfers=[]  # Only allows transfer back to main orchestrator
+    allowed_transfers=[],  # Only allows transfer back to main orchestrator
 )

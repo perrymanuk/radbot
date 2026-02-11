@@ -5,8 +5,8 @@ This module provides security validation for all filesystem operations,
 ensuring that paths are safely within allowed directories.
 """
 
-import os
 import logging
+import os
 from typing import List, Optional
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,9 @@ def set_allowed_directories(directories: List[str]) -> None:
     """
     global _ALLOWED_DIRECTORIES
     _ALLOWED_DIRECTORIES = [os.path.abspath(os.path.normpath(d)) for d in directories]
-    logger.info(f"Filesystem security: Set allowed directories to {_ALLOWED_DIRECTORIES}")
+    logger.info(
+        f"Filesystem security: Set allowed directories to {_ALLOWED_DIRECTORIES}"
+    )
 
 
 def get_allowed_directories() -> List[str]:
@@ -59,7 +61,9 @@ def validate_path(path: str, must_exist: bool = False) -> str:
         FileNotFoundError: If must_exist is True and path doesn't exist
     """
     if not _ALLOWED_DIRECTORIES:
-        logger.warning("No allowed directories configured, blocking all filesystem access")
+        logger.warning(
+            "No allowed directories configured, blocking all filesystem access"
+        )
         raise PermissionError(
             "Filesystem security error: No allowed directories configured"
         )
@@ -78,7 +82,9 @@ def validate_path(path: str, must_exist: bool = False) -> str:
             return real_path
 
     # Path is outside allowed directories
-    logger.warning(f"Security violation: Attempted access to path outside allowed directories: {path}")
+    logger.warning(
+        f"Security violation: Attempted access to path outside allowed directories: {path}"
+    )
     raise PermissionError(
         f"Filesystem security error: Path is outside allowed directories: {path}"
     )
@@ -98,10 +104,10 @@ def create_parent_directory(path: str) -> None:
         PermissionError: If parent directory is outside allowed directories
     """
     parent_dir = os.path.dirname(path)
-    
+
     # Validate parent directory is within allowed directories
     parent_dir = validate_path(parent_dir)
-    
+
     # Create if it doesn't exist
     if not os.path.exists(parent_dir):
         logger.debug(f"Creating parent directory: {parent_dir}")

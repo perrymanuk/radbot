@@ -20,41 +20,94 @@ Security measures include:
 import logging
 import shlex
 import subprocess
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 # --- Security Configuration ---
 # CRITICAL: Define the *only* commands the agent is allowed to run in strict mode.
 # Keep this list as minimal as absolutely necessary for agent functionality.
 ALLOWED_COMMANDS = {
     # File navigation and inspection
-    "ls", "pwd", "cd", "find", "locate", 
-    
+    "ls",
+    "pwd",
+    "cd",
+    "find",
+    "locate",
     # File content viewing
-    "cat", "head", "tail", "less", "more", "grep", "egrep", "fgrep", "zgrep",
-    
+    "cat",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "grep",
+    "egrep",
+    "fgrep",
+    "zgrep",
     # File manipulation
-    "cp", "mv", "rm", "mkdir", "rmdir", "touch", "chmod", "chown",
-    
+    "cp",
+    "mv",
+    "rm",
+    "mkdir",
+    "rmdir",
+    "touch",
+    "chmod",
+    "chown",
     # System information
-    "ps", "top", "df", "du", "free", "uname", "whoami", "id", "uptime", "w",
-    
+    "ps",
+    "top",
+    "df",
+    "du",
+    "free",
+    "uname",
+    "whoami",
+    "id",
+    "uptime",
+    "w",
     # Network utilities
-    "ping", "netstat", "ifconfig", "ip", "ss", "dig", "nslookup", "curl", "wget",
-    
+    "ping",
+    "netstat",
+    "ifconfig",
+    "ip",
+    "ss",
+    "dig",
+    "nslookup",
+    "curl",
+    "wget",
     # Text processing
-    "echo", "sort", "uniq", "wc", "cut", "awk", "sed", "tr", "diff", "comm",
-    
+    "echo",
+    "sort",
+    "uniq",
+    "wc",
+    "cut",
+    "awk",
+    "sed",
+    "tr",
+    "diff",
+    "comm",
     # Archive and compression
-    "tar", "gzip", "gunzip", "zip", "unzip", "bzip2", "bunzip2",
-    
+    "tar",
+    "gzip",
+    "gunzip",
+    "zip",
+    "unzip",
+    "bzip2",
+    "bunzip2",
     # Code search and version control
-    "rg", "ripgrep", "git", "gh",
-    
+    "rg",
+    "ripgrep",
+    "git",
+    "gh",
     # Python tooling
-    "uv", "pip",
-    
+    "uv",
+    "pip",
     # Miscellaneous utilities
-    "date", "cal", "which", "whereis", "who", "history", "env", "printenv"
+    "date",
+    "cal",
+    "which",
+    "whereis",
+    "who",
+    "history",
+    "env",
+    "printenv",
 }  # Expanded set of commands to provide more functionality
 
 DEFAULT_TIMEOUT = 120  # Default execution timeout in seconds (increased to 2 minutes)
@@ -64,10 +117,10 @@ logger = logging.getLogger(__name__)
 
 
 def execute_shell_command(
-    command: str, 
-    arguments: List[str] = [], 
+    command: str,
+    arguments: List[str] = [],
     timeout: int = DEFAULT_TIMEOUT,
-    strict_mode: bool = True
+    strict_mode: bool = True,
 ) -> Dict[str, Any]:
     """Execute a shell command securely using subprocess.
 
@@ -107,53 +160,53 @@ def execute_shell_command(
         )
 
     # --- Security Check 2: Smart Argument Validation ---
-    # More robust validation that provides reasonable flexibility 
+    # More robust validation that provides reasonable flexibility
     # while maintaining security controls
     sanitized_arguments = []
-    
+
     # High-risk shell metacharacters that could allow command chaining or injection
-    high_risk_chars = [';', '|', '&', '$', '`']
-    
+    high_risk_chars = [";", "|", "&", "$", "`"]
+
     # Exempt certain commands from strict character filtering
     # These commands commonly need special characters in their arguments
     command_exemptions = {
         # Git commands often use special characters
-        "git": ['<', '>', '(', ')', '\\', '..' ],
-        "gh": ['<', '>', '(', ')', '\\', '..' ],
-        
+        "git": ["<", ">", "(", ")", "\\", ".."],
+        "gh": ["<", ">", "(", ")", "\\", ".."],
         # Search tools often need regex patterns with special characters
-        "grep": ['|', '(', ')', '[', ']', '{', '}', '\\', '.'],
-        "egrep": ['|', '(', ')', '[', ']', '{', '}', '\\', '.'],
-        "fgrep": ['|', '(', ')', '[', ']', '{', '}', '\\', '.'],
-        "rg": ['|', '(', ')', '[', ']', '{', '}', '\\', '.'],
-        "ripgrep": ['|', '(', ')', '[', ']', '{', '}', '\\', '.'],
-        
+        "grep": ["|", "(", ")", "[", "]", "{", "}", "\\", "."],
+        "egrep": ["|", "(", ")", "[", "]", "{", "}", "\\", "."],
+        "fgrep": ["|", "(", ")", "[", "]", "{", "}", "\\", "."],
+        "rg": ["|", "(", ")", "[", "]", "{", "}", "\\", "."],
+        "ripgrep": ["|", "(", ")", "[", "]", "{", "}", "\\", "."],
         # Text processing tools that use regex or special syntax
-        "sed": ['|', '(', ')', '[', ']', '{', '}', '\\', '.', '/'],
-        "awk": ['|', '(', ')', '[', ']', '{', '}', '\\', '.', '/'],
-        "tr": ['[', ']', '\\'],
-        
+        "sed": ["|", "(", ")", "[", "]", "{", "}", "\\", ".", "/"],
+        "awk": ["|", "(", ")", "[", "]", "{", "}", "\\", ".", "/"],
+        "tr": ["[", "]", "\\"],
         # Shell utilities that might need path traversal
-        "cd": ['..'],
-        "cp": ['..'],
-        "mv": ['..'],
-        "find": ['..', '(', ')', '\\'],
-        
+        "cd": [".."],
+        "cp": [".."],
+        "mv": [".."],
+        "find": ["..", "(", ")", "\\"],
         # Package managers often use URLs or complex arguments
-        "pip": ['<', '>', '@', '=', '+', '..' ],
-        "uv": ['<', '>', '@', '=', '+', '..' ],
+        "pip": ["<", ">", "@", "=", "+", ".."],
+        "uv": ["<", ">", "@", "=", "+", ".."],
     }
-    
+
     # Get the list of characters exempted for this command
     exempted_chars = command_exemptions.get(command, [])
-    
+
     for arg in arguments:
         # Filter out high-risk characters that aren't exempted for this command
-        risky_chars_present = [char for char in high_risk_chars if char in arg and char not in exempted_chars]
-        
+        risky_chars_present = [
+            char
+            for char in high_risk_chars
+            if char in arg and char not in exempted_chars
+        ]
+
         # Check for potential path traversal (.. in paths) unless exempted
-        path_traversal_risk = '..' in arg and '..' not in exempted_chars
-        
+        path_traversal_risk = ".." in arg and ".." not in exempted_chars
+
         if risky_chars_present:
             error_message = f"Error: Argument '{arg}' contains potentially unsafe characters: {', '.join(risky_chars_present)}"
             logger.warning(f"Rejected unsafe argument for command '{command}': {arg}")
@@ -163,17 +216,19 @@ def execute_shell_command(
                 "return_code": -1,
                 "error": error_message,
             }
-        
+
         if path_traversal_risk:
             error_message = f"Error: Argument '{arg}' contains path traversal sequences which are not allowed for this command."
-            logger.warning(f"Rejected path traversal in argument for command '{command}': {arg}")
+            logger.warning(
+                f"Rejected path traversal in argument for command '{command}': {arg}"
+            )
             return {
                 "stdout": "",
                 "stderr": error_message,
                 "return_code": -1,
                 "error": error_message,
             }
-            
+
         sanitized_arguments.append(arg)
 
     command_to_run = [command] + sanitized_arguments
@@ -184,10 +239,10 @@ def execute_shell_command(
         result = subprocess.run(
             command_to_run,
             capture_output=True,  # Capture stdout/stderr
-            text=True,            # Decode stdout/stderr as text
-            check=False,          # Manually handle return codes
-            timeout=timeout,      # Enforce execution time limit
-            shell=False,          # CRITICAL: Prevent shell interpretation
+            text=True,  # Decode stdout/stderr as text
+            check=False,  # Manually handle return codes
+            timeout=timeout,  # Enforce execution time limit
+            shell=False,  # CRITICAL: Prevent shell interpretation
         )
 
         # --- Process Results ---

@@ -33,6 +33,7 @@ async def list_scheduled_tasks():
     try:
         from radbot.tools.scheduler.db import list_tasks
         from radbot.tools.shared.serialization import serialize_rows
+
         tasks = list_tasks()
         return serialize_rows(tasks)
     except Exception as e:
@@ -45,6 +46,7 @@ async def create_scheduled_task(body: ScheduledTaskCreate):
     """Create a new scheduled task via REST."""
     try:
         from radbot.tools.scheduler.db import create_task
+
         row = create_task(
             name=body.name,
             cron_expression=body.cron_expression,
@@ -57,6 +59,7 @@ async def create_scheduled_task(body: ScheduledTaskCreate):
         # Register with the engine
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.register_job(row)
@@ -79,12 +82,14 @@ async def trigger_scheduled_task(task_id: str):
 
     try:
         from radbot.tools.scheduler.engine import SchedulerEngine
+
         engine = SchedulerEngine.get_instance()
         if not engine:
             raise HTTPException(status_code=503, detail="Scheduler engine not running")
 
         # Look up the task from DB
         from radbot.tools.scheduler.db import list_tasks
+
         tasks = list_tasks()
         task = next((t for t in tasks if str(t["task_id"]) == task_id), None)
         if not task:
@@ -117,6 +122,7 @@ async def delete_scheduled_task(task_id: str):
         # Unregister from engine
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.unregister_job(task_id)
@@ -124,6 +130,7 @@ async def delete_scheduled_task(task_id: str):
             logger.warning(f"Could not unregister from engine: {e}")
 
         from radbot.tools.scheduler.db import delete_task
+
         success = delete_task(task_uuid)
         if success:
             return ScheduledTaskResponse(status="success", task_id=task_id)

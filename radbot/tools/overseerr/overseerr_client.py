@@ -31,6 +31,7 @@ def _get_config() -> dict:
     """Pull Overseerr settings from config manager, credential store, then env."""
     try:
         from radbot.config.config_loader import config_loader
+
         cfg = config_loader.get_integrations_config().get("overseerr", {})
     except Exception:
         cfg = {}
@@ -43,6 +44,7 @@ def _get_config() -> dict:
     if not api_key:
         try:
             from radbot.credentials.store import get_credential_store
+
             store = get_credential_store()
             if store.available:
                 api_key = store.get("overseerr_api_key")
@@ -64,33 +66,43 @@ class OverseerrClient:
     def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url.rstrip("/")
         self._session = requests.Session()
-        self._session.headers.update({
-            "X-Api-Key": api_key,
-            "Accept": "application/json",
-        })
+        self._session.headers.update(
+            {
+                "X-Api-Key": api_key,
+                "Accept": "application/json",
+            }
+        )
 
     # ── helpers ────────────────────────────────────────────────
 
     def _get(self, path: str, params: Optional[dict] = None) -> Any:
         resp = self._session.get(
-            f"{self.base_url}{path}", params=params, timeout=15,
+            f"{self.base_url}{path}",
+            params=params,
+            timeout=15,
         )
         if not resp.ok:
             logger.error(
                 "Overseerr GET %s returned %d: %s",
-                path, resp.status_code, resp.text[:500],
+                path,
+                resp.status_code,
+                resp.text[:500],
             )
         resp.raise_for_status()
         return resp.json()
 
     def _post(self, path: str, json_body: dict) -> Any:
         resp = self._session.post(
-            f"{self.base_url}{path}", json=json_body, timeout=15,
+            f"{self.base_url}{path}",
+            json=json_body,
+            timeout=15,
         )
         if not resp.ok:
             logger.error(
                 "Overseerr POST %s returned %d: %s",
-                path, resp.status_code, resp.text[:500],
+                path,
+                resp.status_code,
+                resp.text[:500],
             )
         resp.raise_for_status()
         return resp.json()

@@ -10,8 +10,8 @@ from typing import Any, List, Optional, Union
 
 from google.adk.agents import Agent
 
+from radbot.agent.execution_agent.agent import AxelExecutionAgent, ExecutionAgent
 from radbot.config import config_manager
-from radbot.agent.execution_agent.agent import ExecutionAgent, AxelExecutionAgent
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -24,11 +24,11 @@ def create_execution_agent(
     tools: Optional[List[Any]] = None,
     as_subagent: bool = True,
     enable_code_execution: bool = True,
-    app_name: str = "beto"
+    app_name: str = "beto",
 ) -> Union[ExecutionAgent, Any]:
     """
     Create an execution agent with the specified configuration.
-    
+
     Args:
         name: Name of the agent (should be "axel" for consistent transfers)
         model: LLM model to use (defaults to config setting)
@@ -37,7 +37,7 @@ def create_execution_agent(
         as_subagent: Whether to return the ExecutionAgent or the underlying ADK agent
         enable_code_execution: Whether to enable Code Execution capability
         app_name: Application name (should match the parent agent name for ADK 0.4.0+)
-        
+
     Returns:
         Union[ExecutionAgent, Any]: The created agent instance
     """
@@ -45,7 +45,7 @@ def create_execution_agent(
     if model is None:
         model = config_manager.get_agent_model("axel_agent")
         logger.info(f"Using model from config for axel_agent: {model}")
-    
+
     # Get the instruction file or use the provided custom instruction
     if custom_instruction:
         instruction = custom_instruction
@@ -57,7 +57,7 @@ def create_execution_agent(
         except FileNotFoundError:
             logger.warning("Instruction 'axel.md' not found, using minimal instruction")
             instruction = "You are Axel, a specialized execution agent focused on implementing specifications."
-    
+
     # Create the tool list
     agent_tools = []
     if tools:
@@ -69,6 +69,7 @@ def create_execution_agent(
     # Add agent-scoped memory tools
     try:
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+
         memory_tools = create_agent_memory_tools("axel")
         agent_tools.extend(memory_tools)
         logger.info("Added agent-scoped memory tools to Axel")
@@ -78,6 +79,7 @@ def create_execution_agent(
     # Add filesystem tools via MCP
     try:
         from radbot.tools.mcp import create_fileserver_toolset
+
         fs_tools = create_fileserver_toolset()
         if fs_tools:
             agent_tools.extend(fs_tools)
@@ -88,6 +90,7 @@ def create_execution_agent(
     # Add dynamic MCP tools
     try:
         from radbot.tools.mcp.dynamic_tools_loader import load_dynamic_mcp_tools
+
         mcp_tools = load_dynamic_mcp_tools()
         if mcp_tools:
             agent_tools.extend(mcp_tools)
@@ -98,6 +101,7 @@ def create_execution_agent(
     # Add artifacts loading tool
     try:
         from google.adk.tools import load_artifacts
+
         agent_tools.append(load_artifacts)
         logger.info("Added load_artifacts tool to Axel")
     except Exception as e:
@@ -107,19 +111,21 @@ def create_execution_agent(
     if enable_code_execution:
         try:
             from radbot.tools.shell import get_shell_tool
+
             shell_tool = get_shell_tool(strict_mode=True)
             agent_tools.append(shell_tool)
             logger.info("Added shell command execution tool to Axel agent")
         except Exception as e:
             logger.warning(f"Failed to add shell tool to Axel: {e}")
         logger.info("Code execution capability enabled for Axel agent")
-    
+
     # Add transfer instructions
     transfer_instructions = (
-        "\n\nIMPORTANT: When you have completed your task, you MUST use the transfer_to_agent tool "
-        "to transfer back to beto. Call transfer_to_agent(agent_name='beto') to return control "
-        "to the main agent. You can also transfer to scout for research tasks by calling "
-        "transfer_to_agent(agent_name='scout')."
+        "\n\nCRITICAL RULE — Returning control:\n"
+        "1. First, complete your task using your tools and compose your full text response with the results.\n"
+        "2. Then, call transfer_to_agent(agent_name='beto') to return control to the main agent.\n"
+        "You MUST always do BOTH steps — never return without text content, and never skip the transfer back.\n"
+        "You can also transfer to scout for research tasks by calling transfer_to_agent(agent_name='scout')."
     )
     full_instruction = instruction + transfer_instructions
 
@@ -130,7 +136,7 @@ def create_execution_agent(
         instruction=full_instruction,
         tools=agent_tools,
         enable_code_execution=enable_code_execution,
-        app_name=app_name
+        app_name=app_name,
     )
 
     logger.info(f"Created Axel execution agent with {len(agent_tools)} tools")
@@ -143,12 +149,12 @@ def create_execution_agent(
             model=model,
             description="A specialized agent for implementing code, executing tasks, and managing project files.",
             instruction=full_instruction,
-            tools=agent_tools
+            tools=agent_tools,
         )
-        
+
         # Store the execution_agent reference on the ADK agent for later access
         adk_agent._execution_agent = execution_agent
-        
+
         logger.info(f"Returning ADK agent for {name} to use as subagent")
         return adk_agent
     else:

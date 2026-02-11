@@ -4,10 +4,10 @@ Text embedding utilities for the Qdrant memory system.
 Uses the google-genai package (not google-generativeai) for Gemini embeddings.
 """
 
-import os
 import logging
-from typing import List, Any, Optional
+import os
 from dataclasses import dataclass
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
 
@@ -16,9 +16,11 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class EmbeddingModel:
     """Data class for embedding model information."""
+
     name: str
     vector_size: int
     client: Any  # The actual embedding client instance
@@ -34,7 +36,9 @@ def get_embedding_model() -> EmbeddingModel:
     embed_model = os.getenv("radbot_EMBED_MODEL", "gemini").lower()
 
     if embed_model != "gemini":
-        logger.warning(f"Unknown embedding model '{embed_model}', falling back to Gemini")
+        logger.warning(
+            f"Unknown embedding model '{embed_model}', falling back to Gemini"
+        )
     return _initialize_gemini_embedding()
 
 
@@ -52,25 +56,32 @@ def _initialize_gemini_embedding() -> EmbeddingModel:
     if not api_key:
         try:
             from radbot.config.config_loader import config_loader
+
             config = config_loader.get_config()
             api_key = config.get("api_keys", {}).get("google")
         except Exception as e:
             logger.warning(f"Could not load API key from config: {e}")
 
     if not api_key:
-        raise ValueError("No Google API key found. Set GOOGLE_API_KEY env var or api_keys.google in config.yaml")
+        raise ValueError(
+            "No Google API key found. Set GOOGLE_API_KEY env var or api_keys.google in config.yaml"
+        )
 
     client = genai.Client(api_key=api_key)
 
     return EmbeddingModel(
         name="gemini-embedding-001",
         vector_size=768,  # Using output_dimensionality=768 for compatibility
-        client=client
+        client=client,
     )
 
 
-
-def embed_text(text: str, model: EmbeddingModel, is_query: bool = True, source: str = "agent_memory") -> List[float]:
+def embed_text(
+    text: str,
+    model: EmbeddingModel,
+    is_query: bool = True,
+    source: str = "agent_memory",
+) -> List[float]:
     """
     Generate embedding vector for a text string.
 
@@ -93,7 +104,7 @@ def embed_text(text: str, model: EmbeddingModel, is_query: bool = True, source: 
                 config={
                     "task_type": task_type,
                     "output_dimensionality": model.vector_size,
-                }
+                },
             )
             return list(result.embeddings[0].values)
 

@@ -19,16 +19,19 @@ logger = logging.getLogger(__name__)
 def _get_search_agent():
     """Lazily import the search agent to avoid circular imports."""
     from radbot.agent.agent_tools_setup import search_agent
+
     return search_agent
 
 
 def _get_code_execution_agent():
     """Lazily import the code execution agent to avoid circular imports."""
     from radbot.agent.agent_tools_setup import code_execution_agent
+
     return code_execution_agent
 
 
 def _get_scout_agent():
     """Lazily import the scout agent to avoid circular imports."""
     from radbot.agent.agent_tools_setup import scout_agent
+
     return scout_agent

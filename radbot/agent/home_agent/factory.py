@@ -14,9 +14,10 @@ from radbot.config import config_manager
 logger = logging.getLogger(__name__)
 
 TRANSFER_INSTRUCTIONS = (
-    "\n\nIMPORTANT: When you have completed your task, you MUST use the transfer_to_agent tool "
-    "to transfer back to beto. Call transfer_to_agent(agent_name='beto') to return control "
-    "to the main agent."
+    "\n\nCRITICAL RULE — Returning control:\n"
+    "1. First, complete your task using your tools and compose your full text response with the results.\n"
+    "2. Then, call transfer_to_agent(agent_name='beto') to return control to the main agent.\n"
+    "You MUST always do BOTH steps — never return without text content, and never skip the transfer back."
 )
 
 
@@ -49,21 +50,24 @@ def create_home_agent() -> Optional[Agent]:
         # Home Assistant tools
         try:
             from radbot.tools.homeassistant import (
-                list_ha_entities,
                 get_ha_entity_state,
-                turn_on_ha_entity,
-                turn_off_ha_entity,
-                toggle_ha_entity,
+                list_ha_entities,
                 search_ha_entities,
+                toggle_ha_entity,
+                turn_off_ha_entity,
+                turn_on_ha_entity,
             )
-            tools.extend([
-                search_ha_entities,
-                list_ha_entities,
-                get_ha_entity_state,
-                turn_on_ha_entity,
-                turn_off_ha_entity,
-                toggle_ha_entity,
-            ])
+
+            tools.extend(
+                [
+                    search_ha_entities,
+                    list_ha_entities,
+                    get_ha_entity_state,
+                    turn_on_ha_entity,
+                    turn_off_ha_entity,
+                    toggle_ha_entity,
+                ]
+            )
             logger.info("Added 6 Home Assistant tools to Casa")
         except Exception as e:
             logger.warning(f"Failed to add HA tools to Casa: {e}")
@@ -71,6 +75,7 @@ def create_home_agent() -> Optional[Agent]:
         # Overseerr tools
         try:
             from radbot.tools.overseerr import OVERSEERR_TOOLS
+
             tools.extend(OVERSEERR_TOOLS)
             logger.info(f"Added {len(OVERSEERR_TOOLS)} Overseerr tools to Casa")
         except Exception as e:
@@ -78,6 +83,7 @@ def create_home_agent() -> Optional[Agent]:
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+
         memory_tools = create_agent_memory_tools("casa")
         tools.extend(memory_tools)
 
@@ -95,5 +101,6 @@ def create_home_agent() -> Optional[Agent]:
     except Exception as e:
         logger.error(f"Failed to create Casa agent: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
         return None

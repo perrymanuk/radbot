@@ -4,12 +4,12 @@ Home Assistant client singleton module.
 This module provides a shared Home Assistant client instance to avoid circular imports.
 """
 
-import os
 import logging
+import os
 from typing import Optional
 
-from radbot.tools.homeassistant.ha_rest_client import HomeAssistantRESTClient
 from radbot.config.config_loader import config_loader
+from radbot.tools.homeassistant.ha_rest_client import HomeAssistantRESTClient
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ def get_ha_client() -> Optional[HomeAssistantRESTClient]:
     if not ha_token:
         try:
             from radbot.credentials.store import get_credential_store
+
             store = get_credential_store()
             if store.available:
                 ha_token = store.get("ha_token") or ""
@@ -65,7 +66,9 @@ def get_ha_client() -> Optional[HomeAssistantRESTClient]:
         ha_token = os.getenv("HA_TOKEN")
 
     if not ha_url or not ha_token:
-        logger.warning("Home Assistant URL or token not found in config, credential store, or environment variables.")
+        logger.warning(
+            "Home Assistant URL or token not found in config, credential store, or environment variables."
+        )
         return None
 
     try:

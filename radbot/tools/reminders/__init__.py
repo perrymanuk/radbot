@@ -5,13 +5,13 @@ This package provides tools for creating, listing, and deleting one-shot reminde
 that fire at a specific datetime. Reminders persist in PostgreSQL and survive restarts.
 """
 
-from .reminder_tools import (
-    create_reminder_tool,
-    list_reminders_tool,
-    delete_reminder_tool,
-    REMINDER_TOOLS,
-)
 from .db import init_reminder_schema
+from .reminder_tools import (
+    REMINDER_TOOLS,
+    create_reminder_tool,
+    delete_reminder_tool,
+    list_reminders_tool,
+)
 
 __all__ = [
     "create_reminder_tool",

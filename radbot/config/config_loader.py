@@ -2,17 +2,19 @@
 ConfigLoader for YAML-based configuration with environment variable interpolation.
 """
 
-import os
-import re
-import yaml
 import json
 import logging
+import os
+import re
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union, TypeVar, Type, cast
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
+
+import yaml
 
 # Try to import jsonschema for validation, but make it optional
 try:
     import jsonschema
+
     JSONSCHEMA_AVAILABLE = True
 except ImportError:
     JSONSCHEMA_AVAILABLE = False
@@ -21,11 +23,14 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Type variable for Python classes
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ConfigError(Exception):
     """Exception raised for configuration errors."""
+
     pass
+
 
 class ConfigLoader:
     """
@@ -45,7 +50,7 @@ class ConfigLoader:
         self.config = self._load_config()
         env_label = self.env or "production"
         logger.info(f"ConfigLoader: env={env_label}, config={self.config_path}")
-        
+
     def _find_config_path(self, config_path: Optional[Union[str, Path]] = None) -> Path:
         """
         Find the configuration file path.
@@ -84,7 +89,9 @@ class ConfigLoader:
             if path.exists():
                 return path
             else:
-                logger.warning(f"Config path from environment variable does not exist: {path}")
+                logger.warning(
+                    f"Config path from environment variable does not exist: {path}"
+                )
 
         # Build candidate filenames: env-specific first, then generic
         candidates: List[str] = []
@@ -122,22 +129,24 @@ class ConfigLoader:
 
         # If we reach here, we couldn't find config.yaml
         # Instead of raising an error, return a default path for potential creation
-        logger.warning(f"No config.yaml found. Using default configuration with environment variables.")
+        logger.warning(
+            f"No config.yaml found. Using default configuration with environment variables."
+        )
         return project_root / "config.yaml"
 
     def _load_schema(self) -> Dict[str, Any]:
         """
         Load the JSON schema for validation.
-        
+
         Returns:
             Dictionary containing the JSON schema
         """
         if not self.schema_path.exists():
             logger.warning(f"Schema file not found: {self.schema_path}")
             return {}
-        
+
         try:
-            with open(self.schema_path, 'r') as f:
+            with open(self.schema_path, "r") as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Error loading schema: {e}")
@@ -146,23 +155,23 @@ class ConfigLoader:
     def _interpolate_env_vars(self, value: Any) -> Any:
         """
         Recursively interpolate environment variables in configuration values.
-        
+
         Replaces "${ENV_VAR}" or "$ENV_VAR" with the value of the environment variable.
-        
+
         Args:
             value: The value to interpolate, can be a string, list, or dictionary
-            
+
         Returns:
             The value with environment variables interpolated
         """
         if isinstance(value, str):
             # Match ${ENV_VAR} or $ENV_VAR
-            pattern = r'\${([^}]+)}|\$([a-zA-Z0-9_]+)'
-            
+            pattern = r"\${([^}]+)}|\$([a-zA-Z0-9_]+)"
+
             def replace_env_var(match):
                 env_var = match.group(1) or match.group(2)
                 return os.environ.get(env_var, f"${{{env_var}}}")
-            
+
             return re.sub(pattern, replace_env_var, value)
         elif isinstance(value, list):
             return [self._interpolate_env_vars(item) for item in value]
@@ -174,27 +183,29 @@ class ConfigLoader:
     def _validate_config(self, config: Dict[str, Any], schema: Dict[str, Any]) -> None:
         """
         Validate the configuration against the schema.
-        
+
         Args:
             config: The configuration to validate
             schema: The JSON schema to validate against
-            
+
         Raises:
             ConfigError: If validation fails
         """
         if not JSONSCHEMA_AVAILABLE:
-            logger.warning("jsonschema package not available. Skipping configuration validation.")
+            logger.warning(
+                "jsonschema package not available. Skipping configuration validation."
+            )
             return
-        
+
         if not schema:
             logger.warning("No schema available. Skipping configuration validation.")
             return
-        
+
         try:
             jsonschema.validate(instance=config, schema=schema)
         except jsonschema.exceptions.ValidationError as e:
             # Provide a more user-friendly error message
-            path = ' -> '.join([str(p) for p in e.path])
+            path = " -> ".join([str(p) for p in e.path])
             message = f"Configuration validation error: {e.message}"
             if path:
                 message = f"{message} (at {path})"
@@ -203,29 +214,31 @@ class ConfigLoader:
     def _load_config(self) -> Dict[str, Any]:
         """
         Load and validate the configuration file.
-        
+
         Returns:
             Dictionary containing the configuration
-            
+
         Raises:
             ConfigError: If the configuration file cannot be loaded or is invalid
         """
         # If the config file doesn't exist, return empty dict for fallback to env vars
         if not self.config_path.exists():
-            logger.info(f"Configuration file not found: {self.config_path}. Using default configuration.")
+            logger.info(
+                f"Configuration file not found: {self.config_path}. Using default configuration."
+            )
             return self._get_default_config()
-        
+
         try:
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path, "r") as f:
                 config = yaml.safe_load(f) or {}
-            
+
             # Interpolate environment variables
             config = self._interpolate_env_vars(config)
-            
+
             # Validate against schema
             schema = self._load_schema()
             self._validate_config(config, schema)
-            
+
             return config
         except yaml.YAMLError as e:
             error_msg = f"Error parsing config.yaml: {e}"
@@ -239,7 +252,7 @@ class ConfigLoader:
     def _get_default_config(self) -> Dict[str, Any]:
         """
         Get a default configuration based on environment variables.
-        
+
         Returns:
             Dictionary containing the default configuration
         """
@@ -254,15 +267,18 @@ class ConfigLoader:
                     "scout_agent": os.getenv("RADBOT_SCOUT_AGENT_MODEL", ""),
                     "todo_agent": os.getenv("RADBOT_TODO_AGENT_MODEL", ""),
                 },
-                "use_vertex_ai": os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE").upper() == "TRUE",
+                "use_vertex_ai": os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE").upper()
+                == "TRUE",
                 "vertex_project": os.getenv("GOOGLE_CLOUD_PROJECT"),
-                "vertex_location": os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+                "vertex_location": os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
             },
             "cache": {
-                "enabled": os.getenv("RADBOT_CACHE_ENABLED", "TRUE").upper() in ('TRUE', 'YES', '1'),
+                "enabled": os.getenv("RADBOT_CACHE_ENABLED", "TRUE").upper()
+                in ("TRUE", "YES", "1"),
                 "ttl": int(os.getenv("RADBOT_CACHE_TTL", "3600")),
                 "max_size": int(os.getenv("RADBOT_CACHE_MAX_SIZE", "1000")),
-                "selective": os.getenv("RADBOT_CACHE_SELECTIVE", "TRUE").upper() in ('TRUE', 'YES', '1'),
+                "selective": os.getenv("RADBOT_CACHE_SELECTIVE", "TRUE").upper()
+                in ("TRUE", "YES", "1"),
                 "min_tokens": int(os.getenv("RADBOT_CACHE_MIN_TOKENS", "50")),
                 "redis_url": os.getenv("REDIS_URL"),
             },
@@ -272,17 +288,21 @@ class ConfigLoader:
                     "url": os.getenv("HA_URL"),
                     "token": os.getenv("HA_TOKEN"),
                 },
-                "mcp": {
-                    "servers": []
-                }
-            }
+                "mcp": {"servers": []},
+            },
         }
 
-    def _deep_merge(self, base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
+    def _deep_merge(
+        self, base: Dict[str, Any], overlay: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Deep-merge *overlay* into *base* (overlay wins on leaf conflicts)."""
         merged = dict(base)
         for key, value in overlay.items():
-            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            if (
+                key in merged
+                and isinstance(merged[key], dict)
+                and isinstance(value, dict)
+            ):
                 merged[key] = self._deep_merge(merged[key], value)
             else:
                 merged[key] = value
@@ -299,6 +319,7 @@ class ConfigLoader:
         """
         try:
             from radbot.credentials.store import get_credential_store
+
             store = get_credential_store()
             if not store.available:
                 return
@@ -307,6 +328,7 @@ class ConfigLoader:
             full_json = store.get("config:full")
             if full_json:
                 import json as _json
+
                 db_config = _json.loads(full_json)
                 # Preserve the database section from file config (bootstrap)
                 db_section = self.config.get("database")
@@ -318,24 +340,33 @@ class ConfigLoader:
 
             # Otherwise merge individual sections
             import json as _json
+
             for entry in store.list():
                 name = entry["name"]
                 if not name.startswith("config:"):
                     continue
-                section = name[len("config:"):]
+                section = name[len("config:") :]
                 if section == "database":
                     continue  # never override DB bootstrap from the store
                 raw = store.get(name)
                 if raw:
                     try:
                         section_data = _json.loads(raw)
-                        if section in self.config and isinstance(self.config[section], dict):
-                            self.config[section] = self._deep_merge(self.config[section], section_data)
+                        if section in self.config and isinstance(
+                            self.config[section], dict
+                        ):
+                            self.config[section] = self._deep_merge(
+                                self.config[section], section_data
+                            )
                         else:
                             self.config[section] = section_data
-                        logger.info(f"Merged config section '{section}' from credential store")
+                        logger.info(
+                            f"Merged config section '{section}' from credential store"
+                        )
                     except _json.JSONDecodeError:
-                        logger.warning(f"Invalid JSON in credential store key '{name}', skipping")
+                        logger.warning(
+                            f"Invalid JSON in credential store key '{name}', skipping"
+                        )
         except Exception as e:
             logger.debug(f"Could not load config from credential store: {e}")
 
@@ -351,7 +382,7 @@ class ConfigLoader:
     def get_agent_config(self) -> Dict[str, Any]:
         """
         Get the agent configuration section.
-        
+
         Returns:
             Dictionary containing the agent configuration
         """
@@ -360,7 +391,7 @@ class ConfigLoader:
     def get_cache_config(self) -> Dict[str, Any]:
         """
         Get the cache configuration section.
-        
+
         Returns:
             Dictionary containing the cache configuration
         """
@@ -369,7 +400,7 @@ class ConfigLoader:
     def get_integrations_config(self) -> Dict[str, Any]:
         """
         Get the integrations configuration section.
-        
+
         Returns:
             Dictionary containing the integrations configuration
         """
@@ -378,7 +409,7 @@ class ConfigLoader:
     def get_home_assistant_config(self) -> Dict[str, Any]:
         """
         Get the Home Assistant configuration.
-        
+
         Returns:
             Dictionary containing the Home Assistant configuration
         """
@@ -388,7 +419,7 @@ class ConfigLoader:
     def get_mcp_config(self) -> Dict[str, Any]:
         """
         Get the MCP configuration.
-        
+
         Returns:
             Dictionary containing the MCP configuration
         """
@@ -398,7 +429,7 @@ class ConfigLoader:
     def get_mcp_servers(self) -> List[Dict[str, Any]]:
         """
         Get all configured MCP servers.
-        
+
         Returns:
             List of MCP server configurations
         """
@@ -408,7 +439,7 @@ class ConfigLoader:
     def get_enabled_mcp_servers(self) -> List[Dict[str, Any]]:
         """
         Get only enabled MCP servers.
-        
+
         Returns:
             List of enabled MCP server configurations
         """
@@ -418,10 +449,10 @@ class ConfigLoader:
     def get_mcp_server(self, server_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a specific MCP server by ID.
-        
+
         Args:
             server_id: The ID of the MCP server
-            
+
         Returns:
             Dictionary containing the MCP server configuration, or None if not found
         """
@@ -434,10 +465,10 @@ class ConfigLoader:
     def is_mcp_server_enabled(self, server_id: str) -> bool:
         """
         Check if a specific MCP server is enabled.
-        
+
         Args:
             server_id: The ID of the MCP server
-            
+
         Returns:
             Boolean indicating if the server is enabled
         """
@@ -449,11 +480,12 @@ class ConfigLoader:
     def get_logging_config(self) -> Dict[str, Any]:
         """
         Get the logging configuration.
-        
+
         Returns:
             Dictionary containing the logging configuration
         """
         return self.config.get("logging", {})
+
 
 # Create a singleton instance
 config_loader = ConfigLoader()

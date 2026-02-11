@@ -31,6 +31,7 @@ def _resolve_path(obj: Any, path: str) -> str:
         if current is None:
             return ""
     from radbot.tools.shared.sanitize import sanitize_text
+
     return sanitize_text(str(current), source="webhook")
 
 

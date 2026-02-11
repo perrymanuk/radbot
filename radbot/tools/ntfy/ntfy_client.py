@@ -24,6 +24,7 @@ def _get_config() -> dict:
     """Pull ntfy settings from config manager, credential store, then env."""
     try:
         from radbot.config.config_loader import config_loader
+
         cfg = config_loader.get_integrations_config().get("ntfy", {})
     except Exception:
         cfg = {}
@@ -33,12 +34,15 @@ def _get_config() -> dict:
     token = cfg.get("token") or os.environ.get("NTFY_TOKEN") or ""
     enabled = cfg.get("enabled", True)
     default_priority = cfg.get("default_priority", "default")
-    click_base_url = cfg.get("click_base_url") or os.environ.get("NTFY_CLICK_BASE_URL") or ""
+    click_base_url = (
+        cfg.get("click_base_url") or os.environ.get("NTFY_CLICK_BASE_URL") or ""
+    )
 
     # Try credential store for token if not found above
     if not token:
         try:
             from radbot.credentials.store import get_credential_store
+
             store = get_credential_store()
             if store.available:
                 token = store.get("ntfy_token") or ""
@@ -73,7 +77,9 @@ class NtfyClient:
     ):
         self.server_url = server_url.rstrip("/")
         self.topic = topic
-        self.default_priority = default_priority if default_priority in self.PRIORITIES else "default"
+        self.default_priority = (
+            default_priority if default_priority in self.PRIORITIES else "default"
+        )
         self.click_base_url = click_base_url.rstrip("/") if click_base_url else ""
 
         headers: Dict[str, str] = {}
@@ -129,7 +135,8 @@ class NtfyClient:
                 else:
                     logger.warning(
                         "ntfy publish returned %d: %s",
-                        resp.status_code, resp.text[:200],
+                        resp.status_code,
+                        resp.text[:200],
                     )
                     return None
         except Exception as e:
@@ -144,7 +151,10 @@ class NtfyClient:
             tags="white_check_mark,robot",
         )
         if result:
-            return {"status": "ok", "message": f"Test notification sent to {self.topic}"}
+            return {
+                "status": "ok",
+                "message": f"Test notification sent to {self.topic}",
+            }
         return {"status": "error", "message": "Failed to send test notification"}
 
 

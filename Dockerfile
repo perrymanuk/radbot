@@ -5,7 +5,7 @@ WORKDIR /frontend
 COPY radbot/web/frontend/package.json radbot/web/frontend/package-lock.json* ./
 RUN npm ci
 COPY radbot/web/frontend/ .
-RUN npm run build
+RUN npx tsc -b && npx vite build --outDir dist
 
 # Stage 2: Python application
 FROM python:3.10-slim AS base
@@ -26,7 +26,7 @@ COPY radbot/ radbot/
 COPY agent.py .
 
 # Copy built frontend assets into the static directory
-COPY --from=frontend-build /static/dist radbot/web/static/dist/
+COPY --from=frontend-build /frontend/dist radbot/web/static/dist/
 
 # Re-run install so the editable package picks up the source
 RUN pip install --no-cache-dir -e ".[web]"

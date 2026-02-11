@@ -20,12 +20,14 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Import ADK components
 from google.adk.agents import Agent
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
+
 from radbot.config import config_manager
 
 # Log basic info

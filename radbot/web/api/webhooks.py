@@ -26,12 +26,14 @@ class WebhookCreateBody(BaseModel):
 
 # ---- management endpoints ----
 
+
 @router.get("/definitions")
 async def list_webhook_definitions():
     """List all webhook definitions."""
     try:
-        from radbot.tools.webhooks.db import list_webhooks
         from radbot.tools.shared.serialization import serialize_rows
+        from radbot.tools.webhooks.db import list_webhooks
+
         webhooks = list_webhooks()
         return serialize_rows(webhooks, mask_fields={"secret": "***"})
     except Exception as e:
@@ -44,6 +46,7 @@ async def create_webhook_definition(body: WebhookCreateBody):
     """Create a webhook definition via REST."""
     try:
         from radbot.tools.webhooks.db import create_webhook
+
         row = create_webhook(
             name=body.name,
             path_suffix=body.path_suffix,
@@ -66,6 +69,7 @@ async def delete_webhook_definition(webhook_id: str):
 
     try:
         from radbot.tools.webhooks.db import delete_webhook
+
         success = delete_webhook(wh_uuid)
         if success:
             return {"status": "success", "webhook_id": webhook_id}
@@ -78,6 +82,7 @@ async def delete_webhook_definition(webhook_id: str):
 
 
 # ---- trigger endpoint ----
+
 
 def _verify_hmac(secret: str, body: bytes, signature: str) -> bool:
     """Verify HMAC-SHA256 signature."""
@@ -103,14 +108,18 @@ async def trigger_webhook(path_suffix: str, request: Request):
     # Look up webhook
     webhook = get_webhook_by_path(path_suffix)
     if not webhook:
-        raise HTTPException(status_code=404, detail=f"No webhook found for path: {path_suffix}")
+        raise HTTPException(
+            status_code=404, detail=f"No webhook found for path: {path_suffix}"
+        )
 
     # Read raw body for HMAC verification
     raw_body = await request.body()
 
     # Verify HMAC if secret is set
     if webhook.get("secret"):
-        sig_header = request.headers.get("X-Signature-256", "") or request.headers.get("X-Hub-Signature-256", "")
+        sig_header = request.headers.get("X-Signature-256", "") or request.headers.get(
+            "X-Hub-Signature-256", ""
+        )
         # Strip "sha256=" prefix if present (GitHub style)
         sig = sig_header.replace("sha256=", "")
         if not sig or not _verify_hmac(webhook["secret"], raw_body, sig):
@@ -124,7 +133,9 @@ async def trigger_webhook(path_suffix: str, request: Request):
 
     # Render the prompt
     rendered_prompt = render_template(webhook["prompt_template"], payload)
-    logger.info(f"Webhook '{webhook['name']}' triggered, rendered prompt: {rendered_prompt[:100]}")
+    logger.info(
+        f"Webhook '{webhook['name']}' triggered, rendered prompt: {rendered_prompt[:100]}"
+    )
 
     # Record the trigger
     try:
@@ -134,6 +145,7 @@ async def trigger_webhook(path_suffix: str, request: Request):
 
     # Process the prompt asynchronously and push results via WebSocket
     import asyncio
+
     asyncio.create_task(
         _process_and_broadcast(
             webhook_id=str(webhook["webhook_id"]),
@@ -145,12 +157,14 @@ async def trigger_webhook(path_suffix: str, request: Request):
     return {"status": "accepted", "webhook_id": str(webhook["webhook_id"])}
 
 
-async def _process_and_broadcast(webhook_id: str, webhook_name: str, prompt: str) -> None:
+async def _process_and_broadcast(
+    webhook_id: str, webhook_name: str, prompt: str
+) -> None:
     """Send the rendered prompt to the agent and broadcast the result."""
     response_text = ""
     try:
-        from radbot.web.api.session.dependencies import get_or_create_runner_for_session
         from radbot.web.api.session import get_session_manager
+        from radbot.web.api.session.dependencies import get_or_create_runner_for_session
 
         session_manager = get_session_manager()
         runner = await get_or_create_runner_for_session(
@@ -158,7 +172,9 @@ async def _process_and_broadcast(webhook_id: str, webhook_name: str, prompt: str
         )
         result = await runner.process_message(prompt)
         response_text = result.get("response", "")
-        logger.info(f"Webhook '{webhook_name}' processed, response length={len(response_text)}")
+        logger.info(
+            f"Webhook '{webhook_name}' processed, response length={len(response_text)}"
+        )
     except Exception as e:
         response_text = f"Error processing webhook: {e}"
         logger.error(f"Error processing webhook '{webhook_name}': {e}", exc_info=True)
@@ -166,6 +182,7 @@ async def _process_and_broadcast(webhook_id: str, webhook_name: str, prompt: str
     # Broadcast to all active WebSocket connections
     try:
         from radbot.web.app import manager
+
         message_payload = {
             "type": "webhook_result",
             "webhook_id": webhook_id,

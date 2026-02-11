@@ -8,13 +8,14 @@ reminders that fire at a specific datetime.
 import logging
 import traceback
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 
 from radbot.tools.shared.errors import truncate_error
 from radbot.tools.shared.serialization import serialize_rows
 from radbot.tools.shared.validation import validate_uuid
+
 from . import db as reminder_db
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,7 @@ def create_reminder(
         # Register with the scheduler engine if running
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.register_reminder(row)
@@ -149,7 +151,9 @@ def list_reminders(status: str = "pending") -> Dict[str, Any]:
         On failure: {"status": "error", "message": "..."}
     """
     try:
-        reminders = reminder_db.list_reminders(status=status if status != "all" else None)
+        reminders = reminder_db.list_reminders(
+            status=status if status != "all" else None
+        )
         return {"status": "success", "reminders": serialize_rows(reminders)}
     except Exception as e:
         error_message = f"Failed to list reminders: {str(e)}"
@@ -177,6 +181,7 @@ def delete_reminder(reminder_id: str) -> Dict[str, Any]:
         # Unregister from the running engine first
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.unregister_reminder(reminder_id)

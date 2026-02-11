@@ -7,13 +7,14 @@ webhook definitions.
 
 import logging
 import traceback
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 
 from radbot.tools.shared.errors import truncate_error
 from radbot.tools.shared.serialization import serialize_rows
 from radbot.tools.shared.validation import validate_uuid
+
 from . import db as webhook_db
 
 logger = logging.getLogger(__name__)

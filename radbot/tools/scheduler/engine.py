@@ -57,6 +57,7 @@ class SchedulerEngine:
 
         try:
             from radbot.tools.scheduler.db import list_tasks
+
             tasks = list_tasks(enabled_only=True)
             logger.info(f"Loading {len(tasks)} enabled scheduled tasks")
             for task in tasks:
@@ -67,6 +68,7 @@ class SchedulerEngine:
         # Load pending reminders
         try:
             from radbot.tools.reminders.db import list_reminders
+
             reminders = list_reminders(status="pending")
             logger.info(f"Loading {len(reminders)} pending reminders")
             now = datetime.now(timezone.utc)
@@ -76,8 +78,11 @@ class SchedulerEngine:
                     remind_at = remind_at.replace(tzinfo=timezone.utc)
                 if remind_at <= now:
                     # Past-due: mark completed but undelivered
-                    logger.info(f"Reminder {reminder['reminder_id']} is past-due, marking completed (undelivered)")
+                    logger.info(
+                        f"Reminder {reminder['reminder_id']} is past-due, marking completed (undelivered)"
+                    )
                     from radbot.tools.reminders.db import mark_completed
+
                     mark_completed(reminder["reminder_id"])
                 else:
                     self.register_reminder(reminder)
@@ -117,7 +122,9 @@ class SchedulerEngine:
                 day_of_week=parts[4],
             )
         except Exception as e:
-            logger.error(f"Failed to parse cron expression '{cron_expr}' for task {name}: {e}")
+            logger.error(
+                f"Failed to parse cron expression '{cron_expr}' for task {name}: {e}"
+            )
             return
 
         # Remove existing job with same id if present
@@ -133,7 +140,9 @@ class SchedulerEngine:
             kwargs={"task_id": task_id, "prompt": prompt, "name": name},
             replace_existing=True,
         )
-        logger.info(f"Registered scheduler job '{name}' ({task_id}), cron='{cron_expr}'")
+        logger.info(
+            f"Registered scheduler job '{name}' ({task_id}), cron='{cron_expr}'"
+        )
 
     def unregister_job(self, task_id: str) -> None:
         """Remove a job from the scheduler."""
@@ -160,10 +169,17 @@ class SchedulerEngine:
         return await self._connection_manager.broadcast_to_all_sessions(payload)
 
     # -- execution --
-    async def _send_ntfy(self, title: str, message: str, tags: str = "robot", session_id: Optional[str] = None) -> None:
+    async def _send_ntfy(
+        self,
+        title: str,
+        message: str,
+        tags: str = "robot",
+        session_id: Optional[str] = None,
+    ) -> None:
         """Send a push notification via ntfy if configured."""
         try:
             from radbot.tools.ntfy.ntfy_client import get_ntfy_client
+
             client = get_ntfy_client()
             if not client:
                 logger.debug("ntfy client not available (unconfigured or disabled)")
@@ -185,8 +201,11 @@ class SchedulerEngine:
         queued for delivery on reconnect. A push notification is sent via ntfy.
         """
         from radbot.tools.shared.sanitize import sanitize_text
+
         prompt = sanitize_text(prompt, source="scheduler")
-        logger.info(f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), prompt: {prompt[:80]}")
+        logger.info(
+            f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), prompt: {prompt[:80]}"
+        )
 
         if not self._connection_manager:
             logger.warning(f"No connection_manager set, cannot process task '{name}'")
@@ -201,37 +220,52 @@ class SchedulerEngine:
             session_id = self._connection_manager.get_any_session_id()
         else:
             session_id = "scheduler-offline"
-            logger.info(f"No active WebSocket connections; using offline session for task '{name}'")
+            logger.info(
+                f"No active WebSocket connections; using offline session for task '{name}'"
+            )
 
-        logger.info(f"Using session {session_id} for scheduled task '{name}' processing")
+        logger.info(
+            f"Using session {session_id} for scheduled task '{name}' processing"
+        )
 
         # 1. Broadcast system message to all connections (no-op if none)
         system_content = f"[Scheduled Task: {name}] {prompt}"
-        await self._broadcast_to_all({
-            "type": "message",
-            "role": "system",
-            "content": system_content,
-        })
+        await self._broadcast_to_all(
+            {
+                "type": "message",
+                "role": "system",
+                "content": system_content,
+            }
+        )
 
         # 2. Broadcast "thinking" status
-        await self._broadcast_to_all({
-            "type": "status",
-            "content": "thinking",
-        })
+        await self._broadcast_to_all(
+            {
+                "type": "status",
+                "content": "thinking",
+            }
+        )
 
         # 3. Persist system message to DB
         try:
             from radbot.web.db import chat_operations
-            chat_operations.add_message(session_id, "system", system_content, user_id="web_user")
+
+            chat_operations.add_message(
+                session_id, "system", system_content, user_id="web_user"
+            )
         except Exception as e:
             logger.warning(f"Failed to persist system message to DB: {e}")
 
         # 4. Process through agent
         try:
             # Lazy import to avoid circular dependencies
-            from radbot.web.api.session.dependencies import get_or_create_runner_for_session
+            from radbot.web.api.session.dependencies import (
+                get_or_create_runner_for_session,
+            )
 
-            runner = await get_or_create_runner_for_session(session_id, self._session_manager)
+            runner = await get_or_create_runner_for_session(
+                session_id, self._session_manager
+            )
             result = await runner.process_message(prompt)
 
             response = result.get("response", "")
@@ -241,26 +275,35 @@ class SchedulerEngine:
             if response:
                 try:
                     from radbot.web.db import chat_operations
-                    chat_operations.add_message(session_id, "assistant", response, user_id="web_user")
+
+                    chat_operations.add_message(
+                        session_id, "assistant", response, user_id="web_user"
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to persist assistant response to DB: {e}")
 
             # 6. Broadcast events to all connections
             if events:
-                sent = await self._broadcast_to_all({
-                    "type": "events",
-                    "content": events,
-                })
+                sent = await self._broadcast_to_all(
+                    {
+                        "type": "events",
+                        "content": events,
+                    }
+                )
                 logger.info(f"Broadcast {len(events)} events to {sent} connections")
 
             # 7. Broadcast "ready" status
-            await self._broadcast_to_all({
-                "type": "status",
-                "content": "ready",
-            })
+            await self._broadcast_to_all(
+                {
+                    "type": "status",
+                    "content": "ready",
+                }
+            )
 
             # 8. Update last run in DB
-            self._update_last_run(task_id, response[:4000] if response else "completed (no response)")
+            self._update_last_run(
+                task_id, response[:4000] if response else "completed (no response)"
+            )
 
             # 9. Send push notification via ntfy
             await self._send_ntfy(
@@ -274,30 +317,39 @@ class SchedulerEngine:
             if not has_connections and response:
                 try:
                     from radbot.tools.scheduler.db import queue_pending_result
+
                     queue_pending_result(
                         task_name=name,
                         prompt=prompt,
                         response=response[:4000],
                         session_id=session_id,
                     )
-                    logger.info(f"Queued offline result for task '{name}' for later WS delivery")
+                    logger.info(
+                        f"Queued offline result for task '{name}' for later WS delivery"
+                    )
                 except Exception as q_err:
                     logger.warning(f"Failed to queue pending result: {q_err}")
 
             logger.info(f"Scheduled task '{name}' processed successfully")
 
         except Exception as e:
-            logger.error(f"Error processing scheduled task '{name}': {e}", exc_info=True)
+            logger.error(
+                f"Error processing scheduled task '{name}': {e}", exc_info=True
+            )
 
             # Broadcast error and ready status
-            await self._broadcast_to_all({
-                "type": "status",
-                "content": f"error: Scheduled task '{name}' failed: {e}",
-            })
-            await self._broadcast_to_all({
-                "type": "status",
-                "content": "ready",
-            })
+            await self._broadcast_to_all(
+                {
+                    "type": "status",
+                    "content": f"error: Scheduled task '{name}' failed: {e}",
+                }
+            )
+            await self._broadcast_to_all(
+                {
+                    "type": "status",
+                    "content": "ready",
+                }
+            )
 
             self._update_last_run(task_id, f"error: {str(e)[:4000]}")
 
@@ -328,7 +380,9 @@ class SchedulerEngine:
                 kwargs={"reminder_id": reminder_id, "message": message},
                 replace_existing=True,
             )
-            logger.info(f"Registered reminder '{message[:50]}' ({reminder_id}), fires at {remind_at.isoformat()}")
+            logger.info(
+                f"Registered reminder '{message[:50]}' ({reminder_id}), fires at {remind_at.isoformat()}"
+            )
         except Exception as e:
             logger.error(f"Failed to register reminder {reminder_id}: {e}")
 
@@ -352,6 +406,7 @@ class SchedulerEngine:
         # 1. Always mark completed in DB
         try:
             from radbot.tools.reminders.db import mark_completed
+
             mark_completed(reminder_id)
         except Exception as e:
             logger.error(f"Failed to mark reminder {reminder_id} completed: {e}")
@@ -364,8 +419,13 @@ class SchedulerEngine:
         )
 
         # 3. Check if we can deliver via WS now
-        if not self._connection_manager or not self._connection_manager.has_connections():
-            logger.info(f"No active connections, reminder {reminder_id} will be delivered on reconnect")
+        if (
+            not self._connection_manager
+            or not self._connection_manager.has_connections()
+        ):
+            logger.info(
+                f"No active connections, reminder {reminder_id} will be delivered on reconnect"
+            )
             return
 
         # 4. Deliver the reminder via WebSocket
@@ -374,6 +434,7 @@ class SchedulerEngine:
     async def _deliver_single_reminder(self, reminder_id: str, message: str) -> None:
         """Deliver a single reminder as a notification broadcast. No LLM processing."""
         from radbot.tools.shared.sanitize import sanitize_text
+
         message = sanitize_text(message, source="reminder")
         session_id = self._connection_manager.get_any_session_id()
         if not session_id:
@@ -382,22 +443,28 @@ class SchedulerEngine:
         system_content = f"[Reminder] {message}"
 
         # Broadcast as a system message notification
-        await self._broadcast_to_all({
-            "type": "message",
-            "role": "system",
-            "content": system_content,
-        })
+        await self._broadcast_to_all(
+            {
+                "type": "message",
+                "role": "system",
+                "content": system_content,
+            }
+        )
 
         # Persist to chat history DB
         try:
             from radbot.web.db import chat_operations
-            chat_operations.add_message(session_id, "system", system_content, user_id="web_user")
+
+            chat_operations.add_message(
+                session_id, "system", system_content, user_id="web_user"
+            )
         except Exception as e:
             logger.warning(f"Failed to persist reminder system message to DB: {e}")
 
         # Mark delivered
         try:
             from radbot.tools.reminders.db import mark_delivered
+
             mark_delivered(reminder_id, "delivered")
         except Exception as e:
             logger.error(f"Failed to mark reminder {reminder_id} delivered: {e}")
@@ -412,6 +479,7 @@ class SchedulerEngine:
         """
         try:
             from radbot.tools.reminders.db import get_undelivered_completed
+
             undelivered = get_undelivered_completed()
             if not undelivered:
                 return
@@ -431,23 +499,31 @@ class SchedulerEngine:
         scheduled task results that ran while no connections were active.
         """
         try:
-            from radbot.tools.scheduler.db import get_undelivered_results, mark_result_delivered
+            from radbot.tools.scheduler.db import (
+                get_undelivered_results,
+                mark_result_delivered,
+            )
+
             undelivered = get_undelivered_results()
             if not undelivered:
                 return
 
-            logger.info(f"Delivering {len(undelivered)} pending scheduler results on reconnect")
+            logger.info(
+                f"Delivering {len(undelivered)} pending scheduler results on reconnect"
+            )
             for row in undelivered:
                 result_id = row["result_id"]
                 task_name = row["task_name"]
                 response = row.get("response", "")
 
                 system_content = f"[Offline Scheduled Task: {task_name}] {response}"
-                await self._broadcast_to_all({
-                    "type": "message",
-                    "role": "system",
-                    "content": system_content,
-                })
+                await self._broadcast_to_all(
+                    {
+                        "type": "message",
+                        "role": "system",
+                        "content": system_content,
+                    }
+                )
 
                 try:
                     mark_result_delivered(result_id)
@@ -456,12 +532,15 @@ class SchedulerEngine:
 
                 logger.info(f"Delivered pending result for task '{task_name}'")
         except Exception as e:
-            logger.error(f"Error delivering pending scheduler results: {e}", exc_info=True)
+            logger.error(
+                f"Error delivering pending scheduler results: {e}", exc_info=True
+            )
 
     def _update_last_run(self, task_id: str, result: str) -> None:
         """Update the last_run_at timestamp in the DB."""
         try:
             from radbot.tools.scheduler.db import update_last_run
+
             update_last_run(task_id, result)
         except Exception as e:
             logger.error(f"Failed to update last_run for scheduled task {task_id}: {e}")

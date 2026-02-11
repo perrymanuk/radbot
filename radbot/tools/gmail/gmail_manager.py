@@ -34,7 +34,9 @@ class GmailManager:
             logger.info(f"Gmail '{label}' authenticated as: {email}")
             return True
         except Exception as e:
-            logger.error(f"Gmail authentication failed for '{self.account or 'default'}': {e}")
+            logger.error(
+                f"Gmail authentication failed for '{self.account or 'default'}': {e}"
+            )
             self.service = None
             return False
 
@@ -96,7 +98,9 @@ def get_gmail_manager(account: Optional[str] = None) -> GmailManager:
         manager = GmailManager(account=account)
         auth_ok = manager.authenticate()
         if not auth_ok:
-            logger.warning(f"Gmail authentication failed for '{key}'. Operations will not work.")
+            logger.warning(
+                f"Gmail authentication failed for '{key}'. Operations will not work."
+            )
         _gmail_managers[key] = manager
     return _gmail_managers[key]
 

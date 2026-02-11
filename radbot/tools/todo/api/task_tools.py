@@ -4,23 +4,33 @@ Task-related tools for the Todo Tool.
 This module defines the public functions for adding, completing, and removing tasks.
 """
 
-import uuid
-import traceback
 import logging
-from typing import Optional, Dict, Any
+import traceback
+import uuid
+from typing import Any, Dict, Optional
+
 from google.adk.tools import FunctionTool
 
 # Import database and model modules
-from ..db import get_db_connection, add_task as db_add_task, complete_task as db_complete_task, remove_task as db_remove_task, get_or_create_project_id
+from ..db import add_task as db_add_task
+from ..db import complete_task as db_complete_task
+from ..db import get_db_connection, get_or_create_project_id
+from ..db import remove_task as db_remove_task
 
 # Setup logging
 logger = logging.getLogger(__name__)
 
 # --- Tool Function Implementations ---
 
-def add_task(description: str, project_id: str, title: Optional[str] = None,
-             category: Optional[str] = None,
-             origin: Optional[str] = None, related_info: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+def add_task(
+    description: str,
+    project_id: str,
+    title: Optional[str] = None,
+    category: Optional[str] = None,
+    origin: Optional[str] = None,
+    related_info: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Adds a new todo task to the persistent database.
 
@@ -51,9 +61,13 @@ def add_task(description: str, project_id: str, title: Optional[str] = None,
                 project_uuid = uuid.UUID(project_id)
             except ValueError:
                 # Not a valid UUID, treat as project name
-                logger.info(f"Project ID '{project_id}' is not a UUID, treating as project name")
+                logger.info(
+                    f"Project ID '{project_id}' is not a UUID, treating as project name"
+                )
                 project_uuid = get_or_create_project_id(conn, project_id)
-                logger.info(f"Using project ID: {project_uuid} for project name: {project_id}")
+                logger.info(
+                    f"Using project ID: {project_uuid} for project name: {project_id}"
+                )
 
             # Now add the task with the resolved project UUID
             # Convert project_uuid to string format for database operations
@@ -64,30 +78,28 @@ def add_task(description: str, project_id: str, title: Optional[str] = None,
                 category=category,
                 origin=origin,
                 related_info=related_info,
-                title=title
+                title=title,
             )
-            
+
             # Log the task creation for debugging
-            logger.debug(f"Created task with ID: {new_task_id} for project: {project_uuid}")
-            
+            logger.debug(
+                f"Created task with ID: {new_task_id} for project: {project_uuid}"
+            )
+
         # Create response with string UUID
-        return {
-            "status": "success",
-            "task_id": str(new_task_id)
-        }
+        return {"status": "success", "task_id": str(new_task_id)}
 
     except Exception as e:
         # Handle error (logging, truncation, formatting)
         error_message = f"Failed to add task: {str(e)}"
         logger.error(f"Error in add_task tool: {error_message}")
         logger.debug(traceback.format_exc())  # Log full traceback for debugging
-        truncated_message = (error_message[:197] + '...') if len(error_message) > 200 else error_message
+        truncated_message = (
+            (error_message[:197] + "...") if len(error_message) > 200 else error_message
+        )
 
         # Return error response directly
-        return {
-            "status": "error",
-            "message": truncated_message
-        }
+        return {"status": "error", "message": truncated_message}
 
 
 def complete_task(task_id: str) -> Dict[str, Any]:
@@ -112,33 +124,29 @@ def complete_task(task_id: str) -> Dict[str, Any]:
         except ValueError:
             return {
                 "status": "error",
-                "message": f"Invalid task ID format: {task_id}. Must be a valid UUID."
+                "message": f"Invalid task ID format: {task_id}. Must be a valid UUID.",
             }
 
         with get_db_connection() as conn:
             success = db_complete_task(conn, task_uuid)
 
         if success:
-            return {
-                "status": "success",
-                "task_id": str(task_uuid)
-            }
+            return {"status": "success", "task_id": str(task_uuid)}
         else:
             # Task not found or already done (depending on desired logic)
             return {
                 "status": "error",
-                "message": f"Task with ID {task_id} not found or could not be updated."
+                "message": f"Task with ID {task_id} not found or could not be updated.",
             }
 
     except Exception as e:
         error_message = f"Failed to complete task {task_id}: {str(e)}"
         logger.error(f"Error in complete_task tool: {error_message}")
         logger.debug(traceback.format_exc())
-        truncated_message = (error_message[:197] + '...') if len(error_message) > 200 else error_message
-        return {
-            "status": "error",
-            "message": truncated_message
-        }
+        truncated_message = (
+            (error_message[:197] + "...") if len(error_message) > 200 else error_message
+        )
+        return {"status": "error", "message": truncated_message}
 
 
 def remove_task(task_id: str) -> Dict[str, Any]:
@@ -164,46 +172,45 @@ def remove_task(task_id: str) -> Dict[str, Any]:
         except ValueError:
             return {
                 "status": "error",
-                "message": f"Invalid task ID format: {task_id}. Must be a valid UUID."
+                "message": f"Invalid task ID format: {task_id}. Must be a valid UUID.",
             }
 
         # Log the UUID type and value before using it
-        logger.debug(f"Removing task with UUID type: {type(task_uuid)}, value: {task_uuid}")
+        logger.debug(
+            f"Removing task with UUID type: {type(task_uuid)}, value: {task_uuid}"
+        )
 
         # Get connection and attempt to remove the task
         with get_db_connection() as conn:
             try:
                 success = db_remove_task(conn, task_uuid)
-                
+
                 if success:
                     logger.info(f"Successfully removed task with ID: {task_uuid}")
-                    return {
-                        "status": "success",
-                        "task_id": str(task_uuid)
-                    }
+                    return {"status": "success", "task_id": str(task_uuid)}
                 else:
                     # Task not found
                     logger.warning(f"Task with ID {task_uuid} not found for deletion")
                     return {
                         "status": "error",
-                        "message": f"Task with ID {task_id} not found for deletion."
+                        "message": f"Task with ID {task_id} not found for deletion.",
                     }
             except Exception as db_error:
                 logger.error(f"Database error in db_remove_task: {db_error}")
                 return {
                     "status": "error",
-                    "message": f"Database error: {str(db_error)}"
+                    "message": f"Database error: {str(db_error)}",
                 }
 
     except Exception as e:
         error_message = f"Failed to remove task {task_id}: {str(e)}"
         logger.error(f"Error in remove_task tool: {error_message}")
         logger.debug(traceback.format_exc())
-        truncated_message = (error_message[:197] + '...') if len(error_message) > 200 else error_message
-        return {
-            "status": "error",
-            "message": truncated_message
-        }
+        truncated_message = (
+            (error_message[:197] + "...") if len(error_message) > 200 else error_message
+        )
+        return {"status": "error", "message": truncated_message}
+
 
 # --- ADK Tool Wrapping ---
 add_task_tool = FunctionTool(add_task)

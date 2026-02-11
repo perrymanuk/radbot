@@ -6,24 +6,24 @@ Google Agent Development Kit (ADK) by exposing the operations as function tools.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 # Import ADK components for tool registration
 from google.adk.tools import FunctionTool
 
+from radbot.filesystem.security import (
+    get_allowed_directories,
+    set_allowed_directories,
+)
 from radbot.filesystem.tools import (
-    read_file,
-    write_file,
-    edit_file,
     copy,
     delete,
-    list_directory,
+    edit_file,
     get_info,
+    list_directory,
+    read_file,
     search,
-)
-from radbot.filesystem.security import (
-    set_allowed_directories,
-    get_allowed_directories,
+    write_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 def _create_read_file_tool() -> FunctionTool:
     """Create the read_file tool."""
+
     def read_file_func(path: str) -> str:
         """
         Read the contents of a file.
@@ -48,7 +49,10 @@ def _create_read_file_tool() -> FunctionTool:
 
 def _create_write_file_tool() -> FunctionTool:
     """Create the write_file tool."""
-    def write_file_func(path: str, content: str, overwrite: bool = False) -> Dict[str, Any]:
+
+    def write_file_func(
+        path: str, content: str, overwrite: bool = False
+    ) -> Dict[str, Any]:
         """
         Write content to a file.
 
@@ -67,7 +71,10 @@ def _create_write_file_tool() -> FunctionTool:
 
 def _create_edit_file_tool() -> FunctionTool:
     """Create the edit_file tool."""
-    def edit_file_func(path: str, edits: List[Dict[str, str]], dry_run: bool = False) -> str:
+
+    def edit_file_func(
+        path: str, edits: List[Dict[str, str]], dry_run: bool = False
+    ) -> str:
         """
         Edit a file by applying a list of changes.
 
@@ -86,6 +93,7 @@ def _create_edit_file_tool() -> FunctionTool:
 
 def _create_copy_tool() -> FunctionTool:
     """Create the copy tool."""
+
     def copy_func(source_path: str, destination_path: str) -> Dict[str, Any]:
         """
         Copy a file or directory.
@@ -104,6 +112,7 @@ def _create_copy_tool() -> FunctionTool:
 
 def _create_delete_tool() -> FunctionTool:
     """Create the delete tool."""
+
     def delete_func(path: str) -> Dict[str, Any]:
         """
         Delete a file or directory.
@@ -121,6 +130,7 @@ def _create_delete_tool() -> FunctionTool:
 
 def _create_list_directory_tool() -> FunctionTool:
     """Create the list_directory tool."""
+
     def list_directory_func(path: str = "") -> List[Dict[str, Any]]:
         """
         List the contents of a directory.
@@ -138,6 +148,7 @@ def _create_list_directory_tool() -> FunctionTool:
 
 def _create_get_info_tool() -> FunctionTool:
     """Create the get_info tool."""
+
     def get_info_func(path: str) -> Dict[str, Any]:
         """
         Get detailed information about a file or directory.
@@ -155,7 +166,10 @@ def _create_get_info_tool() -> FunctionTool:
 
 def _create_search_tool() -> FunctionTool:
     """Create the search tool."""
-    def search_func(path: str, pattern: str, exclude_patterns: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+
+    def search_func(
+        path: str, pattern: str, exclude_patterns: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Search for files or directories matching a pattern.
 
@@ -191,10 +205,10 @@ def create_filesystem_tools(
     logger.info(
         f"Creating filesystem tools with write={enable_write}, delete={enable_delete}"
     )
-    
+
     # Configure security
     set_allowed_directories(allowed_directories)
-    
+
     # Create the tools
     tools = [
         _create_read_file_tool(),
@@ -202,18 +216,20 @@ def create_filesystem_tools(
         _create_get_info_tool(),
         _create_search_tool(),
     ]
-    
+
     # Add write tools if enabled
     if enable_write:
-        tools.extend([
-            _create_write_file_tool(),
-            _create_edit_file_tool(),
-            _create_copy_tool(),
-        ])
-    
+        tools.extend(
+            [
+                _create_write_file_tool(),
+                _create_edit_file_tool(),
+                _create_copy_tool(),
+            ]
+        )
+
     # Add delete tool if enabled
     if enable_delete:
         tools.append(_create_delete_tool())
-    
+
     logger.info(f"Created {len(tools)} filesystem tools")
     return tools

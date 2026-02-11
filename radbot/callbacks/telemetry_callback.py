@@ -35,9 +35,8 @@ def telemetry_after_model_callback(
         try:
             if hasattr(callback_context, "agent_name"):
                 agent_name = callback_context.agent_name
-            elif (
-                hasattr(callback_context, "_invocation_context")
-                and hasattr(callback_context._invocation_context, "agent")
+            elif hasattr(callback_context, "_invocation_context") and hasattr(
+                callback_context._invocation_context, "agent"
             ):
                 agent_name = callback_context._invocation_context.agent.name
         except Exception:
@@ -46,13 +45,13 @@ def telemetry_after_model_callback(
         # Determine model name
         model = ""
         try:
-            if (
-                hasattr(callback_context, "_invocation_context")
-                and hasattr(callback_context._invocation_context, "agent")
+            if hasattr(callback_context, "_invocation_context") and hasattr(
+                callback_context._invocation_context, "agent"
             ):
-                model = getattr(
-                    callback_context._invocation_context.agent, "model", ""
-                ) or ""
+                model = (
+                    getattr(callback_context._invocation_context.agent, "model", "")
+                    or ""
+                )
         except Exception:
             pass
 

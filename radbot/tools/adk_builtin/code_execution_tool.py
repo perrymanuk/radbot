@@ -6,7 +6,7 @@ that use the ADK code execution capability via generate_content_config.
 """
 
 import logging
-from typing import Optional, Any
+from typing import Any, Optional
 
 from google.adk.agents import Agent, LlmAgent
 from google.adk.code_executors import BuiltInCodeExecutor
@@ -38,7 +38,9 @@ def create_code_execution_agent(
     """
     # Ensure agent name is always "code_execution_agent" for consistent transfers
     if name != "code_execution_agent":
-        logger.warning(f"Agent name '{name}' changed to 'code_execution_agent' for consistent transfers")
+        logger.warning(
+            f"Agent name '{name}' changed to 'code_execution_agent' for consistent transfers"
+        )
         name = "code_execution_agent"
 
     # Use provided config or default
@@ -46,7 +48,10 @@ def create_code_execution_agent(
 
     # Get the model name (must be a Gemini 2+ model)
     model_name = model or cfg.get_agent_model("code_execution_agent")
-    if not any(n in model_name.lower() for n in ["gemini-2", "gemini-2.0", "gemini-2.5", "gemini-3"]):
+    if not any(
+        n in model_name.lower()
+        for n in ["gemini-2", "gemini-2.0", "gemini-2.5", "gemini-3"]
+    ):
         logger.warning(
             f"Model {model_name} may not be compatible with code execution. "
             "Code Execution tool requires Gemini 2+ models."
@@ -84,7 +89,7 @@ def create_code_execution_agent(
         code_executor=BuiltInCodeExecutor(),
     )
 
-    logger.info(f"Created code execution agent '{name}' with code execution via generate_content_config")
+    logger.info(
+        f"Created code execution agent '{name}' with code execution via generate_content_config"
+    )
     return code_agent
-
-

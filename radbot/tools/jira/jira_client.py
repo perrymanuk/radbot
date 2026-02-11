@@ -22,6 +22,7 @@ def _get_config() -> dict:
     """Pull Jira settings from config manager, falling back to credential store then env vars."""
     try:
         from radbot.config.config_loader import config_loader
+
         jira_cfg = config_loader.get_integrations_config().get("jira", {})
     except Exception:
         jira_cfg = {}
@@ -35,6 +36,7 @@ def _get_config() -> dict:
     if not api_token:
         try:
             from radbot.credentials.store import get_credential_store
+
             store = get_credential_store()
             if store.available:
                 api_token = store.get("jira_api_token")

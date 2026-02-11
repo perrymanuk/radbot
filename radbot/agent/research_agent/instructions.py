@@ -90,19 +90,25 @@ Agent Transfer Instructions:
    - When you've fully addressed their technical research question
 """
 
+
 # Combine all instructions for the complete set
 def get_full_research_agent_instruction():
     """
     Get the complete instruction for the research agent, combining all sections.
-    
+
     Returns:
         str: Complete instruction prompt
     """
     return (
-        RESEARCH_AGENT_INSTRUCTION + "\n\n" +
-        WEB_SCRAPER_INSTRUCTION + "\n\n" +
-        INTERNAL_KNOWLEDGE_INSTRUCTION + "\n\n" +
-        GITHUB_SEARCH_INSTRUCTION + "\n\n" +
-        RUBBER_DUCK_INSTRUCTION + "\n\n" +
-        AGENT_TRANSFER_INSTRUCTION
+        RESEARCH_AGENT_INSTRUCTION
+        + "\n\n"
+        + WEB_SCRAPER_INSTRUCTION
+        + "\n\n"
+        + INTERNAL_KNOWLEDGE_INSTRUCTION
+        + "\n\n"
+        + GITHUB_SEARCH_INSTRUCTION
+        + "\n\n"
+        + RUBBER_DUCK_INSTRUCTION
+        + "\n\n"
+        + AGENT_TRANSFER_INSTRUCTION
     )

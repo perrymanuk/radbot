@@ -4,17 +4,24 @@ Database operations for chat message persistence.
 This module handles all operations for storing and retrieving chat messages
 using the dedicated radbot_chathistory schema.
 """
+
+import json
 import logging
 import uuid
-import json
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 import psycopg2.extras
 
 # Use our custom connection functions
-from radbot.web.db.connection import get_chat_db_connection, get_chat_db_cursor, CHAT_SCHEMA
+from radbot.web.db.connection import (
+    CHAT_SCHEMA,
+    get_chat_db_connection,
+    get_chat_db_cursor,
+)
 
 logger = logging.getLogger(__name__)
+
 
 def create_schema_if_not_exists() -> bool:
     """
@@ -84,16 +91,23 @@ def create_schema_if_not_exists() -> bool:
                     );
                 """)
 
-                logger.info(f"Chat history schema and tables created or verified in schema '{CHAT_SCHEMA}'")
+                logger.info(
+                    f"Chat history schema and tables created or verified in schema '{CHAT_SCHEMA}'"
+                )
                 return True
     except Exception as e:
         logger.error(f"Error creating chat history schema: {e}")
         return False
 
-def add_message(session_id: str, role: str, content: str,
-               agent_name: Optional[str] = None,
-               user_id: Optional[str] = None,
-               metadata: Optional[Dict] = None) -> Optional[str]:
+
+def add_message(
+    session_id: str,
+    role: str,
+    content: str,
+    agent_name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    metadata: Optional[Dict] = None,
+) -> Optional[str]:
     """
     Insert a new message into the database.
 
@@ -143,7 +157,10 @@ def add_message(session_id: str, role: str, content: str,
         logger.error(f"Error adding message: {e}")
         return None
 
-def get_messages_by_session_id(session_id: str, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
+
+def get_messages_by_session_id(
+    session_id: str, limit: int = 200, offset: int = 0
+) -> List[Dict[str, Any]]:
     """
     Get messages for a specific session.
 
@@ -185,11 +202,11 @@ def get_messages_by_session_id(session_id: str, limit: int = 200, offset: int = 
                 for row in results:
                     message = dict(row)
                     # Convert UUIDs to strings
-                    message['message_id'] = str(message['message_id'])
-                    message['session_id'] = str(message['session_id'])
+                    message["message_id"] = str(message["message_id"])
+                    message["session_id"] = str(message["session_id"])
                     # Convert timestamp to ISO format
-                    if message['timestamp']:
-                        message['timestamp'] = message['timestamp'].isoformat()
+                    if message["timestamp"]:
+                        message["timestamp"] = message["timestamp"].isoformat()
                     messages.append(message)
 
                 return messages
@@ -197,8 +214,10 @@ def get_messages_by_session_id(session_id: str, limit: int = 200, offset: int = 
         logger.error(f"Error getting messages for session {session_id}: {e}")
         return []
 
-def create_or_update_session(session_id: str, name: Optional[str] = None,
-                           user_id: Optional[str] = None) -> bool:
+
+def create_or_update_session(
+    session_id: str, name: Optional[str] = None, user_id: Optional[str] = None
+) -> bool:
     """
     Create or update a chat session.
 
@@ -240,7 +259,10 @@ def create_or_update_session(session_id: str, name: Optional[str] = None,
         logger.error(f"Error creating/updating session {session_id}: {e}")
         return False
 
-def update_session_last_message(conn, session_id: uuid.UUID, preview: str, role: str) -> bool:
+
+def update_session_last_message(
+    conn, session_id: uuid.UUID, preview: str, role: str
+) -> bool:
     """
     Update session last message timestamp and preview.
     Used internally by add_message.
@@ -255,7 +277,7 @@ def update_session_last_message(conn, session_id: uuid.UUID, preview: str, role:
         bool: True if successful, False on error
     """
     # Only update preview for user or assistant messages
-    if role not in ('user', 'assistant'):
+    if role not in ("user", "assistant"):
         return True
 
     # Truncate preview text
@@ -283,7 +305,10 @@ def update_session_last_message(conn, session_id: uuid.UUID, preview: str, role:
         logger.error(f"Error updating session last message: {e}")
         return False
 
-def list_sessions(user_id: Optional[str] = None, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
+
+def list_sessions(
+    user_id: Optional[str] = None, limit: int = 20, offset: int = 0
+) -> List[Dict[str, Any]]:
     """
     List chat sessions, optionally filtered by user.
 
@@ -325,18 +350,21 @@ def list_sessions(user_id: Optional[str] = None, limit: int = 20, offset: int = 
                 for row in results:
                     session = dict(row)
                     # Convert UUID to string
-                    session['session_id'] = str(session['session_id'])
+                    session["session_id"] = str(session["session_id"])
                     # Convert timestamps to ISO format
-                    if session.get('created_at'):
-                        session['created_at'] = session['created_at'].isoformat()
-                    if session.get('last_message_at'):
-                        session['last_message_at'] = session['last_message_at'].isoformat()
+                    if session.get("created_at"):
+                        session["created_at"] = session["created_at"].isoformat()
+                    if session.get("last_message_at"):
+                        session["last_message_at"] = session[
+                            "last_message_at"
+                        ].isoformat()
                     sessions.append(session)
 
                 return sessions
     except Exception as e:
         logger.error(f"Error listing sessions: {e}")
         return []
+
 
 def get_session_message_count(session_id: str) -> int:
     """
@@ -371,6 +399,7 @@ def get_session_message_count(session_id: str) -> int:
     except Exception as e:
         logger.error(f"Error getting message count for session {session_id}: {e}")
         return 0
+
 
 def delete_session(session_id: str) -> bool:
     """

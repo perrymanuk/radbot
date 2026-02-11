@@ -11,7 +11,6 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
-
 # Gemini pricing per million tokens (USD)
 _PRICING = {
     # model_prefix: (input_per_M, output_per_M, cached_input_per_M)
@@ -73,10 +72,9 @@ class UsageTracker:
             + (cached_tokens / 1_000_000) * cached_price
             + (output_tokens / 1_000_000) * output_price
         )
-        cost_without_cache = (
-            (prompt_tokens / 1_000_000) * input_price
-            + (output_tokens / 1_000_000) * output_price
-        )
+        cost_without_cache = (prompt_tokens / 1_000_000) * input_price + (
+            output_tokens / 1_000_000
+        ) * output_price
 
         with self._lock:
             self._total_prompt_tokens += prompt_tokens

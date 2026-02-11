@@ -5,12 +5,13 @@ This module encapsulates all direct database query operations
 for the Todo Tool using the psycopg2 library.
 """
 
+import json
 import logging
+import uuid
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 import psycopg2.extras  # For RealDictCursor
-import uuid
-import json
-from typing import List, Dict, Optional, Any
 
 from .connection import get_db_cursor
 
@@ -19,7 +20,10 @@ logger = logging.getLogger(__name__)
 
 # --- Database Query Functions ---
 
-def get_or_create_project_id(conn: psycopg2.extensions.connection, project_name: str) -> uuid.UUID:
+
+def get_or_create_project_id(
+    conn: psycopg2.extensions.connection, project_name: str
+) -> uuid.UUID:
     """Gets an existing project ID or creates a new one for the given project name."""
     # First check if we already have a project table
     try:
@@ -30,7 +34,7 @@ def get_or_create_project_id(conn: psycopg2.extensions.connection, project_name:
                 );
             """)
             table_exists = cursor.fetchone()[0]
-            
+
             if not table_exists:
                 # Create the projects table if it doesn't exist
                 logger.info("Creating projects table")
@@ -46,35 +50,49 @@ def get_or_create_project_id(conn: psycopg2.extensions.connection, project_name:
     except Exception as e:
         logger.error(f"Error checking/creating projects table: {e}")
         raise
-    
+
     # Now try to find an existing project with this name
     try:
         with get_db_cursor(conn) as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT project_id FROM projects WHERE name = %s;
-            """, (project_name,))
+            """,
+                (project_name,),
+            )
             result = cursor.fetchone()
-            
+
             if result:
                 # Found existing project
                 return result[0]
             else:
                 # Create new project
                 with get_db_cursor(conn, commit=True) as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO projects (name) VALUES (%s) RETURNING project_id;
-                    """, (project_name,))
+                    """,
+                        (project_name,),
+                    )
                     new_id = cursor.fetchone()[0]
-                    logger.info(f"Created new project '{project_name}' with ID {new_id}")
+                    logger.info(
+                        f"Created new project '{project_name}' with ID {new_id}"
+                    )
                     return new_id
     except Exception as e:
         logger.error(f"Error getting/creating project ID for '{project_name}': {e}")
         raise
 
 
-def add_task(conn: psycopg2.extensions.connection, description: str, project_id: uuid.UUID,
-             category: Optional[str], origin: Optional[str], related_info: Optional[Dict],
-             title: Optional[str] = None) -> uuid.UUID:
+def add_task(
+    conn: psycopg2.extensions.connection,
+    description: str,
+    project_id: uuid.UUID,
+    category: Optional[str],
+    origin: Optional[str],
+    related_info: Optional[Dict],
+    title: Optional[str] = None,
+) -> uuid.UUID:
     """Inserts a new task into the database and returns its UUID."""
     sql = """
         INSERT INTO tasks (description, project_id, category, origin, related_info, title)
@@ -105,14 +123,17 @@ def add_task(conn: psycopg2.extensions.connection, description: str, project_id:
         raise  # Re-raise for generic handling
 
 
-def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
-               description: Optional[str] = None,
-               project_id: Optional[uuid.UUID] = None,
-               status: Optional[str] = None,
-               category: Optional[str] = None,
-               origin: Optional[str] = None,
-               related_info: Optional[Dict] = None,
-               title: Optional[str] = None) -> bool:
+def update_task(
+    conn: psycopg2.extensions.connection,
+    task_id: uuid.UUID,
+    description: Optional[str] = None,
+    project_id: Optional[uuid.UUID] = None,
+    status: Optional[str] = None,
+    category: Optional[str] = None,
+    origin: Optional[str] = None,
+    related_info: Optional[Dict] = None,
+    title: Optional[str] = None,
+) -> bool:
     """
     Updates a task with the provided fields. Only updates fields that are not None.
     Returns True if the update was successful, False if the task wasn't found.
@@ -120,32 +141,34 @@ def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
     # Start building SQL update statement and parameters
     update_fields = []
     params = []
-    
+
     # Add fields that are provided (not None)
     if description is not None:
         update_fields.append("description = %s")
         params.append(description)
-    
+
     if project_id is not None:
         update_fields.append("project_id = %s")
         params.append(project_id)
-    
+
     if status is not None:
         # Validate status against allowed ENUM values
-        allowed_statuses = ('backlog', 'inprogress', 'done')
+        allowed_statuses = ("backlog", "inprogress", "done")
         if status not in allowed_statuses:
-            raise ValueError(f"Invalid status: {status}. Must be one of {allowed_statuses}")
+            raise ValueError(
+                f"Invalid status: {status}. Must be one of {allowed_statuses}"
+            )
         update_fields.append("status = %s")
         params.append(status)
-    
+
     if category is not None:
         update_fields.append("category = %s")
         params.append(category)
-    
+
     if origin is not None:
         update_fields.append("origin = %s")
         params.append(origin)
-    
+
     if related_info is not None:
         update_fields.append("related_info = %s::jsonb")
         # Convert dict to JSON string for PostgreSQL
@@ -159,7 +182,7 @@ def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
     if not update_fields:
         logger.warning("No fields provided to update task")
         return False
-    
+
     # Construct SQL statement
     sql = f"""
         UPDATE tasks
@@ -167,10 +190,10 @@ def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
         WHERE task_id = %s
         RETURNING task_id;
     """
-    
+
     # Add task_id to params
     params.append(task_id)
-    
+
     try:
         with get_db_cursor(conn, commit=True) as cursor:
             cursor.execute(sql, tuple(params))
@@ -181,8 +204,9 @@ def update_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID,
         raise
 
 
-def update_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID, 
-                  name: str) -> bool:
+def update_project(
+    conn: psycopg2.extensions.connection, project_id: uuid.UUID, name: str
+) -> bool:
     """
     Updates a project's name.
     Returns True if the update was successful, False if the project wasn't found.
@@ -194,7 +218,7 @@ def update_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
         RETURNING project_id;
     """
     params = (name, project_id)
-    
+
     try:
         with get_db_cursor(conn, commit=True) as cursor:
             cursor.execute(sql, params)
@@ -209,8 +233,11 @@ def update_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
         raise
 
 
-def list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
-              status_filter: Optional[str]) -> List[Dict[str, Any]]:
+def list_tasks(
+    conn: psycopg2.extensions.connection,
+    project_id: uuid.UUID,
+    status_filter: Optional[str],
+) -> List[Dict[str, Any]]:
     """Retrieves tasks for a specific project, optionally filtered by status."""
     base_sql = """
         SELECT task_id, project_id, description, status, category, origin, created_at, related_info, title
@@ -221,9 +248,11 @@ def list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
 
     if status_filter:
         # Validate status_filter against allowed ENUM values
-        allowed_statuses = ('backlog', 'inprogress', 'done')
+        allowed_statuses = ("backlog", "inprogress", "done")
         if status_filter not in allowed_statuses:
-            raise ValueError(f"Invalid status filter: {status_filter}. Must be one of {allowed_statuses}")
+            raise ValueError(
+                f"Invalid status filter: {status_filter}. Must be one of {allowed_statuses}"
+            )
         base_sql += " AND status = %s"
         params.append(status_filter)
 
@@ -241,7 +270,9 @@ def list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
         raise
 
 
-def list_all_tasks(conn: psycopg2.extensions.connection, status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_all_tasks(
+    conn: psycopg2.extensions.connection, status_filter: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """Retrieves all tasks across all projects, optionally filtered by status."""
     base_sql = """
         SELECT t.task_id, t.project_id, p.name as project_name, t.description,
@@ -253,9 +284,11 @@ def list_all_tasks(conn: psycopg2.extensions.connection, status_filter: Optional
 
     if status_filter:
         # Validate status_filter against allowed ENUM values
-        allowed_statuses = ('backlog', 'inprogress', 'done')
+        allowed_statuses = ("backlog", "inprogress", "done")
         if status_filter not in allowed_statuses:
-            raise ValueError(f"Invalid status filter: {status_filter}. Must be one of {allowed_statuses}")
+            raise ValueError(
+                f"Invalid status filter: {status_filter}. Must be one of {allowed_statuses}"
+            )
         base_sql += " WHERE t.status = %s"
         params.append(status_filter)
 
@@ -273,7 +306,9 @@ def list_all_tasks(conn: psycopg2.extensions.connection, status_filter: Optional
         raise
 
 
-def get_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+def get_task(
+    conn: psycopg2.extensions.connection, task_id: uuid.UUID
+) -> Optional[Dict[str, Any]]:
     """
     Retrieves a specific task by its ID.
     Returns None if the task doesn't exist.
@@ -286,7 +321,7 @@ def get_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> Option
         WHERE t.task_id = %s;
     """
     params = (task_id,)
-    
+
     try:
         # Using RealDictCursor for easy dictionary conversion
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
@@ -296,13 +331,13 @@ def get_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> Option
                 # Convert result to a regular dict and handle datetime serialization
                 task_dict = dict(result)
                 # Convert datetime to ISO format string
-                if 'created_at' in task_dict and task_dict['created_at']:
-                    task_dict['created_at'] = task_dict['created_at'].isoformat()
+                if "created_at" in task_dict and task_dict["created_at"]:
+                    task_dict["created_at"] = task_dict["created_at"].isoformat()
                 # Convert UUID fields to strings
-                if 'task_id' in task_dict and task_dict['task_id']:
-                    task_dict['task_id'] = str(task_dict['task_id'])
-                if 'project_id' in task_dict and task_dict['project_id']:
-                    task_dict['project_id'] = str(task_dict['project_id'])
+                if "task_id" in task_dict and task_dict["task_id"]:
+                    task_dict["task_id"] = str(task_dict["task_id"])
+                if "project_id" in task_dict and task_dict["project_id"]:
+                    task_dict["project_id"] = str(task_dict["project_id"])
                 return task_dict
             return None
     except psycopg2.Error as e:
@@ -310,7 +345,9 @@ def get_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> Option
         raise
 
 
-def get_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+def get_project(
+    conn: psycopg2.extensions.connection, project_id: uuid.UUID
+) -> Optional[Dict[str, Any]]:
     """
     Retrieves a specific project by its ID.
     Returns None if the project doesn't exist.
@@ -321,7 +358,7 @@ def get_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID) -> 
         WHERE project_id = %s;
     """
     params = (project_id,)
-    
+
     try:
         # Using RealDictCursor for easy dictionary conversion
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
@@ -331,11 +368,11 @@ def get_project(conn: psycopg2.extensions.connection, project_id: uuid.UUID) -> 
                 # Convert result to a regular dict and handle datetime serialization
                 project_dict = dict(result)
                 # Convert datetime to ISO format string
-                if 'created_at' in project_dict and project_dict['created_at']:
-                    project_dict['created_at'] = project_dict['created_at'].isoformat()
+                if "created_at" in project_dict and project_dict["created_at"]:
+                    project_dict["created_at"] = project_dict["created_at"].isoformat()
                 # Convert UUID to string
-                if 'project_id' in project_dict and project_dict['project_id']:
-                    project_dict['project_id'] = str(project_dict['project_id'])
+                if "project_id" in project_dict and project_dict["project_id"]:
+                    project_dict["project_id"] = str(project_dict["project_id"])
                 return project_dict
             return None
     except psycopg2.Error as e:
@@ -372,9 +409,9 @@ def remove_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> boo
     # Convert task_id to string if it's a UUID object
     task_id_str = str(task_id) if isinstance(task_id, uuid.UUID) else task_id
     params = (task_id_str,)
-    
+
     logger.debug(f"Executing DELETE query with params: {params}")
-    
+
     try:
         with get_db_cursor(conn, commit=True) as cursor:
             cursor.execute(sql, params)
@@ -398,7 +435,7 @@ def list_projects(conn: psycopg2.extensions.connection) -> List[Dict[str, Any]]:
                 );
             """)
             table_exists = cursor.fetchone()[0]
-            
+
             if not table_exists:
                 # Create the projects table if it doesn't exist
                 logger.info("Creating projects table")
@@ -412,7 +449,7 @@ def list_projects(conn: psycopg2.extensions.connection) -> List[Dict[str, Any]]:
                 conn.commit()
                 logger.info("Projects table created successfully")
                 return []  # Return empty list since we just created the table
-        
+
         # Get all projects
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
             cursor.execute("""

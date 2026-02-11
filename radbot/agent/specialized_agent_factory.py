@@ -6,7 +6,7 @@ and registers them with the root agent.
 """
 
 import logging
-from typing import List, Any, Optional
+from typing import Any, List, Optional
 
 from google.adk.agents import Agent
 
@@ -43,12 +43,15 @@ def _create_axel_agent() -> Optional[Agent]:
             app_name="beto",
         )
 
-        logger.info(f"Successfully created Axel agent with {len(execution_tools)} tools")
+        logger.info(
+            f"Successfully created Axel agent with {len(execution_tools)} tools"
+        )
         return adk_agent
 
     except Exception as e:
         logger.error(f"Failed to create Axel agent: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
         return None
 
@@ -65,10 +68,10 @@ def create_specialized_agents(root_agent: Agent) -> List[Agent]:
     specialized_agents = []
 
     # Import factories lazily to avoid circular imports
+    from radbot.agent.comms_agent.factory import create_comms_agent
     from radbot.agent.home_agent.factory import create_home_agent
     from radbot.agent.planner_agent.factory import create_planner_agent
     from radbot.agent.tracker_agent.factory import create_tracker_agent
-    from radbot.agent.comms_agent.factory import create_comms_agent
 
     # Create all domain agents
     factories = [

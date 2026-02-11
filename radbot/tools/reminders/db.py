@@ -8,7 +8,7 @@ reusing the existing PostgreSQL connection pool from radbot.tools.todo.db.connec
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import psycopg2
 import psycopg2.extras

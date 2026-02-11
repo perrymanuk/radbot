@@ -7,10 +7,11 @@ defines private functions for core CRUD operations.
 """
 
 import logging
+import uuid
+from typing import Any, Dict, List, Optional
+
 import psycopg2
 import psycopg2.extras  # For RealDictCursor
-import uuid
-from typing import List, Dict, Optional, Any
 
 # Reuse the lazy connection pool from the db package
 from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
@@ -21,7 +22,10 @@ logger = logging.getLogger(__name__)
 
 # --- Private CRUD Functions ---
 
-def _get_or_create_project_id(conn: psycopg2.extensions.connection, project_name: str) -> uuid.UUID:
+
+def _get_or_create_project_id(
+    conn: psycopg2.extensions.connection, project_name: str
+) -> uuid.UUID:
     """Gets an existing project ID or creates a new one for the given project name."""
     # First check if we already have a project table
     try:
@@ -32,7 +36,7 @@ def _get_or_create_project_id(conn: psycopg2.extensions.connection, project_name
                 );
             """)
             table_exists = cursor.fetchone()[0]
-            
+
             if not table_exists:
                 # Create the projects table if it doesn't exist
                 logger.info("Creating projects table")
@@ -48,34 +52,49 @@ def _get_or_create_project_id(conn: psycopg2.extensions.connection, project_name
     except Exception as e:
         logger.error(f"Error checking/creating projects table: {e}")
         raise
-    
+
     # Now try to find an existing project with this name
     try:
         with get_db_cursor(conn) as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT project_id FROM projects WHERE name = %s;
-            """, (project_name,))
+            """,
+                (project_name,),
+            )
             result = cursor.fetchone()
-            
+
             if result:
                 # Found existing project
                 return result[0]
             else:
                 # Create new project
                 with get_db_cursor(conn, commit=True) as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO projects (name) VALUES (%s) RETURNING project_id;
-                    """, (project_name,))
+                    """,
+                        (project_name,),
+                    )
                     new_id = cursor.fetchone()[0]
-                    logger.info(f"Created new project '{project_name}' with ID {new_id}")
+                    logger.info(
+                        f"Created new project '{project_name}' with ID {new_id}"
+                    )
                     return new_id
     except Exception as e:
         logger.error(f"Error getting/creating project ID for '{project_name}': {e}")
         raise
 
-def _add_task(conn: psycopg2.extensions.connection, description: str, project_id: uuid.UUID,
-              category: Optional[str], origin: Optional[str], related_info: Optional[Dict],
-              title: Optional[str] = None) -> uuid.UUID:
+
+def _add_task(
+    conn: psycopg2.extensions.connection,
+    description: str,
+    project_id: uuid.UUID,
+    category: Optional[str],
+    origin: Optional[str],
+    related_info: Optional[Dict],
+    title: Optional[str] = None,
+) -> uuid.UUID:
     """Inserts a new task into the database and returns its UUID."""
     sql = """
         INSERT INTO tasks (description, project_id, category, origin, related_info, title)
@@ -102,8 +121,11 @@ def _add_task(conn: psycopg2.extensions.connection, description: str, project_id
         raise  # Re-raise for generic handling
 
 
-def _list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID, 
-                status_filter: Optional[str]) -> List[Dict[str, Any]]:
+def _list_tasks(
+    conn: psycopg2.extensions.connection,
+    project_id: uuid.UUID,
+    status_filter: Optional[str],
+) -> List[Dict[str, Any]]:
     """Retrieves tasks, optionally filtered by status."""
     base_sql = """
         SELECT task_id, project_id, description, status, category, origin, created_at, related_info, title
@@ -114,9 +136,11 @@ def _list_tasks(conn: psycopg2.extensions.connection, project_id: uuid.UUID,
 
     if status_filter:
         # Validate status_filter against allowed ENUM values
-        allowed_statuses = ('backlog', 'inprogress', 'done')
+        allowed_statuses = ("backlog", "inprogress", "done")
         if status_filter not in allowed_statuses:
-            raise ValueError(f"Invalid status filter: {status_filter}. Must be one of {allowed_statuses}")
+            raise ValueError(
+                f"Invalid status filter: {status_filter}. Must be one of {allowed_statuses}"
+            )
         base_sql += " AND status = %s"
         params.append(status_filter)
 
@@ -160,13 +184,13 @@ def _remove_task(conn: psycopg2.extensions.connection, task_id: uuid.UUID) -> bo
         WHERE task_id = %s
         RETURNING task_id;
     """
-    
+
     # Convert task_id to string if it's a UUID object
     task_id_str = str(task_id) if isinstance(task_id, uuid.UUID) else task_id
     params = (task_id_str,)
-    
+
     logger.debug(f"Executing DELETE query with params: {params}")
-    
+
     try:
         with get_db_cursor(conn, commit=True) as cursor:
             cursor.execute(sql, params)
@@ -190,7 +214,7 @@ def _list_projects(conn: psycopg2.extensions.connection) -> List[Dict[str, Any]]
                 );
             """)
             table_exists = cursor.fetchone()[0]
-            
+
             if not table_exists:
                 # Create the projects table if it doesn't exist
                 logger.info("Creating projects table")
@@ -204,7 +228,7 @@ def _list_projects(conn: psycopg2.extensions.connection) -> List[Dict[str, Any]]
                 conn.commit()
                 logger.info("Projects table created successfully")
                 return []  # Return empty list since we just created the table
-        
+
         # Get all projects
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
             cursor.execute("""
@@ -235,13 +259,13 @@ def create_schema_if_not_exists() -> None:
                     );
                 """)
                 enum_exists = cursor.fetchone()[0]
-                
+
                 if not enum_exists:
                     logger.info("Creating task_status ENUM type")
                     cursor.execute("""
                         CREATE TYPE task_status AS ENUM ('backlog', 'inprogress', 'done');
                     """)
-                
+
                 # Check if the tasks table exists
                 cursor.execute("""
                     SELECT EXISTS (
@@ -249,7 +273,7 @@ def create_schema_if_not_exists() -> None:
                     );
                 """)
                 table_exists = cursor.fetchone()[0]
-                
+
                 if not table_exists:
                     logger.info("Creating tasks table")
                     cursor.execute("""
@@ -264,12 +288,12 @@ def create_schema_if_not_exists() -> None:
                             related_info JSONB
                         );
                     """)
-                    
+
                     # Create an index on project_id and status for faster filtering
                     cursor.execute("""
                         CREATE INDEX idx_tasks_project_status ON tasks (project_id, status);
                     """)
-                    
+
                     logger.info("Database schema created successfully")
                 else:
                     logger.info("Tasks table already exists")
@@ -293,7 +317,7 @@ def create_schema_if_not_exists() -> None:
                     );
                 """)
                 projects_table_exists = cursor.fetchone()[0]
-                
+
                 if not projects_table_exists:
                     logger.info("Creating projects table")
                     cursor.execute("""

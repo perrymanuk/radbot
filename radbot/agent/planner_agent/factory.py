@@ -14,9 +14,10 @@ from radbot.config import config_manager
 logger = logging.getLogger(__name__)
 
 TRANSFER_INSTRUCTIONS = (
-    "\n\nIMPORTANT: When you have completed your task, you MUST use the transfer_to_agent tool "
-    "to transfer back to beto. Call transfer_to_agent(agent_name='beto') to return control "
-    "to the main agent."
+    "\n\nCRITICAL RULE — Returning control:\n"
+    "1. First, complete your task using your tools and compose your full text response with the results.\n"
+    "2. Then, call transfer_to_agent(agent_name='beto') to return control to the main agent.\n"
+    "You MUST always do BOTH steps — never return without text content, and never skip the transfer back."
 )
 
 
@@ -49,6 +50,7 @@ def create_planner_agent() -> Optional[Agent]:
         # Basic tools (time)
         try:
             from radbot.tools.basic import get_current_time
+
             tools.append(get_current_time)
             logger.info("Added get_current_time to Planner")
         except Exception as e:
@@ -57,19 +59,22 @@ def create_planner_agent() -> Optional[Agent]:
         # Calendar tools
         try:
             from radbot.tools.calendar.calendar_tools import (
-                list_calendar_events_tool,
-                create_calendar_event_tool,
-                update_calendar_event_tool,
-                delete_calendar_event_tool,
                 check_calendar_availability_tool,
+                create_calendar_event_tool,
+                delete_calendar_event_tool,
+                list_calendar_events_tool,
+                update_calendar_event_tool,
             )
-            tools.extend([
-                list_calendar_events_tool,
-                create_calendar_event_tool,
-                update_calendar_event_tool,
-                delete_calendar_event_tool,
-                check_calendar_availability_tool,
-            ])
+
+            tools.extend(
+                [
+                    list_calendar_events_tool,
+                    create_calendar_event_tool,
+                    update_calendar_event_tool,
+                    delete_calendar_event_tool,
+                    check_calendar_availability_tool,
+                ]
+            )
             logger.info("Added 5 calendar tools to Planner")
         except Exception as e:
             logger.warning(f"Failed to add calendar tools to Planner: {e}")
@@ -77,6 +82,7 @@ def create_planner_agent() -> Optional[Agent]:
         # Scheduler tools
         try:
             from radbot.tools.scheduler import SCHEDULER_TOOLS
+
             tools.extend(SCHEDULER_TOOLS)
             logger.info(f"Added {len(SCHEDULER_TOOLS)} scheduler tools to Planner")
         except Exception as e:
@@ -85,6 +91,7 @@ def create_planner_agent() -> Optional[Agent]:
         # Reminder tools
         try:
             from radbot.tools.reminders import REMINDER_TOOLS
+
             tools.extend(REMINDER_TOOLS)
             logger.info(f"Added {len(REMINDER_TOOLS)} reminder tools to Planner")
         except Exception as e:
@@ -92,6 +99,7 @@ def create_planner_agent() -> Optional[Agent]:
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+
         memory_tools = create_agent_memory_tools("planner")
         tools.extend(memory_tools)
 
@@ -109,5 +117,6 @@ def create_planner_agent() -> Optional[Agent]:
     except Exception as e:
         logger.error(f"Failed to create Planner agent: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
         return None

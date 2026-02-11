@@ -33,5 +33,4 @@ Use memory to track ongoing research threads and avoid re-doing previous analysi
 ## Web Search
 For web searches, use `transfer_to_agent(agent_name="search_agent")` to delegate to the search agent, or use any web search tools available in your tool set.
 
-## Returning Control
-CRITICAL: After EVERY response, you MUST call `transfer_to_agent(agent_name='beto')` to return control to the main agent. This applies whether you completed the task, encountered an error, or need more information from the user. Never end a turn with just text — always transfer back.
+

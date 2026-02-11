@@ -1,0 +1,84 @@
+# Docker Compose for local development
+# Mirrors the production Nomad deployment pattern:
+#   - PostgreSQL for all persistent state
+#   - Qdrant for vector/memory storage
+#   - Radbot with minimal config.yaml + env vars (everything else via DB credential store)
+#
+# Quick start:
+#   cp .env.docker .env   # then edit .env with your keys
+#   docker compose up -d
+#   open http://localhost:8000/admin/  to configure integrations
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-radbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-radbot}
+      POSTGRES_DB: ${POSTGRES_DB:-radbot}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_EXPOSED_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-radbot}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "${QDRANT_EXPOSED_PORT:-6334}:6333"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/localhost/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  radbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    ports:
+      - "${RADBOT_EXPOSED_PORT:-8000}:8000"
+    volumes:
+      - ./docker/config.yaml:/app/config.yaml:ro
+    environment:
+      # Config file location (matches Nomad pattern)
+      RADBOT_CONFIG_FILE: /app/config.yaml
+
+      # Bootstrap secrets (required)
+      RADBOT_CREDENTIAL_KEY: ${RADBOT_CREDENTIAL_KEY}
+      RADBOT_ADMIN_TOKEN: ${RADBOT_ADMIN_TOKEN:-changeme}
+
+      # Database connection (interpolated into config.yaml)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-radbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-radbot}
+      POSTGRES_DB: ${POSTGRES_DB:-radbot}
+
+      # Qdrant connection (interpolated into config.yaml)
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+
+      # Google API key (optional — can be configured later via /admin/)
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+volumes:
+  pgdata:
+  qdrant_data:

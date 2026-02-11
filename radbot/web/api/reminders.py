@@ -50,19 +50,25 @@ async def create_reminder(body: ReminderCreate):
     try:
         dt = datetime.fromisoformat(body.remind_at)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid datetime format: {body.remind_at}")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid datetime format: {body.remind_at}"
+        )
 
     # Apply timezone if naive
     if dt.tzinfo is None:
         try:
             tz = zoneinfo.ZoneInfo(body.timezone_name)
         except (KeyError, zoneinfo.ZoneInfoNotFoundError):
-            raise HTTPException(status_code=400, detail=f"Unknown timezone: {body.timezone_name}")
+            raise HTTPException(
+                status_code=400, detail=f"Unknown timezone: {body.timezone_name}"
+            )
         dt = dt.replace(tzinfo=tz)
 
     # Must be in the future
     if dt <= datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Reminder time must be in the future")
+        raise HTTPException(
+            status_code=400, detail="Reminder time must be in the future"
+        )
 
     try:
         from radbot.tools.reminders.db import create_reminder as db_create
@@ -73,6 +79,7 @@ async def create_reminder(body: ReminderCreate):
         # Register with the engine
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.register_reminder(row)
@@ -97,6 +104,7 @@ async def delete_reminder(reminder_id: str):
         # Unregister from engine
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
+
             engine = SchedulerEngine.get_instance()
             if engine:
                 engine.unregister_reminder(reminder_id)

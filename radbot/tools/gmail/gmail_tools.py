@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # --- Pydantic parameter models ---
 
+
 class ListEmailsParameters(BaseModel):
     """Parameters for list_emails function."""
 
@@ -81,6 +82,7 @@ class GetEmailParameters(BaseModel):
 
 # --- Core functions (accept manager parameter for testability) ---
 
+
 def list_emails(
     manager: Optional[GmailManager] = None,
     max_results: int = 10,
@@ -118,6 +120,7 @@ def get_email(
 
 # --- Wrapper functions for ADK (no manager parameter) ---
 
+
 def list_emails_wrapper(
     max_results: int = 10,
     label: str = "INBOX",
@@ -139,7 +142,12 @@ def list_emails_wrapper(
     """
     try:
         result = list_emails(max_results=max_results, label=label, account=account)
-        if isinstance(result, list) and result and isinstance(result[0], dict) and "error" in result[0]:
+        if (
+            isinstance(result, list)
+            and result
+            and isinstance(result[0], dict)
+            and "error" in result[0]
+        ):
             logger.error(f"Gmail list error: {result[0]['error']}")
             return []
         return result
@@ -182,7 +190,12 @@ def search_emails_wrapper(
         if not query:
             return [{"error": "Query is required for email search"}]
         result = search_emails(query=query, max_results=max_results, account=account)
-        if isinstance(result, list) and result and isinstance(result[0], dict) and "error" in result[0]:
+        if (
+            isinstance(result, list)
+            and result
+            and isinstance(result[0], dict)
+            and "error" in result[0]
+        ):
             logger.error(f"Gmail search error: {result[0]['error']}")
             return []
         return result
@@ -236,7 +249,11 @@ def list_gmail_accounts_wrapper() -> List[Dict[str, str]]:
     try:
         accounts = discover_accounts()
         if not accounts:
-            return [{"message": "No Gmail accounts configured. Run: python -m radbot.tools.gmail.setup --account <label>"}]
+            return [
+                {
+                    "message": "No Gmail accounts configured. Run: python -m radbot.tools.gmail.setup --account <label>"
+                }
+            ]
         # Don't return token_file path to the agent
         return [{"account": a["account"], "email": a["email"]} for a in accounts]
     except Exception as e:

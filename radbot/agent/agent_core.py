@@ -5,39 +5,38 @@ Beto is a pure orchestrator with only memory tools. All domain tools
 live on specialized sub-agents created by specialized_agent_factory.py.
 """
 
-import os
 import logging
-from typing import Optional, Any, List
+import os
 from datetime import date
+from typing import Any, List, Optional
 
 # Import from our initialization and tools setup modules
 from radbot.agent.agent_initializer import (
-    logger,
     Agent,
-    types,
     config_manager,
+    logger,
+    types,
 )
-
 from radbot.agent.agent_tools_setup import (
-    setup_before_agent_call,
-    search_agent,
     code_execution_agent,
     scout_agent,
+    search_agent,
+    setup_before_agent_call,
 )
 
 # Import specialized agents factory
 from radbot.agent.specialized_agent_factory import create_specialized_agents
-
-# Import memory tools and services
-from radbot.memory.qdrant_memory import QdrantMemoryService
-from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
-from radbot.config.config_loader import config_loader
 
 # Import sanitization callback
 from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
 
 # Import telemetry callback
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+from radbot.config.config_loader import config_loader
+
+# Import memory tools and services
+from radbot.memory.qdrant_memory import QdrantMemoryService
+from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
 
 # Get the instruction from the config manager
 instruction = config_manager.get_instruction("main_agent")
@@ -75,7 +74,9 @@ def initialize_memory_service():
             collection = os.getenv("QDRANT_COLLECTION", collection)
 
         # Log memory service configuration
-        logger.info(f"Initializing QdrantMemoryService with host={host}, port={port}, collection={collection}")
+        logger.info(
+            f"Initializing QdrantMemoryService with host={host}, port={port}, collection={collection}"
+        )
         if url:
             logger.info(f"Using Qdrant URL: {url}")
 
@@ -87,13 +88,18 @@ def initialize_memory_service():
             url=url,
             api_key=api_key,
         )
-        logger.info(f"Successfully initialized QdrantMemoryService with collection '{collection}'")
+        logger.info(
+            f"Successfully initialized QdrantMemoryService with collection '{collection}'"
+        )
 
     except Exception as e:
         logger.error(f"Failed to initialize QdrantMemoryService: {str(e)}")
         logger.warning("Memory service will not be available for this session")
         import traceback
-        logger.debug(f"Memory service initialization traceback: {traceback.format_exc()}")
+
+        logger.debug(
+            f"Memory service initialization traceback: {traceback.format_exc()}"
+        )
 
 
 # NOTE: Do not call initialize_memory_service() at import time.

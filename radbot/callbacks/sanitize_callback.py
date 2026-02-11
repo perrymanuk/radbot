@@ -13,7 +13,7 @@ from typing import Optional
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmRequest, LlmResponse
 
-from radbot.tools.shared.sanitize import sanitize_text, _get_sanitize_config
+from radbot.tools.shared.sanitize import _get_sanitize_config, sanitize_text
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,8 @@ def sanitize_before_model_callback(
     if parts_cleaned:
         logger.info(
             "sanitize_callback: cleaned %d/%d part(s) — %s",
-            parts_cleaned, total_parts,
+            parts_cleaned,
+            total_parts,
             "; ".join(details),
         )
 

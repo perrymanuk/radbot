@@ -14,8 +14,8 @@ import logging
 import re
 from collections import OrderedDict
 from typing import Optional
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,9 @@ class TTSService:
     ):
         self.voice_name = voice_name or self.DEFAULT_VOICE
         self.language_code = language_code or self.DEFAULT_LANGUAGE
-        self.speaking_rate = speaking_rate if speaking_rate is not None else self.DEFAULT_SPEAKING_RATE
+        self.speaking_rate = (
+            speaking_rate if speaking_rate is not None else self.DEFAULT_SPEAKING_RATE
+        )
         self.pitch = pitch if pitch is not None else self.DEFAULT_PITCH
         self._api_key = api_key
         self._cache: OrderedDict[str, bytes] = OrderedDict()
@@ -74,6 +76,7 @@ class TTSService:
         # Try to get from config (same key used for Gemini)
         try:
             from radbot.config.adk_config import get_google_api_key
+
             key = get_google_api_key()
             if key:
                 self._api_key = key
@@ -200,7 +203,9 @@ class TTSService:
             raise RuntimeError("TTS API returned no audio content")
 
         audio_bytes = base64.b64decode(audio_content_b64)
-        logger.info(f"TTS synthesized {len(audio_bytes)} bytes for {len(cleaned)} chars")
+        logger.info(
+            f"TTS synthesized {len(audio_bytes)} bytes for {len(cleaned)} chars"
+        )
 
         # Cache (LRU eviction)
         self._cache[key] = audio_bytes

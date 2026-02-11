@@ -41,7 +41,7 @@ class TestSanitizeCallback:
 
     def test_strips_invisible_chars_in_place(self):
         """Invisible chars in part.text should be stripped in-place."""
-        part = _make_part("a\u200Bb\u200Dc")
+        part = _make_part("a\u200bb\u200dc")
         content = _make_content([part])
         request = _make_request([content])
         ctx = MagicMock()
@@ -61,8 +61,8 @@ class TestSanitizeCallback:
 
     def test_multiple_parts(self):
         """All parts in all contents should be sanitized."""
-        p1 = _make_part("a\u200Bb")
-        p2 = _make_part("c\u200Dd")
+        p1 = _make_part("a\u200bb")
+        p2 = _make_part("c\u200dd")
         c1 = _make_content([p1])
         c2 = _make_content([p2])
         request = _make_request([c1, c2])
@@ -111,37 +111,41 @@ class TestSanitizeCallback:
 
     def test_disabled_via_config(self):
         """When callback_enabled is False, text should not be modified."""
-        with patch("radbot.callbacks.sanitize_callback._get_sanitize_config") as mock_cfg:
+        with patch(
+            "radbot.callbacks.sanitize_callback._get_sanitize_config"
+        ) as mock_cfg:
             mock_cfg.return_value = {
                 "enabled": True,
                 "callback_enabled": False,
                 "strictness": "standard",
                 "log_detections": True,
             }
-            part = _make_part("a\u200Bb")
+            part = _make_part("a\u200bb")
             content = _make_content([part])
             request = _make_request([content])
             ctx = MagicMock()
 
             sanitize_before_model_callback(ctx, request)
-            assert part.text == "a\u200Bb"
+            assert part.text == "a\u200bb"
 
     def test_disabled_globally(self):
         """When enabled is False, text should not be modified."""
-        with patch("radbot.callbacks.sanitize_callback._get_sanitize_config") as mock_cfg:
+        with patch(
+            "radbot.callbacks.sanitize_callback._get_sanitize_config"
+        ) as mock_cfg:
             mock_cfg.return_value = {
                 "enabled": False,
                 "callback_enabled": True,
                 "strictness": "standard",
                 "log_detections": True,
             }
-            part = _make_part("a\u200Bb")
+            part = _make_part("a\u200bb")
             content = _make_content([part])
             request = _make_request([content])
             ctx = MagicMock()
 
             sanitize_before_model_callback(ctx, request)
-            assert part.text == "a\u200Bb"
+            assert part.text == "a\u200bb"
 
     def test_tag_char_attack_stripped(self):
         """Tag characters used for invisible smuggling should be stripped."""

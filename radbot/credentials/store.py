@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
 
-from radbot.credentials.crypto import encrypt, decrypt
+from radbot.credentials.crypto import decrypt, encrypt
 from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,10 @@ class CredentialStore:
             # Fall back to config.yaml credential_key
             try:
                 from radbot.config.config_loader import config_loader
-                self._master_key = config_loader.get_config().get("credential_key") or ""
+
+                self._master_key = (
+                    config_loader.get_config().get("credential_key") or ""
+                )
             except Exception:
                 pass
         if not self._master_key:
@@ -98,7 +101,9 @@ class CredentialStore:
     ) -> None:
         """Store (or update) a credential."""
         if not self.available:
-            raise RuntimeError("Credential store unavailable — RADBOT_CREDENTIAL_KEY not set")
+            raise RuntimeError(
+                "Credential store unavailable — RADBOT_CREDENTIAL_KEY not set"
+            )
 
         ciphertext, salt = encrypt(value, self._master_key)
 
@@ -115,7 +120,16 @@ class CredentialStore:
         """
         with get_db_connection() as conn:
             with get_db_cursor(conn, commit=True) as cur:
-                cur.execute(sql, (name, ciphertext.decode("utf-8"), salt, credential_type, description))
+                cur.execute(
+                    sql,
+                    (
+                        name,
+                        ciphertext.decode("utf-8"),
+                        salt,
+                        credential_type,
+                        description,
+                    ),
+                )
         logger.info(f"Stored credential '{name}' (type={credential_type})")
 
     def get(self, name: str) -> Optional[str]:
@@ -133,7 +147,9 @@ class CredentialStore:
                         return None
                     ciphertext_str, salt_memview = row
                     salt = bytes(salt_memview)
-                    return decrypt(ciphertext_str.encode("utf-8"), salt, self._master_key)
+                    return decrypt(
+                        ciphertext_str.encode("utf-8"), salt, self._master_key
+                    )
         except Exception as e:
             logger.error(f"Error retrieving credential '{name}': {e}")
             return None

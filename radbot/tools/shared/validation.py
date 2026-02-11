@@ -23,7 +23,6 @@ def validate_uuid(
         return None, {
             "status": "error",
             "message": (
-                f"Invalid {field_name} format: {value}. "
-                "Must be a valid UUID."
+                f"Invalid {field_name} format: {value}. " "Must be a valid UUID."
             ),
         }
