@@ -139,7 +139,26 @@ class ConfigManager:
                 model_string,
                 kwargs.get("api_base", "<default>"),
             )
-            return LiteLlm(model=model_string, **kwargs)
+            instance = LiteLlm(model=model_string, **kwargs)
+
+            # ADK sets litellm.add_function_to_prompt = True which injects
+            # tool definitions as text into the system prompt.  Ollama models
+            # (qwen2.5, mistral, etc.) support native tool calling via the
+            # API — the prompt-injected definitions confuse them into
+            # outputting text like ``transfer_to_agent(agent_name="casa")``
+            # instead of structured tool_calls.  Disable it so native
+            # function calling is used.
+            try:
+                import litellm as _litellm_mod
+
+                _litellm_mod.add_function_to_prompt = False
+                _logger.info(
+                    "Disabled litellm.add_function_to_prompt for native tool calling"
+                )
+            except Exception:
+                pass
+
+            return instance
 
         return model_string
 
