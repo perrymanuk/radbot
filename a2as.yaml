@@ -1,0 +1,5138 @@
+manifest:
+  version: "0.1.3"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: perrymanuk/radbot
+    source: https://github.com/perrymanuk/radbot
+    branch: main
+    commit: "4897391d"
+    scope: [agent.py, radbot/__init__.py, radbot/agent/__init__.py, radbot/agent/agent.py, radbot/agent/agent_base.py, radbot/agent/agent_core.py,
+      radbot/agent/agent_factory.py, radbot/agent/agent_initializer.py, radbot/agent/agent_methods.py, radbot/agent/agent_tools_setup.py,
+      radbot/agent/agent_utils.py, radbot/agent/agents.py, radbot/agent/calendar_agent_factory.py, radbot/agent/comms_agent/__init__.py,
+      radbot/agent/comms_agent/factory.py, radbot/agent/enhanced_memory_agent_factory.py, radbot/agent/execution_agent/__init__.py,
+      radbot/agent/execution_agent/agent.py, radbot/agent/execution_agent/factory.py, radbot/agent/execution_agent/models.py,
+      radbot/agent/execution_agent/tools.py, radbot/agent/home_agent/__init__.py, radbot/agent/home_agent/factory.py, radbot/agent/home_assistant_agent_factory.py,
+      radbot/agent/memory_agent_factory.py, radbot/agent/planner_agent/__init__.py, radbot/agent/planner_agent/factory.py,
+      radbot/agent/research_agent/agent.py, radbot/agent/research_agent/factory.py, radbot/agent/research_agent/instructions.py,
+      radbot/agent/research_agent/sequential_thinking.py, radbot/agent/research_agent/tools.py, radbot/agent/shell_agent_factory.py,
+      radbot/agent/specialized/axel.py, radbot/agent/specialized_agent_factory.py, radbot/agent/todo_agent_factory.py, radbot/agent/tracker_agent/__init__.py,
+      radbot/agent/tracker_agent/factory.py, radbot/cache/prompt_cache.py, radbot/callbacks/sanitize_callback.py, radbot/callbacks/telemetry_callback.py,
+      radbot/cli/main.py, radbot/config/__init__.py, radbot/config/adk_config.py, radbot/config/cache_settings.py, radbot/config/config_loader.py,
+      radbot/config/settings.py, radbot/credentials/store.py, radbot/filesystem/integration.py, radbot/memory/embedding.py,
+      radbot/memory/qdrant_memory.py, radbot/telemetry/usage_tracker.py, radbot/tools/__init__.py, radbot/tools/adk_builtin/__init__.py,
+      radbot/tools/adk_builtin/code_execution_tool.py, radbot/tools/adk_builtin/search_tool.py, radbot/tools/agent_tools.py,
+      radbot/tools/agent_transfer.py, radbot/tools/basic/__init__.py, radbot/tools/basic/basic_tools.py, radbot/tools/calendar/calendar_tools.py,
+      radbot/tools/gmail/__init__.py, radbot/tools/homeassistant/__init__.py, radbot/tools/homeassistant/ha_tool_schemas.py,
+      radbot/tools/jira/__init__.py, radbot/tools/mcp/claude_cli.py, radbot/tools/mcp/client.py, radbot/tools/mcp/context7_client.py,
+      radbot/tools/mcp/direct_claude_cli.py, radbot/tools/mcp/dynamic_tools_loader.py, radbot/tools/mcp/filesystem_adapter.py,
+      radbot/tools/mcp/mcp_agent_factory.py, radbot/tools/mcp/mcp_core.py, radbot/tools/mcp/mcp_entity_search.py, radbot/tools/mcp/mcp_fileserver_client.py,
+      radbot/tools/mcp/mcp_fileserver_server.py, radbot/tools/mcp/mcp_ha_agent.py, radbot/tools/mcp/mcp_homeassistant.py,
+      radbot/tools/mcp/mcp_stdio_client.py, radbot/tools/mcp/mcp_tools.py, radbot/tools/mcp/mcp_utils.py, radbot/tools/memory/agent_memory_factory.py,
+      radbot/tools/memory/memory_tools.py, radbot/tools/overseerr/__init__.py, radbot/tools/reminders/__init__.py, radbot/tools/scheduler/__init__.py,
+      radbot/tools/specialized/axel_toolset.py, radbot/tools/specialized/base_toolset.py, radbot/tools/specialized/scout_toolset.py,
+      radbot/tools/specialized/simple_axel_toolset.py, radbot/tools/specialized/todo_toolset.py, radbot/tools/specialized/utility_toolset.py,
+      radbot/tools/stt/stt_service.py, radbot/tools/todo/__init__.py, radbot/tools/todo/api/__init__.py, radbot/tools/todo/todo_tools.py,
+      radbot/tools/webhooks/__init__.py, radbot/web/api/admin.py, radbot/web/api/agent_info.py, radbot/web/api/session/event_processing.py,
+      radbot/web/api/session/mcp_tools.py, radbot/web/api/session/session_runner.py, radbot/web/api/session/utils.py, radbot/web/app.py,
+      tools/add_generate_content.py, tools/check_axel.py, tools/check_mcp_env.py, tools/create_calendar_token.py, tools/debug_ha_tools.py,
+      tools/diagnose_search_tool.py, tools/direct_function_tool.py, tools/direct_token_refresh.py, tools/fix_calendar_token.py,
+      tools/get_google_token.py, tools/ha_standalone_agent.py, tools/inspect_agent.py, tools/mcp_fileserver_client.py, tools/mcp_fileserver_server.py,
+      tools/register_axel.py, tools/register_specialized_agents.py, tools/save_calendar_token.py]
+  issued:
+    by: A2AS.org
+    at: '2026-02-11T17:05:38Z'
+    url: https://a2as.org/certified/agents/perrymanuk/radbot
+  signatures:
+    digest: sha256:Oq45pYDcZIOBsfAkKqfYTTM324g1kFZ9ZIYrtkAN4PA
+    key: ed25519:plLz8gO2d4gE_N5FRZpjmyUA1ltN5LLMuvnMSEjFKNw
+    sig: ed25519:rhKBlhDONHoiGuDfDZ7Ei92GP-gmy5Ctscyl4Hq9WlrXmsrAKqSTR-jwXj3wN1IO25gCr8C-wWaEs8K4AoEbCA
+
+agents:
+  adk_agent:
+    type: instance
+    models: [model]
+    params:
+      name: scout
+      description: A specialized agent for implementing code, executing tasks, and managing project files.
+      instruction: full_instruction
+      function: create_execution_agent
+  agent.0:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [get_time, search_home_assistant_entities, HassTurnOn, HassTurnOff]
+    params:
+      name: ha_standalone_agent
+      instruction: [You are a home automation assistant that can search for and control Home Assistant entities., 'When a
+          user asks to control devices (turn on/off, etc.):', '1. ALWAYS use search_home_assistant_entities to search for
+          entities first:', '- search_term: Keywords from the user request (required)', '- domain_filter: Optional filter
+          for entity type (light, switch, etc.)', 2. Then use HassTurnOn or HassTurnOff with the entity_id from search results.,
+        'EXAMPLES:', '- User: "turn off the basement lights"', '1. Call: search_home_assistant_entities(search_term="basement
+          light")', '2. Call: HassTurnOff(entity_id="light.basement_main")', '- User: "turn on the kitchen lights"', '1. Call:
+          search_home_assistant_entities(search_term="kitchen", domain_filter="light")', '2. Call: HassTurnOn(entity_id="light.kitchen")',
+        'IMPORTANT: NEVER make up entity IDs. Always use search first!']
+      function: run_agent
+      instance: agent
+  agent.1:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [test_tool, test_func]
+    params:
+      name: test_agent
+      instruction: [You are a test agent.]
+      function: diagnose_agent_tools
+      instance: agent
+  agent.2:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [test_tool]
+    params:
+      name: schema_test_agent
+      instruction: [You are a test agent.]
+      function: diagnose_schema_conversion
+      instance: agent
+  agent.3:
+    type: instance
+    models: [self.model]
+    params:
+      name: scout
+      instruction: agent_instruction
+      description: The main coordinating agent that handles user requests and orchestrates tasks.
+      class: RadBotAgent
+      instance: agent
+  agent.create_comms_agent:
+    type: factory
+    models: [model]
+    params:
+      name: comms
+      description: Email (Gmail read-only) and Jira issue management (list, view, transition, comment, search).
+      instruction: ['You are Comms, a communications specialist. Read emails via Gmail and manage Jira issues.']
+      function: create_comms_agent
+      instance: agent
+  agent.create_home_agent:
+    type: factory
+    models: [model]
+    params:
+      name: casa
+      description: Smart home device control (lights, switches, sensors) and media requests (movies, TV shows).
+      instruction: ['You are Casa, a smart home and media specialist. Control Home Assistant devices and manage Overseerr
+          media requests.']
+      function: create_home_agent
+      instance: agent
+  agent.create_planner_agent:
+    type: factory
+    models: [model]
+    params:
+      name: planner
+      description: Calendar events, scheduled recurring tasks, one-shot reminders, and time queries.
+      instruction: ['You are Planner, a time and scheduling specialist. Manage calendar events, scheduled tasks, and reminders.']
+      function: create_planner_agent
+      instance: agent
+  agent.create_root_agent:
+    type: factory
+    models: [model_name]
+    params:
+      name: search_agent
+      instruction: ['You are a web search agent. When asked about recent events, news, or facts that may have changed since
+          your training, use the Google Search tool to find current information. Always cite your sources clearly. When you
+          don''t need to search, answer from your knowledge.']
+      description: The main coordinating agent that handles user requests and orchestrates tasks.
+      function: create_root_agent
+  agent.create_sub_agent:
+    type: factory
+    models: [model_name]
+    params:
+      name: search_agent
+      instruction: ['You are a web search agent. When asked about recent events, news, or facts that may have changed since
+          your training, use the Google Search tool to find current information. Always cite your sources clearly. When you
+          don''t need to search, answer from your knowledge.']
+      description: '{...} function'
+      function: create_sub_agent
+  agent.create_todo_agent:
+    type: factory
+    models: [get_model_name]
+    tools: [ALL_TOOLS]
+    params:
+      name: beto
+      description: An agent capable of managing a persistent todo list stored in a PostgreSQL database.
+      instruction: ['You are a web search agent. When asked about recent events, news, or facts that may have changed since
+          your training, use the Google Search tool to find current information. Always cite your sources clearly. When you
+          don''t need to search, answer from your knowledge.']
+      function: create_todo_agent
+  agent.create_tracker_agent:
+    type: factory
+    models: [model]
+    params:
+      name: tracker
+      description: Todo lists, project management, task tracking, and webhook configuration.
+      instruction: ['You are Tracker, a task and project management specialist. Manage todo items, projects, and webhook integrations.']
+      function: create_tracker_agent
+      instance: agent
+  code_execution_agent:
+    type: instance
+    models: [model_name]
+    params:
+      name: code_execution_agent
+      instruction: ''
+      description: A specialized agent that can execute Python code securely.
+      code_executor: BuiltInCodeExecutor
+      function: create_code_execution_agent
+  execution_agent:
+    type: instance
+    models: [self.model]
+    tools: [self.tools]
+    params:
+      name: self.name
+      instruction: ['You are a web search agent. When asked about recent events, news, or facts that may have changed since
+          your training, use the Google Search tool to find current information. Always cite your sources clearly. When you
+          don''t need to search, answer from your knowledge.']
+      class: ExecutionAgent
+  parallel_executor:
+    type: instance
+    params:
+      name: axel_executor_{execution_id}
+      function: _run_async_impl
+      sub_agents: [workers]
+  research_agent:
+    type: instance
+    models: [model]
+    params:
+      name: code_execution_agent
+      instruction: ['You are Planner, a time and scheduling specialist. Manage calendar events, scheduled tasks, and reminders.']
+      description: A specialized sub-agent for conducting technical research (web, internal docs, GitHub) and facilitating
+        technical design discussions (rubber ducking).
+      output_key: output_key
+      class: ResearchAgent
+  root_agent.0:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      name: radbot_web
+      description: Fallback agent (error loading root_agent)
+      instance: root_agent
+  root_agent.1:
+    type: instance
+    models: [get_main_model]
+    tools: [get_current_time]
+    params:
+      name: radbot_cli
+      instruction: [You are a helpful assistant with access to tools and memory.]
+      description: RadBot CLI agent
+      function: setup_agent
+      instance: root_agent
+  root_agent.2:
+    type: instance
+    models: [get_main_model]
+    tools: [get_current_time]
+    params:
+      name: radbot_basic
+      instruction: [You are a helpful assistant with basic tools.]
+      description: Basic RadBot CLI agent
+      function: setup_agent
+      instance: root_agent
+  root_agent.3:
+    type: instance
+    models: [model_name]
+    tools: [beto_tools]
+    params:
+      name: beto
+      instruction: ['You are Tracker, a task and project management specialist. Manage todo items, projects, and webhook integrations.']
+      global_instruction: ['Today''s date: {today}']
+      before_agent_callback: setup_before_agent_call
+      before_model_callback: sanitize_before_model_callback
+      after_model_callback: telemetry_after_model_callback
+      generate_content_config:
+        class: GenerateContentConfig
+        temperature: "0.2"
+      instance: root_agent
+      sub_agents: [search_agent, code_execution_agent, scout_agent]
+  search_agent:
+    type: instance
+    models: [model_name]
+    tools: [google_search]
+    params:
+      name: search_agent
+      instruction: ['You are a web search agent. When asked about recent events, news, or facts that may have changed since
+          your training, use the Google Search tool to find current information. Always cite your sources clearly. When you
+          don''t need to search, answer from your knowledge.']
+      description: A specialized agent that can search the web using Google Search.
+      disallow_transfer_to_parent: "True"
+      disallow_transfer_to_peers: "True"
+      function: create_search_agent
+  test_agent.0:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [search_home_assistant_entities]
+    params:
+      name: entity_search_test_agent
+      instruction: [You are a test agent that searches for Home Assistant entities., 'When the user mentions any location
+          or device, use the search_home_assistant_entities function', to find matching entities. Reply with the entity IDs
+          you find., 'CRITICAL: Always follow this workflow:', 1. Use search_home_assistant_entities to find entities, 2.
+          Report the exact entity_ids you found]
+      function: main
+      instance: test_agent
+  test_agent.1:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [function_tool]
+    params:
+      name: entity_search_test_agent
+      instruction: [You are a test agent that searches for Home Assistant entities., 'When the user mentions any location
+          or device, use the search_home_assistant_entities function', to find matching entities. Reply with the entity IDs
+          you find., 'CRITICAL: Always follow this workflow:', 1. Use search_home_assistant_entities to find entities, 2.
+          Report the exact entity_ids you found]
+      function: main
+      instance: test_agent
+  worker.0:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      name: thing{i}
+      task_id: task.task_id
+      task_instruction: task
+      function: _run_async_impl
+      instance: worker
+  worker.1:
+    type: instance
+    models: [gemini-2.5-flash]
+    params:
+      class: WorkerAgent
+      base: BaseAgent
+      name: search_agent
+      instance: worker
+
+models:
+  gemini-2.5-flash:
+    type: literal
+    agents: [agent.0, test_agent.0, test_agent.1, root_agent.0, agent.1, agent.2, worker.0, worker.1]
+  get_main_model:
+    type: function
+    agents: [root_agent.1, root_agent.2]
+    params:
+      wrapper: get_main_model
+  get_model_name:
+    type: function
+    agents: [agent.create_todo_agent]
+    params:
+      wrapper: get_model_name
+  model:
+    type: literal
+    agents: [agent.create_comms_agent, adk_agent, agent.create_home_agent, agent.create_planner_agent, research_agent, agent.create_tracker_agent]
+  model_name:
+    type: literal
+    agents: [agent.create_root_agent, agent.create_sub_agent, code_execution_agent, root_agent.3, search_agent]
+  self.model:
+    type: literal
+    agents: [agent.3, execution_agent]
+
+tools:
+  ALL_TOOLS:
+    type: function
+    agents: [agent.create_todo_agent]
+    params:
+      dynamic: "True"
+  beto_tools:
+    type: function
+    agents: [root_agent.3]
+    params:
+      dynamic: "True"
+  BuiltInCodeExecutor:
+    type: module
+    params:
+      class: BuiltInCodeExecutor
+  function_tool:
+    type: function
+    agents: [test_agent.1]
+  get_current_time:
+    type: function
+    agents: [root_agent.1, root_agent.2]
+    params:
+      description: |-
+        Gets the current time for a specified city or defaults to UTC.
+
+        Use this tool when the user asks for the current time.
+
+        Args:
+            city: The city name (e.g., 'New York', 'London'). Defaults to UTC if not specified.
+            tool_context: Tool context for accessing session state.
+
+        Returns:
+            A string with the current time information or error message.
+  get_time:
+    type: function
+    agents: [agent.0]
+    params:
+      description: Get the current time in the specified city.
+  google_search:
+    type: module
+    agents: [search_agent]
+  HassTurnOff:
+    type: function
+    agents: [agent.0]
+    params:
+      description: |-
+        Turn off a Home Assistant entity.
+
+        Args:
+            entity_id: The entity ID to turn off (e.g., light.kitchen)
+
+        Returns:
+            Dictionary with operation result
+  HassTurnOn:
+    type: function
+    agents: [agent.0]
+    params:
+      description: |-
+        Turn on a Home Assistant entity.
+
+        Args:
+            entity_id: The entity ID to turn on (e.g., light.kitchen)
+
+        Returns:
+            Dictionary with operation result
+  search_home_assistant_entities:
+    type: function
+    agents: [agent.0, test_agent.0]
+    params:
+      description: |-
+        Search for Home Assistant entities matching search term.
+
+        Args:
+            search_term: Term to search for in entity names, like 'kitchen' or 'plant'
+            domain_filter: Optional domain to filter by (light, switch, etc.)
+
+        Returns:
+            Dictionary with matching entities
+  self.tools:
+    type: function
+    agents: [execution_agent]
+    params:
+      dynamic: "True"
+  test_func:
+    type: function
+    agents: [agent.1]
+    params:
+      description: A test function.
+  test_tool:
+    type: function
+    agents: [agent.1, agent.2]
+
+mcp:
+  MCPToolset:
+    type: process
+    params:
+      class: MCPToolset
+      tools: tools
+      exit_stack: exit_stack
+      function: create_fileserver_toolset
+  tools.0:
+    type: process
+    params:
+      class: MCPToolset
+      method: from_server
+      connection_type: StdioServerParameters
+      command: python3
+      args: cmd_args
+      instance: tools
+  tools.1:
+    type: process
+    params:
+      class: McpToolset
+      method: from_server
+      async_exit_stack: exit_stack
+
+teams:
+  parallel_executor:
+    type: parallel
+    agents: [parallel_executor, workers]
+  root_agent.3:
+    type: hierarchy
+    agents: [root_agent.3, search_agent, code_execution_agent, scout_agent]
+
+imports:
+  _cl: radbot.config.config_loader.config_loader
+  _create_home_assistant_toolset_async: radbot.tools.mcp.mcp_tools._create_home_assistant_toolset_async
+  _extract_response_from_event: radbot.web.api.session.utils._extract_response_from_event
+  _get_client_file: radbot.tools.gmail.gmail_auth._get_client_file
+  _get_current_timestamp: radbot.web.api.session.utils._get_current_timestamp
+  _get_event_details: radbot.web.api.session.event_processing._get_event_details
+  _get_event_type: radbot.web.api.session.utils._get_event_type
+  _get_plan_step_summary: radbot.web.api.session.event_processing._get_plan_step_summary
+  _get_sanitize_config: radbot.tools.shared.sanitize._get_sanitize_config
+  _json: json
+  _MCP_TOOL_BLOCKLIST: radbot.tools.mcp.dynamic_tools_loader._MCP_TOOL_BLOCKLIST
+  _os: os
+  _process_agent_transfer_event: radbot.web.api.session.event_processing._process_agent_transfer_event
+  _process_generic_event: radbot.web.api.session.event_processing._process_generic_event
+  _process_model_response_event: radbot.web.api.session.event_processing._process_model_response_event
+  _process_planner_event: radbot.web.api.session.event_processing._process_planner_event
+  _process_response_text: radbot.web.api.session.utils._process_response_text
+  _process_tool_call_event: radbot.web.api.session.event_processing._process_tool_call_event
+  _safely_serialize: radbot.web.api.session.serialization._safely_serialize
+  _try_load_mcp_tools: radbot.web.api.session.mcp_tools._try_load_mcp_tools
+  add_event: radbot.web.api.events.add_event
+  add_jira_comment_tool: jira_tools.add_jira_comment_tool
+  add_task: radbot.tools.todo.api.task_tools.add_task
+  add_task_tool: api.add_task_tool
+  adk_tools: google.adk.tools
+  admin_router: radbot.web.api.admin.router
+  Agent: google.adk.agents.Agent
+  agent: agent
+  agent_core: radbot.agent.agent_core
+  AgentFactory: radbot.agent.agent_factory.AgentFactory
+  agentic_coder_toolset: radbot.tools.specialized.agentic_coder_toolset
+  ALL_TOOLS: api.ALL_TOOLS
+  ALLOWED_COMMANDS: radbot.tools.shell.ALLOWED_COMMANDS
+  Any: typing.Any
+  APIRouter: fastapi.APIRouter
+  argparse: argparse
+  asynccontextmanager: contextlib.asynccontextmanager
+  AsyncExitStack: contextlib.AsyncExitStack
+  asyncio: asyncio
+  AsyncIOScheduler: apscheduler.schedulers.asyncio.AsyncIOScheduler
+  atexit: atexit
+  auth: google.auth
+  authenticate_gmail: radbot.tools.gmail.gmail_auth.authenticate_gmail
+  AuthRequest: google.auth.transport.requests.Request
+  AxelExecutionAgent: radbot.agent.execution_agent.agent.AxelExecutionAgent
+  Base: app.db.session.Base
+  base64: base64
+  BaseAgent: google.adk.agents.BaseAgent
+  BaseMemoryService: google.adk.memory.BaseMemoryService
+  BaseModel: pydantic.BaseModel
+  Body: fastapi.Body
+  build: googleapiclient.discovery.build
+  BuiltInCodeExecutor: google.adk.code_executors.BuiltInCodeExecutor
+  CALENDAR_TIMEZONE: radbot.tools.calendar.calendar_auth.CALENDAR_TIMEZONE
+  calendar_toolset: radbot.tools.specialized.calendar_toolset
+  CalendarManager: radbot.tools.calendar.calendar_manager.CalendarManager
+  Callable: typing.Callable
+  CallbackContext: google.adk.agents.callback_context.CallbackContext
+  cast: typing.cast
+  chat_operations: radbot.web.db.chat_operations
+  check_calendar_access: radbot.tools.calendar.calendar_operations.check_calendar_access
+  check_calendar_availability_tool: radbot.tools.calendar.calendar_tools.check_calendar_availability_tool
+  check_calendar_availability_wrapper: radbot.tools.calendar.calendar_tools.check_calendar_availability_wrapper
+  ClassVar: typing.ClassVar
+  Client: google.genai.client.Client
+  client_options: google.api_core.client_options
+  ClientSession: mcp.ClientSession
+  code_execution_agent: radbot.agent.agent_tools_setup.code_execution_agent
+  code_execution_toolset: radbot.tools.specialized.code_execution_toolset
+  Column: sqlalchemy.Column
+  complete_task: queries.complete_task
+  complete_task_tool: api.complete_task_tool
+  config_loader: radbot.config.config_loader.config_loader
+  config_manager: radbot.config.config_manager
+  ConfigLoader: radbot.config.config_loader.ConfigLoader
+  ConfigManager: radbot.config.settings.ConfigManager
+  ConnectionError: requests.exceptions.ConnectionError
+  Content: radbot.agent.agent_base.Content
+  ContextCacheConfig: google.adk.agents.context_cache_config.ContextCacheConfig
+  contextlib: contextlib
+  contextmanager: contextlib.contextmanager
+  convert_to_adk_tool: radbot.tools.mcp.convert_to_adk_tool
+  copy: radbot.filesystem.tools.copy
+  copy_file: radbot.filesystem.tools.copy
+  CORSMiddleware: starlette.middleware.cors.CORSMiddleware
+  create_agent: radbot.agent.agent_core.create_agent
+  create_agent_memory_tools: radbot.tools.memory.agent_memory_factory.create_agent_memory_tools
+  create_calendar_agent: radbot.agent.calendar_agent_factory.create_calendar_agent
+  create_calendar_event_tool: radbot.tools.calendar.calendar_tools.create_calendar_event_tool
+  create_calendar_event_wrapper: radbot.tools.calendar.calendar_tools.create_calendar_event_wrapper
+  create_claude_prompt_tool: radbot.tools.claude_prompt.create_claude_prompt_tool
+  create_code_execution_agent: code_execution_tool.create_code_execution_agent
+  create_code_execution_tool: radbot.tools.adk_builtin.code_execution_tool.create_code_execution_tool
+  create_comms_agent: radbot.agent.comms_agent.factory.create_comms_agent
+  create_core_agent_for_web: radbot.agent.agent_utils.create_core_agent_for_web
+  create_engine: sqlalchemy.create_engine
+  create_enhanced_memory_manager: radbot.memory.enhanced_memory.create_enhanced_memory_manager
+  create_event: radbot.tools.calendar.calendar_operations.create_event
+  create_execution_agent: radbot.agent.execution_agent.create_execution_agent
+  create_fileserver_toolset: radbot.tools.mcp.mcp_fileserver_client.create_fileserver_toolset
+  create_filesystem_tools: radbot.filesystem.integration.create_filesystem_tools
+  create_find_ha_entities_tool: radbot.tools.mcp.mcp_entity_search.create_find_ha_entities_tool
+  create_ha_mcp_enabled_agent: radbot.tools.mcp.mcp_tools.create_ha_mcp_enabled_agent
+  create_home_agent: radbot.agent.home_agent.factory.create_home_agent
+  create_home_assistant_agent_factory: radbot.agent.home_assistant_agent_factory.create_home_assistant_agent_factory
+  create_home_assistant_toolset: radbot.tools.mcp.mcp_homeassistant.create_home_assistant_toolset
+  create_mcp_enabled_agent: radbot.tools.mcp.mcp_agent_factory.create_mcp_enabled_agent
+  create_mcp_tools: radbot.tools.mcp.mcp_core.create_mcp_tools
+  create_memory_enabled_agent: radbot.agent.create_memory_enabled_agent
+  create_parent_directory: radbot.filesystem.security.create_parent_directory
+  create_planner_agent: radbot.agent.planner_agent.factory.create_planner_agent
+  create_reminder_tool: reminder_tools.create_reminder_tool
+  create_research_agent: radbot.agent.research_agent.factory.create_research_agent
+  create_runner: radbot.agent.agent_utils.create_runner
+  create_scheduled_task_tool: schedule_tools.create_scheduled_task_tool
+  create_schema_if_not_exists: db.create_schema_if_not_exists
+  create_search_agent: search_tool.create_search_agent
+  create_sequential_thinking_tool: radbot.agent.research_agent.sequential_thinking.create_sequential_thinking_tool
+  create_shell_agent: radbot.agent.shell_agent_factory.create_shell_agent
+  create_shell_enabled_root_agent: radbot.agent.shell_agent_factory.create_shell_enabled_root_agent
+  create_simple_axel_toolset: radbot.tools.specialized.simple_axel_toolset.create_simple_axel_toolset
+  create_specialized_agents: radbot.agent.specialized_agent_factory.create_specialized_agents
+  create_specialized_toolset: base_toolset.create_specialized_toolset
+  create_todo_agent: radbot.agent.todo_agent_factory.create_todo_agent
+  create_tracker_agent: radbot.agent.tracker_agent.factory.create_tracker_agent
+  create_webhook: radbot.tools.webhooks.db.create_webhook
+  create_webhook_tool: webhook_tools.create_webhook_tool
+  Credentials: google.oauth2.credentials.Credentials
+  CredentialStore: radbot.credentials.store.CredentialStore
+  CronTrigger: apscheduler.triggers.cron.CronTrigger
+  dataclass: dataclasses.dataclass
+  date: datetime.date
+  datetime: datetime.datetime
+  DateTime: sqlalchemy.DateTime
+  DateTrigger: apscheduler.triggers.date.DateTrigger
+  db_add_task: db.add_task
+  db_complete_task: db.complete_task
+  db_get_project: db.get_project
+  db_get_task: db.get_task
+  db_list_all_tasks: db.list_all_tasks
+  db_list_projects: db.list_projects
+  db_list_tasks: db.list_tasks
+  db_remove_task: db.remove_task
+  db_tools: db_tools
+  db_update_project: db.update_project
+  db_update_task: db.update_task
+  declarative_base: sqlalchemy.ext.declarative.declarative_base
+  decrypt: radbot.credentials.crypto.decrypt
+  DEFAULT_ENV_CALENDAR_ID: radbot.tools.calendar.calendar_auth.CALENDAR_ID
+  defaultdict: collections.defaultdict
+  delete: radbot.filesystem.tools.delete
+  delete_calendar_event_tool: radbot.tools.calendar.calendar_tools.delete_calendar_event_tool
+  delete_calendar_event_wrapper: radbot.tools.calendar.calendar_tools.delete_calendar_event_wrapper
+  delete_event: radbot.tools.calendar.calendar_operations.delete_event
+  delete_reminder_tool: reminder_tools.delete_reminder_tool
+  delete_scheduled_task_tool: schedule_tools.delete_scheduled_task_tool
+  delete_webhook: radbot.tools.webhooks.db.delete_webhook
+  delete_webhook_tool: webhook_tools.delete_webhook_tool
+  Depends: fastapi.Depends
+  detect_thinking_trigger: radbot.agent.research_agent.sequential_thinking.detect_thinking_trigger
+  Dict: typing.Dict
+  difflib: difflib
+  direct_create_fileserver_toolset: radbot.filesystem.adapter.create_fileserver_toolset
+  direct_prompt_claude: radbot.tools.mcp.direct_claude_cli.direct_prompt_claude
+  DirectClaudeCLIClient: radbot.tools.mcp.direct_claude_cli.DirectClaudeCLIClient
+  discover_accounts: radbot.tools.gmail.gmail_auth.discover_accounts
+  edit_file: radbot.filesystem.tools.edit_file
+  edit_file_func: radbot.filesystem.tools.edit_file_func
+  embed_text: radbot.memory.embedding.embed_text
+  encrypt: radbot.credentials.crypto.encrypt
+  EnhancedMemoryManager: radbot.memory.enhanced_memory.EnhancedMemoryManager
+  Enum: enum.Enum
+  escape: html.escape
+  Event: google.adk.events.Event
+  EventActions: google.adk.events.EventActions
+  execute_shell_command: radbot.tools.shell.shell_tool.execute_shell_command
+  execution_tools: radbot.agent.execution_agent.tools.execution_tools
+  ExecutionAgent: radbot.agent.execution_agent.agent.ExecutionAgent
+  extract_text_from_malformed_function: radbot.web.api.malformed_function_handler.extract_text_from_malformed_function
+  extras: psycopg2.extras
+  FALLBACK_INSTRUCTION: radbot.agent.agent_base.FALLBACK_INSTRUCTION
+  FastAPI: fastapi.FastAPI
+  Fernet: cryptography.fernet.Fernet
+  Field: pydantic.Field
+  File: fastapi.File
+  FileServerMCP: radbot.tools.mcp.FileServerMCP
+  filesystem_toolset: radbot.tools.specialized.filesystem_toolset
+  find_agent_by_name: radbot.tools.agent_transfer.find_agent_by_name
+  find_home_assistant_entities: radbot.tools.mcp.mcp_utils.find_home_assistant_entities
+  Flow: google_auth_oauthlib.flow.Flow
+  fnmatch: fnmatch
+  ForeignKey: sqlalchemy.ForeignKey
+  func: sqlalchemy.sql.func
+  FunctionTool: google.adk.tools.FunctionTool
+  functools: functools
+  genai: google.genai
+  GenerationConfig: google.genai.types.GenerationConfig
+  GenerativeModel: google.genai.models.GenerativeModel
+  Generator: typing.Generator
+  get_all_toolsets: base_toolset.get_all_toolsets
+  get_allowed_directories: radbot.filesystem.security.get_allowed_directories
+  get_allowed_transfers: radbot.tools.specialized.base_toolset.get_allowed_transfers
+  get_available_mcp_tools: radbot.tools.mcp.get_available_mcp_tools
+  get_calendar_availability: radbot.tools.calendar.calendar_operations.get_calendar_availability
+  get_calendar_service: radbot.tools.calendar.calendar_auth.get_calendar_service
+  get_claude_templates: radbot.config.get_claude_templates
+  get_context7_tools: radbot.tools.mcp.context7_client.get_context7_tools
+  get_credential_store: radbot.credentials.store.get_credential_store
+  get_current_time: radbot.tools.basic_tools.get_current_time
+  get_db: app.db.session.get_db
+  get_db_connection: db.get_db_connection
+  get_db_cursor: connection.get_db_cursor
+  get_email_tool: radbot.tools.gmail.gmail_tools.get_email_tool
+  get_embedding_model: radbot.memory.embedding.get_embedding_model
+  get_full_research_agent_instruction: radbot.agent.research_agent.instructions.get_full_research_agent_instruction
+  get_gmail_manager: radbot.tools.gmail.gmail_manager.get_gmail_manager
+  get_gmail_service: radbot.tools.gmail.gmail_auth.get_gmail_service
+  get_google_api_key: radbot.config.adk_config.get_google_api_key
+  get_ha_client: radbot.tools.homeassistant.ha_client_singleton.get_ha_client
+  get_ha_entity_state: radbot.tools.homeassistant.ha_tools_impl.get_ha_entity_state
+  get_ha_mcp_tools: radbot.tools.mcp.mcp_homeassistant.get_ha_mcp_tools
+  get_info: radbot.filesystem.tools.get_info
+  get_issue_transitions_tool: jira_tools.get_issue_transitions_tool
+  get_jira_client: jira_client.get_jira_client
+  get_jira_issue_tool: jira_tools.get_jira_issue_tool
+  get_legacy_cache_config: radbot.config.cache_settings.get_cache_config
+  get_list_tools: radbot.tools.todo.api.list_tools.get_list_tools
+  get_message: radbot.tools.gmail.gmail_operations.get_message
+  get_ntfy_client: radbot.tools.ntfy.ntfy_client.get_ntfy_client
+  get_or_create_project_id: db.get_or_create_project_id
+  get_or_create_runner_for_session: radbot.web.api.session.get_or_create_runner_for_session
+  get_overseerr_client: overseerr_client.get_overseerr_client
+  get_overseerr_media_details_tool: overseerr_tools.get_overseerr_media_details_tool
+  get_project: queries.get_project
+  get_project_tools: radbot.tools.todo.api.project_tools.get_project_tools
+  get_research_tools: radbot.agent.research_agent.tools.get_research_tools
+  get_session_manager: radbot.web.api.session.session_manager.get_session_manager
+  get_shell_tool: radbot.tools.shell.get_shell_tool
+  get_task: queries.get_task
+  get_task_tools: radbot.tools.todo.api.task_tools.get_task_tools
+  get_toolset: radbot.tools.specialized.base_toolset.get_toolset
+  get_transfer_controller: radbot.tools.specialized.transfer_controller.get_transfer_controller
+  get_undelivered_completed: radbot.tools.reminders.db.get_undelivered_completed
+  get_undelivered_results: radbot.tools.scheduler.db.get_undelivered_results
+  get_update_tools: radbot.tools.todo.api.update_tools.get_update_tools
+  get_weather: radbot.tools.basic_tools.get_weather
+  get_webhook_by_path: radbot.tools.webhooks.db.get_webhook_by_path
+  get_workspace_calendar_service: radbot.tools.calendar.calendar_auth.get_workspace_calendar_service
+  gmail_build: googleapiclient.discovery.build
+  GmailManager: radbot.tools.gmail.gmail_manager.GmailManager
+  google_search: google.adk.tools.google_search
+  handle_fileserver_tool_call: radbot.tools.mcp.mcp_fileserver_client.handle_fileserver_tool_call
+  hashes: cryptography.hazmat.primitives.hashes
+  hashlib: hashlib
+  hmac: hmac
+  homeassistant_toolset: radbot.tools.specialized.homeassistant_toolset
+  HomeAssistantRESTClient: radbot.tools.homeassistant.ha_rest_client.HomeAssistantRESTClient
+  HTMLResponse: fastapi.responses.HTMLResponse
+  HTTPAuthorizationCredentials: fastapi.security.HTTPAuthorizationCredentials
+  HTTPBearer: fastapi.security.HTTPBearer
+  HTTPError: requests.exceptions.HTTPError
+  HttpError: googleapiclient.errors.HttpError
+  HTTPException: fastapi.HTTPException
+  httplib2: httplib2
+  httpx: httpx
+  importlib: importlib
+  init_database: radbot.tools.todo.todo_tools.init_database
+  init_pending_results_schema: radbot.tools.scheduler.db.init_pending_results_schema
+  init_reminder_schema: radbot.tools.reminders.db.init_reminder_schema
+  init_scheduler_schema: radbot.tools.scheduler.db.init_scheduler_schema
+  init_table_schema: radbot.tools.shared.db_schema.init_table_schema
+  init_todo_schema: radbot.tools.todo.db.schema.create_schema_if_not_exists
+  init_webhook_schema: radbot.tools.webhooks.db.init_webhook_schema
+  InitializationOptions: mcp.server.models.InitializationOptions
+  initialize_memory_service: radbot.agent.agent_core.initialize_memory_service
+  InMemoryArtifactService: google.adk.artifacts.InMemoryArtifactService
+  InMemorySessionService: radbot.agent.agent_base.InMemorySessionService
+  inspect: inspect
+  InstalledAppFlow: google_auth_oauthlib.flow.InstalledAppFlow
+  internal_create_agent: radbot.agent.agent.create_agent
+  InvalidToken: cryptography.fernet.InvalidToken
+  Jira: atlassian.Jira
+  JIRA_TOOLS: radbot.tools.jira.JIRA_TOOLS
+  JSON: sqlalchemy.JSON
+  json: json
+  JSONB: sqlalchemy.dialects.postgresql.JSONB
+  JSONResponse: fastapi.responses.JSONResponse
+  jsonschema: jsonschema
+  List: typing.List
+  list_all_tasks: radbot.tools.todo.api.list_tools.list_all_tasks
+  list_all_tasks_tool: api.list_all_tasks_tool
+  list_calendar_events_tool: radbot.tools.calendar.calendar_tools.list_calendar_events_tool
+  list_calendar_events_wrapper: radbot.tools.calendar.calendar_tools.list_calendar_events_wrapper
+  list_directory: radbot.filesystem.tools.list_directory
+  list_directory_func: radbot.filesystem.tools.list_directory_func
+  list_emails_tool: radbot.tools.gmail.gmail_tools.list_emails_tool
+  list_events: radbot.tools.calendar.calendar_operations.list_events
+  list_gmail_accounts_tool: radbot.tools.gmail.gmail_tools.list_gmail_accounts_tool
+  list_ha_entities: radbot.tools.homeassistant.ha_tools_impl.list_ha_entities
+  list_home_assistant_domains: radbot.tools.mcp.mcp_utils.list_home_assistant_domains
+  list_messages: radbot.tools.gmail.gmail_operations.list_messages
+  list_my_jira_issues_tool: jira_tools.list_my_jira_issues_tool
+  list_overseerr_requests_tool: overseerr_tools.list_overseerr_requests_tool
+  list_project_tasks: radbot.tools.todo.todo_tools.list_project_tasks
+  list_project_tasks_tool: api.list_project_tasks_tool
+  list_projects: radbot.tools.todo.api.project_tools.list_projects
+  list_projects_tool: api.list_projects_tool
+  list_reminders: radbot.tools.reminders.db.list_reminders
+  list_reminders_tool: reminder_tools.list_reminders_tool
+  list_scheduled_tasks_tool: schedule_tools.list_scheduled_tasks_tool
+  list_tasks: radbot.tools.scheduler.db.list_tasks
+  list_webhooks: radbot.tools.webhooks.db.list_webhooks
+  list_webhooks_tool: webhook_tools.list_webhooks_tool
+  Literal: typing.Literal
+  LlmAgent: google.adk.agents.LlmAgent
+  LlmRequest: google.adk.models.LlmRequest
+  LlmResponse: google.adk.models.LlmResponse
+  load_artifacts: google.adk.tools.load_artifacts
+  load_dotenv: dotenv.load_dotenv
+  load_dynamic_mcp_tools: radbot.tools.mcp.dynamic_tools_loader.load_dynamic_mcp_tools
+  load_saved_token: radbot.tools.calendar.setup.load_saved_token
+  local: threading.local
+  logger: radbot.agent.agent_initializer.logger
+  logging: logging
+  main: radbot.cli.main.main
+  manager: radbot.web.app.manager
+  mark_completed: radbot.tools.reminders.db.mark_completed
+  mark_delivered: radbot.tools.reminders.db.mark_delivered
+  mark_result_delivered: radbot.tools.scheduler.db.mark_result_delivered
+  mcp_types: mcp.types
+  MCPClientError: radbot.tools.mcp.mcp_client_factory.MCPClientError
+  MCPClientFactory: radbot.tools.mcp.mcp_client_factory.MCPClientFactory
+  MCPSSEClient: radbot.tools.mcp.client.MCPSSEClient
+  MCPStdioClient: radbot.tools.mcp.mcp_stdio_client.MCPStdioClient
+  MCPTool: mcp.types.Tool
+  MCPToolset: google.adk.tools.mcp_tool.mcp_toolset.MCPToolset
+  McpToolset: google.adk.tools.mcp_tool.McpToolset
+  memory_router: radbot.web.api.session.memory_router
+  memory_service: radbot.agent.agent_core.memory_service
+  memory_toolset: radbot.tools.specialized.memory_toolset
+  MemoryStoreRequest: radbot.web.api.session.memory_api.MemoryStoreRequest
+  MessageToDict: radbot.agent.agent_methods.MessageToDict
+  models: models
+  nest_asyncio: nest_asyncio
+  NotificationOptions: mcp.server.lowlevel.NotificationOptions
+  np: numpy
+  OAuthCredentials: google.oauth2.credentials.Credentials
+  Optional: typing.Optional
+  os: os
+  OVERSEERR_TOOLS: overseerr_tools.OVERSEERR_TOOLS
+  ParallelAgent: google.adk.agents.ParallelAgent
+  Part: radbot.agent.agent_base.Part
+  partial: functools.partial
+  Path: pathlib.Path
+  path: os.path
+  PBKDF2HMAC: cryptography.hazmat.primitives.kdf.pbkdf2.PBKDF2HMAC
+  pool: psycopg2.pool
+  pprint: pprint.pprint
+  process_request: radbot.tools.agent_transfer.process_request
+  process_thinking: radbot.agent.research_agent.sequential_thinking.process_thinking
+  Project: app.models.project.Project
+  ProjectModel: app.db.models.Project
+  projects: app.api.routes.projects
+  ProjectWithTasks: app.models.project.ProjectWithTasks
+  prompt_claude: radbot.tools.claude_prompt.prompt_claude
+  prompt_claude_mcp: radbot.tools.mcp.claude_cli.prompt_claude_mcp
+  ProxyHeadersMiddleware: uvicorn.middleware.proxy_headers.ProxyHeadersMiddleware
+  psycopg2: psycopg2
+  QdrantClient: qdrant_client.QdrantClient
+  QdrantMemoryService: radbot.memory.qdrant_memory.QdrantMemoryService
+  Query: fastapi.Query
+  queue_pending_result: radbot.tools.scheduler.db.queue_pending_result
+  quote: urllib.parse.quote
+  RadBotAgent: radbot.agent.agent_base.RadBotAgent
+  random: random
+  re: re
+  read_file: radbot.filesystem.tools.read_file
+  read_file_func: radbot.filesystem.tools.read_file_func
+  record_trigger: radbot.tools.webhooks.db.record_trigger
+  RedirectResponse: fastapi.responses.RedirectResponse
+  redis: redis
+  redis_lib: redis
+  register_agent_info_router: radbot.web.api.agent_info.register_agent_info_router
+  register_events_router: radbot.web.api.events.register_events_router
+  register_messages_router: radbot.web.api.messages.register_messages_router
+  register_sessions_router: radbot.web.api.sessions.register_sessions_router
+  register_toolset: base_toolset.register_toolset
+  relationship: sqlalchemy.orm.relationship
+  reminder_db: db
+  REMINDER_TOOLS: radbot.tools.reminders.REMINDER_TOOLS
+  reminders_router: radbot.web.api.reminders.router
+  remove_task: radbot.tools.todo.api.task_tools.remove_task
+  remove_task_tool: api.remove_task_tool
+  render_template: radbot.tools.webhooks.template_renderer.render_template
+  Request: google.auth.transport.requests.Request
+  request_overseerr_media_tool: overseerr_tools.request_overseerr_media_tool
+  RequestException: requests.exceptions.RequestException
+  requests: requests
+  ResearchAgent: radbot.agent.research_agent.agent.ResearchAgent
+  reset_ha_client: radbot.tools.homeassistant.ha_client_singleton.reset_ha_client
+  reset_ntfy_client: radbot.tools.ntfy.ntfy_client.reset_ntfy_client
+  reset_overseerr_client: radbot.tools.overseerr.overseerr_client.reset_overseerr_client
+  retry: tenacity.retry
+  retry_if_exception_type: tenacity.retry_if_exception_type
+  RLock: threading.RLock
+  root_agent: radbot.agent.root_agent
+  Runner: radbot.agent.agent_base.Runner
+  sanitize_before_model_callback: radbot.callbacks.sanitize_callback.sanitize_before_model_callback
+  sanitize_dict: radbot.tools.shared.sanitize.sanitize_dict
+  sanitize_external_content: radbot.tools.shared.sanitize.sanitize_external_content
+  sanitize_text: radbot.tools.shared.sanitize.sanitize_text
+  scheduler_db: db
+  scheduler_router: radbot.web.api.scheduler.router
+  SCHEDULER_TOOLS: radbot.tools.scheduler.SCHEDULER_TOOLS
+  SchedulerEngine: radbot.tools.scheduler.engine.SchedulerEngine
+  scout_agent: radbot.agent.agent_tools_setup.scout_agent
+  scout_toolset: radbot.tools.specialized.scout_toolset
+  search: radbot.filesystem.tools.search
+  search_agent: radbot.agent.agent_tools_setup.search_agent
+  search_emails_tool: radbot.tools.gmail.gmail_tools.search_emails_tool
+  search_func: radbot.filesystem.tools.search_func
+  search_ha_entities: radbot.tools.homeassistant.ha_tools_impl.search_ha_entities
+  search_home_assistant_entities: radbot.tools.mcp.mcp_entity_search.search_home_assistant_entities
+  search_jira_issues_tool: jira_tools.search_jira_issues_tool
+  search_messages: radbot.tools.gmail.gmail_operations.search_messages
+  search_overseerr_media_tool: overseerr_tools.search_overseerr_media_tool
+  search_past_conversations: radbot.tools.memory.memory_tools.search_past_conversations
+  secrets: secrets
+  SequenceMatcher: difflib.SequenceMatcher
+  serialize_rows: radbot.tools.shared.serialization.serialize_rows
+  Server: mcp.server.lowlevel.Server
+  service_account: google.oauth2.service_account
+  Session: sqlalchemy.orm.Session
+  sessionmaker: sqlalchemy.orm.sessionmaker
+  SessionManager: radbot.web.api.session.session_manager.SessionManager
+  SessionRunner: radbot.web.api.session.session_runner.SessionRunner
+  SessionService: radbot.agent.agent_base.SessionService
+  Set: typing.Set
+  set_allowed_directories: radbot.filesystem.security.set_allowed_directories
+  settings: app.core.config.settings
+  setup_before_agent_call: radbot.agent.agent_tools_setup.setup_before_agent_call
+  setup_vertex_environment: radbot.agent.agent_base.setup_vertex_environment
+  shlex: shlex
+  shutil: shutil
+  signal: signal
+  socket: socket
+  SpecializedAgentFactory: radbot.agent.specialized_agent_factory.SpecializedAgentFactory
+  sse_client: mcp.client.sse.sse_client
+  SseServerParams: google.adk.tools.mcp_tool.mcp_session_manager.SseServerParams
+  start_server: radbot.web.app.start_server
+  start_server_async: radbot.tools.mcp.mcp_fileserver_server.start_server_async
+  StaticFiles: fastapi.staticfiles.StaticFiles
+  status: fastapi.status
+  stdio: mcp.server.stdio
+  stdio_client: mcp.client.stdio.stdio_client
+  StdioServerParameters: google.adk.tools.mcp_tool.mcp_toolset.StdioServerParameters
+  stop_after_attempt: tenacity.stop_after_attempt
+  store_important_information: radbot.tools.memory.memory_tools.store_important_information
+  String: sqlalchemy.String
+  stt_config_loader: radbot.config.config_loader
+  stt_router: radbot.web.api.stt.router
+  STTService: radbot.tools.stt.stt_service.STTService
+  subprocess: subprocess
+  sys: sys
+  Task: app.models.task.Task
+  TaskInstruction: radbot.agent.execution_agent.models.TaskInstruction
+  TaskModel: app.db.models.Task
+  TaskResult: radbot.agent.execution_agent.models.TaskResult
+  tasks: app.api.routes.tasks
+  TaskStatus: radbot.agent.execution_agent.models.TaskStatus
+  TaskType: radbot.agent.execution_agent.models.TaskType
+  TaskWithProject: app.models.task.TaskWithProject
+  TC: google.adk.tools.tool_context.ToolContext
+  telemetry_after_model_callback: radbot.callbacks.telemetry_callback.telemetry_after_model_callback
+  tempfile: tempfile
+  test_fileserver_connection: mcp_fileserver_client.test_fileserver_connection
+  test_home_assistant_connection: radbot.tools.mcp_utils.test_home_assistant_connection
+  Text: sqlalchemy.Text
+  Thread: threading.Thread
+  threading: threading
+  ThreadPoolExecutor: concurrent.futures.ThreadPoolExecutor
+  time: time
+  timedelta: datetime.timedelta
+  Timeout: requests.exceptions.Timeout
+  timezone: datetime.timezone
+  todo_toolset: radbot.tools.specialized.todo_toolset
+  toggle_ha_entity: radbot.tools.homeassistant.ha_tools_impl.toggle_ha_entity
+  tool: google.adk.tools.decorators.tool
+  Tool: mcp.types.Tool
+  ToolContext: google.adk.tools.tool_context.ToolContext
+  ToolGoogleSearch: google.genai.types.tool_types.ToolGoogleSearch
+  traceback: traceback
+  transfer_to_agent: google.adk.tools.transfer_to_agent_tool.transfer_to_agent
+  TransferController: radbot.tools.specialized.transfer_controller.TransferController
+  transition_jira_issue_tool: jira_tools.transition_jira_issue_tool
+  truncate_error: radbot.tools.shared.errors.truncate_error
+  tts_router: radbot.web.api.tts.router
+  TTSService: radbot.tools.tts.tts_service.TTSService
+  Tuple: typing.Tuple
+  turn_off_ha_entity: radbot.tools.homeassistant.ha_tools_impl.turn_off_ha_entity
+  turn_on_ha_entity: radbot.tools.homeassistant.ha_tools_impl.turn_on_ha_entity
+  Type: typing.Type
+  TYPE_CHECKING: typing.TYPE_CHECKING
+  types: google.genai.types
+  TypeVar: typing.TypeVar
+  unicodedata: unicodedata
+  Union: typing.Union
+  update_calendar_event_tool: radbot.tools.calendar.calendar_tools.update_calendar_event_tool
+  update_calendar_event_wrapper: radbot.tools.calendar.calendar_tools.update_calendar_event_wrapper
+  update_event: radbot.tools.calendar.calendar_operations.update_event
+  update_last_run: radbot.tools.scheduler.db.update_last_run
+  update_project: queries.update_project
+  update_project_tool: api.update_project_tool
+  update_task: radbot.tools.todo.api.update_tools.update_task
+  update_task_tool: api.update_task_tool
+  UploadFile: fastapi.UploadFile
+  URLError: urllib.error.URLError
+  urlopen: urllib.request.urlopen
+  usage_tracker: radbot.telemetry.usage_tracker.usage_tracker
+  utility_toolset: radbot.tools.specialized.utility_toolset
+  UUID: uuid.UUID
+  uuid: uuid
+  UUID4: pydantic.UUID4
+  uvicorn: uvicorn
+  validate_calendar_access: radbot.tools.calendar.calendar_auth.validate_calendar_access
+  validate_path: radbot.filesystem.security.validate_path
+  validate_uuid: radbot.tools.shared.validation.validate_uuid
+  wait_exponential: tenacity.wait_exponential
+  web_research_toolset: radbot.tools.specialized.web_research_toolset
+  webhook_db: db
+  WEBHOOK_TOOLS: radbot.tools.webhooks.WEBHOOK_TOOLS
+  webhooks_router: radbot.web.api.webhooks.router
+  WebSocket: fastapi.WebSocket
+  WebSocketClient: mcp.client.WebSocketClient
+  WebSocketDisconnect: fastapi.WebSocketDisconnect
+  write_file: radbot.filesystem.tools.write_file
+  write_file_func: radbot.filesystem.tools.write_file_func
+  yaml: yaml
+  ZoneInfo: zoneinfo.ZoneInfo
+  zoneinfo: zoneinfo
+
+functions:
+  __call__:
+    type: async
+    module: radbot.web.app
+    args: [self, scope, receive, send]
+  __del__:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self]
+  __init__:
+    type: sync
+    module: radbot.telemetry.usage_tracker
+    args: [self]
+    params:
+      returns: None
+  __repr__:
+    type: sync
+    module: task-api.app.db.models
+    args: [self]
+  __str__:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [self]
+    params:
+      returns: str
+  _aggregate_results:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, results]
+    params:
+      returns: str
+  _apply_quota_project:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    args: [creds]
+    params:
+      returns: Credentials
+  _broadcast_to_all:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self, payload]
+    params:
+      returns: int
+  _call_tool:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self, tool_name, args]
+    params:
+      returns: Any
+  _call_tool_async:
+    type: async
+    module: radbot.tools.mcp.client
+    args: [self, tool_name, args]
+    params:
+      returns: Any
+  _call_tool_http:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self, tool_name, args]
+    params:
+      returns: Any
+  _check_claude_cli_support:
+    type: sync
+    module: radbot.tools.claude_prompt
+    params:
+      returns: Dict
+  _check_home_assistant_entity_async:
+    type: async
+    module: radbot.tools.mcp.mcp_utils
+    args: [entity_id]
+    params:
+      returns: Dict
+  _client_or_error:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+  _close_session:
+    type: async
+    module: radbot.tools.mcp.client
+    args: [self]
+  _create_axel_agent:
+    type: sync
+    module: radbot.agent.specialized_agent_factory
+    params:
+      returns: Optional[Agent]
+  _create_copy_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_delete_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_edit_file_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_fileserver_toolset_async:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_client
+    params:
+      returns: List[FunctionTool]
+  _create_get_info_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_home_assistant_toolset_async:
+    type: async
+    module: radbot.tools.mcp.mcp_homeassistant
+    params:
+      returns: Tuple
+  _create_list_directory_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_memory_point:
+    type: sync
+    module: radbot.memory.qdrant_memory
+    args: [self, user_id, text, metadata]
+    params:
+      returns: models.PointStruct
+  _create_read_file_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_search_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _create_tools_from_client:
+    type: sync
+    module: radbot.tools.mcp.mcp_core
+    args: [client, server_config]
+    params:
+      returns: List[Any]
+  _create_write_file_tool:
+    type: sync
+    module: radbot.filesystem.integration
+    params:
+      returns: FunctionTool
+  _decode_body:
+    type: sync
+    module: radbot.tools.gmail.gmail_operations
+    args: [payload]
+    params:
+      returns: str
+  _deep_merge:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self, base, overlay]
+    params:
+      returns: Dict
+  _deliver_single_reminder:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self, reminder_id, message]
+    params:
+      returns: None
+  _divide_work:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, specification]
+    params:
+      returns: List[TaskInstruction]
+  _err:
+    type: sync
+    module: radbot.web.api.admin
+    args: [message]
+    params:
+      returns: Dict
+  _execute_documentation_task:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, task_instruction]
+    params:
+      returns: TaskResult
+  _execute_implementation_task:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, task_instruction]
+    params:
+      returns: TaskResult
+  _execute_job:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self, task_id, prompt, name]
+    params:
+      returns: None
+  _execute_reminder:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self, reminder_id, message]
+    params:
+      returns: None
+  _execute_task:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, task_instruction]
+    params:
+      returns: TaskResult
+  _execute_testing_task:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, task_instruction]
+    params:
+      returns: TaskResult
+  _extract_documentation_specs:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, specification]
+    params:
+      returns: str
+  _extract_implementation_specs:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, specification]
+    params:
+      returns: str
+  _extract_parts:
+    type: sync
+    module: radbot.tools.gmail.gmail_operations
+    args: [part]
+  _extract_response_from_event:
+    type: sync
+    module: radbot.web.api.session.session_runner
+    args: [self, event]
+  _extract_specification:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, request]
+    params:
+      returns: str
+  _extract_testing_specs:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, specification]
+    params:
+      returns: str
+  _find_attachments:
+    type: sync
+    module: radbot.tools.gmail.gmail_operations
+    args: [part]
+  _find_config_path:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self, config_path]
+    params:
+      returns: Path
+  _find_home_assistant_entities_async:
+    type: async
+    module: radbot.tools.mcp.mcp_utils
+    args: [search_term, domain_filter]
+    params:
+      returns: Dict
+  _find_text_match:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [content, old_text]
+    params:
+      returns: Optional[int]
+  _format_file_info:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, full_path]
+    params:
+      returns: Dict
+  _format_issue:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [issue, base_url]
+    params:
+      returns: Dict
+  _format_search_result:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_tools
+    args: [item]
+    params:
+      returns: Dict
+  _get:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self, path, params]
+    params:
+      returns: Any
+  _get_adc_client_config:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    params:
+      returns: Optional[dict]
+  _get_api_key:
+    type: sync
+    module: radbot.tools.stt.stt_service
+    args: [self]
+    params:
+      returns: str
+  _get_client_file:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    params:
+      returns: str
+  _get_client_json_from_store:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    params:
+      returns: Optional[str]
+  _get_code_execution_agent:
+    type: sync
+    module: radbot.tools.agent_tools
+  _get_config:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    params:
+      returns: dict
+  _get_current_timestamp:
+    type: sync
+    module: radbot.web.api.events
+  _get_default_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  _get_event_details:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [event]
+  _get_event_type:
+    type: sync
+    module: radbot.web.api.session.session_runner
+    args: [self, event]
+  _get_memory_service_and_user_id:
+    type: sync
+    module: radbot.tools.memory.agent_memory_factory
+    args: [tool_context]
+  _get_oauth_redirect_uri:
+    type: sync
+    module: radbot.web.api.admin
+    args: [request, callback_path]
+    params:
+      returns: str
+  _get_plan_step_summary:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [plan_step]
+  _get_pool:
+    type: sync
+    module: radbot.tools.todo.db.connection
+    params:
+      returns: psycopg2.pool.ThreadedConnectionPool
+  _get_pricing:
+    type: sync
+    module: radbot.telemetry.usage_tracker
+    args: [model]
+    params:
+      returns: tuple
+  _get_quota_project:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    params:
+      returns: Optional[str]
+  _get_relative_path:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, full_path]
+    params:
+      returns: str
+  _get_sanitize_config:
+    type: sync
+    module: radbot.tools.shared.sanitize
+    params:
+      returns: Dict
+  _get_scout_agent:
+    type: sync
+    module: radbot.tools.agent_tools
+  _get_search_agent:
+    type: sync
+    module: radbot.tools.agent_tools
+  _get_token_path:
+    type: sync
+    module: radbot.tools.calendar.setup
+    params:
+      returns: str
+  _handle_failures:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, failed_tasks]
+    params:
+      returns: str
+  _handle_fileserver_tool_call_async:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [tool_name, params]
+    params:
+      returns: Event
+  _initialize_async:
+    type: async
+    module: radbot.tools.mcp.client
+    args: [self]
+    params:
+      returns: bool
+  _initialize_collection:
+    type: sync
+    module: radbot.memory.qdrant_memory
+    args: [self]
+  _initialize_gemini_embedding:
+    type: sync
+    module: radbot.memory.embedding
+    params:
+      returns: EmbeddingModel
+  _interpolate_env_vars:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self, value]
+    params:
+      returns: Any
+  _is_cache_valid:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self]
+    params:
+      returns: bool
+  _is_thought_part:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [part]
+  _list_home_assistant_domains_async:
+    type: async
+    module: radbot.tools.mcp.mcp_utils
+    params:
+      returns: Dict
+  _load_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  _load_history_into_session:
+    type: async
+    module: radbot.web.api.session.session_runner
+    args: [self, session]
+  _load_home_assistant_config:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: Dict
+  _load_model_config:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: Dict
+  _load_schema:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  _log_agent_tree:
+    type: sync
+    module: radbot.web.api.session.session_runner
+    args: [self]
+  _monitor_stderr:
+    type: sync
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self]
+  _name:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [obj]
+  _normalize_config:
+    type: sync
+    module: radbot.cache.prompt_cache
+    args: [self, config]
+    params:
+      returns: Dict
+  _normalize_content:
+    type: sync
+    module: radbot.cache.prompt_cache
+    args: [self, content]
+    params:
+      returns: Dict
+  _normalize_line_endings:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [text]
+    params:
+      returns: str
+  _normalize_url:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self, url]
+    params:
+      returns: str
+  _ok:
+    type: sync
+    module: radbot.web.api.admin
+    args: [message]
+    params:
+      returns: Dict
+  _parse_message:
+    type: sync
+    module: radbot.tools.gmail.gmail_operations
+    args: [raw_message]
+    params:
+      returns: Dict
+  _post:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self, path, json_body]
+    params:
+      returns: Any
+  _preserve_indentation:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [original_line, new_text]
+    params:
+      returns: str
+  _prioritize_tasks:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, tasks]
+    params:
+      returns: List[TaskInstruction]
+  _process_agent_transfer_event:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [event]
+  _process_and_broadcast:
+    type: async
+    module: radbot.web.api.webhooks
+    args: [webhook_id, webhook_name, prompt]
+    params:
+      returns: None
+  _process_generic_event:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [event]
+  _process_model_response_event:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [event]
+  _process_planner_event:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [event]
+  _process_response_text:
+    type: sync
+    module: radbot.web.api.session.session_runner
+    args: [self, text]
+  _process_tool_call_event:
+    type: sync
+    module: radbot.web.api.session.event_processing
+    args: [event]
+  _process_tools:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self, tools_info]
+    params:
+      returns: None
+  _react_index_path:
+    type: sync
+    module: radbot.web.app
+    params:
+      returns: Optional[str]
+  _request:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self, method, endpoint]
+    params:
+      returns: Optional[Any]
+  _require_store:
+    type: sync
+    module: radbot.web.api.admin
+    params:
+      returns: CredentialStore
+  _run_async_impl:
+    type: async
+    module: radbot.agent.execution_agent.agent
+    args: [self, ctx]
+  _run_async_loop:
+    type: sync
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self]
+  _run_sequential_thinking:
+    type: sync
+    module: radbot.agent.research_agent.agent
+    args: [self, session, prompt]
+    params:
+      returns: Dict
+  _safely_serialize:
+    type: sync
+    module: radbot.web.api.session.session_runner
+    args: [self, obj]
+  _sanitize_value:
+    type: sync
+    module: radbot.tools.shared.sanitize
+    args: [value, source, strictness]
+    params:
+      returns: Any
+  _send_initialization_request:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self]
+    params:
+      returns: bool
+  _send_ntfy:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self, title, message, tags, session_id]
+    params:
+      returns: None
+  _send_to_all:
+    type: async
+    module: radbot.web.app
+    args: [self, session_id, payload]
+    params:
+      returns: None
+  _start_async_thread:
+    type: sync
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self]
+  _start_process:
+    type: sync
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self]
+    params:
+      returns: bool
+  _store_get:
+    type: sync
+    module: radbot.web.api.admin
+    args: [name]
+    params:
+      returns: Optional[str]
+  _try_adc:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    params:
+      returns: Optional[Credentials]
+  _try_load_mcp_tools:
+    type: sync
+    module: radbot.web.api.session.mcp_tools
+    args: [self]
+  _update_last_run:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, task_id, result]
+    params:
+      returns: None
+  _validate_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self, config, schema]
+    params:
+      returns: None
+  _validate_path:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, path]
+    params:
+      returns: str
+  _verify_admin:
+    type: sync
+    module: radbot.web.api.admin
+    args: [request, creds]
+    params:
+      returns: None
+  _verify_hmac:
+    type: sync
+    module: radbot.web.api.webhooks
+    args: [secret, body, signature]
+    params:
+      returns: bool
+  add_event:
+    type: sync
+    module: radbot.web.api.events
+    args: [session_id, event]
+    params:
+      returns: None
+  add_generate_content_method:
+    type: sync
+    module: tools.add_generate_content
+  add_jira_comment:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [issue_key, comment]
+    params:
+      returns: Dict
+  add_session_to_memory:
+    type: sync
+    module: radbot.memory.qdrant_memory
+    args: [self, session]
+    params:
+      returns: None
+  add_specific_transfer_target:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, agent]
+  add_sub_agent:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self, sub_agent]
+    params:
+      returns: None
+  add_task:
+    type: sync
+    module: radbot.tools.todo.todo_tools
+    args: [description, project_id, title, category, origin, related_info]
+    params:
+      returns: Dict
+  add_thought:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [self, content, revise_step, branch_from]
+    params:
+      returns: ThoughtStep
+  add_tool:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self, tool]
+    params:
+      returns: None
+  add_tools:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self, tools]
+    params:
+      returns: None
+  admin_page:
+    type: async
+    module: radbot.web.api.admin
+    args: [request]
+  apply_model_config:
+    type: sync
+    module: radbot.config.settings
+    args: [self, root_agent]
+    params:
+      returns: None
+  authenticate:
+    type: sync
+    module: radbot.tools.gmail.gmail_manager
+    args: [self]
+    params:
+      returns: bool
+  authenticate_gmail:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    args: [account]
+    params:
+      returns: Optional[Credentials]
+  authenticate_personal:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self]
+    params:
+      returns: bool
+  authenticate_workspace:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, email]
+    params:
+      returns: bool
+  available:
+    type: sync
+    module: radbot.credentials.store
+    args: [self]
+    params:
+      returns: bool
+  broadcast_to_all_sessions:
+    type: async
+    module: radbot.web.app
+    args: [self, payload]
+    params:
+      returns: int
+  calendar_oauth_callback:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, code, state]
+  calendar_oauth_setup:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  call_service:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self, domain, service, entity_id, additional_data]
+    params:
+      returns: Optional[List[Dict]]
+  call_tool:
+    type: tool
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [name, arguments]
+    params:
+      returns: List[mcp_types.TextContent]
+  call_tool_async:
+    type: async
+    module: radbot.tools.mcp.mcp_stdio_client
+  can_transfer_to:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self, agent_name]
+  check_agent_tree:
+    type: sync
+    module: radbot.tools.agent_transfer
+    args: [root_agent, visited]
+    params:
+      returns: Dict
+  check_calendar_access:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [service, calendar_id]
+    params:
+      returns: str
+  check_calendar_availability:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [manager, calendar_ids, days_ahead, is_workspace]
+    params:
+      returns: Dict
+  check_calendar_availability_wrapper:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [calendar_ids, days_ahead, is_workspace]
+    params:
+      returns: Dict
+  check_for_circular_refs:
+    type: sync
+    module: tools.inspect_agent
+    args: [agent_info]
+  check_home_assistant_entity:
+    type: sync
+    module: radbot.tools.mcp.mcp_utils
+    args: [entity_id]
+    params:
+      returns: Dict
+  check_home_assistant_status:
+    type: sync
+    module: radbot.cli.main
+    params:
+      returns: dict
+  cleanup_fileserver_sync:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    params:
+      returns: None
+  clear_cache:
+    type: sync
+    module: radbot.tools.mcp.mcp_client_factory
+    args: [cls]
+    params:
+      returns: None
+  clear_user_memory:
+    type: sync
+    module: radbot.memory.qdrant_memory
+    args: [self, user_id]
+    params:
+      returns: bool
+  code_execution_tool:
+    type: sync
+    module: radbot.agent.execution_agent.tools
+    args: [code, description]
+    params:
+      returns: Dict
+  complete_task:
+    type: sync
+    module: radbot.tools.todo.todo_tools
+    args: [task_id]
+    params:
+      returns: Dict
+  connect:
+    type: async
+    module: radbot.web.app
+    args: [self, websocket, session_id]
+  convert_to_adk_tool:
+    type: sync
+    module: radbot.tools.mcp.mcp_utils
+    args: [function, name, description]
+    params:
+      returns: FunctionTool
+  copy:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [source_path, destination_path]
+    params:
+      returns: Dict
+  copy_file:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, source, destination]
+    params:
+      returns: Dict
+  copy_file_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [source, destination]
+    params:
+      returns: dict
+  copy_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [source_path, destination_path]
+    params:
+      returns: Dict
+  create_adk_agent:
+    type: sync
+    module: radbot.agent.execution_agent.agent
+    args: [self]
+  create_agent:
+    type: sync
+    module: radbot.agent.agent_core
+    args: [tools, app_name]
+  create_agent_memory_tools:
+    type: sync
+    module: radbot.tools.memory.agent_memory_factory
+    args: [agent_name]
+    params:
+      returns: List[FunctionTool]
+  create_agentic_coder_toolset:
+    type: sync
+    module: radbot.tools.specialized.agentic_coder_toolset
+    params:
+      returns: List[Any]
+  create_app:
+    type: sync
+    module: radbot.web.app
+  create_axel_agent:
+    type: sync
+    module: radbot.agent.specialized.axel
+    args: [name, model, register_with_transfer_controller]
+    params:
+      returns: Agent
+  create_axel_toolset:
+    type: sync
+    module: radbot.tools.specialized.axel_toolset
+    params:
+      returns: List[Any]
+  create_calendar_agent:
+    type: sync
+    module: radbot.agent.calendar_agent_factory
+    args: [model, config_manager, calendar_manager, service_account_path, additional_tools, instruction_name]
+    params:
+      returns: RadBotAgent
+  create_calendar_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [manager, summary, start_time, end_time, description, location, attendees, calendar_id, timezone, is_workspace]
+    params:
+      returns: Dict
+  create_calendar_event_wrapper:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [summary, start_time, end_time, description, location, attendees, calendar_id, timezone, is_workspace]
+    params:
+      returns: Dict
+  create_calendar_toolset:
+    type: sync
+    module: radbot.tools.specialized.calendar_toolset
+    params:
+      returns: List[Any]
+  create_claude_cli_tools:
+    type: sync
+    module: radbot.tools.mcp.claude_cli
+    params:
+      returns: List[FunctionTool]
+  create_claude_prompt_tool:
+    type: sync
+    module: radbot.tools.claude_prompt
+    params:
+      returns: FunctionTool
+  create_client:
+    type: sync
+    module: radbot.tools.mcp.mcp_client_factory
+    args: [cls, server_config]
+    params:
+      returns: Any
+  create_client_with_config_settings:
+    type: sync
+    module: radbot.config.adk_config
+    params:
+      returns: Client
+  create_code_execution_agent:
+    type: sync
+    module: radbot.tools.adk_builtin.code_execution_tool
+    args: [name, model, config, instruction_name]
+    params:
+      returns: Agent
+  create_code_execution_toolset:
+    type: sync
+    module: radbot.tools.specialized.code_execution_toolset
+    params:
+      returns: List[Any]
+  create_comms_agent:
+    type: sync
+    module: radbot.agent.comms_agent.factory
+    params:
+      returns: Optional[Agent]
+  create_context7_tools:
+    type: sync
+    module: radbot.tools.mcp.context7_client
+    params:
+      returns: List[FunctionTool]
+  create_copy_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_core_agent_for_web:
+    type: sync
+    module: radbot.agent.agent_utils
+    args: [tools, name, app_name, include_google_search, include_code_execution]
+    params:
+      returns: Agent
+  create_delete_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_direct_claude_cli_tools:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    params:
+      returns: List[FunctionTool]
+  create_edit_file_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_enhanced_memory_agent:
+    type: sync
+    module: radbot.agent.enhanced_memory_agent_factory
+    args: [session_service, tools, memory_service, instruction_name, name, memory_manager_config]
+    params:
+      returns: EnhancedMemoryAgent
+  create_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [service, summary, start_time, end_time, description, location, attendees, calendar_id, timezone]
+    params:
+      returns: Optional[Dict]
+  create_execution_agent:
+    type: sync
+    module: radbot.agent.execution_agent.factory
+    args: [name, model, custom_instruction, tools, as_subagent, enable_code_execution, app_name]
+    params:
+      returns: Union
+  create_fileserver_toolset:
+    type: sync
+    module: tools.mcp_fileserver_client
+    params:
+      returns: Optional[MCPToolset]
+  create_fileserver_toolset_async:
+    type: async
+    module: tools.mcp_fileserver_client
+    params:
+      returns: Tuple
+  create_filesystem_tools:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [allowed_directories, enable_write, enable_delete]
+    params:
+      returns: List[FunctionTool]
+  create_filesystem_toolset:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    params:
+      returns: List[Any]
+  create_find_ha_entities_tool:
+    type: sync
+    module: radbot.tools.mcp.mcp_entity_search
+  create_function_tool:
+    type: sync
+    module: radbot.agent.execution_agent.tools
+    args: [func]
+  create_get_info_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_ha_mcp_enabled_agent:
+    type: sync
+    module: radbot.tools.mcp.mcp_ha_agent
+    args: [agent_factory, base_tools, ensure_memory_tools]
+  create_home_agent:
+    type: sync
+    module: radbot.agent.home_agent.factory
+    params:
+      returns: Optional[Agent]
+  create_home_assistant_agent_factory:
+    type: sync
+    module: radbot.agent.home_assistant_agent_factory
+    args: [base_agent_factory, config_manager, base_tools]
+    params:
+      returns: Callable
+  create_home_assistant_enabled_agent:
+    type: sync
+    module: radbot.agent.home_assistant_agent_factory
+    args: [agent_factory, base_tools, ensure_memory_tools]
+    params:
+      returns: Agent
+  create_home_assistant_toolset:
+    type: sync
+    module: radbot.tools.mcp.mcp_homeassistant
+    params:
+      returns: List[Any]
+  create_homeassistant_toolset:
+    type: sync
+    module: radbot.tools.specialized.homeassistant_toolset
+    params:
+      returns: List[Any]
+  create_instance:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [cls]
+    params:
+      returns: SchedulerEngine
+  create_list_directory_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_mcp_enabled_agent:
+    type: sync
+    module: radbot.tools.mcp.mcp_agent_factory
+    args: [agent_factory, base_tools]
+    params:
+      returns: Any
+  create_mcp_tools:
+    type: sync
+    module: radbot.tools.mcp.mcp_core
+    params:
+      returns: List[Any]
+  create_memory_enabled_agent:
+    type: sync
+    module: radbot.agent.memory_agent_factory
+    args: [session_service, tools, memory_service, instruction_name, name]
+    params:
+      returns: RadBotAgent
+  create_memory_toolset:
+    type: sync
+    module: radbot.tools.specialized.memory_toolset
+    params:
+      returns: List[Any]
+  create_minimal_axel_toolset:
+    type: sync
+    module: tools.register_axel
+    params:
+      returns: List[Any]
+  create_new_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, summary, start_time, end_time, description, location, attendees, calendar_id, timezone, is_workspace]
+    params:
+      returns: Union
+  create_parent_directory:
+    type: sync
+    module: radbot.filesystem.security
+    args: [path]
+    params:
+      returns: None
+  create_planner_agent:
+    type: sync
+    module: radbot.agent.planner_agent.factory
+    params:
+      returns: Optional[Agent]
+  create_read_file_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_reminder:
+    type: sync
+    module: radbot.tools.reminders.reminder_tools
+    args: [message, remind_at, delay_minutes, timezone_name]
+    params:
+      returns: Dict
+  create_request:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self, media_type, media_id, seasons]
+    params:
+      returns: Dict
+  create_research_agent:
+    type: sync
+    module: radbot.agent.research_agent.factory
+    args: [name, model, custom_instruction, tools, as_subagent, enable_google_search, enable_code_execution, app_name]
+    params:
+      returns: Union
+  create_root_agent:
+    type: sync
+    module: radbot.agent.agent_factory
+    args: [name, model, tools, instruction_name, config]
+    params:
+      returns: Agent
+  create_runner:
+    type: sync
+    module: radbot.agent.agent_utils
+    args: [agent, app_name, session_service]
+    params:
+      returns: Runner
+  create_scheduled_task:
+    type: sync
+    module: radbot.tools.scheduler.schedule_tools
+    args: [name, cron_expression, prompt, description]
+    params:
+      returns: Dict
+  create_schema_if_not_exists:
+    type: sync
+    module: radbot.tools.todo.db.schema
+    params:
+      returns: None
+  create_scout_toolset:
+    type: sync
+    module: radbot.tools.specialized.scout_toolset
+    params:
+      returns: List[Any]
+  create_search_agent:
+    type: sync
+    module: radbot.tools.adk_builtin.search_tool
+    args: [name, model, config, instruction_name]
+    params:
+      returns: Agent
+  create_search_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  create_shell_agent:
+    type: sync
+    module: radbot.agent.shell_agent_factory
+    args: [model, base_tools, instruction_name, config, strict_mode, use_claude_cli]
+    params:
+      returns: RadBotAgent
+  create_shell_enabled_root_agent:
+    type: sync
+    module: radbot.agent.shell_agent_factory
+    args: [model, base_tools, instruction_name, name, config, strict_mode, use_claude_cli]
+    params:
+      returns: Agent
+  create_simple_axel_toolset:
+    type: sync
+    module: radbot.tools.specialized.simple_axel_toolset
+    params:
+      returns: List[Any]
+  create_specialized_agents:
+    type: sync
+    module: radbot.agent.specialized_agent_factory
+    args: [root_agent]
+    params:
+      returns: List[Agent]
+  create_specialized_toolset:
+    type: sync
+    module: radbot.tools.specialized.base_toolset
+    args: [name]
+    params:
+      returns: List[Any]
+  create_sub_agent:
+    type: sync
+    module: radbot.agent.agent_factory
+    args: [name, description, instruction_name, tools, model, config]
+    params:
+      returns: Agent
+  create_task:
+    type: sync
+    module: radbot.tools.scheduler.db
+    args: [name, cron_expression, prompt, description, session_id, metadata]
+    params:
+      returns: Dict
+  create_task_endpoint:
+    type: async
+    module: radbot.web.app
+    args: [request]
+  create_todo_agent:
+    type: sync
+    module: radbot.agent.todo_agent_factory
+    args: [name, base_instruction]
+    params:
+      returns: Agent
+  create_todo_toolset:
+    type: sync
+    module: radbot.tools.specialized.todo_toolset
+    params:
+      returns: List[Any]
+  create_tool_function:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [name]
+  create_tool_schemas:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    params:
+      returns: List[Any]
+  create_tool_schemas_with_decorator:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    params:
+      returns: List[Any]
+  create_tool_schemas_with_function_tool:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    params:
+      returns: List[Any]
+  create_tracker_agent:
+    type: sync
+    module: radbot.agent.tracker_agent.factory
+    params:
+      returns: Optional[Agent]
+  create_transfer_tool:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [self, agent_name]
+    params:
+      returns: Optional[Callable]
+  create_utility_toolset:
+    type: sync
+    module: radbot.tools.specialized.utility_toolset
+    params:
+      returns: List[Any]
+  create_web_agent:
+    type: sync
+    module: radbot.agent.agent_factory
+    args: [name, model, tools, instruction_name, config, register_tools]
+    params:
+      returns: Agent
+  create_web_research_toolset:
+    type: sync
+    module: radbot.tools.specialized.web_research_toolset
+    params:
+      returns: List[Any]
+  create_webhook:
+    type: sync
+    module: radbot.tools.webhooks.webhook_tools
+    args: [name, path_suffix, prompt_template, secret]
+    params:
+      returns: Dict
+  create_webhook_definition:
+    type: async
+    module: radbot.web.api.webhooks
+    args: [body]
+  create_worker_agent:
+    type: sync
+    module: radbot.agent.specialized.axel
+    args: [index, parent_agent, task_description, model]
+    params:
+      returns: Agent
+  create_write_file_func:
+    type: sync
+    module: radbot.tools.specialized.filesystem_toolset
+    args: [fn]
+  debug_agent_structure:
+    type: sync
+    module: radbot.tools.agent_transfer
+    args: [root_agent]
+  decorator:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+    args: [func]
+  decrypt:
+    type: sync
+    module: radbot.credentials.crypto
+    args: [ciphertext, salt, master_key]
+    params:
+      returns: str
+  delete:
+    type: sync
+    module: radbot.credentials.store
+    args: [self, name]
+    params:
+      returns: bool
+  delete_calendar_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [manager, event_id, calendar_id, is_workspace]
+    params:
+      returns: Dict
+  delete_calendar_event_wrapper:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [event_id, calendar_id, is_workspace]
+    params:
+      returns: Dict
+  delete_config_section:
+    type: async
+    module: radbot.web.api.admin
+    args: [section, _]
+  delete_credential:
+    type: async
+    module: radbot.web.api.admin
+    args: [name, _]
+  delete_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [service, event_id, calendar_id]
+    params:
+      returns: bool
+  delete_existing_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, event_id, calendar_id, is_workspace]
+    params:
+      returns: Dict
+  delete_file:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, path]
+    params:
+      returns: Dict
+  delete_file_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [path]
+    params:
+      returns: dict
+  delete_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path]
+    params:
+      returns: Dict
+  delete_reminder:
+    type: sync
+    module: radbot.tools.reminders.reminder_tools
+    args: [reminder_id]
+    params:
+      returns: Dict
+  delete_scheduled_task:
+    type: sync
+    module: radbot.tools.scheduler.schedule_tools
+    args: [task_id]
+    params:
+      returns: Dict
+  delete_task:
+    type: sync
+    module: radbot.tools.scheduler.db
+    args: [task_id]
+    params:
+      returns: bool
+  delete_task_endpoint:
+    type: async
+    module: radbot.web.app
+    args: [task_id]
+  delete_webhook:
+    type: sync
+    module: radbot.tools.webhooks.webhook_tools
+    args: [webhook_id]
+    params:
+      returns: Dict
+  delete_webhook_definition:
+    type: async
+    module: radbot.web.api.webhooks
+    args: [webhook_id]
+  deliver_pending_reminders:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self]
+    params:
+      returns: None
+  deliver_pending_scheduler_results:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self]
+    params:
+      returns: None
+  derive_key:
+    type: sync
+    module: radbot.credentials.crypto
+    args: [master_key, salt]
+    params:
+      returns: bytes
+  detect_thinking_trigger:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [prompt]
+    params:
+      returns: bool
+  diagnose_agent_tools:
+    type: sync
+    module: tools.diagnose_search_tool
+  diagnose_entity_search_tool:
+    type: sync
+    module: tools.diagnose_search_tool
+  diagnose_function_tool:
+    type: sync
+    module: tools.diagnose_search_tool
+  diagnose_schema_conversion:
+    type: sync
+    module: tools.diagnose_search_tool
+  disconnect:
+    type: sync
+    module: radbot.web.app
+    args: [self, session_id, websocket]
+  discover_accounts:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    params:
+      returns: List[Dict]
+  discover_tools:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self]
+    params:
+      returns: List[str]
+  display_welcome_message:
+    type: sync
+    module: radbot.cli.main
+    params:
+      returns: None
+  edit_file:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [path, edits, dry_run]
+    params:
+      returns: str
+  edit_file_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path, edits, dry_run]
+    params:
+      returns: str
+  embed_text:
+    type: sync
+    module: radbot.memory.embedding
+    args: [text, model, is_query, source]
+    params:
+      returns: List[float]
+  encrypt:
+    type: sync
+    module: radbot.credentials.crypto
+    args: [plaintext, master_key]
+    params:
+      returns: tuple
+  execute_command_directly:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    args: [command, working_dir]
+    params:
+      returns: Dict
+  execute_command_via_claude:
+    type: sync
+    module: radbot.tools.mcp.claude_cli
+    args: [command, working_dir]
+    params:
+      returns: Dict
+  execute_command_with_claude:
+    type: sync
+    module: radbot.tools.shell.shell_tool
+    args: [command, arguments, timeout, strict_mode]
+    params:
+      returns: Dict
+  execute_shell_command:
+    type: sync
+    module: radbot.tools.shell.shell_command
+    args: [command, arguments, timeout, strict_mode]
+    params:
+      returns: Dict
+  execute_with_retry:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [request_func, max_retries]
+    params:
+      returns: Any
+  extract_text_from_malformed_function:
+    type: sync
+    module: radbot.web.api.malformed_function_handler
+    args: [response_data]
+    params:
+      returns: Optional[str]
+  extract_text_from_print_statements:
+    type: sync
+    module: radbot.web.api.malformed_function_handler
+    args: [content]
+    params:
+      returns: Optional[str]
+  factory_function:
+    type: sync
+    module: radbot.agent.home_assistant_agent_factory
+    params:
+      returns: Agent
+  find_agent_by_name:
+    type: sync
+    module: radbot.tools.agent_transfer
+    args: [root_agent, name, visited]
+    params:
+      returns: Optional[Agent]
+  find_home_assistant_entities:
+    type: sync
+    module: radbot.tools.mcp.mcp_utils
+    args: [search_term, domain_filter]
+    params:
+      returns: Dict
+  format_time:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [time_value, timezone]
+    params:
+      returns: Dict
+  generate_cache_key:
+    type: sync
+    module: radbot.cache.prompt_cache
+    args: [self, llm_request]
+    params:
+      returns: str
+  generate_content:
+    type: sync
+    module: tools.add_generate_content
+    args: [prompt]
+  generate_documentation:
+    type: sync
+    module: radbot.agent.execution_agent.tools
+    args: [file_path, output_format]
+    params:
+      returns: Dict
+  get:
+    type: sync
+    module: radbot.cache.prompt_cache
+    args: [self, key]
+    params:
+      returns: Optional[LlmResponse]
+  get_adk_agent:
+    type: sync
+    module: radbot.agent.research_agent.agent
+    args: [self]
+  get_agent:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [self, agent_name]
+    params:
+      returns: Optional[Agent]
+  get_agent_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_agent_info:
+    type: async
+    module: radbot.web.api.agent_info
+    params:
+      returns: Dict
+  get_agent_model:
+    type: sync
+    module: radbot.config.settings
+    args: [self, agent_name]
+    params:
+      returns: str
+  get_all_account_labels:
+    type: sync
+    module: radbot.tools.gmail.gmail_manager
+    params:
+      returns: List[str]
+  get_all_agents:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [self]
+    params:
+      returns: Dict
+  get_all_config:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  get_all_enabled_clients:
+    type: sync
+    module: radbot.tools.mcp.mcp_client_factory
+    args: [cls]
+    params:
+      returns: Dict
+  get_all_entities:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self]
+    params:
+      returns: List[Dict]
+  get_all_toolsets:
+    type: sync
+    module: radbot.tools.specialized.base_toolset
+    params:
+      returns: Dict
+  get_allowed_directories:
+    type: sync
+    module: radbot.filesystem.security
+    params:
+      returns: List[str]
+  get_allowed_transfers:
+    type: sync
+    module: radbot.tools.specialized.base_toolset
+    args: [name]
+    params:
+      returns: List[str]
+  get_any_session_id:
+    type: sync
+    module: radbot.web.app
+    args: [self]
+    params:
+      returns: Optional[str]
+  get_api_status:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self]
+    params:
+      returns: bool
+  get_available_mcp_tools:
+    type: sync
+    module: radbot.tools.mcp.mcp_core
+    params:
+      returns: List[Any]
+  get_cache_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_calendar_availability:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [service, calendar_ids, time_min, time_max]
+    params:
+      returns: Optional[Dict]
+  get_calendar_busy_times:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, calendar_ids, time_min, time_max, is_workspace]
+    params:
+      returns: Union
+  get_calendar_manager:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    params:
+      returns: CalendarManager
+  get_calendar_service:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+    args: [force_new, service_account_path, scopes]
+    params:
+      returns: Any
+  get_claude_cli_config:
+    type: sync
+    module: radbot.tools.claude_prompt
+    params:
+      returns: Dict
+  get_claude_templates:
+    type: async
+    module: radbot.web.api.agent_info
+    params:
+      returns: Dict
+  get_client:
+    type: sync
+    module: radbot.tools.mcp.mcp_client_factory
+    args: [cls, server_id]
+    params:
+      returns: Any
+  get_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_config_section:
+    type: async
+    module: radbot.web.api.admin
+    args: [section, _]
+  get_configuration:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self]
+    params:
+      returns: Dict
+  get_context7_config:
+    type: sync
+    module: radbot.tools.mcp.context7_client
+    params:
+      returns: Dict
+  get_credential_store:
+    type: sync
+    module: radbot.credentials.store
+    params:
+      returns: CredentialStore
+  get_current_time:
+    type: tool
+    module: radbot.tools.basic.basic_tools
+    args: [city, tool_context]
+    params:
+      returns: str
+  get_db:
+    type: sync
+    module: task-api.app.db.session
+  get_db_connection:
+    type: sync
+    module: radbot.tools.todo.db.connection
+    params:
+      returns: Generator
+  get_db_cursor:
+    type: sync
+    module: radbot.tools.todo.db.connection
+    args: [conn, commit]
+    params:
+      returns: Generator
+  get_domains:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self]
+    params:
+      returns: List[str]
+  get_email:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    args: [manager, message_id, account]
+    params:
+      returns: Dict
+  get_email_wrapper:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    args: [message_id, account]
+    params:
+      returns: Dict
+  get_embedding_model:
+    type: sync
+    module: radbot.memory.embedding
+    params:
+      returns: EmbeddingModel
+  get_enabled_mcp_servers:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: List[Dict]
+  get_entities_by_domain:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self, domain]
+    params:
+      returns: List[Dict]
+  get_entity_state:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self, entity_id]
+    params:
+      returns: Optional[Dict]
+  get_events:
+    type: async
+    module: radbot.web.api.events
+    args: [session_id, session_runner]
+    params:
+      returns: List[Dict]
+  get_events_from_session:
+    type: sync
+    module: radbot.web.app
+    args: [session]
+  get_file_info:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, path]
+    params:
+      returns: Dict
+  get_file_info_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [path]
+    params:
+      returns: dict
+  get_fileserver_config:
+    type: sync
+    module: tools.mcp_fileserver_client
+    params:
+      returns: Tuple
+  get_filesystem_config:
+    type: sync
+    module: radbot.filesystem.adapter
+    params:
+      returns: tuple
+  get_formatted_thoughts:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [self]
+    params:
+      returns: str
+  get_full_research_agent_instruction:
+    type: sync
+    module: radbot.agent.research_agent.instructions
+  get_gmail_manager:
+    type: sync
+    module: radbot.tools.gmail.gmail_manager
+    args: [account]
+    params:
+      returns: GmailManager
+  get_gmail_service:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    args: [account, force_new]
+    params:
+      returns: Any
+  get_google_api_key:
+    type: sync
+    module: radbot.config.adk_config
+    params:
+      returns: Optional[str]
+  get_ha_client:
+    type: sync
+    module: radbot.tools.homeassistant.ha_client_singleton
+    params:
+      returns: Optional[HomeAssistantRESTClient]
+  get_ha_entity_state:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tools_impl
+    args: [entity_id]
+    params:
+      returns: Dict
+  get_ha_entity_state_tool:
+    type: tool
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    args: [entity_id]
+    params:
+      returns: Dict
+  get_home_assistant_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_home_assistant_token:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: Optional[str]
+  get_home_assistant_url:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: Optional[str]
+  get_info:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [path]
+    params:
+      returns: Dict
+  get_info_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path]
+    params:
+      returns: Dict
+  get_instance:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [cls]
+    params:
+      returns: Optional[SchedulerEngine]
+  get_instruction:
+    type: sync
+    module: radbot.config.settings
+    args: [self, name]
+    params:
+      returns: str
+  get_integration_status:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  get_integrations_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_issue_transitions:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [issue_key]
+    params:
+      returns: Dict
+  get_jira_client:
+    type: sync
+    module: radbot.tools.jira.jira_client
+  get_jira_email:
+    type: sync
+    module: radbot.tools.jira.jira_client
+    params:
+      returns: Optional[str]
+  get_jira_issue:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [issue_key]
+    params:
+      returns: Dict
+  get_library_docs:
+    type: sync
+    module: radbot.tools.mcp.context7_client
+    args: [library_id, topic, tokens]
+    params:
+      returns: Dict
+  get_live_config:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  get_logging_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_main_model:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: str
+  get_mcp_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: Dict
+  get_mcp_fileserver_config:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    params:
+      returns: Tuple
+  get_mcp_server:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self, server_id]
+    params:
+      returns: Optional[Dict]
+  get_mcp_servers:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: List[Dict]
+  get_message:
+    type: sync
+    module: radbot.tools.gmail.gmail_manager
+    args: [self, message_id]
+    params:
+      returns: Dict
+  get_movie:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self, tmdb_id]
+    params:
+      returns: Dict
+  get_next_run_time:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, task_id]
+    params:
+      returns: Optional[datetime]
+  get_ntfy_client:
+    type: sync
+    module: radbot.tools.ntfy.ntfy_client
+    params:
+      returns: Optional[NtfyClient]
+  get_or_create_project_id:
+    type: sync
+    module: radbot.tools.todo.db.queries
+    args: [conn, project_name]
+    params:
+      returns: uuid.UUID
+  get_or_create_runner_for_session:
+    type: async
+    module: radbot.web.api.session.dependencies
+    args: [session_id, session_manager]
+    params:
+      returns: SessionRunner
+  get_overseerr_client:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    params:
+      returns: Optional[OverseerrClient]
+  get_overseerr_media_details:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_tools
+    args: [tmdb_id, media_type]
+    params:
+      returns: Dict
+  get_project:
+    type: sync
+    module: radbot.tools.todo.db.queries
+    args: [conn, project_id]
+    params:
+      returns: Optional[Dict]
+  get_project_tasks:
+    type: sync
+    module: task-api.app.api.routes.projects
+    args: [project_id, status, skip, limit, db]
+  get_projects:
+    type: async
+    module: radbot.web.app
+  get_reminder:
+    type: sync
+    module: radbot.tools.reminders.db
+    args: [reminder_id]
+    params:
+      returns: Optional[Dict]
+  get_research_tools:
+    type: sync
+    module: radbot.agent.research_agent.tools
+    params:
+      returns: List[Any]
+  get_runner:
+    type: async
+    module: radbot.web.api.session.session_manager
+    args: [self, session_id]
+    params:
+      returns: Optional[SessionRunner]
+  get_schema_config:
+    type: sync
+    module: radbot.config.settings
+    args: [self, schema_name]
+    params:
+      returns: Dict
+  get_service_account_file:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: Optional[str]
+  get_session_manager:
+    type: sync
+    module: radbot.web.api.session.session_manager
+    params:
+      returns: SessionManager
+  get_shell_tool:
+    type: sync
+    module: radbot.tools.shell.shell_tool
+    args: [strict_mode, use_claude_cli]
+    params:
+      returns: Any
+  get_state:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self, entity_id]
+    params:
+      returns: Optional[Dict]
+  get_state_cache:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    params:
+      returns: HomeAssistantStateCache
+  get_stats:
+    type: sync
+    module: radbot.telemetry.usage_tracker
+    args: [self]
+    params:
+      returns: Dict
+  get_status:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self]
+    params:
+      returns: Dict
+  get_sub_agent_model:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: str
+  get_task:
+    type: sync
+    module: radbot.tools.todo.db.queries
+    args: [conn, task_id]
+    params:
+      returns: Optional[Dict]
+  get_tasks:
+    type: async
+    module: radbot.web.app
+  get_telemetry_usage:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  get_time:
+    type: sync
+    module: tools.ha_standalone_agent
+    args: [city]
+    params:
+      returns: str
+  get_tool_schemas:
+    type: sync
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self]
+    params:
+      returns: Dict
+  get_tools:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self]
+    params:
+      returns: List
+  get_toolset:
+    type: sync
+    module: radbot.tools.specialized.base_toolset
+    args: [name]
+    params:
+      returns: List[Any]
+  get_toolset_description:
+    type: sync
+    module: radbot.tools.specialized.base_toolset
+    args: [name]
+    params:
+      returns: str
+  get_transfer_controller:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    params:
+      returns: TransferController
+  get_transfer_rules:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [self]
+    params:
+      returns: Dict
+  get_tv:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self, tmdb_id]
+    params:
+      returns: Dict
+  get_undelivered_completed:
+    type: sync
+    module: radbot.tools.reminders.db
+    params:
+      returns: List[Dict]
+  get_undelivered_results:
+    type: sync
+    module: radbot.tools.scheduler.db
+    params:
+      returns: List[Dict]
+  get_vertex_location:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: str
+  get_vertex_project:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: Optional[str]
+  get_webhook_by_path:
+    type: sync
+    module: radbot.tools.webhooks.db
+    args: [path_suffix]
+    params:
+      returns: Optional[Dict]
+  get_workspace_calendar_service:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+    args: [user_email, service_account_path, scopes, force_new]
+    params:
+      returns: Any
+  gmail_oauth_callback:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, code, state]
+  gmail_oauth_setup:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, account, _]
+  handle_agent_transfers:
+    type: sync
+    module: radbot.tools.agent_transfer
+    args: [agent, from_agent, request]
+  handle_calendar_request:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, action, params, is_workspace]
+    params:
+      returns: Union
+  handle_fileserver_tool_call:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [tool_name, params]
+    params:
+      returns: Event
+  handle_heartbeat:
+    type: async
+    module: radbot.web.app
+  handle_history_request:
+    type: async
+    module: radbot.web.app
+    args: [limit]
+  handle_shell_function_call:
+    type: async
+    module: radbot.tools.shell.shell_tool
+    args: [function_name, arguments, strict_mode, use_claude_cli]
+    params:
+      returns: Dict
+  handle_sync_request:
+    type: async
+    module: radbot.web.app
+    args: [last_message_id, timestamp]
+  has_connections:
+    type: sync
+    module: radbot.web.app
+    args: [self]
+    params:
+      returns: bool
+  HassTurnOff:
+    type: sync
+    module: radbot.cli.main
+    args: [entity_id]
+  HassTurnOn:
+    type: sync
+    module: radbot.cli.main
+    args: [entity_id]
+  health_check:
+    type: async
+    module: radbot.web.app
+  index:
+    type: async
+    module: radbot.web.app
+    args: [request]
+  init_async_client:
+    type: sync
+    module: radbot.tools.mcp.dynamic_tools_loader
+  init_database:
+    type: sync
+    module: radbot.tools.todo
+  init_pending_results_schema:
+    type: sync
+    module: radbot.tools.scheduler.db
+    params:
+      returns: None
+  init_reminder_schema:
+    type: sync
+    module: radbot.tools.reminders.db
+    params:
+      returns: None
+  init_scheduler_schema:
+    type: sync
+    module: radbot.tools.scheduler.db
+    params:
+      returns: None
+  init_schema:
+    type: sync
+    module: radbot.credentials.store
+    params:
+      returns: None
+  init_table_schema:
+    type: sync
+    module: radbot.tools.shared.db_schema
+    args: [table_name, create_table_sql, create_index_sqls]
+    params:
+      returns: None
+  init_webhook_schema:
+    type: sync
+    module: radbot.tools.webhooks.db
+    params:
+      returns: None
+  initialize:
+    type: sync
+    module: radbot.tools.mcp.client
+    args: [self]
+    params:
+      returns: bool
+  initialize_app_startup:
+    type: async
+    module: radbot.web.app
+  initialize_calendar:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+  initialize_memory_service:
+    type: sync
+    module: radbot.agent.agent_core
+  inject:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, connection_manager, session_manager]
+    params:
+      returns: None
+  inspect_agent:
+    type: sync
+    module: tools.inspect_agent
+    args: [agent, indent, visited_agents]
+    params:
+      returns: Dict
+  is_adk_code_execution_enabled:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: bool
+  is_adk_search_enabled:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: bool
+  is_code_execution_enabled:
+    type: sync
+    module: radbot.tools.adk_builtin
+  is_home_assistant_enabled:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: bool
+  is_mcp_server_enabled:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self, server_id]
+    params:
+      returns: bool
+  is_search_enabled:
+    type: sync
+    module: radbot.tools.adk_builtin
+  is_using_vertex_ai:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: bool
+  list:
+    type: sync
+    module: radbot.credentials.store
+    args: [self]
+    params:
+      returns: List[Dict]
+  list_all_tasks:
+    type: sync
+    module: radbot.tools.todo.db.queries
+    args: [conn, status_filter]
+    params:
+      returns: List[Dict]
+  list_calendar_events:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [manager, calendar_id, max_results, query, days_ahead, is_workspace]
+    params:
+      returns: List[Dict]
+  list_calendar_events_wrapper:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [calendar_id, max_results, query, days_ahead, is_workspace]
+    params:
+      returns: List[Dict]
+  list_claude_cli_tools:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    params:
+      returns: Dict
+  list_credentials:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  list_directory:
+    type: sync
+    module: radbot.filesystem.tools
+    args: [path]
+    params:
+      returns: List[Dict]
+  list_directory_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path]
+    params:
+      returns: List[Dict]
+  list_emails:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    args: [manager, max_results, label, account]
+    params:
+      returns: List[Dict]
+  list_emails_wrapper:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    args: [max_results, label, account]
+    params:
+      returns: List[Dict]
+  list_entities:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self]
+    params:
+      returns: Optional[List[Dict]]
+  list_events:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [service, calendar_id, max_results, query, time_min, time_max]
+    params:
+      returns: List[Dict]
+  list_files:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, path]
+    params:
+      returns: List[Dict]
+  list_files_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [path]
+    params:
+      returns: dict
+  list_gmail_accounts:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  list_gmail_accounts_wrapper:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    params:
+      returns: List[Dict]
+  list_ha_entities:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tools_impl
+    params:
+      returns: Dict
+  list_ha_entities_tool:
+    type: tool
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    params:
+      returns: Dict
+  list_home_assistant_domains:
+    type: sync
+    module: radbot.tools.mcp.mcp_utils
+    params:
+      returns: Dict
+  list_inbox:
+    type: sync
+    module: radbot.tools.gmail.gmail_manager
+    args: [self, max_results, label, query]
+    params:
+      returns: List[Dict]
+  list_messages:
+    type: sync
+    module: radbot.tools.gmail.gmail_operations
+    args: [service, max_results, label_ids, query]
+    params:
+      returns: List[Dict]
+  list_my_jira_issues:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [project, status, priority, max_results]
+    params:
+      returns: Dict
+  list_overseerr_requests:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_tools
+    args: [max_results, filter_status]
+    params:
+      returns: Dict
+  list_project_tasks:
+    type: sync
+    module: radbot.tools.todo.api.list_tools
+    args: [project_id, status_filter, include_done]
+    params:
+      returns: Dict
+  list_projects:
+    type: sync
+    module: radbot.tools.todo.todo_tools
+    params:
+      returns: Dict
+  list_reminders:
+    type: sync
+    module: radbot.tools.reminders.reminder_tools
+    args: [status]
+    params:
+      returns: Dict
+  list_requests:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    args: [self, take, skip, sort, filter_status]
+    params:
+      returns: Dict
+  list_scheduled_tasks:
+    type: sync
+    module: radbot.tools.scheduler.schedule_tools
+    params:
+      returns: Dict
+  list_tasks:
+    type: sync
+    module: radbot.tools.todo.todo_tools
+    args: [project_id, status_filter, include_done]
+    params:
+      returns: Dict
+  list_tools:
+    type: tool
+    module: radbot.tools.mcp.mcp_fileserver_server
+    params:
+      returns: List[mcp_types.Tool]
+  list_upcoming_events:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, calendar_id, max_results, query, time_min, time_max, is_workspace]
+    params:
+      returns: Union
+  list_webhook_definitions:
+    type: async
+    module: radbot.web.api.webhooks
+  list_webhooks:
+    type: sync
+    module: radbot.tools.webhooks.webhook_tools
+    params:
+      returns: Dict
+  load_db_config:
+    type: sync
+    module: radbot.config.config_loader
+    args: [self]
+    params:
+      returns: None
+  load_dynamic_mcp_tools:
+    type: sync
+    module: radbot.tools.mcp.dynamic_tools_loader
+    params:
+      returns: List[Any]
+  load_saved_token:
+    type: sync
+    module: radbot.tools.calendar.setup
+    params:
+      returns: Optional[Credentials]
+  load_specific_mcp_tools:
+    type: sync
+    module: radbot.tools.mcp.dynamic_tools_loader
+    args: [server_id]
+    params:
+      returns: List[Any]
+  main:
+    type: sync
+    module: tools.register_specialized_agents
+  make_tool_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [tool_name]
+  manually_register_axel:
+    type: sync
+    module: tools.register_specialized_agents
+    args: [root_agent, axel_name]
+    params:
+      returns: Optional[Agent]
+  mark_completed:
+    type: sync
+    module: radbot.tools.reminders.db
+    args: [reminder_id]
+    params:
+      returns: None
+  mark_delivered:
+    type: sync
+    module: radbot.tools.reminders.db
+    args: [reminder_id, result]
+    params:
+      returns: None
+  mark_result_delivered:
+    type: sync
+    module: radbot.tools.scheduler.db
+    args: [result_id]
+    params:
+      returns: None
+  model_fn:
+    type: sync
+    module: radbot.agent.research_agent.agent
+    args: [thinking_prompt]
+    params:
+      returns: str
+  mount_static_files:
+    type: sync
+    module: radbot.web.app
+  mount_static_files_on_startup:
+    type: async
+    module: radbot.web.app
+  move_file:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, source, destination]
+    params:
+      returns: Dict
+  move_file_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [source, destination]
+    params:
+      returns: dict
+  parse_bool:
+    type: sync
+    module: radbot.config.cache_settings
+    args: [env_var, default]
+    params:
+      returns: bool
+  parse_int:
+    type: sync
+    module: radbot.config.cache_settings
+    args: [env_var, default]
+    params:
+      returns: int
+  parse_time:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [time_str]
+    params:
+      returns: Union
+  print_tool_details:
+    type: sync
+    module: tools.diagnose_search_tool
+    args: [tool]
+  process_commands:
+    type: sync
+    module: radbot.cli.main
+    args: [command, agent, user_id]
+    params:
+      returns: bool
+  process_message:
+    type: sync
+    module: radbot.agent.enhanced_memory_agent_factory
+    args: [self, user_id, message]
+    params:
+      returns: str
+  process_prompt:
+    type: sync
+    module: radbot.agent.research_agent.agent
+    args: [self, session]
+    params:
+      returns: None
+  process_request:
+    type: sync
+    module: radbot.tools.agent_transfer
+    args: [agent, request]
+    params:
+      returns: str
+  process_thinking:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [prompt, model_fn, max_steps]
+    params:
+      returns: Dict
+  prompt_claude:
+    type: sync
+    module: radbot.tools.claude_prompt
+    args: [prompt, system_prompt, temperature]
+    params:
+      returns: Dict
+  prompt_claude_directly:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    args: [prompt, system_prompt, temperature]
+    params:
+      returns: Dict
+  prompt_claude_directly_raw:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    args: [prompt, system_prompt, temperature]
+    params:
+      returns: Dict
+  prompt_claude_raw:
+    type: sync
+    module: radbot.tools.claude_prompt
+    args: [prompt, system_prompt, temperature]
+    params:
+      returns: Dict
+  publish:
+    type: async
+    module: radbot.tools.ntfy.ntfy_client
+    args: [self, title, message, priority, tags, session_id]
+    params:
+      returns: Optional[Dict]
+  put:
+    type: sync
+    module: radbot.cache.prompt_cache
+    args: [self, key, response]
+    params:
+      returns: None
+  queue_pending_result:
+    type: sync
+    module: radbot.tools.scheduler.db
+    args: [task_name, prompt, response, session_id]
+    params:
+      returns: Dict
+  read_file:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, path]
+    params:
+      returns: str
+  read_file_directly:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    args: [file_path]
+    params:
+      returns: Dict
+  read_file_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path]
+    params:
+      returns: str
+  read_file_via_claude:
+    type: sync
+    module: radbot.tools.mcp.claude_cli
+    args: [file_path]
+    params:
+      returns: Dict
+  record:
+    type: sync
+    module: radbot.telemetry.usage_tracker
+    args: [self, prompt_tokens, cached_tokens, output_tokens, agent_name, model]
+    params:
+      returns: None
+  record_trigger:
+    type: sync
+    module: radbot.tools.webhooks.db
+    args: [webhook_id]
+    params:
+      returns: None
+  register_agent_info_router:
+    type: sync
+    module: radbot.web.api.agent_info
+    args: [app]
+  register_axel:
+    type: sync
+    module: tools.register_axel
+    args: [root_agent, axel_name]
+    params:
+      returns: Optional[Agent]
+  register_events_router:
+    type: sync
+    module: radbot.web.api.events
+    args: [app]
+  register_job:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, task_row]
+    params:
+      returns: None
+  register_main_agent:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [self, agent]
+    params:
+      returns: None
+  register_reminder:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, reminder_row]
+    params:
+      returns: None
+  register_specialized_agent:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [self, agent, specialization, allowed_transfers]
+    params:
+      returns: None
+  register_tool_handlers:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self]
+  register_toolset:
+    type: sync
+    module: radbot.tools.specialized.base_toolset
+    args: [name, toolset_func, description, allowed_transfers]
+    params:
+      returns: None
+  reload_model_config:
+    type: sync
+    module: radbot.config.settings
+    args: [self]
+    params:
+      returns: None
+  remove_session:
+    type: async
+    module: radbot.web.api.session.session_manager
+    args: [self, session_id]
+  remove_task:
+    type: sync
+    module: radbot.tools.todo.todo_tools
+    args: [task_id]
+    params:
+      returns: Dict
+  replace_env_var:
+    type: sync
+    module: radbot.config.config_loader
+    args: [match]
+  request_overseerr_media:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_tools
+    args: [tmdb_id, media_type, seasons]
+    params:
+      returns: Dict
+  reset:
+    type: sync
+    module: radbot.telemetry.usage_tracker
+    args: [self]
+    params:
+      returns: None
+  reset_ha_client:
+    type: sync
+    module: radbot.tools.homeassistant.ha_client_singleton
+    params:
+      returns: None
+  reset_ntfy_client:
+    type: sync
+    module: radbot.tools.ntfy.ntfy_client
+    params:
+      returns: None
+  reset_overseerr_client:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_client
+    params:
+      returns: None
+  reset_session:
+    type: async
+    module: radbot.web.api.session.session_manager
+    args: [self, session_id]
+  reset_telemetry:
+    type: async
+    module: radbot.web.api.admin
+    args: [_]
+  resolve_library_id:
+    type: sync
+    module: radbot.tools.mcp.context7_client
+    args: [library_name]
+    params:
+      returns: Dict
+  retry_calendar_api:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+    args: [max_attempts, base_wait]
+  run_agent:
+    type: sync
+    module: tools.ha_standalone_agent
+  run_async_in_thread:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [coro]
+  run_setup:
+    type: sync
+    module: radbot.tools.gmail.gmail_auth
+    args: [port, account]
+    params:
+      returns: bool
+  run_standalone:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+  run_tests:
+    type: sync
+    module: radbot.agent.execution_agent.tools
+    args: [test_file, test_pattern]
+    params:
+      returns: Dict
+  run_with_new_loop:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+    args: [coro]
+  sanitize_before_model_callback:
+    type: sync
+    module: radbot.callbacks.sanitize_callback
+    args: [callback_context, llm_request]
+    params:
+      returns: Optional[LlmResponse]
+  sanitize_dict:
+    type: sync
+    module: radbot.tools.shared.sanitize
+    args: [data, source, strictness, keys]
+    params:
+      returns: Dict
+  sanitize_external_content:
+    type: sync
+    module: radbot.tools.shared.sanitize
+    args: [content, source, strictness]
+    params:
+      returns: Any
+  sanitize_text:
+    type: sync
+    module: radbot.tools.shared.sanitize
+    args: [text, source, strictness]
+    params:
+      returns: str
+  save_config_section:
+    type: async
+    module: radbot.web.api.admin
+    args: [section, request, _]
+  search:
+    type: sync
+    module: radbot.tools.gmail.gmail_manager
+    args: [self, query, max_results]
+    params:
+      returns: List[Dict]
+  search_agent_memory:
+    type: sync
+    module: radbot.tools.memory.agent_memory_factory
+    args: [query, max_results, time_window_days, tool_context, memory_type]
+    params:
+      returns: Dict
+  search_emails:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    args: [manager, query, max_results, account]
+    params:
+      returns: List[Dict]
+  search_emails_wrapper:
+    type: sync
+    module: radbot.tools.gmail.gmail_tools
+    args: [query, max_results, account]
+    params:
+      returns: List[Dict]
+  search_entities:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self, search_term, domain_filter]
+    params:
+      returns: List[Dict]
+  search_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path, pattern, exclude_patterns]
+    params:
+      returns: List[Dict]
+  search_ha_entities:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tools_impl
+    args: [search_term, domain_filter]
+    params:
+      returns: Dict
+  search_ha_entities_tool:
+    type: tool
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    args: [search_term, domain_filter]
+    params:
+      returns: Dict
+  search_home_assistant_entities:
+    type: sync
+    module: radbot.cli.main
+    args: [search_term, domain_filter]
+  search_jira_issues:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [jql, max_results]
+    params:
+      returns: Dict
+  search_memory:
+    type: sync
+    module: radbot.memory.qdrant_memory
+    args: [self, app_name, user_id, query, limit, filter_conditions]
+    params:
+      returns: List[Dict]
+  search_messages:
+    type: sync
+    module: radbot.tools.gmail.gmail_operations
+    args: [service, query, max_results]
+    params:
+      returns: List[Dict]
+  search_overseerr_media:
+    type: sync
+    module: radbot.tools.overseerr.overseerr_tools
+    args: [query, page]
+    params:
+      returns: Dict
+  search_past_conversations:
+    type: sync
+    module: radbot.tools.memory.memory_tools
+    args: [query, max_results, time_window_days, tool_context, memory_type, limit, return_stats_only]
+    params:
+      returns: Dict
+  send_events:
+    type: async
+    module: radbot.web.app
+    args: [self, session_id, events]
+  send_message:
+    type: async
+    module: radbot.web.app
+    args: [self, session_id, message]
+  send_request:
+    type: async
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self, method, params]
+  send_status:
+    type: async
+    module: radbot.web.app
+    args: [self, session_id, status]
+  serialize_row:
+    type: sync
+    module: radbot.tools.shared.serialization
+    args: [row]
+    params:
+      returns: Dict
+  serialize_rows:
+    type: sync
+    module: radbot.tools.shared.serialization
+    args: [rows]
+    params:
+      returns: List[Dict]
+  set:
+    type: sync
+    module: radbot.credentials.store
+    args: [self, name, value, credential_type, description]
+    params:
+      returns: None
+  set_allowed_directories:
+    type: sync
+    module: radbot.filesystem.security
+    args: [directories]
+    params:
+      returns: None
+  set_conclusion:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [self, conclusion]
+    params:
+      returns: None
+  set_runner:
+    type: async
+    module: radbot.web.api.session.session_manager
+    args: [self, session_id, runner]
+  setup_agent:
+    type: async
+    module: radbot.cli.main
+    params:
+      returns: Optional[RadBotAgent]
+  setup_before_agent_call:
+    type: sync
+    module: radbot.agent.agent_tools_setup
+    args: [callback_context]
+  setup_mcp_server:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [root_dir, allow_write, allow_delete]
+    params:
+      returns: Tuple
+  setup_vertex_environment:
+    type: sync
+    module: radbot.config.adk_config
+  shell_command_tool:
+    type: sync
+    module: radbot.tools.shell.shell_tool
+    args: [command, arguments, timeout]
+    params:
+      returns: Dict
+  shutdown:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self]
+    params:
+      returns: None
+  shutdown_scheduler:
+    type: async
+    module: radbot.web.app
+  simple_test_func:
+    type: sync
+    module: tools.diagnose_search_tool
+    args: [test_param]
+    params:
+      returns: str
+  start:
+    type: async
+    module: radbot.tools.scheduler.engine
+    args: [self]
+    params:
+      returns: None
+  start_server:
+    type: sync
+    module: radbot.web.app
+    args: [host, port, reload]
+  start_server_async:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [exit_stack, root_dir, allow_write, allow_delete]
+  stop:
+    type: sync
+    module: radbot.tools.mcp.mcp_stdio_client
+    args: [self]
+  store_agent_memory:
+    type: sync
+    module: radbot.tools.memory.agent_memory_factory
+    args: [information, memory_type, tool_context]
+    params:
+      returns: Dict
+  store_credential:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  store_important_information:
+    type: sync
+    module: radbot.tools.memory.memory_tools
+    args: [information, memory_type, metadata, tool_context]
+    params:
+      returns: Dict
+  store_memory:
+    type: async
+    module: radbot.web.api.session.memory_api
+    args: [request, session_manager]
+  telemetry_after_model_callback:
+    type: sync
+    module: radbot.callbacks.telemetry_callback
+    args: [callback_context, llm_response]
+    params:
+      returns: Optional[LlmResponse]
+  test:
+    type: async
+    module: radbot.tools.ntfy.ntfy_client
+    args: [self]
+    params:
+      returns: Dict
+  test_calendar:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_claude_cli_connection:
+    type: sync
+    module: radbot.tools.mcp.claude_cli
+    params:
+      returns: Dict
+  test_context7_connection:
+    type: sync
+    module: radbot.tools.mcp.context7_client
+    params:
+      returns: Dict
+  test_direct_claude_cli_connection:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    params:
+      returns: Dict
+  test_fileserver_connection:
+    type: sync
+    module: tools.mcp_fileserver_client
+    params:
+      returns: Dict
+  test_func:
+    type: sync
+    module: tools.diagnose_search_tool
+    args: [param1]
+    params:
+      returns: str
+  test_gmail:
+    type: async
+    module: radbot.web.api.admin
+    args: [account, _]
+  test_google:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_home_assistant:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_home_assistant_connection:
+    type: sync
+    module: radbot.tools.mcp.mcp_utils
+    params:
+      returns: Dict
+  test_jira:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_ntfy:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_overseerr:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_qdrant:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_redis:
+    type: async
+    module: radbot.web.api.admin
+    args: [request, _]
+  test_schema_func:
+    type: sync
+    module: tools.diagnose_search_tool
+    args: [search_term]
+    params:
+      returns: dict
+  to_dict:
+    type: sync
+    module: radbot.agent.research_agent.sequential_thinking
+    args: [self]
+    params:
+      returns: Dict
+  toggle_entity:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self, entity_id]
+    params:
+      returns: Optional[List[Dict]]
+  toggle_ha_entity:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tools_impl
+    args: [entity_id]
+    params:
+      returns: Dict
+  toggle_ha_entity_tool:
+    type: tool
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    args: [entity_id]
+    params:
+      returns: Dict
+  tool:
+    type: sync
+    module: radbot.tools.basic.basic_tools
+  tool_func:
+    type: sync
+    module: radbot.tools.mcp.mcp_fileserver_client
+  tool_function:
+    type: sync
+    module: radbot.tools.mcp.client
+  transcribe:
+    type: async
+    module: radbot.web.api.stt
+    args: [audio]
+  transfer_with_rules:
+    type: sync
+    module: radbot.tools.specialized.transfer_controller
+    args: [params]
+    params:
+      returns: Dict
+  transition_jira_issue:
+    type: sync
+    module: radbot.tools.jira.jira_tools
+    args: [issue_key, status_name]
+    params:
+      returns: Dict
+  trigger_webhook:
+    type: async
+    module: radbot.web.api.webhooks
+    args: [path_suffix, request]
+  truncate_error:
+    type: sync
+    module: radbot.tools.shared.errors
+    args: [message, max_length]
+    params:
+      returns: str
+  turn_off_entity:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self, entity_id]
+    params:
+      returns: Optional[List[Dict]]
+  turn_off_ha_entity:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tools_impl
+    args: [entity_id]
+    params:
+      returns: Dict
+  turn_off_ha_entity_tool:
+    type: tool
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    args: [entity_id]
+    params:
+      returns: Dict
+  turn_on_entity:
+    type: sync
+    module: radbot.tools.homeassistant.ha_rest_client
+    args: [self, entity_id]
+    params:
+      returns: Optional[List[Dict]]
+  turn_on_ha_entity:
+    type: sync
+    module: radbot.tools.homeassistant.ha_tools_impl
+    args: [entity_id]
+    params:
+      returns: Dict
+  turn_on_ha_entity_tool:
+    type: tool
+    module: radbot.tools.homeassistant.ha_tool_schemas
+    args: [entity_id]
+    params:
+      returns: Dict
+  unregister_job:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, task_id]
+    params:
+      returns: None
+  unregister_reminder:
+    type: sync
+    module: radbot.tools.scheduler.engine
+    args: [self, reminder_id]
+    params:
+      returns: None
+  update_cache:
+    type: sync
+    module: radbot.tools.homeassistant.ha_state_cache
+    args: [self]
+    params:
+      returns: bool
+  update_calendar_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [manager, event_id, summary, start_time, end_time, description, location, attendees, calendar_id, timezone, is_workspace]
+    params:
+      returns: Dict
+  update_calendar_event_wrapper:
+    type: sync
+    module: radbot.tools.calendar.calendar_tools
+    args: [event_id, summary, start_time, end_time, description, location, attendees, calendar_id, timezone, is_workspace]
+    params:
+      returns: Dict
+  update_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_operations
+    args: [service, event_id, calendar_id]
+    params:
+      returns: Optional[Dict]
+  update_existing_event:
+    type: sync
+    module: radbot.tools.calendar.calendar_manager
+    args: [self, event_id, calendar_id, is_workspace]
+    params:
+      returns: Union
+  update_instruction:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self, new_instruction, instruction_name]
+    params:
+      returns: None
+  update_last_run:
+    type: sync
+    module: radbot.tools.scheduler.db
+    args: [task_id, result]
+    params:
+      returns: None
+  update_model:
+    type: sync
+    module: radbot.agent.agent_methods
+    args: [self, new_model]
+    params:
+      returns: None
+  update_project:
+    type: sync
+    module: radbot.tools.todo.db.queries
+    args: [conn, project_id, name]
+    params:
+      returns: bool
+  update_task:
+    type: sync
+    module: radbot.tools.todo.db.queries
+    args: [conn, task_id, description, project_id, status, category, origin, related_info, title]
+    params:
+      returns: bool
+  update_task_endpoint:
+    type: async
+    module: radbot.web.app
+    args: [task_id, request]
+  validate_calendar_access:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+    args: [calendar_id]
+  validate_code:
+    type: sync
+    module: radbot.agent.execution_agent.tools
+    args: [file_path]
+    params:
+      returns: Dict
+  validate_path:
+    type: sync
+    module: radbot.filesystem.security
+    args: [path, must_exist]
+    params:
+      returns: str
+  validate_uuid:
+    type: sync
+    module: radbot.tools.shared.validation
+    args: [value, field_name]
+    params:
+      returns: Tuple
+  websocket_endpoint:
+    type: async
+    module: radbot.web.app
+    args: [websocket, session_id, session_manager]
+  wrap_hass_tool:
+    type: sync
+    module: radbot.tools.mcp.mcp_ha_agent
+    args: [tool_ref, tool_name_ref]
+  wrapped_agent_factory:
+    type: sync
+    module: radbot.cli.main
+    args: [tools]
+  wrapped_tool:
+    type: async
+    module: radbot.tools.mcp.mcp_ha_agent
+    args: [entity_id]
+  wrapper:
+    type: sync
+    module: radbot.tools.calendar.calendar_auth
+  write_file:
+    type: async
+    module: radbot.tools.mcp.mcp_fileserver_server
+    args: [self, path, content, append]
+    params:
+      returns: Dict
+  write_file_directly:
+    type: sync
+    module: radbot.tools.mcp.direct_claude_cli
+    args: [file_path, content]
+    params:
+      returns: Dict
+  write_file_func:
+    type: sync
+    module: radbot.filesystem.integration
+    args: [path, content, overwrite]
+    params:
+      returns: Dict
+  write_file_via_claude:
+    type: sync
+    module: radbot.tools.mcp.claude_cli
+    args: [file_path, content]
+    params:
+      returns: Dict
+
+variables:
+  _ADMIN_TOKEN_ENV:
+    type: env
+  CALENDAR_OAUTH_CLIENT_FILE:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.setup]
+  CALENDAR_TOKEN_FILE:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.setup]
+  credentials_source:
+    type: env
+    params:
+      caller: [main]
+  DEBUG_MEMORY:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.cli.main]
+  env_var:
+    type: env
+    params:
+      caller: [os.environ.get, os.getenv]
+      path: [radbot.tools.calendar.setup, radbot.tools.gmail.gmail_auth, radbot.config.adk_config, radbot.config.cache_settings,
+        radbot.config.config_loader]
+  GEMINI_API_KEY:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.memory.embedding]
+  GEMINI_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings]
+  GMAIL_OAUTH_CLIENT_FILE:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.gmail.gmail_auth]
+  GOOGLE_API_KEY:
+    type: env
+    params:
+      caller: [os.environ, os.getenv]
+      path: [radbot.memory.embedding]
+  GOOGLE_APPLICATION_CREDENTIALS:
+    type: env
+    params:
+      caller: [os.environ.get, os.environ, os.getenv]
+      path: [radbot.tools.calendar.setup, radbot.tools.gmail.gmail_auth, radbot.config.settings]
+  GOOGLE_CALENDAR_ID:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.calendar_auth]
+  GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.calendar_manager, radbot.tools.calendar.calendar_auth]
+  GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.calendar_manager, radbot.tools.calendar.calendar_auth]
+  GOOGLE_CALENDAR_TIMEZONE:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.calendar_auth]
+  GOOGLE_CLIENT_ID:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [tools.save_calendar_token, tools.get_google_token, tools.fix_calendar_token, tools.create_calendar_token, tools.direct_token_refresh]
+  GOOGLE_CLIENT_SECRET:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [tools.save_calendar_token, tools.get_google_token, tools.fix_calendar_token, tools.create_calendar_token, tools.direct_token_refresh]
+  GOOGLE_CLOUD_LOCATION:
+    type: env
+    params:
+      caller: [os.environ, os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  GOOGLE_CLOUD_PROJECT:
+    type: env
+    params:
+      caller: [os.environ, os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  GOOGLE_GENAI_USE_VERTEXAI:
+    type: env
+    params:
+      caller: [os.environ, os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  GOOGLE_IMPERSONATION_EMAIL:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.calendar.calendar_auth]
+  GOOGLE_OAUTH_PORT:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [tools.save_calendar_token]
+  GOOGLE_REFRESH_TOKEN:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [tools.fix_calendar_token, tools.create_calendar_token]
+  HA_AUTH_TOKEN:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.mcp.mcp_homeassistant]
+  HA_MCP_SSE_URL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.mcp.mcp_homeassistant, radbot.config.settings]
+  HA_TOKEN:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.homeassistant.ha_client_singleton, radbot.config.settings, radbot.config.config_loader]
+  HA_URL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.homeassistant.ha_client_singleton, radbot.config.settings, radbot.config.config_loader]
+  JIRA_API_TOKEN:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.jira.jira_client]
+  JIRA_EMAIL:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.jira.jira_client]
+  JIRA_URL:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.jira.jira_client]
+  LOG_LEVEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.agent.research_agent.factory, radbot.web.__main__, radbot.web.api.session.session_runner, radbot.agent.agent_initializer,
+        radbot.cli.main, radbot.web.app, radbot.agent.research_agent.agent, radbot.agent.research_agent.tools]
+  MCP_FS_ALLOW_DELETE:
+    type: env
+    params:
+      caller: [os.environ.get, os.environ, os.getenv]
+      path: [radbot.tools.mcp.mcp_fileserver_client, tools.mcp_fileserver_client, tools.check_mcp_env]
+  MCP_FS_ALLOW_WRITE:
+    type: env
+    params:
+      caller: [os.environ.get, os.environ, os.getenv]
+      path: [radbot.tools.mcp.mcp_fileserver_client, tools.mcp_fileserver_client, tools.check_mcp_env]
+  MCP_FS_ROOT_DIR:
+    type: env
+    params:
+      caller: [os.environ.get, os.environ, os.getenv]
+      path: [radbot.tools.mcp.mcp_fileserver_client, tools.mcp_fileserver_client, tools.check_mcp_env]
+  NTFY_CLICK_BASE_URL:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.ntfy.ntfy_client]
+  NTFY_TOKEN:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.ntfy.ntfy_client]
+  NTFY_TOPIC:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.ntfy.ntfy_client]
+  NTFY_URL:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.ntfy.ntfy_client]
+  OAUTHLIB_RELAX_TOKEN_SCOPE:
+    type: env
+    params:
+      caller: [os.environ]
+  OVERSEERR_API_KEY:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.overseerr.overseerr_client]
+  OVERSEERR_URL:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.tools.overseerr.overseerr_client]
+  POSTGRES_DB:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.todo.db.connection]
+  POSTGRES_HOST:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.todo.db.connection]
+  POSTGRES_PASSWORD:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.todo.db.connection]
+  POSTGRES_PORT:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.todo.db.connection]
+  POSTGRES_USER:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.tools.todo.db.connection]
+  QDRANT_API_KEY:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.agent.memory_agent_factory, radbot.memory.qdrant_memory, radbot.agent.enhanced_memory_agent_factory, radbot.agent.agent_core]
+  QDRANT_COLLECTION:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.agent.memory_agent_factory, radbot.memory.qdrant_memory, radbot.agent.enhanced_memory_agent_factory, radbot.agent.agent_core]
+  QDRANT_HOST:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.agent.memory_agent_factory, radbot.memory.qdrant_memory, radbot.agent.enhanced_memory_agent_factory, radbot.agent.agent_core]
+  QDRANT_PORT:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.agent.memory_agent_factory, radbot.memory.qdrant_memory, radbot.agent.enhanced_memory_agent_factory, radbot.agent.agent_core]
+  QDRANT_URL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.agent.memory_agent_factory, radbot.memory.qdrant_memory, radbot.agent.enhanced_memory_agent_factory, radbot.agent.agent_core]
+  RADBOT_ADMIN_TOKEN:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.web.api.admin]
+  RADBOT_CACHE_ENABLED:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CACHE_MAX_SIZE:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CACHE_MIN_TOKENS:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CACHE_SELECTIVE:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CACHE_TTL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CODE_AGENT_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  RADBOT_CONFIG:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CONFIG_FILE:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_CREDENTIAL_KEY:
+    type: env
+    params:
+      caller: [os.environ.get]
+      path: [radbot.credentials.store]
+  radbot_EMBED_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.memory.embedding]
+  RADBOT_ENABLE_ADK_CODE_EXEC:
+    type: env
+    params:
+      caller: [os.environ.get, os.getenv]
+      path: [radbot.tools.adk_builtin, radbot.config.settings]
+  RADBOT_ENABLE_ADK_SEARCH:
+    type: env
+    params:
+      caller: [os.environ.get, os.getenv]
+      path: [radbot.tools.adk_builtin, radbot.config.settings]
+  RADBOT_ENV:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.config_loader]
+  RADBOT_MAIN_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  RADBOT_SCOUT_AGENT_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  RADBOT_SEARCH_AGENT_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  RADBOT_SUB_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  RADBOT_TODO_AGENT_MODEL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.settings, radbot.config.config_loader]
+  REDIS_URL:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [radbot.config.cache_settings, radbot.config.config_loader]
+
+files:
+  "..":
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.dirname(), ".."]
+  ../../../../../:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.dirname(), ../../../../../]
+  .config:
+    type: literal
+    actions: [read]
+    params:
+      caller: [_find_config_path]
+      path: [Path.home]
+  .json:
+    type: literal
+    actions: [read]
+    params:
+      caller: [get_schema_config]
+      path: [self.config_dir]
+  .md:
+    type: literal
+    actions: [read]
+    params:
+      caller: [get_instruction]
+      path: [self.config_dir]
+  .py:
+    type: literal
+    actions: [write]
+    params:
+      caller: [tempfile.NamedTemporaryFile]
+      delete: "False"
+  .radbot:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.expanduser(), .radbot]
+  abs_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.realpath]
+  agent_inspection.json:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.dirname(), agent_inspection.json]
+  application_default_credentials.json:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.expanduser(), .config, gcloud, application_default_credentials.json]
+  calendar_token.json:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.expanduser(), .radbot, calendar_token.json]
+  client_file:
+    type: literal
+    actions: [read]
+    params:
+      caller: [os.path.expanduser]
+  config.yaml:
+    type: literal
+    actions: [read]
+    params:
+      caller: [_find_config_path]
+      path: [project_root]
+  config_file:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, open, json.load]
+  config_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [Path]
+  config_schema.json:
+    type: literal
+    actions: [read]
+    params:
+      caller: [__init__]
+      path: [Path.parent]
+  credentials.json:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [credentials_dir, credentials.json]
+  credentials_path:
+    type: variable
+    actions: [read, write]
+    params:
+      caller: [os.path.exists, os.path.dirname, open]
+  dir_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, os.makedirs]
+  dst_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, os.makedirs]
+  dst_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, os.path.dirname, os.path.isdir]
+  env_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [Path]
+  file_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, os.path.basename]
+  full_path:
+    type: variable
+    actions: [read, write, delete]
+    params:
+      caller: [os.path.isfile, open, os.path.exists, os.path.isdir, shutil.rmtree, os.remove, os.listdir, os.path.basename,
+        os.walk, os.path.dirname]
+  GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists]
+  html_file:
+    type: variable
+    actions: [read, delete]
+    params:
+      caller: [os.path.exists, open, os.unlink]
+  index.html:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.dirname(), static, dist, index.html]
+  instruction_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [instruction_path.read_text]
+  item_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.isdir]
+  mcp_fileserver_server.py:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [script_dir, mcp_fileserver_server.py]
+  MCP_FS_ROOT_DIR:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.isdir]
+  output_file:
+    type: variable
+    actions: [write, read]
+    params:
+      caller: [open, json.load]
+      alias: [f]
+  parent_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists, os.makedirs]
+  path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.dirname, os.path.join]
+  real_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists]
+  rel_path:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [path, rel_path]
+  root_dir:
+    type: literal
+    actions: [read]
+    params:
+      caller: [os.path.expanduser]
+  schema_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [open, json.load, yaml.safe_load]
+      alias: [f]
+  script_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.dirname]
+  service-account.json:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [os.path.dirname(), credentials, service-account.json]
+  service_account_file:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.exists]
+  src_path:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.path.isdir, shutil.copytree, shutil.copy2, os.path.exists, shutil.move]
+  temp_file:
+    type: variable
+    actions: [read, delete]
+    params:
+      caller: [os.path.exists, os.unlink]
+  token.json:
+    type: pattern
+    actions: [read]
+    params:
+      caller: [os.path.join]
+      pattern: [credentials_dir, token.json]
+  token_dir:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.makedirs]
+  TOKEN_DIR:
+    type: variable
+    actions: [read]
+    params:
+      caller: [os.makedirs]
+  token_path:
+    type: variable
+    actions: [read, write]
+    params:
+      caller: [os.path.exists, os.path.dirname, open, os.path.expanduser]
+
+processes:
+  /bin/cat:
+    type: mcp
+    actions: [exec]
+    params:
+      caller: [StdioServerParameters]
+      shell: ["False"]
+  claude:
+    type: shell
+    actions: [exec]
+    args: [[--help], [--help]]
+    params:
+      caller: [subprocess.Popen]
+      shell: ["False", "False"]
+  python:
+    type: mcp
+    actions: [exec]
+    params:
+      caller: [execute_shell_command, StdioServerParameters]
+      shell: ["False", "False"]
+  python3:
+    type: mcp
+    actions: [exec]
+    params:
+      caller: [StdioServerParameters]
+      shell: ["False"]
+
+networks:
+  speech.googleapis.com:
+    type: api
+    actions: [GET]
+    urls: ['/v1/speech:recognize?key=QDRANT_API_KEY']
+    protocols: [https]
+    ports: ["443"]
+    params:
+      caller: [_try_load_mcp_tools]
