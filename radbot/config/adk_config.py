@@ -143,7 +143,7 @@ def setup_vertex_environment():
         os.environ["GOOGLE_API_KEY"] = api_key
         logger.info("Set up environment with Google API key")
     else:
-        logger.warning("No Google API key found — ADK may fail to initialize")
+        logger.info("No Google API key found yet (will retry after DB config loads)")
 
     return False
 

@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-adk>=1.22.0",
+    "google-adk[extensions]>=1.22.0",
     "google-genai>=1.57.0",
     "qdrant-client>=1.13.0,<1.17",
     "modelcontextprotocol>=0.1.0",
