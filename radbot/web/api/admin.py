@@ -102,12 +102,18 @@ async def store_credential(request: Request, _: None = Depends(_verify_admin)):
         raise HTTPException(400, "name and value are required")
 
     store.set(name, value, credential_type=cred_type, description=description)
-    # Reset HA client singleton when the HA token is updated
+    # Reset HA client singletons when the HA token is updated
     if name == "ha_token":
         try:
             from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
 
             reset_ha_client()
+        except Exception:
+            pass
+        try:
+            from radbot.tools.homeassistant.ha_ws_singleton import reset_ha_ws_client
+
+            reset_ha_ws_client()
         except Exception:
             pass
     return {"status": "ok", "name": name}
@@ -215,6 +221,12 @@ async def save_config_section(
             from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
 
             reset_ha_client()
+        except Exception:
+            pass
+        try:
+            from radbot.tools.homeassistant.ha_ws_singleton import reset_ha_ws_client
+
+            reset_ha_ws_client()
         except Exception:
             pass
         try:

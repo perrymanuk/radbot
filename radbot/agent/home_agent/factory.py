@@ -72,6 +72,15 @@ def create_home_agent() -> Optional[Agent]:
         except Exception as e:
             logger.warning(f"Failed to add HA tools to Casa: {e}")
 
+        # Dashboard tools (WebSocket-based)
+        try:
+            from radbot.tools.homeassistant import HA_DASHBOARD_TOOLS
+
+            tools.extend(HA_DASHBOARD_TOOLS)
+            logger.info(f"Added {len(HA_DASHBOARD_TOOLS)} HA dashboard tools to Casa")
+        except Exception as e:
+            logger.warning(f"Failed to add HA dashboard tools to Casa: {e}")
+
         # Overseerr tools
         try:
             from radbot.tools.overseerr import OVERSEERR_TOOLS
@@ -90,7 +99,7 @@ def create_home_agent() -> Optional[Agent]:
         agent = Agent(
             name="casa",
             model=model,
-            description="Smart home device control (lights, switches, sensors) and media requests (movies, TV shows).",
+            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), and media requests (movies, TV shows).",
             instruction=instruction,
             tools=tools,
         )

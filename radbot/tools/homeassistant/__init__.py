@@ -5,6 +5,7 @@ This package provides the functionality for interacting with Home Assistant.
 """
 
 from radbot.tools.homeassistant.ha_client_singleton import get_ha_client
+from radbot.tools.homeassistant.ha_dashboard_tools import HA_DASHBOARD_TOOLS
 from radbot.tools.homeassistant.ha_rest_client import HomeAssistantRESTClient
 from radbot.tools.homeassistant.ha_state_cache import search_ha_entities
 from radbot.tools.homeassistant.ha_tools_impl import (
@@ -17,6 +18,7 @@ from radbot.tools.homeassistant.ha_tools_impl import (
 
 __all__ = [
     "get_ha_client",
+    "HA_DASHBOARD_TOOLS",
     "HomeAssistantRESTClient",
     "search_ha_entities",
     "list_ha_entities",
