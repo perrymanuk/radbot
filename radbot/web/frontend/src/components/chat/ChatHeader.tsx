@@ -26,6 +26,7 @@ export default function ChatHeader() {
   const agentInfo = useAppStore((s) => s.agentInfo);
   const togglePanel = useAppStore((s) => s.togglePanel);
   const activePanel = useAppStore((s) => s.activePanel);
+  const createNewSession = useAppStore((s) => s.createNewSession);
   const [ttsAutoPlay, setTtsAutoPlay] = useState(
     () => localStorage.getItem("radbot_tts_autoplay") === "true",
   );
@@ -56,8 +57,19 @@ export default function ChatHeader() {
         </span>
       </div>
 
-      {/* Right: TTS toggle + panel toggle buttons */}
-      <div className="flex gap-1 sm:gap-1.5 flex-shrink-0">
+      {/* Right: new session + TTS toggle + panel toggle buttons */}
+      <div className="flex gap-1.5 sm:gap-1.5 flex-shrink-0">
+        <button
+          onClick={() => createNewSession()}
+          className={cn(
+            "px-1.5 sm:px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+            "flex items-center gap-1 min-h-[40px] sm:min-h-0",
+            "bg-bg-tertiary text-terminal-green border-terminal-green hover:bg-terminal-green hover:text-bg-primary",
+          )}
+        >
+          <span className="hidden sm:inline">+ NEW</span>
+          <span className="sm:hidden">+</span>
+        </button>
         <PanelButton
           label={ttsAutoPlay ? "TTS:ON" : "TTS:OFF"}
           mobileLabel={ttsAutoPlay ? "TTS" : "TTS"}
@@ -100,8 +112,8 @@ function PanelButton({
     <button
       onClick={onClick}
       className={cn(
-        "px-1.5 sm:px-2 py-1 sm:py-0.5 border text-[0.7rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-        "flex items-center gap-1 min-h-[36px] sm:min-h-0",
+        "px-1.5 sm:px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+        "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
         active
           ? "bg-accent-blue text-bg-primary border-accent-blue"
           : "bg-bg-tertiary text-txt-primary border-border hover:bg-accent-blue hover:text-bg-primary",
