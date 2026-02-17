@@ -322,6 +322,7 @@ class ConfigLoader:
 
             store = get_credential_store()
             if not store.available:
+                logger.warning("load_db_config: credential store unavailable (no master key)")
                 return
 
             # Check for a full config blob first
@@ -341,7 +342,11 @@ class ConfigLoader:
             # Otherwise merge individual sections
             import json as _json
 
-            for entry in store.list():
+            entries = store.list()
+            config_entries = [e["name"] for e in entries if e["name"].startswith("config:")]
+            logger.info(f"load_db_config: found {len(config_entries)} config entries: {config_entries}")
+
+            for entry in entries:
                 name = entry["name"]
                 if not name.startswith("config:"):
                     continue
@@ -368,7 +373,7 @@ class ConfigLoader:
                             f"Invalid JSON in credential store key '{name}', skipping"
                         )
         except Exception as e:
-            logger.debug(f"Could not load config from credential store: {e}")
+            logger.warning(f"Could not load config from credential store: {e}")
 
     def get_config(self) -> Dict[str, Any]:
         """

@@ -125,6 +125,10 @@ class ConfigManager:
 
         new_model = self.get_main_model()
         old_model = root_agent.model
+        _logger.info(
+            f"apply_model_config: main model {old_model!r} -> {new_model!r} "
+            f"(agent_config={config_loader.get_agent_config()})"
+        )
         if old_model != new_model:
             root_agent.model = new_model
             _logger.info(f"Applied model config: {old_model} -> {new_model}")

@@ -83,3 +83,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Trigger homelab deployment
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMELAB_DISPATCH_TOKEN }}
+          repository: perrymanuk/hashi-homelab
+          event-type: update-radbot
+          client-payload: '{"tag": "${{ steps.version.outputs.version }}"}'

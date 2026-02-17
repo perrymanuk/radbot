@@ -195,7 +195,11 @@ async def initialize_app_startup():
             from radbot.config.config_loader import config_loader
 
             config_loader.load_db_config()
-            logger.info("Config overrides loaded from credential store")
+            agent_cfg = config_loader.get_agent_config()
+            logger.info(
+                f"Config overrides loaded from credential store "
+                f"(agent section: {agent_cfg if agent_cfg else 'EMPTY'})"
+            )
         except Exception as cfg_err:
             logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
 
