@@ -42,7 +42,10 @@ def _create_read_file_tool() -> FunctionTool:
         Returns:
             Content of the file as a string
         """
-        return read_file(path)
+        try:
+            return read_file(path)
+        except (PermissionError, FileNotFoundError, ValueError, IOError) as e:
+            return f"Error: {e}"
 
     return FunctionTool(func=read_file_func)
 
@@ -64,7 +67,10 @@ def _create_write_file_tool() -> FunctionTool:
         Returns:
             Information about the operation
         """
-        return write_file(path, content, overwrite)
+        try:
+            return write_file(path, content, overwrite)
+        except (PermissionError, FileNotFoundError, FileExistsError, ValueError, IOError) as e:
+            return {"status": "error", "error": str(e)}
 
     return FunctionTool(func=write_file_func)
 
@@ -86,7 +92,10 @@ def _create_edit_file_tool() -> FunctionTool:
         Returns:
             Unified diff of changes
         """
-        return edit_file(path, edits, dry_run)
+        try:
+            return edit_file(path, edits, dry_run)
+        except (PermissionError, FileNotFoundError, ValueError, IOError) as e:
+            return f"Error: {e}"
 
     return FunctionTool(func=edit_file_func)
 
@@ -105,7 +114,10 @@ def _create_copy_tool() -> FunctionTool:
         Returns:
             Information about the operation
         """
-        return copy(source_path, destination_path)
+        try:
+            return copy(source_path, destination_path)
+        except (PermissionError, FileNotFoundError, FileExistsError, IOError) as e:
+            return {"status": "error", "error": str(e)}
 
     return FunctionTool(func=copy_func)
 
@@ -123,7 +135,10 @@ def _create_delete_tool() -> FunctionTool:
         Returns:
             Information about the operation
         """
-        return delete(path)
+        try:
+            return delete(path)
+        except (PermissionError, FileNotFoundError, IOError) as e:
+            return {"status": "error", "error": str(e)}
 
     return FunctionTool(func=delete_func)
 
@@ -141,7 +156,10 @@ def _create_list_directory_tool() -> FunctionTool:
         Returns:
             List of file and directory information
         """
-        return list_directory(path)
+        try:
+            return list_directory(path)
+        except (PermissionError, FileNotFoundError, ValueError, IOError) as e:
+            return [{"status": "error", "error": str(e)}]
 
     return FunctionTool(func=list_directory_func)
 
@@ -159,7 +177,10 @@ def _create_get_info_tool() -> FunctionTool:
         Returns:
             Detailed file or directory metadata
         """
-        return get_info(path)
+        try:
+            return get_info(path)
+        except (PermissionError, FileNotFoundError, IOError) as e:
+            return {"status": "error", "error": str(e)}
 
     return FunctionTool(func=get_info_func)
 
@@ -181,7 +202,10 @@ def _create_search_tool() -> FunctionTool:
         Returns:
             List of matching file and directory information
         """
-        return search(path, pattern, exclude_patterns)
+        try:
+            return search(path, pattern, exclude_patterns)
+        except (PermissionError, FileNotFoundError, ValueError, IOError) as e:
+            return [{"status": "error", "error": str(e)}]
 
     return FunctionTool(func=search_func)
 
