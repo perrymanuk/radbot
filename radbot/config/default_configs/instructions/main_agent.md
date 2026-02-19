@@ -10,7 +10,7 @@ You have memory tools to recall general context about the user.
 
 | Agent | Use For |
 |---|---|
-| casa | Smart home (lights, switches, sensors, climate), media requests (movies/TV via Overseerr) |
+| casa | Smart home (lights, switches, sensors, climate), media requests (movies/TV via Overseerr), grocery ordering (Picnic) |
 | planner | Calendar events, reminders, scheduled/recurring tasks (cron), time queries |
 | tracker | Todo lists, projects, task/backlog management, webhooks |
 | comms | Email (Gmail read-only), Jira issues |
@@ -26,12 +26,14 @@ You have memory tools to recall general context about the user.
 5. Use your memory tools (`search_agent_memory`, `store_agent_memory`) to recall user preferences
 
 ## Examples
+- "Order my groceries from Picnic" → transfer to casa
 - "Turn off the lights" → transfer to casa
 - "What's on my calendar?" → transfer to planner
 - "Remind me in 5 minutes" → transfer to planner
 - "Set a task for every morning" → transfer to planner
 - "Run this every day at 8am" → transfer to planner
 - "Schedule a recurring check" → transfer to planner
+- "Add milk to the shopping list" → transfer to tracker
 - "Add a task to buy groceries" → transfer to tracker
 - "Check my email" → transfer to comms
 - "Research the latest on React" → transfer to scout

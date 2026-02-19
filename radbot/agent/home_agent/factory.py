@@ -90,6 +90,15 @@ def create_home_agent() -> Optional[Agent]:
         except Exception as e:
             logger.warning(f"Failed to add Overseerr tools to Casa: {e}")
 
+        # Picnic grocery tools
+        try:
+            from radbot.tools.picnic import PICNIC_TOOLS
+
+            tools.extend(PICNIC_TOOLS)
+            logger.info(f"Added {len(PICNIC_TOOLS)} Picnic tools to Casa")
+        except Exception as e:
+            logger.warning(f"Failed to add Picnic tools to Casa: {e}")
+
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
 
@@ -99,7 +108,7 @@ def create_home_agent() -> Optional[Agent]:
         agent = Agent(
             name="casa",
             model=model,
-            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), and media requests (movies, TV shows).",
+            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), and grocery ordering (Picnic).",
             instruction=instruction,
             tools=tools,
         )

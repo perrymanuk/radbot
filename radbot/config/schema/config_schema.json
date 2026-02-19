@@ -529,6 +529,29 @@
             }
           }
         },
+        "picnic": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Picnic grocery delivery integration settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Picnic integration",
+              "default": false
+            },
+            "country_code": {
+              "type": "string",
+              "description": "Picnic country code",
+              "enum": ["NL", "DE", "BE"],
+              "default": "DE"
+            },
+            "default_list_project": {
+              "type": "string",
+              "description": "Default todo project name for the shopping list",
+              "default": "Groceries"
+            }
+          }
+        },
         "ntfy": {
           "type": "object",
           "additionalProperties": true,

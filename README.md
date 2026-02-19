@@ -13,10 +13,14 @@ An AI agent built on Google ADK with a unique '90s SoCal personality. Beto blend
 
 RadBot uses specialized sub-agents with focused toolsets, reducing token usage and improving response quality:
 
-*   **Beto** (root agent): General conversation, Home Assistant control, task management, calendar, memory
+*   **Beto** (root agent): Orchestrator with memory, routes to specialist agents
+*   **Casa**: Smart home (Home Assistant), media requests (Overseerr), grocery ordering (Picnic)
+*   **Planner**: Calendar, reminders, scheduled/recurring tasks
+*   **Tracker**: Todo lists, projects, webhooks
+*   **Comms**: Email (Gmail), issue tracking (Jira)
+*   **Scout**: Technical research with sequential thinking
+*   **Axel**: Code implementation with dynamic worker system for parallel execution
 *   **Search Agent**: Web search with focused query handling
-*   **Scout Agent**: Technical research across web, docs, and code repos with sequential thinking
-*   **Axel Agent**: Code implementation with a dynamic worker system that distributes tasks across specialized agents for parallel execution
 *   **Code Execution Agent**: Secure Python code execution via Google ADK's built-in sandbox
 
 ### Web Interface
@@ -83,6 +87,18 @@ Google Cloud STT integration with push-to-talk microphone input.
 *   MIC button in chat input (push-to-talk)
 *   Transcribed text injected into the input field for review before sending
 *   REST API at `/api/stt/transcribe`
+
+### Grocery Delivery (Picnic)
+
+Integration with [Picnic](https://picnic.app) grocery delivery service via `python-picnic-api2`.
+
+*   **`search_picnic_product`**: Search the Picnic catalog by keyword
+*   **`add_to_picnic_cart`** / **`remove_from_picnic_cart`** / **`clear_picnic_cart`**: Manage cart
+*   **`get_picnic_cart`**: View current cart contents and total
+*   **`get_picnic_delivery_slots`**: List available delivery time windows
+*   **`set_picnic_delivery_slot`**: Place order (requires user confirmation)
+*   **`submit_shopping_list_to_picnic`**: Bridge tool — reads items from a todo project and populates the Picnic cart
+*   Available in DE (Germany), NL (Netherlands), BE (Belgium)
 
 ### Home Assistant Control
 
@@ -200,7 +216,7 @@ The Vite dev server binds to all interfaces (`host: true`) for mobile testing on
 ## Project Structure
 
 - `/radbot/agent`: Core agent logic, initializer, and persona definitions
-- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, ntfy, TTS, STT, shell, search)
+- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, ntfy, Picnic, Overseerr, TTS, STT, shell, search)
 - `/radbot/memory`: Qdrant-backed semantic memory system
 - `/radbot/web`: FastAPI server, WebSocket handler, React frontend
 - `/radbot/web/frontend`: React SPA source (Vite + TypeScript + Tailwind)

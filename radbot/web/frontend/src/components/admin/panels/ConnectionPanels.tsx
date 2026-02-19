@@ -649,6 +649,121 @@ export function HomeAssistantPanel() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// PicnicPanel
+// ═══════════════════════════════════════════════════════════
+
+export function PicnicPanel() {
+  const { loadLiveConfig, mergeConfigSection, saveCredential, testConnection, toast, loadStatus, status } =
+    useAdminStore();
+
+  const [enabled, setEnabled] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [countryCode, setCountryCode] = useState("DE");
+  const [defaultProject, setDefaultProject] = useState("Groceries");
+  const [saving, setSaving] = useState(false);
+  const [testResult, setTestResult] = useState<{ status: string; message: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    loadLiveConfig().then((cfg) => {
+      const picnic = dig(cfg, "integrations.picnic", {});
+      setEnabled(!!picnic.enabled);
+      setCountryCode(picnic.country_code || "DE");
+      setDefaultProject(picnic.default_list_project || "Groceries");
+      if (picnic.username) setUsername(picnic.username);
+      if (picnic.password) setPassword(MASKED);
+    });
+  }, [loadLiveConfig]);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const body: Record<string, string> = { country_code: countryCode };
+      if (username) body.username = username;
+      if (password && password !== MASKED) body.password = password;
+      const result = await testConnection("picnic", body);
+      setTestResult(result);
+    } catch (e: any) {
+      setTestResult({ status: "error", message: e.message });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (username) {
+        await saveCredential("picnic_username", username, "username", "Picnic account username");
+      }
+      if (password && password !== MASKED) {
+        await saveCredential("picnic_password", password, "password", "Picnic account password");
+      }
+      await mergeConfigSection("integrations", {
+        picnic: {
+          enabled,
+          country_code: countryCode,
+          default_list_project: defaultProject,
+        },
+      });
+      toast("Picnic settings saved", "success");
+      loadStatus();
+    } catch (e: any) {
+      toast("Save failed: " + e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const picnicStatus = status?.picnic?.status || "unconfigured";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5 mb-4">
+        <h2 className="text-lg font-semibold text-[#eee]">Picnic</h2>
+        <StatusBadge status={picnicStatus} />
+      </div>
+
+      <Card title="Configuration">
+        <FormToggle label="Enabled" checked={enabled} onChange={setEnabled} />
+        <FormInput
+          label="Username"
+          value={username}
+          onChange={setUsername}
+          placeholder="Picnic account email"
+        />
+        <FormInput
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          type="password"
+        />
+        <FormDropdown
+          label="Country"
+          value={countryCode}
+          onChange={setCountryCode}
+          options={[
+            { value: "DE", label: "Germany (DE)" },
+            { value: "NL", label: "Netherlands (NL)" },
+            { value: "BE", label: "Belgium (BE)" },
+          ]}
+        />
+        <FormInput
+          label="Default Shopping List Project"
+          value={defaultProject}
+          onChange={setDefaultProject}
+          placeholder="Groceries"
+        />
+      </Card>
+
+      <ActionBar onSave={handleSave} onTest={handleTest} testResult={testResult} testing={testing} saving={saving} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // FilesystemPanel
 // ═══════════════════════════════════════════════════════════
 

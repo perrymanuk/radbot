@@ -241,6 +241,12 @@ async def save_config_section(
             reset_ntfy_client()
         except Exception:
             pass
+        try:
+            from radbot.tools.picnic.picnic_client import reset_picnic_client
+
+            reset_picnic_client()
+        except Exception:
+            pass
     return {"status": "ok", "section": section}
 
 
@@ -911,6 +917,69 @@ async def test_ntfy(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"ntfy test failed: {e}")
 
 
+@router.post("/api/test/picnic")
+async def test_picnic(request: Request, _: None = Depends(_verify_admin)):
+    """Test Picnic connectivity by logging in with credentials."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    username = body.get("username", "")
+    password = body.get("password", "")
+    country_code = body.get("country_code", "DE")
+
+    # Fall back to stored config/credentials
+    if not username:
+        try:
+            from radbot.config.config_loader import config_loader
+
+            picnic_cfg = (
+                config_loader.get_config().get("integrations", {}).get("picnic", {})
+            )
+            username = username or picnic_cfg.get("username", "")
+            country_code = picnic_cfg.get("country_code", country_code)
+        except Exception:
+            pass
+    if not username:
+        store = get_credential_store()
+        if store.available:
+            username = store.get("picnic_username") or ""
+    if not password or password == "***":
+        store = get_credential_store()
+        if store.available:
+            password = store.get("picnic_password") or ""
+        if not password:
+            try:
+                from radbot.config.config_loader import config_loader
+
+                password = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("picnic", {})
+                    .get("password", "")
+                )
+            except Exception:
+                pass
+
+    if not username or not password:
+        return _err("Picnic username and password are both required")
+
+    try:
+        from python_picnic_api2 import PicnicAPI
+
+        api = PicnicAPI(
+            username=username,
+            password=password,
+            country_code=country_code,
+        )
+        cart = api.get_cart()
+        item_count = len(cart.get("items", []))
+        return _ok(f"Connected to Picnic ({country_code}) — {item_count} item groups in cart")
+    except Exception as e:
+        return _err(f"Picnic connection failed: {e}")
+
+
 @router.post("/api/test/redis")
 async def test_redis(request: Request, _: None = Depends(_verify_admin)):
     """Test Redis connectivity."""
@@ -1085,6 +1154,20 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         }
     else:
         status["ntfy"] = {"status": "unconfigured"}
+
+    # Picnic
+    picnic_cfg = cfg.get("integrations", {}).get("picnic", {})
+    picnic_user = _store_get("picnic_username") or picnic_cfg.get("username", "")
+    picnic_pass = _store_get("picnic_password") or picnic_cfg.get("password", "")
+    if picnic_user and picnic_pass:
+        status["picnic"] = {"status": "ok"}
+    elif picnic_cfg.get("enabled"):
+        status["picnic"] = {
+            "status": "error",
+            "message": "Enabled but missing credentials",
+        }
+    else:
+        status["picnic"] = {"status": "unconfigured"}
 
     # Home Assistant
     ha_cfg = cfg.get("integrations", {}).get("home_assistant", {})

@@ -126,7 +126,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | Agent | Factory location | Tools | Purpose |
 |---|---|---|---|
 | **beto** (root) | `agent/agent_core.py` | 2 memory | Orchestrator, routes to specialists |
-| **casa** | `agent/home_agent/factory.py` | 6 HA + 4 Overseerr + 2 memory | Smart home, media requests |
+| **casa** | `agent/home_agent/factory.py` | 6 HA + 4 Overseerr + 8 Picnic + 2 memory | Smart home, media requests, grocery ordering |
 | **planner** | `agent/planner_agent/factory.py` | 1 time + 5 calendar + 3 scheduler + 3 reminder + 2 memory | Calendar, scheduling, reminders |
 | **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
@@ -156,6 +156,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/reminders/` | `reminder_tools.py`, `db.py` | `create_reminder_tool`, `list_reminders_tool`, `delete_reminder_tool` | One-shot reminders |
 | `tools/webhooks/` | `webhook_tools.py`, `db.py`, `template_renderer.py` | `create_webhook_tool`, `list_webhooks_tool`, `delete_webhook_tool` | External POST webhooks |
 | `tools/overseerr/` | `overseerr_tools.py`, `overseerr_client.py` | `search_overseerr_media_tool`, `request_overseerr_media_tool`, +2 more | Media requests |
+| `tools/picnic/` | `picnic_tools.py`, `picnic_client.py` | `search_picnic_product_tool`, `add_to_picnic_cart_tool`, `submit_shopping_list_to_picnic_tool`, +5 more | Grocery delivery (Picnic) |
 | `tools/jira/` | `jira_tools.py`, `jira_client.py` | `list_my_jira_issues_tool`, `get_jira_issue_tool`, `transition_jira_issue_tool`, +3 more | Jira Cloud |
 | `tools/shell/` | `shell_tool.py`, `shell_command.py` | `shell_command_tool` (via `get_shell_tool()`) | Shell execution |
 | `tools/adk_builtin/` | `search_tool.py`, `code_execution_tool.py` | Agent factories (not direct tools) | ADK search + code exec agents |

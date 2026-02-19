@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // Panel imports
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
-import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPanel, FilesystemPanel } from "@/components/admin/panels/ConnectionPanels";
+import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel } from "@/components/admin/panels/ConnectionPanels";
 import { PostgresqlPanel, QdrantPanel, RedisPanel } from "@/components/admin/panels/InfrastructurePanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
 import { NtfyPanel } from "@/components/admin/panels/NotificationPanels";
@@ -34,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "jira", label: "Jira", group: "Connections", statusKey: "jira" },
   { id: "overseerr", label: "Overseerr", group: "Connections", statusKey: "overseerr" },
   { id: "home_assistant", label: "Home Assistant", group: "Connections", statusKey: "home_assistant" },
+  { id: "picnic", label: "Picnic", group: "Connections", statusKey: "picnic" },
   { id: "filesystem", label: "Filesystem", group: "Connections" },
   // Infrastructure
   { id: "postgresql", label: "PostgreSQL", group: "Infrastructure", statusKey: "postgresql" },
@@ -66,6 +67,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   jira: JiraPanel,
   overseerr: OverseerrPanel,
   home_assistant: HomeAssistantPanel,
+  picnic: PicnicPanel,
   filesystem: FilesystemPanel,
   postgresql: PostgresqlPanel,
   qdrant: QdrantPanel,
