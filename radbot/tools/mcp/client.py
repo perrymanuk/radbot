@@ -98,7 +98,7 @@ class MCPSSEClient:
         self._loop = None
         self.initialized = False
 
-        logger.info(f"Initialized MCPSSEClient for {url}")
+        logger.debug(f"Initialized MCPSSEClient for {url}")
 
     def _normalize_url(self, url: str) -> str:
         """
@@ -116,7 +116,7 @@ class MCPSSEClient:
         # Ensure URL has a scheme
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
-            logger.info(f"Added HTTPS scheme to URL: {url}")
+            logger.debug(f"Added HTTPS scheme to URL: {url}")
 
         return url
 
@@ -131,7 +131,7 @@ class MCPSSEClient:
             True if initialization was successful, False otherwise
         """
         if self.initialized:
-            logger.info("Client already initialized")
+            logger.debug("Client already initialized")
             return True
 
         # Use asyncio to run the async initialization
@@ -148,7 +148,7 @@ class MCPSSEClient:
 
             # If the async initialization failed, try direct HTTP initialization as fallback
             if not result and not self.message_endpoint:
-                logger.info(
+                logger.debug(
                     "Async initialization failed, constructing default message endpoint"
                 )
                 self.message_endpoint = f"{self.url.replace('/sse', '/messages/')}"
@@ -156,13 +156,13 @@ class MCPSSEClient:
                     self.session_id = str(uuid.uuid4())
                     separator = "?" if "?" not in self.message_endpoint else "&"
                     self.message_endpoint = f"{self.message_endpoint}{separator}session_id={self.session_id}"
-                logger.info(f"Using fallback message endpoint: {self.message_endpoint}")
+                logger.debug(f"Using fallback message endpoint: {self.message_endpoint}")
 
                 # Send initialization request
-                logger.info("Attempting direct HTTP initialization")
+                logger.debug("Attempting direct HTTP initialization")
                 init_success = self._send_initialization_request()
                 if init_success:
-                    logger.info("Direct HTTP initialization succeeded")
+                    logger.debug("Direct HTTP initialization succeeded")
                     self.initialized = True
                     return True
 
@@ -180,7 +180,7 @@ class MCPSSEClient:
             True if initialization was successful, False otherwise
         """
         try:
-            logger.info(f"Connecting to MCP server at {self.url}")
+            logger.debug(f"Connecting to MCP server at {self.url}")
 
             # Create and enter the SSE client context manager
             self._streams_context = sse_client(url=self.url, headers=self.headers)
@@ -214,12 +214,12 @@ class MCPSSEClient:
                 capabilities=capabilities,
                 client_info=client_info,
             )
-            logger.info("Session initialized")
+            logger.debug("Session initialized")
 
             # Add delay after initialization if configured
             if self.initialization_delay:
                 delay_seconds = self.initialization_delay / 1000.0
-                logger.info(
+                logger.debug(
                     f"Waiting {delay_seconds}s before continuing (initialization delay)"
                 )
                 await asyncio.sleep(delay_seconds)
@@ -288,7 +288,7 @@ class MCPSSEClient:
             headers["Content-Type"] = "application/json"
 
             # Send the initialization request
-            logger.info(f"Sending initialization request to {self.message_endpoint}")
+            logger.debug(f"Sending initialization request to {self.message_endpoint}")
             response = requests.post(
                 self.message_endpoint,
                 headers=headers,
@@ -298,7 +298,7 @@ class MCPSSEClient:
 
             # Check response
             if response.status_code in [200, 202]:
-                logger.info(f"Initialization request accepted: {response.status_code}")
+                logger.debug(f"Initialization request accepted: {response.status_code}")
 
                 # Send list_tools request (required by MCP protocol)
                 list_tools_request = {
@@ -307,7 +307,7 @@ class MCPSSEClient:
                     "id": str(uuid.uuid4()),
                 }
 
-                logger.info(f"Sending tools/list request to {self.message_endpoint}")
+                logger.debug(f"Sending tools/list request to {self.message_endpoint}")
                 list_response = requests.post(
                     self.message_endpoint,
                     headers=headers,
@@ -316,7 +316,7 @@ class MCPSSEClient:
                 )
 
                 if list_response.status_code in [200, 202]:
-                    logger.info(
+                    logger.debug(
                         f"Tools/list request accepted: {list_response.status_code}"
                     )
                 else:
@@ -370,7 +370,7 @@ class MCPSSEClient:
             )
             return
 
-        logger.info(f"Processing {len(tools_list)} tools")
+        logger.debug(f"Processing {len(tools_list)} tools")
 
         # Process each tool
         for tool_info in tools_list:
@@ -380,7 +380,7 @@ class MCPSSEClient:
                 # Case 1: Tool object with name attribute
                 if hasattr(tool_info, "name"):
                     tool_name = tool_info.name
-                    logger.info(f"Processing tool: {tool_name}")
+                    logger.debug(f"Processing tool: {tool_name}")
 
                     # Create function for this tool
                     def create_tool_function(name):
@@ -415,7 +415,7 @@ class MCPSSEClient:
                             tool = FunctionTool(function)
 
                         self.tools.append(tool)
-                        logger.info(f"Added tool: {tool_name}")
+                        logger.debug(f"Added tool: {tool_name}")
                     except Exception as e:
                         logger.error(f"Error creating tool {tool_name}: {e}")
 
@@ -426,7 +426,7 @@ class MCPSSEClient:
                         if isinstance(tool_info[0], str)
                         else str(tool_info[0])
                     )
-                    logger.info(f"Processing tuple tool: {tool_name}")
+                    logger.debug(f"Processing tuple tool: {tool_name}")
 
                     # Create function for this tool
                     def create_tool_function(name):
@@ -457,7 +457,7 @@ class MCPSSEClient:
                                 tool = FunctionTool(function, schema=schema)
 
                             self.tools.append(tool)
-                            logger.info(f"Added tuple tool: {tool_name}")
+                            logger.debug(f"Added tuple tool: {tool_name}")
                         except Exception as e:
                             logger.error(f"Error creating tuple tool {tool_name}: {e}")
                     else:
@@ -465,7 +465,7 @@ class MCPSSEClient:
                         try:
                             tool = FunctionTool(function)
                             self.tools.append(tool)
-                            logger.info(f"Added simple tuple tool: {tool_name}")
+                            logger.debug(f"Added simple tuple tool: {tool_name}")
                         except Exception as e:
                             logger.error(
                                 f"Error creating simple tuple tool {tool_name}: {e}"
@@ -474,7 +474,7 @@ class MCPSSEClient:
                 # Case 3: Dictionary format
                 elif isinstance(tool_info, dict) and "name" in tool_info:
                     tool_name = tool_info["name"]
-                    logger.info(f"Processing dict tool: {tool_name}")
+                    logger.debug(f"Processing dict tool: {tool_name}")
 
                     # Create function for this tool
                     def create_tool_function(name):
@@ -506,7 +506,7 @@ class MCPSSEClient:
                             tool = FunctionTool(function, schema=schema)
 
                         self.tools.append(tool)
-                        logger.info(f"Added dict tool: {tool_name}")
+                        logger.debug(f"Added dict tool: {tool_name}")
                     except Exception as e:
                         logger.error(f"Error creating dict tool {tool_name}: {e}")
 
@@ -529,7 +529,7 @@ class MCPSSEClient:
         Returns:
             The result of the tool call
         """
-        logger.info(f"Calling tool {tool_name} with args: {args}")
+        logger.debug(f"Calling tool {tool_name} with args: {args}")
 
         # If we have an active session, use it
         if self.session:
@@ -572,7 +572,7 @@ class MCPSSEClient:
             The result of the tool call
         """
         try:
-            logger.info(f"Calling tool {tool_name} asynchronously")
+            logger.debug(f"Calling tool {tool_name} asynchronously")
 
             if not self.session:
                 logger.error("No session available")
@@ -583,7 +583,7 @@ class MCPSSEClient:
 
             # Call the tool using the session
             result = await self.session.call_tool(tool_name, args)
-            logger.info(f"Tool call successful: {result}")
+            logger.debug(f"Tool call successful: {result}")
             return result
 
         except Exception as e:
@@ -611,7 +611,7 @@ class MCPSSEClient:
                 separator = "?" if "?" not in endpoint_url else "&"
                 endpoint_url = f"{endpoint_url}{separator}session_id={self.session_id}"
 
-            logger.info(f"Calling tool {tool_name} via HTTP to {endpoint_url}")
+            logger.debug(f"Calling tool {tool_name} via HTTP to {endpoint_url}")
 
             # Generate a unique ID for this request
             request_id = str(uuid.uuid4())
@@ -643,12 +643,12 @@ class MCPSSEClient:
 
                             # Extract result from JSON-RPC wrapper
                             if "result" in result:
-                                logger.info(
+                                logger.debug(
                                     f"Tool {tool_name} call successful (immediate result)"
                                 )
                                 return result.get("result")
                             elif "output" in result:
-                                logger.info(
+                                logger.debug(
                                     f"Tool {tool_name} call successful (output format)"
                                 )
                                 return result.get("output")
@@ -665,13 +665,13 @@ class MCPSSEClient:
                                 }
                             else:
                                 # Return the whole response
-                                logger.info(
+                                logger.debug(
                                     f"Tool {tool_name} call successful (custom format)"
                                 )
                                 return result
                         except json.JSONDecodeError:
                             # Not JSON, return as text
-                            logger.info(
+                            logger.debug(
                                 f"Non-JSON response from tool {tool_name}: {response.text}"
                             )
                             return {
@@ -682,7 +682,7 @@ class MCPSSEClient:
 
                     # For 202 Accepted, return basic accepted response
                     if response.status_code == 202:
-                        logger.info(f"Tool {tool_name} call accepted (202)")
+                        logger.debug(f"Tool {tool_name} call accepted (202)")
                         if response.text.strip():
                             try:
                                 # Try to parse as JSON
@@ -758,11 +758,11 @@ class MCPSSEClient:
             elif base_url.endswith("/"):
                 base_url = base_url[:-1]
 
-            logger.info(f"Base URL for schema discovery: {base_url}")
+            logger.debug(f"Base URL for schema discovery: {base_url}")
 
             for endpoint in schema_endpoints:
                 schema_url = f"{base_url}{endpoint}"
-                logger.info(f"Fetching schema from {schema_url}")
+                logger.debug(f"Fetching schema from {schema_url}")
 
                 try:
                     schema_response = requests.get(
@@ -782,7 +782,7 @@ class MCPSSEClient:
                                 for tool in schema_data["tools"]:
                                     if "name" in tool:
                                         tool_names.append(tool["name"])
-                                        logger.info(
+                                        logger.debug(
                                             f"Discovered tool from schema: {tool['name']}"
                                         )
                                 # If we found tools, break the loop
@@ -794,7 +794,7 @@ class MCPSSEClient:
                                 for func in schema_data["functions"]:
                                     if "name" in func:
                                         tool_names.append(func["name"])
-                                        logger.info(
+                                        logger.debug(
                                             f"Discovered function tool from schema: {func['name']}"
                                         )
                                 # If we found functions, break the loop
@@ -805,7 +805,7 @@ class MCPSSEClient:
                                 for item in schema_data:
                                     if isinstance(item, dict) and "name" in item:
                                         tool_names.append(item["name"])
-                                        logger.info(
+                                        logger.debug(
                                             f"Discovered tool from array schema: {item['name']}"
                                         )
                                 # If we found tools, break the loop

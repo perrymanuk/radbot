@@ -286,6 +286,38 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ---
 
+## Logging Standard
+
+All logging is centralized in `radbot/logging_config.py`. Entry points (`web/__main__.py`, `cli/main.py`) call `setup_logging()` once at startup. **No other file should call `logging.basicConfig()`.**
+
+### Format
+
+Structured JSON, one object per line:
+```json
+{"ts":"2026-02-19T12:00:00.000+00:00","level":"INFO","logger":"radbot.web.app","msg":"..."}
+```
+
+Exception tracebacks are included in an `"exc"` field when present.
+
+### Level policy
+
+| Level | Use for | Examples |
+|---|---|---|
+| **ERROR** | Unrecoverable failures | DB connection lost, agent crash |
+| **WARNING** | Degraded but functional | MCP server unreachable, auth retry |
+| **INFO** | One summary per operation | Startup banner, agent created, WS connect/disconnect, job fired |
+| **DEBUG** | Per-item diagnostics, hot-loop details | Per-tool loading, per-event processing, config values, auth steps |
+
+### Rules
+
+1. **One INFO per operation** — e.g. one INFO when all MCP tools are loaded, not one per tool
+2. **No INFO in hot loops** — event processing, per-message handling, per-entity iteration → DEBUG
+3. **`logging.basicConfig()` only in entry points** — `web/__main__.py` and `cli/main.py`
+4. **Use `LOG_LEVEL` env var** to control verbosity at runtime (default: `INFO`)
+5. **Keep WARNING/ERROR unchanged** — never downgrade these without good reason
+
+---
+
 ## Pre-Commit Checklist
 
 Before every commit, review and update these if the changes affect them:

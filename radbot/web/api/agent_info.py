@@ -12,8 +12,6 @@ from fastapi import APIRouter, Depends
 
 from radbot.config import config_manager, get_claude_templates
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create routers
@@ -43,11 +41,11 @@ async def get_agent_info() -> Dict[str, Any]:
     todo_model = config_manager.get_agent_model("todo_agent")
 
     # Log all the models for debugging
-    logger.info(f"Main model: {main_model}")
-    logger.info(f"Scout agent model: {scout_model}")
-    logger.info(f"Search agent model: {search_model}")
-    logger.info(f"Code execution agent model: {code_model}")
-    logger.info(f"Todo agent model: {todo_model}")
+    logger.debug(f"Main model: {main_model}")
+    logger.debug(f"Scout agent model: {scout_model}")
+    logger.debug(f"Search agent model: {search_model}")
+    logger.debug(f"Code execution agent model: {code_model}")
+    logger.debug(f"Todo agent model: {todo_model}")
 
     info = {
         "agent_name": "BETO",  # Default main agent name
@@ -62,7 +60,7 @@ async def get_agent_info() -> Dict[str, Any]:
         },
     }
 
-    logger.info(f"Providing agent info: {info}")
+    logger.debug(f"Providing agent info: {info}")
     return info
 
 
@@ -76,7 +74,7 @@ async def get_claude_templates() -> Dict[str, Any]:
     # Get the Claude templates from configuration
     claude_templates = get_claude_templates()
 
-    logger.info(f"Providing Claude templates: {list(claude_templates.keys())}")
+    logger.debug(f"Providing Claude templates: {list(claude_templates.keys())}")
     return {"templates": claude_templates}
 
 
@@ -89,4 +87,4 @@ def register_agent_info_router(app):
     """
     app.include_router(router)
     app.include_router(claude_router)
-    logger.info("Registered agent_info and claude_templates routers")
+    logger.debug("Registered agent_info and claude_templates routers")

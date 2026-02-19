@@ -45,11 +45,6 @@ from radbot.web.api.stt import router as stt_router
 from radbot.web.api.tts import router as tts_router
 from radbot.web.api.webhooks import router as webhooks_router
 
-# Set up logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -78,7 +73,7 @@ def create_app():
     app.include_router(stt_router)
     app.include_router(admin_router)
     app.include_router(reminders_router)
-    logger.info("API routers registered during app initialization")
+    logger.debug("API routers registered during app initialization")
 
     return app
 
@@ -108,13 +103,13 @@ async def initialize_app_startup():
         logger.info("=" * 60)
 
         # First initialize the chat history database schema
-        logger.info("Initializing chat history database schema...")
+        logger.debug("Initializing chat history database schema...")
         try:
             from radbot.web.db import chat_operations
 
             success = chat_operations.create_schema_if_not_exists()
             if success:
-                logger.info("Chat history database schema initialized successfully")
+                logger.debug("Chat history database schema initialized")
             else:
                 logger.warning("Failed to initialize chat history database schema")
         except Exception as db_error:
@@ -125,21 +120,21 @@ async def initialize_app_startup():
             # Continue app startup even if database initialization fails
 
         # Initialize todo database schema (runs migrations like adding title column)
-        logger.info("Initializing todo database schema...")
+        logger.debug("Initializing todo database schema...")
         try:
             from radbot.tools.todo.db.schema import (
                 create_schema_if_not_exists as init_todo_schema,
             )
 
             init_todo_schema()
-            logger.info("Todo database schema initialized successfully")
+            logger.debug("Todo database schema initialized")
         except Exception as todo_err:
             logger.error(
                 f"Error initializing todo database: {str(todo_err)}", exc_info=True
             )
 
         # Initialize scheduler and webhook database schemas
-        logger.info("Initializing scheduler database schema...")
+        logger.debug("Initializing scheduler database schema...")
         try:
             from radbot.tools.scheduler.db import (
                 init_pending_results_schema,
@@ -148,55 +143,55 @@ async def initialize_app_startup():
 
             init_scheduler_schema()
             init_pending_results_schema()
-            logger.info("Scheduler database schema initialized successfully")
+            logger.debug("Scheduler database schema initialized")
         except Exception as sched_err:
             logger.error(
                 f"Error initializing scheduler database: {str(sched_err)}",
                 exc_info=True,
             )
 
-        logger.info("Initializing webhook database schema...")
+        logger.debug("Initializing webhook database schema...")
         try:
             from radbot.tools.webhooks.db import init_webhook_schema
 
             init_webhook_schema()
-            logger.info("Webhook database schema initialized successfully")
+            logger.debug("Webhook database schema initialized")
         except Exception as wh_err:
             logger.error(
                 f"Error initializing webhook database: {str(wh_err)}", exc_info=True
             )
 
-        logger.info("Initializing reminder database schema...")
+        logger.debug("Initializing reminder database schema...")
         try:
             from radbot.tools.reminders.db import init_reminder_schema
 
             init_reminder_schema()
-            logger.info("Reminder database schema initialized successfully")
+            logger.debug("Reminder database schema initialized")
         except Exception as rem_err:
             logger.error(
                 f"Error initializing reminder database: {str(rem_err)}", exc_info=True
             )
 
         # Initialize credential store schema
-        logger.info("Initializing credential store schema...")
+        logger.debug("Initializing credential store schema...")
         try:
             from radbot.credentials.store import CredentialStore
 
             CredentialStore.init_schema()
-            logger.info("Credential store schema initialized successfully")
+            logger.debug("Credential store schema initialized")
         except Exception as cred_err:
             logger.error(
                 f"Error initializing credential store: {str(cred_err)}", exc_info=True
             )
 
         # Load config overrides from the credential store DB
-        logger.info("Loading config overrides from credential store...")
+        logger.debug("Loading config overrides from credential store...")
         try:
             from radbot.config.config_loader import config_loader
 
             config_loader.load_db_config()
             agent_cfg = config_loader.get_agent_config()
-            logger.info(
+            logger.debug(
                 f"Config overrides loaded from credential store "
                 f"(agent section: {agent_cfg if agent_cfg else 'EMPTY'})"
             )
@@ -217,7 +212,7 @@ async def initialize_app_startup():
 
             if agent_core.memory_service:
                 root_agent._memory_service = agent_core.memory_service
-                logger.info("Re-initialized memory service with DB config overrides")
+                logger.debug("Re-initialized memory service with DB config overrides")
         except Exception as mem_err:
             logger.warning(f"Error re-initializing memory service: {mem_err}")
 
@@ -235,7 +230,7 @@ async def initialize_app_startup():
             from radbot.config.adk_config import setup_vertex_environment
 
             setup_vertex_environment()
-            logger.info(
+            logger.debug(
                 "Re-initialized vertex/API-key environment after DB config load"
             )
         except Exception as env_err:
@@ -290,7 +285,7 @@ async def initialize_app_startup():
                 ]
                 removed = original_count - len(root_agent.tools)
                 if removed:
-                    logger.info(
+                    logger.debug(
                         f"Pruned {removed} MCP tools from root agent "
                         f"(disabled servers: {disabled_server_ids}). "
                         f"Tools: {original_count} -> {len(root_agent.tools)}"
@@ -299,7 +294,7 @@ async def initialize_app_startup():
             logger.warning(f"Error pruning disabled MCP tools: {prune_err}")
 
         # Start the scheduler engine
-        logger.info("Starting scheduler engine...")
+        logger.debug("Starting scheduler engine...")
         try:
             from radbot.tools.scheduler.engine import SchedulerEngine
 
@@ -308,7 +303,7 @@ async def initialize_app_startup():
                 connection_manager=manager, session_manager=get_session_manager()
             )
             await engine.start()
-            logger.info("Scheduler engine started successfully")
+            logger.debug("Scheduler engine started")
         except Exception as engine_err:
             logger.error(
                 f"Error starting scheduler engine: {str(engine_err)}", exc_info=True
@@ -327,7 +322,7 @@ async def initialize_app_startup():
                     speaking_rate=tts_config.get("speaking_rate"),
                     pitch=tts_config.get("pitch"),
                 )
-                logger.info("TTS service instance created")
+                logger.debug("TTS service instance created")
         except Exception as tts_err:
             logger.error(
                 f"Error initializing TTS service: {str(tts_err)}", exc_info=True
@@ -347,25 +342,25 @@ async def initialize_app_startup():
                         "enable_automatic_punctuation", True
                     ),
                 )
-                logger.info("STT service instance created")
+                logger.debug("STT service instance created")
         except Exception as stt_err:
             logger.error(
                 f"Error initializing STT service: {str(stt_err)}", exc_info=True
             )
 
         # Then initialize MCP servers
-        logger.info("Initializing MCP servers at application startup...")
+        logger.debug("Initializing MCP servers at application startup...")
         from radbot.config.config_loader import config_loader
         from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
 
         # Just check if servers are enabled and can connect
         servers = config_loader.get_enabled_mcp_servers()
-        logger.info(f"Found {len(servers)} enabled MCP servers in configuration")
+        logger.debug(f"Found {len(servers)} enabled MCP servers in configuration")
 
         for server in servers:
             server_id = server.get("id", "unknown")
             server_name = server.get("name", server_id)
-            logger.info(f"MCP server enabled: {server_name} (ID: {server_id})")
+            logger.debug(f"MCP server enabled: {server_name} (ID: {server_id})")
 
         # Don't attempt to create tools here - we'll do that in the session
         # when a new client connects, which is safer and more reliable
@@ -413,7 +408,7 @@ class HTTPOnlyStaticFiles(StaticFiles):
         """Handle request or return 404 for non-HTTP requests."""
         if scope["type"] != "http":
             # Log and ignore non-HTTP requests (like WebSocket)
-            logger.info(f"Ignoring non-HTTP request to static files: {scope['type']}")
+            logger.debug(f"Ignoring non-HTTP request to static files: {scope['type']}")
             return
         await super().__call__(scope, receive, send)
 
@@ -428,7 +423,7 @@ def mount_static_files():
             ),
             name="static",
         )
-        logger.info("Static files mounted successfully")
+        logger.debug("Static files mounted successfully")
     except Exception as e:
         logger.error(f"Error mounting static files: {str(e)}", exc_info=True)
 
@@ -548,7 +543,7 @@ class ConnectionManager:
                             event["text"][:100000]
                             + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"
                         )
-                        logger.info(
+                        logger.debug(
                             f"Truncated event text from {original_length} to {len(event['text'])} characters"
                         )
 
@@ -684,7 +679,7 @@ async def websocket_endpoint(
 
         # Process sync_request messages
         async def handle_sync_request(last_message_id, timestamp=None):
-            logger.info(
+            logger.debug(
                 f"Handling sync request for session {session_id} since message {last_message_id}"
             )
 
@@ -725,13 +720,13 @@ async def websocket_endpoint(
             # Send the sync response
             await websocket.send_json({"type": "sync_response", "messages": messages})
 
-            logger.info(
+            logger.debug(
                 f"Sent sync response with {len(messages)} messages for session {session_id}"
             )
 
         # Process history_request messages
         async def handle_history_request(limit=50):
-            logger.info(
+            logger.debug(
                 f"Handling history request for session {session_id}, limit={limit}"
             )
 
@@ -767,7 +762,7 @@ async def websocket_endpoint(
                             "messages": messages,
                         }
                     )
-                    logger.info(
+                    logger.debug(
                         f"Sent history response with {len(messages)} messages from DB for session {session_id}"
                     )
                     return
@@ -807,7 +802,7 @@ async def websocket_endpoint(
                 {"type": "history", "session_id": session_id, "messages": messages}
             )
 
-            logger.info(
+            logger.debug(
                 f"Sent history response with {len(messages)} messages from ADK session for session {session_id}"
             )
 
@@ -845,7 +840,7 @@ async def websocket_endpoint(
 
             # Check for special command to reset session to Beto
             if user_message.lower() in ["reset to beto", "use beto", "start beto"]:
-                logger.info(f"Explicit request to reset session to Beto agent")
+                logger.debug(f"Explicit request to reset session to Beto agent")
                 if hasattr(runner, "reset_session"):
                     await runner.reset_session()
                     await manager.send_status(session_id, "reset")
@@ -870,14 +865,14 @@ async def websocket_endpoint(
                 if len(parts) >= 3:
                     target_agent = parts[1].strip().lower()
                     user_message = parts[2].strip()
-                    logger.info(f"Detected explicit agent targeting: {target_agent}")
+                    logger.debug(f"Detected explicit agent targeting: {target_agent}")
 
             # Send "thinking" status
             await manager.send_status(session_id, "thinking")
 
             try:
                 # Process the message
-                logger.info(f"Processing WebSocket message for session {session_id}")
+                logger.debug(f"Processing WebSocket message for session {session_id}")
 
                 # Handle explicit agent targeting if present
                 if target_agent:
@@ -889,11 +884,9 @@ async def websocket_endpoint(
                     )
 
                     # Debug the agent tree
-                    logger.info("DEBUG: Agent tree structure:")
+                    logger.debug("Agent tree structure:")
                     if hasattr(root_agent, "name"):
-                        logger.info(f"Root agent name: {root_agent.name}")
-                    else:
-                        logger.info("Root agent has no name attribute")
+                        logger.debug(f"Root agent name: {root_agent.name}")
 
                     if hasattr(root_agent, "sub_agents"):
                         sub_agents = [
@@ -901,9 +894,7 @@ async def websocket_endpoint(
                             for sa in root_agent.sub_agents
                             if hasattr(sa, "name")
                         ]
-                        logger.info(f"Sub-agents: {sub_agents}")
-                    else:
-                        logger.info("Root agent has no sub_agents attribute")
+                        logger.debug(f"Sub-agents: {sub_agents}")
 
                     # Make case-insensitive check for scout
                     if target_agent.lower() == "scout":
@@ -913,7 +904,7 @@ async def websocket_endpoint(
                                 hasattr(sub_agent, "name")
                                 and sub_agent.name.lower() == "scout"
                             ):
-                                logger.info(
+                                logger.debug(
                                     f"Found Scout agent directly: {sub_agent.name}"
                                 )
                                 # Process the request directly with the Scout agent's generate_content method
@@ -923,10 +914,10 @@ async def websocket_endpoint(
                                     if hasattr(
                                         sub_agent, "generate_content"
                                     ) and callable(sub_agent.generate_content):
-                                        logger.info(
+                                        logger.debug(
                                             "Calling Scout's generate_content method directly"
                                         )
-                                        logger.info(
+                                        logger.debug(
                                             f"Direct message to Scout: {user_message[:50]}..."
                                         )
                                         response = sub_agent.generate_content(
@@ -948,12 +939,12 @@ async def websocket_endpoint(
                                             # Fallback to string representation
                                             response_text = str(response)
 
-                                        logger.info(
+                                        logger.debug(
                                             f"Direct Scout response received, length: {len(response_text)}"
                                         )
                                     else:
                                         # Fallback to process_request
-                                        logger.info(
+                                        logger.debug(
                                             "Fallback to process_request for Scout"
                                         )
                                         response_text = process_request(
@@ -970,7 +961,7 @@ async def websocket_endpoint(
                                     )
 
                                 # Log the response for debugging
-                                logger.info(
+                                logger.debug(
                                     f"Scout's response (first 100 chars): {response_text[:100]}..."
                                 )
 
@@ -997,7 +988,7 @@ async def websocket_endpoint(
                             # Try using the standard finder
                             target = find_agent_by_name(root_agent, target_agent)
                             if target:
-                                logger.info(
+                                logger.debug(
                                     f"Found target agent with find_agent_by_name: {target.name}"
                                 )
                                 response_text = process_request(target, user_message)
@@ -1023,7 +1014,7 @@ async def websocket_endpoint(
                         # Standard approach for other agents
                         target = find_agent_by_name(root_agent, target_agent)
                         if target:
-                            logger.info(f"Found target agent: {target.name}")
+                            logger.debug(f"Found target agent: {target.name}")
                             # Process the request with the specific agent
                             response_text = process_request(target, user_message)
                             # Create a result with the response
@@ -1075,13 +1066,13 @@ async def websocket_endpoint(
                             if text_size > 10000:  # Only log notably large events
                                 event_type = event.get("type", "unknown")
                                 event_summary = event.get("summary", "no summary")
-                                logger.info(
+                                logger.debug(
                                     f"Large event[{idx}] {event_type} - {event_summary}: text size = {text_size} bytes"
                                 )
 
                 # Send events only (events contain the model responses)
                 if events:
-                    logger.info(f"Sending {len(events)} events to client")
+                    logger.debug(f"Sending {len(events)} events to client")
                     await manager.send_events(session_id, events)
 
                 # Update status to ready (no need to send the response separately)

@@ -23,10 +23,10 @@ def _try_load_mcp_tools(self):
         # Get enabled MCP servers
         servers = config_loader.get_enabled_mcp_servers()
         if not servers:
-            logger.info("No enabled MCP servers found in configuration")
+            logger.debug("No enabled MCP servers found in configuration")
             return
 
-        logger.info(f"Loading tools from {len(servers)} MCP servers")
+        logger.debug(f"Loading tools from {len(servers)} MCP servers")
 
         # Initialize clients and collect tools
         tools_to_add = []
@@ -64,7 +64,7 @@ def _try_load_mcp_tools(self):
                         server_tools = client.tools
 
                         if server_tools:
-                            logger.info(
+                            logger.debug(
                                 f"Successfully loaded {len(server_tools)} tools from {server_name}"
                             )
 
@@ -76,7 +76,7 @@ def _try_load_mcp_tools(self):
                                 if tool_name not in existing_tool_names:
                                     tools_to_add.append(tool)
                                     existing_tool_names.add(tool_name)
-                                    logger.info(
+                                    logger.debug(
                                         f"Added tool: {tool_name} from {server_name}"
                                     )
                     else:
@@ -95,7 +95,7 @@ def _try_load_mcp_tools(self):
                         claude_prompt_tool = create_claude_prompt_tool()
 
                         if claude_prompt_tool:
-                            logger.info(f"Successfully loaded Claude prompt tool")
+                            logger.debug(f"Successfully loaded Claude prompt tool")
 
                             # Get the tool name - use multiple approaches to be robust
                             tool_name = None

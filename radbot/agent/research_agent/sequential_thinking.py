@@ -10,8 +10,6 @@ import logging
 import re
 from typing import Any, Callable, Dict, List, Optional, Union
 
-# Set up logging
-logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
 
 

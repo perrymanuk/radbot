@@ -15,14 +15,11 @@ from dotenv import load_dotenv
 
 from radbot.agent.agent import RadBotAgent, create_agent
 from radbot.config import config_manager
+from radbot.logging_config import setup_logging
 from radbot.tools.basic import get_current_time
 
-# Set up logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+# Set up logging (single entry-point call)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -86,7 +83,7 @@ def search_home_assistant_entities(
     Returns:
         Dictionary with matching entities
     """
-    logger.info(
+    logger.debug(
         f"Direct search_home_assistant_entities called with term: '{search_term}', domain_filter: '{domain_filter}'"
     )
 
@@ -109,7 +106,7 @@ def search_home_assistant_entities(
         if "light" in search_term.lower() or "lamp" in search_term.lower():
             results.append({"entity_id": "light.main", "score": 1})
 
-        logger.info(f"Created {len(results)} fallback entities for '{search_term}'")
+        logger.debug(f"Created {len(results)} fallback entities for '{search_term}'")
 
         # Return formatted results
         return {"success": True, "match_count": len(results), "matches": results}
@@ -125,7 +122,7 @@ def HassTurnOn(entity_id: str):
     Returns:
         Dictionary with operation result
     """
-    logger.info(f"Direct HassTurnOn called with entity_id: {entity_id}")
+    logger.debug(f"Direct HassTurnOn called with entity_id: {entity_id}")
 
     try:
         # Try to use the real Home Assistant tools if available
@@ -161,7 +158,7 @@ def HassTurnOff(entity_id: str):
     Returns:
         Dictionary with operation result
     """
-    logger.info(f"Direct HassTurnOff called with entity_id: {entity_id}")
+    logger.debug(f"Direct HassTurnOff called with entity_id: {entity_id}")
 
     try:
         # Try to use the real Home Assistant tools if available
@@ -201,7 +198,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
         from radbot.config.config_loader import config_loader
 
         config_loader.load_db_config()
-        logger.info("Loaded config overrides from credential store")
+        logger.debug("Loaded config overrides from credential store")
     except Exception as e:
         logger.warning(f"Could not load DB config: {e}")
 
@@ -214,7 +211,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
         initialize_memory_service()
         if agent_core.memory_service:
             root_agent._memory_service = agent_core.memory_service
-            logger.info("Initialized memory service with DB config")
+            logger.debug("Initialized memory service with DB config")
     except Exception as e:
         logger.warning(f"Could not initialize memory service: {e}")
 
@@ -255,7 +252,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
         basic_tools.append(search_home_assistant_entities)
         basic_tools.append(HassTurnOn)
         basic_tools.append(HassTurnOff)
-        logger.info("Added direct Home Assistant functions as basic tools")
+        logger.debug("Added direct Home Assistant functions as basic tools")
 
         # No need for WebSocket setup anymore, we only use MCP
 
@@ -278,12 +275,12 @@ async def setup_agent() -> Optional[RadBotAgent]:
         agent = None
 
         # Use the Home Assistant agent factory with MCP integration
-        logger.info("Creating agent with Home Assistant MCP integration")
+        logger.debug("Creating agent with Home Assistant MCP integration")
 
         # Check Home Assistant status first
         ha_status = check_home_assistant_status()
         if ha_status["connected"]:
-            logger.info(
+            logger.debug(
                 f"Home Assistant MCP integration available: {ha_status['tools_count']} tools, "
                 f"domains: {', '.join(ha_status['domains'])}"
             )
@@ -298,7 +295,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
                     base_tools=basic_tools,
                 )
                 agent = ha_agent_factory()
-                logger.info("Created agent with Home Assistant legacy integration")
+                logger.debug("Created agent with Home Assistant legacy integration")
             except Exception as e:
                 logger.error(f"Error creating HA-enabled agent: {str(e)}")
                 agent = None
@@ -327,7 +324,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
                 # Create memory service
                 try:
                     memory_service = QdrantMemoryService()
-                    logger.info("Created memory service successfully")
+                    logger.debug("Created memory service successfully")
                 except Exception as e:
                     logger.error(f"Failed to create memory service: {str(e)}")
                     memory_service = None
@@ -381,7 +378,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
                     "beto"  # Changed from "radbot" to match agent name for transfers
                 )
 
-                logger.info("Created basic agent without memory in direct mode")
+                logger.debug("Created basic agent without memory in direct mode")
             except Exception as e:
                 logger.warning(
                     f"Failed to create custom memory-enabled agent: {str(e)}, creating a basic agent directly"
@@ -427,7 +424,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
                     "beto"  # Changed from "radbot" to match agent name for transfers
                 )
 
-                logger.info("Created ultra-basic agent in direct fallback mode")
+                logger.debug("Created ultra-basic agent in direct fallback mode")
 
         logger.info("Agent setup complete")
         return agent
@@ -631,7 +628,7 @@ async def main():
 
         # Use a fixed user ID so memories persist across all sessions
         user_id = "web_user"
-        logger.info(f"Starting session with user_id: {user_id}")
+        logger.debug(f"Starting session with user_id: {user_id}")
 
         # Main interaction loop
         while True:
@@ -648,7 +645,7 @@ async def main():
                     continue
 
                 # Process regular message
-                logger.info(
+                logger.debug(
                     f"Processing message: {user_input[:20]}{'...' if len(user_input) > 20 else ''}"
                 )
 

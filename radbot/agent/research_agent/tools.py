@@ -5,11 +5,8 @@ This module handles the initialization of tools for the research agent.
 """
 
 import logging
-import os
 from typing import Any, List
 
-# Set up logging
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 

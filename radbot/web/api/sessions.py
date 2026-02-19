@@ -23,8 +23,6 @@ from radbot.web.db.connection import (
     get_chat_db_cursor,
 )
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -76,7 +74,7 @@ def register_sessions_router(app):
         session_manager: SessionManager = Depends(get_session_manager),
     ):
         """List all sessions for the current user."""
-        logger.info("Listing sessions for user %s", user_id or "anonymous")
+        logger.debug("Listing sessions for user %s", user_id or "anonymous")
 
         # Create the response with placeholder data - in a real system
         # we would query a database for user's sessions
@@ -104,7 +102,7 @@ def register_sessions_router(app):
             if sessions:
                 active_session_id = sessions[0].id
 
-            logger.info("Found %d sessions for user", len(sessions))
+            logger.debug("Found %d sessions for user", len(sessions))
 
             return SessionsListResponse(
                 sessions=sessions, active_session_id=active_session_id
@@ -174,7 +172,7 @@ def register_sessions_router(app):
         if not request or not request.name:
             raise HTTPException(status_code=400, detail="Name is required")
 
-        logger.info("Renaming session %s to %s", session_id, request.name)
+        logger.debug("Renaming session %s to %s", session_id, request.name)
 
         try:
             # Check if session exists in the manager
@@ -263,7 +261,7 @@ def register_sessions_router(app):
         session_manager: SessionManager = Depends(get_session_manager),
     ):
         """Get session details."""
-        logger.info("Getting details for session %s", session_id)
+        logger.debug("Getting details for session %s", session_id)
 
         try:
             # Check if session exists in the manager
@@ -367,4 +365,4 @@ def register_sessions_router(app):
 
     # Register the router with the app
     app.include_router(router)
-    logger.info("Sessions router registered")
+    logger.debug("Sessions router registered")

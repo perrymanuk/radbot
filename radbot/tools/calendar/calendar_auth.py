@@ -172,7 +172,7 @@ def get_calendar_service(
                     )
                 if creds and creds.valid:
                     _calendar_service = build("calendar", "v3", credentials=creds)
-                    logger.info("Calendar: Using OAuth token from credential store")
+                    logger.debug("Calendar: Using OAuth token from credential store")
                     return _calendar_service
 
             # Try service account JSON from credential store
@@ -186,7 +186,7 @@ def get_calendar_service(
                 if impersonation_email:
                     sa_creds = sa_creds.with_subject(impersonation_email)
                 _calendar_service = build("calendar", "v3", credentials=sa_creds)
-                logger.info("Calendar: Using service account from credential store")
+                logger.debug("Calendar: Using service account from credential store")
                 return _calendar_service
     except Exception as e:
         logger.error(f"Calendar credential store lookup failed: {e}", exc_info=True)
@@ -203,12 +203,12 @@ def get_calendar_service(
                 calendar = (
                     _calendar_service.calendars().get(calendarId=calendar_id).execute()
                 )
-                logger.info(
+                logger.debug(
                     f"Calendar: Using saved OAuth token. Connected as: {calendar.get('summary', 'Unknown')}"
                 )
                 return _calendar_service
             except HttpError as e:
-                logger.info(
+                logger.debug(
                     f"Calendar OAuth token available but access failed: {e}. Trying ADC."
                 )
                 _calendar_service = None
@@ -234,12 +234,12 @@ def get_calendar_service(
             calendar = (
                 _calendar_service.calendars().get(calendarId=calendar_id).execute()
             )
-            logger.info(
+            logger.debug(
                 f"Calendar: Using ADC. Connected as: {calendar.get('summary', 'Unknown')}"
             )
             return _calendar_service
         except HttpError as e:
-            logger.info(
+            logger.debug(
                 f"Calendar ADC available but calendar access failed: {e}. Trying service account."
             )
             _calendar_service = None
@@ -263,7 +263,7 @@ def get_calendar_service(
             try:
                 # Try to parse the JSON string from environment variable
                 service_account_info = json.loads(service_account_json)
-                logger.info(
+                logger.debug(
                     "Using GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON environment variable"
                 )
 
@@ -292,7 +292,7 @@ def get_calendar_service(
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
 
-            logger.info(f"Loading service account credentials from: {credentials_path}")
+            logger.debug(f"Loading service account credentials from: {credentials_path}")
 
             # Create credentials from file
             credentials = service_account.Credentials.from_service_account_file(
@@ -301,7 +301,7 @@ def get_calendar_service(
 
         # Apply impersonation if configured
         if impersonation_email:
-            logger.info(
+            logger.debug(
                 f"Using service account impersonation for user: {impersonation_email}"
             )
             credentials = credentials.with_subject(impersonation_email)
@@ -374,7 +374,7 @@ def get_workspace_calendar_service(
             try:
                 # Try to parse the JSON string from environment variable
                 service_account_info = json.loads(service_account_json)
-                logger.info(
+                logger.debug(
                     "Using GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON environment variable"
                 )
 
@@ -403,7 +403,7 @@ def get_workspace_calendar_service(
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
 
-            logger.info(f"Loading service account credentials from: {credentials_path}")
+            logger.debug(f"Loading service account credentials from: {credentials_path}")
 
             # Create credentials from file
             credentials = service_account.Credentials.from_service_account_file(
@@ -411,7 +411,7 @@ def get_workspace_calendar_service(
             )
 
         # Delegate to impersonate the workspace user
-        logger.info(f"Impersonating user: {user_email}")
+        logger.debug(f"Impersonating user: {user_email}")
         delegated_credentials = credentials.with_subject(user_email)
 
         # Create service with delegated credentials
@@ -453,30 +453,30 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
     Returns:
         bool: True if validation passes, False otherwise
     """
-    logger.info("=== CALENDAR ACCESS VALIDATION ===")
+    logger.debug("=== CALENDAR ACCESS VALIDATION ===")
 
     # If calendar_id is None, use the environment variable
     if calendar_id is None:
         calendar_id = CALENDAR_ID
 
-    logger.info(f"Validating access to calendar ID: {calendar_id}")
+    logger.debug(f"Validating access to calendar ID: {calendar_id}")
 
     try:
         # Create calendar service
         service = get_calendar_service(force_new=True)
         if not service:
-            logger.error("❌ Failed to create calendar service")
+            logger.error("Failed to create calendar service")
             return False
 
         # Try to get calendar metadata
-        logger.info(f"Attempting to access calendar metadata...")
+        logger.debug(f"Attempting to access calendar metadata...")
         try:
             calendar_info = service.calendars().get(calendarId=calendar_id).execute()
-            logger.info(
-                f"✅ Successfully accessed calendar: {calendar_info.get('summary', 'Unknown')}"
+            logger.debug(
+                f"Successfully accessed calendar: {calendar_info.get('summary', 'Unknown')}"
             )
         except HttpError as e:
-            logger.error(f"❌ Failed to access calendar metadata: {str(e)}")
+            logger.error(f"Failed to access calendar metadata: {str(e)}")
             if "notFound" in str(e):
                 logger.error(
                     "   Calendar ID may be incorrect or the calendar doesn't exist"
@@ -496,7 +496,7 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
             from datetime import datetime
 
             now = datetime.utcnow().isoformat() + "Z"
-            logger.info(f"Attempting to list calendar events...")
+            logger.debug(f"Attempting to list calendar events...")
             events = (
                 service.events()
                 .list(calendarId=calendar_id, timeMin=now, maxResults=10)
@@ -504,18 +504,18 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
             )
 
             items = events.get("items", [])
-            logger.info(f"✅ Successfully listed events. Items found: {len(items)}")
+            logger.debug(f"Successfully listed events. Items found: {len(items)}")
 
             if items:
-                logger.info("Sample of upcoming events:")
+                logger.debug("Sample of upcoming events:")
                 for item in items[:3]:  # Show up to 3 events
                     start = item["start"].get("dateTime", item["start"].get("date"))
-                    logger.info(f"  - {start}: {item.get('summary', 'No title')}")
+                    logger.debug(f"  - {start}: {item.get('summary', 'No title')}")
             else:
-                logger.info("No upcoming events found in this calendar")
+                logger.debug("No upcoming events found in this calendar")
 
         except HttpError as e:
-            logger.error(f"❌ Failed to list calendar events: {str(e)}")
+            logger.error(f"Failed to list calendar events: {str(e)}")
             if "forbidden" in str(e).lower():
                 logger.error(
                     "   Service account lacks read permission for this calendar"
@@ -525,11 +525,11 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
                 )
             return False
 
-        logger.info("=== CALENDAR ACCESS VALIDATION SUCCESSFUL ===")
+        logger.debug("=== CALENDAR ACCESS VALIDATION SUCCESSFUL ===")
         return True
 
     except Exception as e:
-        logger.exception(f"❌ Error during calendar validation: {str(e)}")
+        logger.exception(f"Error during calendar validation: {str(e)}")
         return False
 
 
@@ -537,13 +537,13 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
 def initialize_calendar():
     """Initialize calendar service connection on startup."""
     try:
-        logger.info("Initializing calendar service...")
+        logger.debug("Initializing calendar service...")
         service = get_calendar_service()
         logger.info("Calendar service initialized successfully")
         return service
     except Exception as e:
         logger.warning(f"Failed to initialize calendar service: {e}")
-        logger.info("Calendar service will be initialized on first use")
+        logger.debug("Calendar service will be initialized on first use")
         return None
 
 

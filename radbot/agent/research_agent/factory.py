@@ -5,11 +5,8 @@ This module provides factory functions for creating research agents.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional, Union
 
-# Set up logging
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 # Import ADK components

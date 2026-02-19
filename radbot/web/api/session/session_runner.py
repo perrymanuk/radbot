@@ -10,11 +10,6 @@ import os
 import sys
 from typing import Any, Dict, Optional, Union
 
-# Set up logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 # Add project root to path
@@ -81,7 +76,7 @@ class SessionRunner:
 
         # Create artifact service for this session
         self.artifact_service = InMemoryArtifactService()
-        logger.info("Created InMemoryArtifactService for the session")
+        logger.debug("Created InMemoryArtifactService for the session")
 
         # Try to load MCP tools for this session
         self._try_load_mcp_tools()
@@ -91,16 +86,16 @@ class SessionRunner:
 
         # Create the ADK Runner with app_name matching the agent name
         app_name = root_agent.name if hasattr(root_agent, "name") else "beto"
-        logger.info(f"Using app_name='{app_name}' for session management")
+        logger.debug(f"Using app_name='{app_name}' for session management")
 
         # Get memory service from root_agent if available
         memory_service = None
         if hasattr(root_agent, "_memory_service"):
             memory_service = root_agent._memory_service
-            logger.info("Using memory service from root agent")
+            logger.debug("Using memory service from root agent")
         elif hasattr(root_agent, "memory_service"):
             memory_service = root_agent.memory_service
-            logger.info("Using memory service from root agent")
+            logger.debug("Using memory service from root agent")
 
         # Store memory_service in the global ToolContext class so memory tools can find it
         if memory_service:
@@ -108,7 +103,7 @@ class SessionRunner:
 
             # Set memory_service in the ToolContext class for tools to access
             setattr(ToolContext, "memory_service", memory_service)
-            logger.info("Set memory_service in global ToolContext class")
+            logger.debug("Set memory_service in global ToolContext class")
 
         # Create the Runner with artifact service and memory service
         self.runner = Runner(
@@ -130,7 +125,7 @@ class SessionRunner:
                 ttl_seconds=1800,
                 min_tokens=4096,
             )
-            logger.info(
+            logger.debug(
                 "Enabled context caching on web Runner (ttl=1800s, min_tokens=4096)"
             )
         except Exception as e:
@@ -138,11 +133,11 @@ class SessionRunner:
 
     def _log_agent_tree(self):
         """Log the agent tree structure for debugging."""
-        logger.info("===== AGENT TREE STRUCTURE =====")
+        logger.debug("===== AGENT TREE STRUCTURE =====")
 
         # Check root agent
         if hasattr(root_agent, "name"):
-            logger.info(f"ROOT AGENT: name='{root_agent.name}'")
+            logger.debug(f"ROOT AGENT: name='{root_agent.name}'")
         else:
             logger.warning("ROOT AGENT: No name attribute")
 
@@ -151,23 +146,23 @@ class SessionRunner:
             sub_agent_names = [
                 sa.name for sa in root_agent.sub_agents if hasattr(sa, "name")
             ]
-            logger.info(f"SUB-AGENTS: {sub_agent_names}")
+            logger.debug(f"SUB-AGENTS: {sub_agent_names}")
 
             # Check each sub-agent
             for i, sa in enumerate(root_agent.sub_agents):
                 sa_name = sa.name if hasattr(sa, "name") else f"unnamed-{i}"
-                logger.info(f"SUB-AGENT {i}: name='{sa_name}'")
+                logger.debug(f"SUB-AGENT {i}: name='{sa_name}'")
 
                 # Check if sub-agent has its own sub-agents
                 if hasattr(sa, "sub_agents") and sa.sub_agents:
                     sa_sub_names = [
                         ssa.name for ssa in sa.sub_agents if hasattr(ssa, "name")
                     ]
-                    logger.info(f"  SUB-AGENTS OF '{sa_name}': {sa_sub_names}")
+                    logger.debug(f"  SUB-AGENTS OF '{sa_name}': {sa_sub_names}")
         else:
             logger.warning("ROOT AGENT: No sub_agents found")
 
-        logger.info("===============================")
+        logger.debug("===============================")
 
     async def process_message(self, message: str) -> dict:
         """Process a user message and return the agent's response with event data.
@@ -193,7 +188,7 @@ class SessionRunner:
             )
 
             if not session:
-                logger.info(
+                logger.debug(
                     f"Creating new session for user {self.user_id} with app_name='{app_name}'"
                 )
                 session = await self.session_service.create_session(
@@ -249,7 +244,7 @@ class SessionRunner:
                     merged.sort(key=lambda ev: original_order.get(id(ev), 0))
 
                     session.events[:] = merged
-                    logger.info(
+                    logger.debug(
                         f"Optimized event history: {event_count} -> {len(merged)} events "
                         f"({len(kept_conversation)} conversation, {len(kept_tools)} tool)"
                     )
@@ -261,17 +256,11 @@ class SessionRunner:
                 f"Running agent with message: {message[:50]}{'...' if len(message) > 50 else ''}"
             )
 
-            # Log key parameters
-            logger.info(f"USER_ID: '{self.user_id}'")
-            logger.info(f"SESSION_ID: '{self.session_id}'")
-            logger.info(f"APP_NAME: '{app_name}'")
-
             # Set user_id in ToolContext for memory tools
             if hasattr(self.runner, "memory_service") and self.runner.memory_service:
                 from google.adk.tools.tool_context import ToolContext
 
                 setattr(ToolContext, "user_id", self.user_id)
-                logger.info(f"Set user_id '{self.user_id}' in global ToolContext")
 
             # Run with consistent parameters (use run_async to avoid blocking the event loop)
             events = []
@@ -281,8 +270,7 @@ class SessionRunner:
                 events.append(event)
 
             # Process events
-            logger.info(f"Received {len(events)} events from runner")
-            logger.info(f"Event types: {[type(e).__name__ for e in events]}")
+            logger.debug(f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}")
 
             # Log detailed information about each event
             for i, event in enumerate(events):
@@ -293,7 +281,7 @@ class SessionRunner:
                         is_final = event.is_final_response()
                     else:
                         is_final = event.is_final_response
-                logger.info(
+                logger.debug(
                     f"Event {i}: is_final={is_final}, content={type(event.content).__name__ if hasattr(event, 'content') else 'N/A'}"
                 )
 
@@ -319,7 +307,7 @@ class SessionRunner:
                                 part_attrs.append(
                                     f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}"
                                 )
-                            logger.info(
+                            logger.debug(
                                 f"  Event {i} part {j}: {', '.join(part_attrs)}"
                             )
                     else:
@@ -360,15 +348,15 @@ class SessionRunner:
                         hasattr(actions, "transfer_to_agent")
                         and actions.transfer_to_agent
                     ):
-                        logger.info(
+                        logger.debug(
                             f"  Event {i}: TRANSFER_TO_AGENT={actions.transfer_to_agent}"
                         )
                     if hasattr(actions, "escalate") and actions.escalate:
-                        logger.info(f"  Event {i}: ESCALATE=True")
+                        logger.debug(f"  Event {i}: ESCALATE=True")
 
                 # Log author for debugging
                 if hasattr(event, "author"):
-                    logger.info(f"  Event {i}: author={event.author}")
+                    logger.debug(f"  Event {i}: author={event.author}")
 
             # Initialize variables for collecting event data
             final_response = None
@@ -444,7 +432,7 @@ class SessionRunner:
                         raw_response_data
                     )
                     if extracted_text:
-                        logger.info(
+                        logger.debug(
                             f"Recovered text from malformed function call: {extracted_text[:100]}..."
                         )
                         final_response = extracted_text
@@ -476,7 +464,7 @@ class SessionRunner:
 
             # Fall back to last non-empty text from any model response event
             if not final_response and last_text_response:
-                logger.info(
+                logger.debug(
                     "Using last non-empty text from intermediate model response events"
                 )
                 final_response = last_text_response
@@ -1239,7 +1227,7 @@ class SessionRunner:
                 self.session_id, limit=30
             )
             if not db_messages:
-                logger.info(f"No DB history found for session {self.session_id}")
+                logger.debug(f"No DB history found for session {self.session_id}")
                 return
 
             # Take the last N messages to keep context manageable
@@ -1281,7 +1269,7 @@ class SessionRunner:
                 loaded += 1
 
             if loaded:
-                logger.info(
+                logger.debug(
                     f"Loaded {loaded} events from DB into ADK session {self.session_id}"
                 )
         except Exception as e:

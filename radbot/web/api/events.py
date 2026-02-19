@@ -12,8 +12,6 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 
 from radbot.web.api.session import SessionRunner, get_or_create_runner_for_session
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create router
@@ -57,7 +55,7 @@ def add_event(session_id: str, event: Dict[str, Any]) -> None:
     # Only add if not a duplicate
     if not is_duplicate:
         session_events[session_id].append(event)
-        logger.info(
+        logger.debug(
             f"Added event to session {session_id}: {event.get('type')} - {event.get('summary')}"
         )
 
@@ -83,7 +81,7 @@ async def get_events(
     # Get events for this session
     events = session_events.get(session_id, [])
 
-    logger.info(f"Retrieved {len(events)} events for session {session_id}")
+    logger.debug(f"Retrieved {len(events)} events for session {session_id}")
     return events
 
 
@@ -103,4 +101,4 @@ def register_events_router(app):
         app: FastAPI application
     """
     app.include_router(router)
-    logger.info("Registered events router")
+    logger.debug("Registered events router")

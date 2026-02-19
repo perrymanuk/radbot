@@ -32,7 +32,7 @@ def _create_axel_agent() -> Optional[Agent]:
             if not axel_model:
                 axel_model = config_manager.get_sub_model()
 
-        logger.info(f"Using model for Axel: {axel_model}")
+        logger.debug(f"Using model for Axel: {axel_model}")
 
         adk_agent = create_execution_agent(
             name="axel",
@@ -43,7 +43,7 @@ def _create_axel_agent() -> Optional[Agent]:
             app_name="beto",
         )
 
-        logger.info(
+        logger.debug(
             f"Successfully created Axel agent with {len(execution_tools)} tools"
         )
         return adk_agent
@@ -96,7 +96,7 @@ def create_specialized_agents(root_agent: Agent) -> List[Agent]:
                 if telemetry_after_model_callback and not agent.after_model_callback:
                     agent.after_model_callback = telemetry_after_model_callback
                 specialized_agents.append(agent)
-                logger.info(f"Created {agent_name} agent")
+                logger.debug(f"Created {agent_name} agent")
             else:
                 logger.warning(f"Factory returned None for {agent_name} agent")
         except Exception as e:

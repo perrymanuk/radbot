@@ -12,17 +12,14 @@ import sys
 
 from dotenv import load_dotenv
 
+from radbot.logging_config import setup_logging
 from radbot.web.app import start_server
 
 # Load environment variables
 load_dotenv()
 
-# Set up logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+# Set up logging (single entry-point call)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 

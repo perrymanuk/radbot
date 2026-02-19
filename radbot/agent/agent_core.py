@@ -74,11 +74,11 @@ def initialize_memory_service():
             collection = os.getenv("QDRANT_COLLECTION", collection)
 
         # Log memory service configuration
-        logger.info(
+        logger.debug(
             f"Initializing QdrantMemoryService with host={host}, port={port}, collection={collection}"
         )
         if url:
-            logger.info(f"Using Qdrant URL: {url}")
+            logger.debug(f"Using Qdrant URL: {url}")
 
         # Create memory service
         memory_service = QdrantMemoryService(
@@ -88,7 +88,7 @@ def initialize_memory_service():
             url=url,
             api_key=api_key,
         )
-        logger.info(
+        logger.debug(
             f"Successfully initialized QdrantMemoryService with collection '{collection}'"
         )
 
@@ -109,7 +109,7 @@ def initialize_memory_service():
 
 # Get the model name from config
 model_name = config_manager.get_main_model()
-logger.info(f"Using model: {model_name}")
+logger.debug(f"Using model: {model_name}")
 
 # Get today's date for the global instruction
 today = date.today()
@@ -133,13 +133,13 @@ root_agent = Agent(
 
 # Create specialized agents (casa, planner, tracker, comms, axel)
 specialized_agents = create_specialized_agents(root_agent)
-logger.info(f"Created {len(specialized_agents)} specialized agents")
+logger.debug(f"Created {len(specialized_agents)} specialized agents")
 
 # Store memory_service as an attribute of the agent after creation
 # This attribute will be used by the Runner in web/api/session.py
 if memory_service:
     root_agent._memory_service = memory_service
-    logger.info("Added memory_service to root_agent as _memory_service attribute")
+    logger.debug("Added memory_service to root_agent as _memory_service attribute")
 
 # Log agent creation
 logger.info(
@@ -165,6 +165,6 @@ def create_agent(tools: Optional[List[Any]] = None, app_name: str = "beto"):
     if tools:
         all_tools = list(root_agent.tools) + list(tools)
         root_agent.tools = all_tools
-        logger.info(f"Added {len(tools)} additional tools to agent")
+        logger.debug(f"Added {len(tools)} additional tools to agent")
 
     return root_agent

@@ -6,11 +6,8 @@ agent for technical research and design collaboration.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
-# Set up logging
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 # Import ADK components

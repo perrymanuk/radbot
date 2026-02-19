@@ -59,7 +59,7 @@ class SchedulerEngine:
             from radbot.tools.scheduler.db import list_tasks
 
             tasks = list_tasks(enabled_only=True)
-            logger.info(f"Loading {len(tasks)} enabled scheduled tasks")
+            logger.debug(f"Loading {len(tasks)} enabled scheduled tasks")
             for task in tasks:
                 self.register_job(task)
         except Exception as e:
@@ -70,7 +70,7 @@ class SchedulerEngine:
             from radbot.tools.reminders.db import list_reminders
 
             reminders = list_reminders(status="pending")
-            logger.info(f"Loading {len(reminders)} pending reminders")
+            logger.debug(f"Loading {len(reminders)} pending reminders")
             now = datetime.now(timezone.utc)
             for reminder in reminders:
                 remind_at = reminder["remind_at"]
@@ -78,7 +78,7 @@ class SchedulerEngine:
                     remind_at = remind_at.replace(tzinfo=timezone.utc)
                 if remind_at <= now:
                     # Past-due: mark completed but undelivered
-                    logger.info(
+                    logger.debug(
                         f"Reminder {reminder['reminder_id']} is past-due, marking completed (undelivered)"
                     )
                     from radbot.tools.reminders.db import mark_completed
@@ -140,7 +140,7 @@ class SchedulerEngine:
             kwargs={"task_id": task_id, "prompt": prompt, "name": name},
             replace_existing=True,
         )
-        logger.info(
+        logger.debug(
             f"Registered scheduler job '{name}' ({task_id}), cron='{cron_expr}'"
         )
 
@@ -149,7 +149,7 @@ class SchedulerEngine:
         job = self._scheduler.get_job(task_id)
         if job:
             job.remove()
-            logger.info(f"Unregistered scheduler job {task_id}")
+            logger.debug(f"Unregistered scheduler job {task_id}")
 
     def get_next_run_time(self, task_id: str) -> Optional[datetime]:
         """Return the next fire time for a job, or None."""
@@ -220,11 +220,11 @@ class SchedulerEngine:
             session_id = self._connection_manager.get_any_session_id()
         else:
             session_id = "scheduler-offline"
-            logger.info(
+            logger.debug(
                 f"No active WebSocket connections; using offline session for task '{name}'"
             )
 
-        logger.info(
+        logger.debug(
             f"Using session {session_id} for scheduled task '{name}' processing"
         )
 
@@ -290,7 +290,7 @@ class SchedulerEngine:
                         "content": events,
                     }
                 )
-                logger.info(f"Broadcast {len(events)} events to {sent} connections")
+                logger.debug(f"Broadcast {len(events)} events to {sent} connections")
 
             # 7. Broadcast "ready" status
             await self._broadcast_to_all(
@@ -324,7 +324,7 @@ class SchedulerEngine:
                         response=response[:4000],
                         session_id=session_id,
                     )
-                    logger.info(
+                    logger.debug(
                         f"Queued offline result for task '{name}' for later WS delivery"
                     )
                 except Exception as q_err:
@@ -380,7 +380,7 @@ class SchedulerEngine:
                 kwargs={"reminder_id": reminder_id, "message": message},
                 replace_existing=True,
             )
-            logger.info(
+            logger.debug(
                 f"Registered reminder '{message[:50]}' ({reminder_id}), fires at {remind_at.isoformat()}"
             )
         except Exception as e:
@@ -392,7 +392,7 @@ class SchedulerEngine:
         job = self._scheduler.get_job(job_id)
         if job:
             job.remove()
-            logger.info(f"Unregistered reminder job {reminder_id}")
+            logger.debug(f"Unregistered reminder job {reminder_id}")
 
     async def _execute_reminder(self, reminder_id: str, message: str) -> None:
         """Called by APScheduler when a reminder fires.
@@ -423,7 +423,7 @@ class SchedulerEngine:
             not self._connection_manager
             or not self._connection_manager.has_connections()
         ):
-            logger.info(
+            logger.debug(
                 f"No active connections, reminder {reminder_id} will be delivered on reconnect"
             )
             return
@@ -469,7 +469,7 @@ class SchedulerEngine:
         except Exception as e:
             logger.error(f"Failed to mark reminder {reminder_id} delivered: {e}")
 
-        logger.info(f"Reminder {reminder_id} delivered as notification")
+        logger.debug(f"Reminder {reminder_id} delivered as notification")
 
     async def deliver_pending_reminders(self) -> None:
         """Deliver any completed-but-undelivered reminders.
@@ -484,7 +484,7 @@ class SchedulerEngine:
             if not undelivered:
                 return
 
-            logger.info(f"Delivering {len(undelivered)} pending reminders on reconnect")
+            logger.debug(f"Delivering {len(undelivered)} pending reminders on reconnect")
             for reminder in undelivered:
                 reminder_id = str(reminder["reminder_id"])
                 message = reminder["message"]
@@ -508,7 +508,7 @@ class SchedulerEngine:
             if not undelivered:
                 return
 
-            logger.info(
+            logger.debug(
                 f"Delivering {len(undelivered)} pending scheduler results on reconnect"
             )
             for row in undelivered:
@@ -530,7 +530,7 @@ class SchedulerEngine:
                 except Exception as e:
                     logger.error(f"Failed to mark result {result_id} delivered: {e}")
 
-                logger.info(f"Delivered pending result for task '{task_name}'")
+                logger.debug(f"Delivered pending result for task '{task_name}'")
         except Exception as e:
             logger.error(
                 f"Error delivering pending scheduler results: {e}", exc_info=True

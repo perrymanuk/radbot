@@ -103,7 +103,7 @@ def _process_agent_transfer_event(event):
     event_details = _get_event_details(event)
 
     # Log the detected transfer for debugging
-    logger.info(f"Detected agent transfer to: {to_agent}")
+    logger.debug(f"Detected agent transfer to: {to_agent}")
 
     # Add model information for the transferred-to agent
     if to_agent:

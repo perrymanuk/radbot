@@ -12,8 +12,6 @@ from pydantic import BaseModel, Field
 
 from radbot.web.db import chat_operations
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -80,7 +78,7 @@ def register_messages_router(app):
         Returns:
             Dict with status and message_id
         """
-        logger.info(f"Creating message for session {session_id}")
+        logger.debug(f"Creating message for session {session_id}")
 
         if not request:
             raise HTTPException(status_code=400, detail="Message content is required")
@@ -132,7 +130,7 @@ def register_messages_router(app):
         if not request or not request.messages:
             raise HTTPException(status_code=400, detail="Messages are required")
 
-        logger.info(
+        logger.debug(
             f"Batch creating {len(request.messages)} messages for session {session_id}"
         )
 
@@ -198,7 +196,7 @@ def register_messages_router(app):
         Returns:
             MessagesResponse with messages list, total count, and has_more flag
         """
-        logger.info(
+        logger.debug(
             f"Getting messages for session {session_id} (limit={limit}, offset={offset})"
         )
 
@@ -229,4 +227,4 @@ def register_messages_router(app):
 
     # Register the router with the app
     app.include_router(router)
-    logger.info("Messages router registered")
+    logger.debug("Messages router registered")

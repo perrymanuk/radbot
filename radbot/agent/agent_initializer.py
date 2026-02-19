@@ -9,13 +9,7 @@ Domain tool imports have been moved to individual agent factories
 """
 
 import logging
-import os
 
-# Set up logging
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -31,8 +25,8 @@ from google.genai import types
 from radbot.config import config_manager
 
 # Log basic info
-logger.info(f"Config manager loaded. Model config: {config_manager.model_config}")
-logger.info(f"Main model from config: '{config_manager.get_main_model()}'")
+logger.debug(f"Config manager loaded. Model config: {config_manager.model_config}")
+logger.debug(f"Main model from config: '{config_manager.get_main_model()}'")
 
 # Log startup
-logger.info("agent_initializer.py loaded - initialization module for root agent.py")
+logger.debug("agent_initializer.py loaded - initialization module for root agent.py")
