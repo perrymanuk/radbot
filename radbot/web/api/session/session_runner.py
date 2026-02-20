@@ -78,8 +78,11 @@ class SessionRunner:
         self.artifact_service = InMemoryArtifactService()
         logger.debug("Created InMemoryArtifactService for the session")
 
-        # Try to load MCP tools for this session
-        self._try_load_mcp_tools()
+        # NOTE: MCP tool loading into root agent disabled.
+        # Beto is a pure orchestrator — MCP tools belong on sub-agents (axel).
+        # The old _try_load_mcp_tools() mutated the global root_agent, adding
+        # tools like prompt_claude on every SessionRunner init.
+        # self._try_load_mcp_tools()
 
         # Log agent tree structure
         self._log_agent_tree()
@@ -263,11 +266,43 @@ class SessionRunner:
                 setattr(ToolContext, "user_id", self.user_id)
 
             # Run with consistent parameters (use run_async to avoid blocking the event loop)
-            events = []
-            async for event in self.runner.run_async(
-                user_id=self.user_id, session_id=session.id, new_message=user_message
-            ):
-                events.append(event)
+            MAX_RETRIES = 2
+            for attempt in range(MAX_RETRIES):
+                events = []
+                async for event in self.runner.run_async(
+                    user_id=self.user_id, session_id=session.id, new_message=user_message
+                ):
+                    events.append(event)
+
+                # Check if the model returned empty content (no text or function calls)
+                has_content = False
+                for ev in events:
+                    if hasattr(ev, "content") and ev.content and hasattr(ev.content, "parts") and ev.content.parts:
+                        has_content = True
+                        break
+
+                if has_content or attempt == MAX_RETRIES - 1:
+                    break
+
+                # Empty response — strip poisoned events from session and retry
+                logger.warning(
+                    "Empty response from model on attempt %d/%d — stripping empty events and retrying",
+                    attempt + 1, MAX_RETRIES,
+                )
+                # Remove the empty model events that were appended to the session
+                # to prevent session poisoning
+                if hasattr(session, "events") and session.events:
+                    # Remove trailing events that have no content parts
+                    while session.events:
+                        last = session.events[-1]
+                        last_has_parts = (
+                            hasattr(last, "content") and last.content
+                            and hasattr(last.content, "parts") and last.content.parts
+                        )
+                        if not last_has_parts:
+                            session.events.pop()
+                        else:
+                            break
 
             # Process events
             logger.debug(f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}")

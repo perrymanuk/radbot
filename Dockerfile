@@ -8,7 +8,7 @@ COPY radbot/web/frontend/ .
 RUN npx tsc -b && npx vite build --outDir dist
 
 # Stage 2: Python application
-FROM python:3.10-slim AS base
+FROM python:3.12-slim AS base
 
 # Install system dependencies (no Node needed at runtime)
 RUN apt-get update && apt-get install -y --no-install-recommends \

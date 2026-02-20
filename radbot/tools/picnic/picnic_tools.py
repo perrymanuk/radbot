@@ -39,6 +39,17 @@ def _client_or_error():
     return client, None
 
 
+def _unwrap_search_results(raw_results: list) -> List[Dict[str, Any]]:
+    """Unwrap the [{"items": [...]}] structure returned by PicnicAPI.search()."""
+    products = []
+    for group in raw_results:
+        if isinstance(group, dict) and "items" in group:
+            products.extend(group["items"])
+        else:
+            products.append(group)
+    return products
+
+
 def _format_product(item: Dict[str, Any]) -> Dict[str, Any]:
     """Normalise a Picnic search result into a compact dict."""
     return {
@@ -97,9 +108,12 @@ def search_picnic_product(
 
     try:
         raw_results = client.search(query)
+        products = _unwrap_search_results(raw_results)
         results = []
-        for item in raw_results[:_MAX_SEARCH_RESULTS]:
-            results.append(_format_product(item))
+        for item in products[:_MAX_SEARCH_RESULTS]:
+            formatted = _format_product(item)
+            if formatted.get("product_id"):
+                results.append(formatted)
         return {
             "status": "success",
             "results": results,
@@ -167,8 +181,12 @@ def add_to_picnic_cart(
     if err:
         return err
 
+    if not product_id or not product_id.strip():
+        return {"status": "error", "message": "product_id is required"}
+
     try:
-        client.add_product(product_id, count=max(1, count))
+        result = client.add_product(product_id, count=max(1, count))
+        logger.debug("Picnic add_product response: %s", result)
         return {
             "status": "success",
             "message": f"Added {count}x product {product_id} to cart",
@@ -360,7 +378,7 @@ def submit_shopping_list_to_picnic(
             continue
 
         try:
-            search_results = client.search(title)
+            search_results = _unwrap_search_results(client.search(title))
             if search_results:
                 # Pick the first (best) match
                 best = search_results[0]
