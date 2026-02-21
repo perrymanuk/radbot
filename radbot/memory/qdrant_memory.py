@@ -170,8 +170,8 @@ class QdrantMemoryService(BaseMemoryService):
                             logger.info(
                                 "Created source_agent index on existing collection"
                             )
-                        except Exception:
-                            pass  # Index already exists
+                        except Exception as idx_err:
+                            logger.debug("source_agent index already exists or failed: %s", idx_err)
                         return
 
                 # Create the collection
@@ -228,8 +228,9 @@ class QdrantMemoryService(BaseMemoryService):
                 if retry_count < max_retries:
                     import time
 
-                    # Wait a second before retrying
-                    time.sleep(1)
+                    # Exponential backoff: 0.1s, 0.3s, 1.0s
+                    backoff = min(0.1 * (3 ** (retry_count - 1)), 1.0)
+                    time.sleep(backoff)
 
         # If we got here, all retries failed
         logger.error(

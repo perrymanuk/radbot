@@ -6,6 +6,7 @@ This module creates a connection pool specifically for the chat history schema.
 
 import logging
 import os
+import threading
 import uuid
 from contextlib import contextmanager
 from typing import Generator
@@ -74,6 +75,7 @@ MAX_CONN = 5  # Start conservatively
 
 # Global pool reference
 chat_pool = None
+_pool_lock = threading.Lock()
 
 
 def initialize_connection_pool():
@@ -106,12 +108,12 @@ def initialize_connection_pool():
 @contextmanager
 def get_chat_db_connection() -> Generator[psycopg2.extensions.connection, None, None]:
     """Provides a database connection from the pool, managing cleanup."""
-    global chat_pool
-
-    # Initialize pool if not already initialized
+    # Initialize pool if not already initialized (thread-safe)
     if chat_pool is None:
-        if not initialize_connection_pool():
-            raise RuntimeError("Could not initialize database connection pool")
+        with _pool_lock:
+            if chat_pool is None:
+                if not initialize_connection_pool():
+                    raise RuntimeError("Could not initialize database connection pool")
 
     conn = None
     try:

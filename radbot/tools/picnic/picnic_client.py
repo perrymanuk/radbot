@@ -193,11 +193,10 @@ def get_picnic_client() -> Optional[PicnicClientWrapper]:
     if _initialized:
         return _client
 
-    _initialized = True
-
     cfg = _get_config()
     if not cfg["enabled"]:
         logger.info("Picnic integration is disabled in config")
+        _initialized = True
         return None
 
     username = cfg["username"]
@@ -208,6 +207,7 @@ def get_picnic_client() -> Optional[PicnicClientWrapper]:
             "Picnic integration not configured — set integrations.picnic "
             "in config or PICNIC_USERNAME/PICNIC_PASSWORD env vars"
         )
+        _initialized = True
         return None
 
     try:
@@ -220,6 +220,7 @@ def get_picnic_client() -> Optional[PicnicClientWrapper]:
         client.get_cart()
         logger.info("Connected to Picnic (%s)", cfg["country_code"])
         _client = client
+        _initialized = True
         return _client
     except Exception as e:
         logger.error("Failed to initialise Picnic client: %s", e)

@@ -165,11 +165,10 @@ def get_ntfy_client() -> Optional[NtfyClient]:
     if _initialized:
         return _client
 
-    _initialized = True
-
     cfg = _get_config()
     if not cfg["enabled"]:
         logger.info("ntfy integration is disabled in config")
+        _initialized = True
         return None
 
     topic = cfg["topic"]
@@ -178,6 +177,7 @@ def get_ntfy_client() -> Optional[NtfyClient]:
             "ntfy integration not configured -- set integrations.ntfy.topic "
             "in config or NTFY_TOPIC env var"
         )
+        _initialized = True
         return None
 
     _client = NtfyClient(
@@ -187,6 +187,7 @@ def get_ntfy_client() -> Optional[NtfyClient]:
         default_priority=cfg["default_priority"],
         click_base_url=cfg["click_base_url"],
     )
+    _initialized = True
     logger.info(f"ntfy client initialized (topic={topic}, server={cfg['url']})")
     return _client
 

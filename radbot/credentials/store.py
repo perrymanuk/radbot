@@ -151,7 +151,16 @@ class CredentialStore:
                         ciphertext_str.encode("utf-8"), salt, self._master_key
                     )
         except Exception as e:
-            logger.error(f"Error retrieving credential '{name}': {e}")
+            # Distinguish decryption failures from DB errors
+            from cryptography.fernet import InvalidToken
+
+            if isinstance(e, InvalidToken):
+                logger.error(
+                    f"Failed to decrypt credential '{name}' — "
+                    "master key may have changed"
+                )
+            else:
+                logger.error(f"Error retrieving credential '{name}': {e}")
             return None
 
     def delete(self, name: str) -> bool:

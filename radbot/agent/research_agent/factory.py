@@ -14,14 +14,8 @@ from google.adk.tools import FunctionTool
 
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent
+from radbot.agent.shared import TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
-
-TRANSFER_INSTRUCTIONS = (
-    "\n\nCRITICAL RULE — Returning control:\n"
-    "1. First, complete your task using your tools and compose your full text response with the results.\n"
-    "2. Then, call transfer_to_agent(agent_name='beto') to return control to the main agent.\n"
-    "You MUST always do BOTH steps — never return without text content, and never skip the transfer back."
-)
 
 
 def create_research_agent(

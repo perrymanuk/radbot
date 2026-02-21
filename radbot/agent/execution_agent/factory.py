@@ -11,6 +11,7 @@ from typing import Any, List, Optional, Union
 from google.adk.agents import Agent
 
 from radbot.agent.execution_agent.agent import AxelExecutionAgent, ExecutionAgent
+from radbot.agent.shared import TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
 
 # Set up logging
@@ -119,15 +120,10 @@ def create_execution_agent(
             logger.warning(f"Failed to add shell tool to Axel: {e}")
         logger.info("Code execution capability enabled for Axel agent")
 
-    # Add transfer instructions
-    transfer_instructions = (
-        "\n\nCRITICAL RULE — Returning control:\n"
-        "1. First, complete your task using your tools and compose your full text response with the results.\n"
-        "2. Then, call transfer_to_agent(agent_name='beto') to return control to the main agent.\n"
-        "You MUST always do BOTH steps — never return without text content, and never skip the transfer back.\n"
-        "You can also transfer to scout for research tasks by calling transfer_to_agent(agent_name='scout')."
+    # Add transfer instructions (axel can also transfer to scout)
+    full_instruction = instruction + TRANSFER_INSTRUCTIONS + (
+        "\nYou can also transfer to scout for research tasks by calling transfer_to_agent(agent_name='scout')."
     )
-    full_instruction = instruction + transfer_instructions
 
     # Create the ExecutionAgent instance
     execution_agent = ExecutionAgent(

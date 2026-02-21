@@ -168,11 +168,10 @@ def get_overseerr_client() -> Optional[OverseerrClient]:
     if _initialized:
         return _client
 
-    _initialized = True
-
     cfg = _get_config()
     if not cfg["enabled"]:
         logger.info("Overseerr integration is disabled in config")
+        _initialized = True
         return None
 
     url = cfg["url"]
@@ -183,6 +182,7 @@ def get_overseerr_client() -> Optional[OverseerrClient]:
             "Overseerr integration not configured — set integrations.overseerr "
             "in config or OVERSEERR_URL/OVERSEERR_API_KEY env vars"
         )
+        _initialized = True
         return None
 
     try:
@@ -195,6 +195,7 @@ def get_overseerr_client() -> Optional[OverseerrClient]:
             url,
         )
         _client = client
+        _initialized = True
         return _client
     except Exception as e:
         logger.error("Failed to initialise Overseerr client: %s", e)

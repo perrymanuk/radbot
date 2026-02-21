@@ -9,16 +9,9 @@ from typing import Optional
 
 from google.adk.agents import Agent
 
-from radbot.config import config_manager
+from radbot.agent.shared import load_agent_instruction, resolve_agent_model
 
 logger = logging.getLogger(__name__)
-
-TRANSFER_INSTRUCTIONS = (
-    "\n\nCRITICAL RULE — Returning control:\n"
-    "1. First, complete your task using your tools and compose your full text response with the results.\n"
-    "2. Then, call transfer_to_agent(agent_name='beto') to return control to the main agent.\n"
-    "You MUST always do BOTH steps — never return without text content, and never skip the transfer back."
-)
 
 
 def create_home_agent() -> Optional[Agent]:
@@ -28,21 +21,14 @@ def create_home_agent() -> Optional[Agent]:
         The created Casa ADK Agent, or None if creation failed.
     """
     try:
-        # Get model
-        model = config_manager.get_agent_model("casa_agent")
-        if not model:
-            model = config_manager.get_sub_model()
+        model = resolve_agent_model("casa_agent")
         logger.info(f"Casa agent model: {model}")
 
-        # Get instruction
-        try:
-            instruction = config_manager.get_instruction("casa")
-        except FileNotFoundError:
-            instruction = (
-                "You are Casa, a smart home and media specialist. "
-                "Control Home Assistant devices and manage Overseerr media requests."
-            )
-        instruction += TRANSFER_INSTRUCTIONS
+        instruction = load_agent_instruction(
+            "casa",
+            "You are Casa, a smart home and media specialist. "
+            "Control Home Assistant devices and manage Overseerr media requests.",
+        )
 
         # Build tools list
         tools = []

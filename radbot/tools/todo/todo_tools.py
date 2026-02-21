@@ -176,19 +176,11 @@ def list_tasks(
             effective_status_filter = status_filter
 
             if status_filter is None and not include_done:
-                # We'll need to filter out 'done' tasks ourselves
-                logger.debug(
-                    "No status filter specified and include_done=False, will filter out 'done' tasks"
-                )
+                # Exclude 'done' tasks at the SQL level
                 task_dicts = db_tools._list_tasks(
-                    conn, project_uuid, None
-                )  # Get all tasks
-                # Filter out 'done' tasks in memory
-                task_dicts = [
-                    task for task in task_dicts if task.get("status") != "done"
-                ]
+                    conn, project_uuid, None, exclude_status="done"
+                )
             else:
-                # Use the regular filtering mechanism
                 task_dicts = db_tools._list_tasks(
                     conn, project_uuid, effective_status_filter
                 )

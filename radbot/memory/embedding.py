@@ -33,7 +33,7 @@ def get_embedding_model() -> EmbeddingModel:
     Returns:
         EmbeddingModel: The configured embedding model
     """
-    embed_model = os.getenv("radbot_EMBED_MODEL", "gemini").lower()
+    embed_model = os.getenv("RADBOT_EMBED_MODEL", "gemini").lower()
 
     if embed_model != "gemini":
         logger.warning(
@@ -112,7 +112,8 @@ def embed_text(
             logger.error(f"Unsupported embedding model: {model.name}")
             raise ValueError(f"Unsupported embedding model: {model.name}")
 
+    except ValueError:
+        raise  # Already a specific error (unsupported model), re-raise
     except Exception as e:
         logger.error(f"Error generating embedding: {str(e)}")
-        # Return a zero vector as fallback
-        return [0.0] * model.vector_size
+        raise RuntimeError(f"Embedding generation failed: {e}") from e

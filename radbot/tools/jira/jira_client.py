@@ -60,11 +60,10 @@ def get_jira_client():
     if _initialized:
         return _jira_client
 
-    _initialized = True
-
     cfg = _get_config()
     if not cfg["enabled"]:
         logger.info("Jira integration is disabled in config")
+        _initialized = True
         return None
 
     url = cfg["url"]
@@ -76,12 +75,13 @@ def get_jira_client():
             "Jira integration not configured — set integrations.jira in "
             "config.yaml or JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN env vars"
         )
+        _initialized = True
         return None
 
     try:
         from atlassian import Jira
 
-        client = Jira(url=url, username=email, password=api_token, cloud=True)
+        client = Jira(url=url, username=email, password=api_token, cloud=True, timeout=15)
         # Verify connectivity
         myself = client.myself()
         logger.info(
@@ -91,10 +91,20 @@ def get_jira_client():
         )
         _jira_client = client
         _jira_email = email
+        _initialized = True
         return _jira_client
     except Exception as e:
         logger.error("Failed to initialise Jira client: %s", e)
         return None
+
+
+def reset_jira_client() -> None:
+    """Clear the singleton so the next call re-initializes with fresh config."""
+    global _jira_client, _jira_email, _initialized
+    _jira_client = None
+    _jira_email = None
+    _initialized = False
+    logger.info("Jira client singleton reset")
 
 
 def get_jira_email() -> Optional[str]:

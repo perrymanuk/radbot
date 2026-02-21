@@ -6,8 +6,10 @@ using the psycopg2 library with connection pooling.
 Connection pool is initialized lazily on first use.
 """
 
+import atexit
 import logging
 import os
+import threading
 import uuid
 from contextlib import contextmanager
 from typing import Generator
@@ -31,10 +33,26 @@ psycopg2.extensions.register_adapter(
 
 # Connection pool (initialized on first use)
 _pool = None
+_pool_lock = threading.Lock()
 
 # Configure pool size
 MIN_CONN = 1
 MAX_CONN = 5
+
+
+def _close_pool() -> None:
+    """Close the connection pool on interpreter shutdown."""
+    global _pool
+    if _pool is not None:
+        try:
+            _pool.closeall()
+            logger.debug("Todo DB connection pool closed")
+        except Exception:
+            pass
+        _pool = None
+
+
+atexit.register(_close_pool)
 
 
 def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
@@ -47,6 +65,18 @@ def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
     global _pool
     if _pool is not None:
         return _pool
+
+    with _pool_lock:
+        # Double-check after acquiring lock
+        if _pool is not None:
+            return _pool
+
+        return _init_pool_locked()
+
+
+def _init_pool_locked() -> psycopg2.pool.ThreadedConnectionPool:
+    """Actually create the pool. Must be called while holding _pool_lock."""
+    global _pool
 
     # Get database configuration from config.yaml
     database_config = config_loader.get_config().get("database", {})

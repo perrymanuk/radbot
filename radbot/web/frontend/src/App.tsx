@@ -1,12 +1,13 @@
 import ChatPage from "./pages/ChatPage";
 import AdminPage from "./pages/AdminPage";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function App() {
   const isAdmin = window.location.pathname.startsWith("/admin");
 
-  if (isAdmin) {
-    return <AdminPage />;
-  }
-
-  return <ChatPage />;
+  return (
+    <ErrorBoundary>
+      {isAdmin ? <AdminPage /> : <ChatPage />}
+    </ErrorBoundary>
+  );
 }

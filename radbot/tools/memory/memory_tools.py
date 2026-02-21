@@ -175,8 +175,16 @@ def search_past_conversations(
         result_limit = limit if limit is not None else max_results
 
         # Search memories
+        # Derive app_name from the invocation context when available
+        app_name = "beto"
+        if tool_context:
+            try:
+                app_name = tool_context._invocation_context.app_name or "beto"
+            except AttributeError:
+                pass
+
         results = memory_service.search_memory(
-            app_name="beto",  # Changed from "radbot" to match agent name
+            app_name=app_name,
             user_id=user_id,
             query=query,
             limit=result_limit,

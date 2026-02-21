@@ -41,11 +41,8 @@ def _verify_admin(
             pass
     if not expected:
         raise HTTPException(503, "Admin API disabled — RADBOT_ADMIN_TOKEN not set")
-    # Accept Bearer header or ?token= query parameter (for OAuth redirect links)
+    # Accept Bearer header only — query params leak into logs/history/referrers
     if creds and creds.credentials == expected:
-        return
-    query_token = request.query_params.get("token", "")
-    if query_token == expected:
         return
     raise HTTPException(401, "Invalid or missing admin bearer token")
 
@@ -330,7 +327,11 @@ async def gmail_oauth_setup(
                 "Store it as 'gmail_oauth_client' via the admin UI, "
                 "or set integrations.gmail.oauth_client_file in config.yaml.",
             )
-        with open(client_file) as f:
+        # Validate resolved path to prevent path traversal
+        resolved = os.path.realpath(client_file)
+        if not resolved.endswith(".json"):
+            raise HTTPException(400, "OAuth client file must be a .json file")
+        with open(resolved) as f:
             client_json = f.read()
 
     from google_auth_oauthlib.flow import Flow

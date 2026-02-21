@@ -389,13 +389,24 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
-# Configure CORS
+# Configure CORS — restrict origins to a configurable whitelist
+_cors_env = os.environ.get("RADBOT_CORS_ORIGINS", "")
+if _cors_env:
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+else:
+    # Sensible defaults: production domain + local dev
+    _cors_origins = [
+        "https://radbot.demonsafe.com",
+        "http://localhost:5173",
+        "http://localhost:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -1096,10 +1107,10 @@ async def websocket_endpoint(
                 await manager.send_status(session_id, f"error: {str(e)}")
 
     except WebSocketDisconnect:
-        manager.disconnect(session_id, websocket)
         logger.info(f"WebSocket disconnected for session {session_id}")
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}", exc_info=True)
+    finally:
         manager.disconnect(session_id, websocket)
 
 
