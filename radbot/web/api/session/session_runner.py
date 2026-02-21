@@ -267,6 +267,7 @@ class SessionRunner:
 
             # Run with consistent parameters (use run_async to avoid blocking the event loop)
             MAX_RETRIES = 2
+            events = []
             for attempt in range(MAX_RETRIES):
                 events = []
                 async for event in self.runner.run_async(
@@ -274,35 +275,40 @@ class SessionRunner:
                 ):
                     events.append(event)
 
-                # Check if the model returned empty content (no text or function calls)
-                has_content = False
+                # Check if any event has actual text content (not just function calls/transfers).
+                # Function call parts (transfer_to_agent etc.) don't count — we need real text.
+                has_text = False
                 for ev in events:
                     if hasattr(ev, "content") and ev.content and hasattr(ev.content, "parts") and ev.content.parts:
-                        has_content = True
+                        for part in ev.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                has_text = True
+                                break
+                    if has_text:
                         break
 
-                if has_content or attempt == MAX_RETRIES - 1:
+                if has_text or attempt == MAX_RETRIES - 1:
                     break
 
-                # Empty response — strip poisoned events from session and retry
+                # Empty text response — the model returned function calls (e.g. transfer_to_agent)
+                # but the target agent produced no text.  Reset the session to avoid poisoning
+                # and retry with a fresh session.
                 logger.warning(
-                    "Empty response from model on attempt %d/%d — stripping empty events and retrying",
-                    attempt + 1, MAX_RETRIES,
+                    "No text in model response on attempt %d/%d (got %d events with function calls only) "
+                    "— resetting session and retrying",
+                    attempt + 1, MAX_RETRIES, len(events),
                 )
-                # Remove the empty model events that were appended to the session
-                # to prevent session poisoning
-                if hasattr(session, "events") and session.events:
-                    # Remove trailing events that have no content parts
-                    while session.events:
-                        last = session.events[-1]
-                        last_has_parts = (
-                            hasattr(last, "content") and last.content
-                            and hasattr(last.content, "parts") and last.content.parts
-                        )
-                        if not last_has_parts:
-                            session.events.pop()
-                        else:
-                            break
+                try:
+                    app_name = self.runner.app_name if hasattr(self.runner, "app_name") else "beto"
+                    await self.session_service.delete_session(
+                        app_name=app_name, user_id=self.user_id, session_id=session.id
+                    )
+                    session = await self.session_service.create_session(
+                        app_name=app_name, user_id=self.user_id, session_id=self.session_id
+                    )
+                    await self._load_history_into_session(session)
+                except Exception as e:
+                    logger.warning("Failed to reset session for retry: %s", e)
 
             # Process events
             logger.debug(f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}")
