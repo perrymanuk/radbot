@@ -435,22 +435,9 @@ def get_picnic_lists() -> Dict[str, Any]:
 
     try:
         raw_lists = client.get_lists()
+        logger.debug("Picnic /lists raw response: %s", repr(raw_lists)[:2000])
         # Normalise into a consistent shape
-        lists = []
-        if isinstance(raw_lists, list):
-            for lst in raw_lists:
-                lists.append(_format_list_summary(lst))
-        elif isinstance(raw_lists, dict):
-            # Single list or wrapped response
-            if "id" in raw_lists:
-                lists.append(_format_list_summary(raw_lists))
-            else:
-                # Might be wrapped in a key
-                for key, val in raw_lists.items():
-                    if isinstance(val, list):
-                        for lst in val:
-                            if isinstance(lst, dict):
-                                lists.append(_format_list_summary(lst))
+        lists = _flatten_lists_response(raw_lists)
         return {
             "status": "success",
             "lists": lists,
@@ -485,6 +472,7 @@ def get_picnic_list_details(
 
     try:
         raw_list = client.get_list(list_id)
+        logger.debug("Picnic /lists/%s raw response: %s", list_id, repr(raw_list)[:2000])
         items = _extract_list_items(raw_list)
         return {
             "status": "success",
@@ -504,6 +492,7 @@ def get_picnic_order_history() -> Dict[str, Any]:
     Get recent Picnic delivery/order history summaries.
 
     Returns a list of past deliveries with dates and totals.
+    Use get_picnic_delivery_details with a delivery_id for the full item list.
 
     Returns:
         On success: {"status": "success", "deliveries": [...], "count": N}
@@ -515,16 +504,11 @@ def get_picnic_order_history() -> Dict[str, Any]:
 
     try:
         raw = client.get_deliveries()
+        logger.debug("Picnic /deliveries/summary raw response: %s", repr(raw)[:3000])
         deliveries = []
         if isinstance(raw, list):
             for d in raw[:20]:  # Limit to last 20
-                deliveries.append({
-                    "delivery_id": d.get("id", ""),
-                    "status": d.get("status", ""),
-                    "delivery_time": d.get("delivery_time", {}).get("start", ""),
-                    "total_price": d.get("total_price", 0),
-                    "creation_time": d.get("creation_time", ""),
-                })
+                deliveries.append(_format_delivery_summary(d))
         return {
             "status": "success",
             "deliveries": deliveries,
@@ -537,6 +521,71 @@ def get_picnic_order_history() -> Dict[str, Any]:
         return {"status": "error", "message": msg[:300]}
 
 
+def get_picnic_delivery_details(
+    delivery_id: str,
+) -> Dict[str, Any]:
+    """
+    Get full details for a specific past Picnic delivery, including ordered items.
+
+    Args:
+        delivery_id: The delivery ID from get_picnic_order_history results.
+
+    Returns:
+        On success: {"status": "success", "delivery": {...}, "items": [...]}
+        On failure: {"status": "error", "message": "..."}
+    """
+    client, err = _client_or_error()
+    if err:
+        return err
+
+    if not delivery_id or not delivery_id.strip():
+        return {"status": "error", "message": "delivery_id is required"}
+
+    try:
+        raw = client.get_delivery(delivery_id)
+        logger.debug("Picnic /deliveries/%s raw response: %s", delivery_id, repr(raw)[:3000])
+
+        summary = _format_delivery_summary(raw)
+        items = _extract_delivery_items(raw)
+
+        return {
+            "status": "success",
+            "delivery": summary,
+            "items": items,
+            "item_count": len(items),
+        }
+    except Exception as e:
+        msg = f"Failed to get Picnic delivery details: {e}"
+        logger.error(msg)
+        logger.debug(traceback.format_exc())
+        return {"status": "error", "message": msg[:300]}
+
+
+def _flatten_lists_response(raw: Any) -> List[Dict[str, Any]]:
+    """Recursively extract list-like objects from the /lists response.
+
+    The Picnic API format is not well-documented, so we try several
+    common shapes: bare list, dict with ``id``, or dict wrapping a list
+    under an arbitrary key.
+    """
+    lists: List[Dict[str, Any]] = []
+    if isinstance(raw, list):
+        for item in raw:
+            if isinstance(item, dict):
+                lists.append(_format_list_summary(item))
+    elif isinstance(raw, dict):
+        if "id" in raw:
+            lists.append(_format_list_summary(raw))
+        else:
+            # Walk all values looking for list-shaped data
+            for val in raw.values():
+                if isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, dict):
+                            lists.append(_format_list_summary(item))
+    return lists
+
+
 def _format_list_summary(lst: Dict[str, Any]) -> Dict[str, Any]:
     """Normalise a Picnic list into a compact summary dict."""
     return {
@@ -546,23 +595,115 @@ def _format_list_summary(lst: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _extract_list_items(raw_list: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Extract product items from a raw list response."""
-    items = []
-    # Try common structures
+def _extract_list_items(raw_list: Any) -> List[Dict[str, Any]]:
+    """Extract product items from a raw list response.
+
+    Handles nested structures: items may be at top level or nested
+    inside category groups (similar to cart structure).
+    """
+    items: List[Dict[str, Any]] = []
+    if not isinstance(raw_list, dict):
+        return items
+
+    # Try common top-level keys
     for key in ("items", "products", "decorators"):
         entries = raw_list.get(key, [])
         if isinstance(entries, list):
-            for item in entries:
-                if isinstance(item, dict):
-                    product = {
-                        "product_id": item.get("id", ""),
-                        "name": item.get("name", ""),
-                        "price": item.get("price", 0),
-                    }
-                    if product["product_id"] or product["name"]:
-                        items.append(product)
+            _collect_products(entries, items)
     return items
+
+
+def _collect_products(entries: list, out: List[Dict[str, Any]]) -> None:
+    """Recursively collect products from nested item lists."""
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        # If this item has a name + (id or price), treat it as a product
+        if item.get("name") and (item.get("id") or "price" in item):
+            price_cents = item.get("price", 0)
+            out.append({
+                "product_id": item.get("id", ""),
+                "name": item.get("name", ""),
+                "price_euros": _cents_to_euros(price_cents),
+                "unit_quantity": item.get("unit_quantity", ""),
+            })
+        # Recurse into nested item lists (cart-style grouping)
+        for sub_key in ("items", "products"):
+            sub = item.get(sub_key)
+            if isinstance(sub, list):
+                _collect_products(sub, out)
+
+
+def _format_delivery_summary(d: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalise a delivery object into a compact summary dict."""
+    # Price: try multiple field names and convert from cents
+    price_cents = d.get("total_price", d.get("price", d.get("total", 0)))
+    # Delivery time: try nested and flat structures
+    dt = d.get("delivery_time") or d.get("slot") or {}
+    if isinstance(dt, dict):
+        delivery_start = dt.get("start", dt.get("window_start", ""))
+        delivery_end = dt.get("end", dt.get("window_end", ""))
+    else:
+        delivery_start = str(dt) if dt else ""
+        delivery_end = ""
+
+    return {
+        "delivery_id": d.get("id", d.get("delivery_id", "")),
+        "status": d.get("status", ""),
+        "delivery_time_start": delivery_start,
+        "delivery_time_end": delivery_end,
+        "total_price_euros": _cents_to_euros(price_cents),
+        "creation_time": d.get("creation_time", d.get("created_at", "")),
+    }
+
+
+def _extract_delivery_items(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extract ordered items from a delivery detail response."""
+    items: List[Dict[str, Any]] = []
+    # Try common structures for delivery items
+    for key in ("orders", "items", "products", "order_lines"):
+        entries = raw.get(key, [])
+        if isinstance(entries, list):
+            _collect_delivery_products(entries, items)
+    return items
+
+
+def _collect_delivery_products(entries: list, out: List[Dict[str, Any]]) -> None:
+    """Recursively collect products from delivery item lists."""
+    for item in entries:
+        if not isinstance(item, dict):
+            continue
+        if item.get("name") and (item.get("id") or "price" in item):
+            price_cents = item.get("price", 0)
+            quantity = 1
+            # Try to find quantity in decorators or directly
+            if item.get("quantity"):
+                quantity = item["quantity"]
+            elif isinstance(item.get("decorators"), list):
+                for dec in item["decorators"]:
+                    if isinstance(dec, dict) and "quantity" in dec:
+                        quantity = dec["quantity"]
+                        break
+            out.append({
+                "product_id": item.get("id", ""),
+                "name": item.get("name", ""),
+                "price_euros": _cents_to_euros(price_cents),
+                "quantity": quantity,
+            })
+        # Recurse into nested structures
+        for sub_key in ("items", "products", "articles"):
+            sub = item.get(sub_key)
+            if isinstance(sub, list):
+                _collect_delivery_products(sub, out)
+
+
+def _cents_to_euros(cents: Any) -> str:
+    """Convert an integer price in cents to a formatted euro string."""
+    try:
+        c = int(cents)
+        return f"{c / 100:.2f}"
+    except (ValueError, TypeError):
+        return str(cents)
 
 
 # ---------------------------------------------------------------------------
@@ -580,6 +721,7 @@ submit_shopping_list_to_picnic_tool = FunctionTool(submit_shopping_list_to_picni
 get_picnic_lists_tool = FunctionTool(get_picnic_lists)
 get_picnic_list_details_tool = FunctionTool(get_picnic_list_details)
 get_picnic_order_history_tool = FunctionTool(get_picnic_order_history)
+get_picnic_delivery_details_tool = FunctionTool(get_picnic_delivery_details)
 
 PICNIC_TOOLS = [
     search_picnic_product_tool,
@@ -593,4 +735,5 @@ PICNIC_TOOLS = [
     get_picnic_lists_tool,
     get_picnic_list_details_tool,
     get_picnic_order_history_tool,
+    get_picnic_delivery_details_tool,
 ]
