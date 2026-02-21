@@ -213,6 +213,31 @@ The Vite dev server binds to all interfaces (`host: true`) for mobile testing on
 - Format code: `make format`
 - Lint code: `make lint`
 
+### E2E Tests
+
+End-to-end tests live in `tests/e2e/` and cover REST APIs, WebSocket connections, and agent interactions. They can run in two modes:
+
+**In-process mode** (default) — uses ASGI transport, requires local services (PostgreSQL, Qdrant, Gemini API key):
+
+```bash
+make test-e2e
+```
+
+**Docker mode** — runs against the full Docker Compose stack (PostgreSQL + Qdrant + RadBot). The stack's credential store provides the Gemini API key, so no local config is needed:
+
+```bash
+# Automated: start stack, run tests, tear down
+make test-e2e-docker
+
+# Manual: start stack, run tests yourself
+make test-e2e-docker-up
+RADBOT_TEST_URL=http://localhost:8000 RADBOT_ADMIN_TOKEN=changeme \
+  uv run pytest tests/e2e -v --timeout=120
+make test-e2e-docker-down
+```
+
+Set `RADBOT_TEST_URL` to point tests at any running RadBot instance. Integration tests (HA, Calendar, Gmail, Jira, etc.) auto-skip when their services aren't available.
+
 ## Project Structure
 
 - `/radbot/agent`: Core agent logic, initializer, and persona definitions

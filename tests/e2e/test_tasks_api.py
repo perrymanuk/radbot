@@ -16,7 +16,8 @@ class TestTasksAPI:
         assert resp.status_code == 200
         projects = resp.json()
         if projects:
-            return projects[0]["project_id"]
+            # API returns "id" (not "project_id") for projects
+            return projects[0]["id"]
         # If no projects exist, we can't create tasks via the API alone
         pytest.skip("No projects available for task creation tests")
 

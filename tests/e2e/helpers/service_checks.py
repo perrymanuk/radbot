@@ -16,7 +16,14 @@ def _try_import_and_check(check_fn) -> bool:
 
 
 def is_gemini_available() -> bool:
-    """Check if the Google Gemini API key is configured."""
+    """Check if the Google Gemini API key is configured.
+
+    When RADBOT_TEST_URL is set (docker mode), the running server has the
+    API key in its DB credential store — no local check needed.
+    """
+    if os.environ.get("RADBOT_TEST_URL"):
+        return True
+
     def _check():
         # Check env var first
         if os.environ.get("GOOGLE_API_KEY"):

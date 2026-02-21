@@ -1072,6 +1072,18 @@ async def websocket_endpoint(
 
                 # Send events only (events contain the model responses)
                 if events:
+                    # Ensure the last model_response event carries the
+                    # response text.  The session runner sometimes falls back
+                    # to last_text_response or a synthetic message, but only
+                    # stores it in result["response"] — the event's "text"
+                    # field may be empty.  Patch it here before sending so
+                    # WebSocket clients can always find the text in events.
+                    if response:
+                        for ev in reversed(events):
+                            if ev.get("type") == "model_response" or ev.get("category") == "model_response":
+                                if not ev.get("text"):
+                                    ev["text"] = response
+                                break
                     logger.debug(f"Sending {len(events)} events to client")
                     await manager.send_events(session_id, events)
 

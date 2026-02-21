@@ -3,6 +3,9 @@ Core fixtures for RadBot e2e tests.
 
 Sets RADBOT_ENV=dev before any radbot imports, creates the ASGI test client
 and a live uvicorn server for WebSocket tests.
+
+When RADBOT_TEST_URL is set (e.g. http://localhost:8000), fixtures target
+the external server (docker compose stack) instead of running in-process.
 """
 
 import asyncio
@@ -28,13 +31,23 @@ from tests.e2e.helpers.service_checks import (
     is_tts_available,
 )
 
+# External server URL — when set, tests hit this instead of an in-process app
+RADBOT_TEST_URL = os.environ.get("RADBOT_TEST_URL", "")
+
 
 # ---------------------------------------------------------------------------
 # App fixture (session-scoped — expensive startup, shared across all tests)
 # ---------------------------------------------------------------------------
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def app():
-    """Import the FastAPI app and run startup/shutdown handlers."""
+    """Import the FastAPI app and run startup/shutdown handlers.
+
+    When RADBOT_TEST_URL is set, yields None (no in-process app needed).
+    """
+    if RADBOT_TEST_URL:
+        yield None
+        return
+
     from radbot.web.app import app as _app
 
     # Fire startup handlers
@@ -49,26 +62,45 @@ async def app():
 
 
 # ---------------------------------------------------------------------------
-# httpx ASGI client (no server needed for REST tests)
+# httpx client (ASGI transport in-process, or real HTTP to external server)
 # ---------------------------------------------------------------------------
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def client(app):
-    """Async httpx client using ASGI transport — no actual server required."""
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(
-        transport=transport,
-        base_url="http://testserver",
-        timeout=30.0,
-    ) as c:
-        yield c
+    """Async httpx client.
+
+    In-process mode: uses ASGI transport (no actual server required).
+    Docker mode: uses real HTTP transport against RADBOT_TEST_URL.
+    """
+    if RADBOT_TEST_URL:
+        async with httpx.AsyncClient(
+            base_url=RADBOT_TEST_URL,
+            timeout=30.0,
+        ) as c:
+            yield c
+    else:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+            timeout=30.0,
+        ) as c:
+            yield c
 
 
 # ---------------------------------------------------------------------------
-# Live uvicorn server (needed for WebSocket tests)
+# Live server URL (needed for WebSocket tests)
 # ---------------------------------------------------------------------------
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def live_server(app):
-    """Start uvicorn on a random port and yield the base URL."""
+    """Yield a base URL for WebSocket connections.
+
+    In-process mode: starts uvicorn on a random port.
+    Docker mode: yields RADBOT_TEST_URL directly.
+    """
+    if RADBOT_TEST_URL:
+        yield RADBOT_TEST_URL
+        return
+
     import uvicorn
 
     config = uvicorn.Config(
@@ -111,7 +143,7 @@ async def live_server(app):
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
 def admin_token():
-    """Return the admin bearer token from config."""
+    """Return the admin bearer token from config or env."""
     token = os.environ.get("RADBOT_ADMIN_TOKEN", "")
     if not token:
         try:
