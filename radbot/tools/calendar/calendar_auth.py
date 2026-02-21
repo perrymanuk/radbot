@@ -53,9 +53,71 @@ CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", DEFAULT_CALENDAR_ID)
 # Get default timezone from environment variable or use default
 CALENDAR_TIMEZONE = os.environ.get("GOOGLE_CALENDAR_TIMEZONE", DEFAULT_TIMEZONE)
 
+# ADC path for quota project lookup
+_ADC_PATH = os.path.join(
+    os.path.expanduser("~"), ".config", "gcloud", "application_default_credentials.json"
+)
+
 # Global service instance
 _calendar_service = None
 _workspace_services = {}
+
+
+def _get_quota_project() -> Optional[str]:
+    """Get a quota project ID for user credentials.
+
+    Checks (in order): env vars, ADC file, gcloud config files.
+    """
+    for env_var in (
+        "GOOGLE_CLOUD_QUOTA_PROJECT",
+        "GOOGLE_CLOUD_PROJECT",
+        "GCLOUD_PROJECT",
+        "DEVSHELL_PROJECT_ID",
+    ):
+        project = os.environ.get(env_var, "")
+        if project:
+            return project
+
+    adc_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", _ADC_PATH)
+    if os.path.exists(adc_path):
+        try:
+            import json as _json
+
+            with open(adc_path) as f:
+                adc_data = _json.load(f)
+            project = adc_data.get("quota_project_id", "")
+            if project:
+                return project
+        except Exception:
+            pass
+
+    gcloud_config_files = [
+        os.path.join(os.path.expanduser("~"), ".config", "gcloud", "properties"),
+        os.path.join(
+            os.path.expanduser("~"),
+            ".config",
+            "gcloud",
+            "configurations",
+            "config_default",
+        ),
+    ]
+    for config_file in gcloud_config_files:
+        if not os.path.exists(config_file):
+            continue
+        try:
+            with open(config_file) as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("project"):
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            project = parts[1].strip()
+                            if project:
+                                return project
+        except Exception:
+            pass
+
+    return None
 
 
 # Decorator for retrying API calls with exponential backoff
@@ -222,9 +284,10 @@ def get_calendar_service(
             adc_creds.refresh(Request())
 
         # User credentials need a quota project for Calendar API
-        if hasattr(adc_creds, "with_quota_project") and adc_project:
-            adc_creds = adc_creds.with_quota_project(adc_project)
-            logger.debug(f"Calendar ADC: Applied quota project {adc_project}")
+        quota_project = adc_project or _get_quota_project()
+        if hasattr(adc_creds, "with_quota_project") and quota_project:
+            adc_creds = adc_creds.with_quota_project(quota_project)
+            logger.debug(f"Calendar ADC: Applied quota project {quota_project}")
 
         _calendar_service = build("calendar", "v3", credentials=adc_creds)
 

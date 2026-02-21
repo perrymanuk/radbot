@@ -76,6 +76,9 @@ services:
       # Google API key (optional — can be configured later via /admin/)
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
 
+      # Quota project for Google APIs using gcloud OAuth client credentials
+      GOOGLE_CLOUD_QUOTA_PROJECT: ${GOOGLE_CLOUD_QUOTA_PROJECT:-}
+
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 

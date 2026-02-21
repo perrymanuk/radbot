@@ -361,6 +361,22 @@ async def gmail_oauth_setup(
         credential_type="internal",
         description="Temporary Gmail OAuth state",
     )
+
+    # If mode=link, show a copyable link instead of auto-redirecting.
+    # Useful when the browser with Google login is on a different device.
+    mode = request.query_params.get("mode", "")
+    if mode == "link":
+        from html import escape
+
+        escaped_url = escape(auth_url, quote=True)
+        return HTMLResponse(
+            f"<h2>Gmail OAuth for account '{escape(account)}'</h2>"
+            f"<p>Open this URL in the browser where you are logged into Google:</p>"
+            f"<textarea rows='6' cols='100' readonly onclick='this.select()'>{escaped_url}</textarea>"
+            f"<br><br><a href='{escaped_url}'>Or click here to continue in this browser</a>"
+            f"<br><br><p style='color:gray'>The callback will redirect to: {escape(redirect_uri)}</p>"
+        )
+
     return RedirectResponse(auth_url)
 
 

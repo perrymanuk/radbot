@@ -162,9 +162,12 @@ def _try_adc() -> Optional[Credentials]:
         creds, project = google.auth.default(scopes=SCOPES)
         if not creds.valid:
             creds.refresh(Request())
-        if hasattr(creds, "with_quota_project") and project:
-            creds = creds.with_quota_project(project)
-            logger.debug(f"Gmail ADC: Applied quota project {project}")
+        # Apply quota project — try google.auth.default() project first, then
+        # fall back to _get_quota_project() which checks env vars and gcloud config
+        quota_project = project or _get_quota_project()
+        if hasattr(creds, "with_quota_project") and quota_project:
+            creds = creds.with_quota_project(quota_project)
+            logger.debug(f"Gmail ADC: Applied quota project {quota_project}")
         logger.info("Gmail: Using Application Default Credentials (ADC)")
         return creds
     except Exception as e:

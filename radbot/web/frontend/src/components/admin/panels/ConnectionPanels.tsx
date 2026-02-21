@@ -113,12 +113,15 @@ export function GmailPanel() {
     }
   };
 
-  const handleAddAccount = () => {
+  const handleAddAccount = (mode?: "link") => {
     if (!newAccountLabel.trim()) {
       toast("Please enter an account label", "error");
       return;
     }
-    const url = `/admin/api/credentials/gmail/setup?account=${encodeURIComponent(newAccountLabel.trim())}&token=${encodeURIComponent(token)}`;
+    let url = `/admin/api/credentials/gmail/setup?account=${encodeURIComponent(newAccountLabel.trim())}&token=${encodeURIComponent(token)}`;
+    if (mode === "link") {
+      url += "&mode=link";
+    }
     window.open(url, "_blank");
     setNewAccountLabel("");
   };
@@ -213,10 +216,17 @@ export function GmailPanel() {
               className="flex-1 p-2 border border-[#2a3a5c] rounded-md bg-[#1a1a2e] text-[#eee] text-sm outline-none focus:border-[#e94560] transition-colors"
             />
             <button
-              onClick={handleAddAccount}
+              onClick={() => handleAddAccount()}
               className="px-3 py-2 bg-[#0f3460] text-[#eee] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] transition-colors cursor-pointer"
             >
               Add Account
+            </button>
+            <button
+              onClick={() => handleAddAccount("link")}
+              className="px-3 py-2 bg-[#1a1a2e] text-[#999] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] hover:text-[#eee] transition-colors cursor-pointer"
+              title="Get a copyable auth link for use in another browser"
+            >
+              Copy Link
             </button>
           </div>
         </div>
