@@ -418,6 +418,153 @@ def submit_shopping_list_to_picnic(
     }
 
 
+def get_picnic_lists() -> Dict[str, Any]:
+    """
+    Get all Picnic user lists (favorites, last ordered, etc.).
+
+    Returns the user's saved lists which typically include favorites,
+    frequently bought items, and other curated product lists.
+
+    Returns:
+        On success: {"status": "success", "lists": [...], "count": N}
+        On failure: {"status": "error", "message": "..."}
+    """
+    client, err = _client_or_error()
+    if err:
+        return err
+
+    try:
+        raw_lists = client.get_lists()
+        # Normalise into a consistent shape
+        lists = []
+        if isinstance(raw_lists, list):
+            for lst in raw_lists:
+                lists.append(_format_list_summary(lst))
+        elif isinstance(raw_lists, dict):
+            # Single list or wrapped response
+            if "id" in raw_lists:
+                lists.append(_format_list_summary(raw_lists))
+            else:
+                # Might be wrapped in a key
+                for key, val in raw_lists.items():
+                    if isinstance(val, list):
+                        for lst in val:
+                            if isinstance(lst, dict):
+                                lists.append(_format_list_summary(lst))
+        return {
+            "status": "success",
+            "lists": lists,
+            "count": len(lists),
+        }
+    except Exception as e:
+        msg = f"Failed to get Picnic lists: {e}"
+        logger.error(msg)
+        logger.debug(traceback.format_exc())
+        return {"status": "error", "message": msg[:300]}
+
+
+def get_picnic_list_details(
+    list_id: str,
+) -> Dict[str, Any]:
+    """
+    Get details and products for a specific Picnic list.
+
+    Args:
+        list_id: The list ID from get_picnic_lists results.
+
+    Returns:
+        On success: {"status": "success", "list": {...}, "items": [...]}
+        On failure: {"status": "error", "message": "..."}
+    """
+    client, err = _client_or_error()
+    if err:
+        return err
+
+    if not list_id or not list_id.strip():
+        return {"status": "error", "message": "list_id is required"}
+
+    try:
+        raw_list = client.get_list(list_id)
+        items = _extract_list_items(raw_list)
+        return {
+            "status": "success",
+            "list": _format_list_summary(raw_list),
+            "items": items,
+            "item_count": len(items),
+        }
+    except Exception as e:
+        msg = f"Failed to get Picnic list details: {e}"
+        logger.error(msg)
+        logger.debug(traceback.format_exc())
+        return {"status": "error", "message": msg[:300]}
+
+
+def get_picnic_order_history() -> Dict[str, Any]:
+    """
+    Get recent Picnic delivery/order history summaries.
+
+    Returns a list of past deliveries with dates and totals.
+
+    Returns:
+        On success: {"status": "success", "deliveries": [...], "count": N}
+        On failure: {"status": "error", "message": "..."}
+    """
+    client, err = _client_or_error()
+    if err:
+        return err
+
+    try:
+        raw = client.get_deliveries()
+        deliveries = []
+        if isinstance(raw, list):
+            for d in raw[:20]:  # Limit to last 20
+                deliveries.append({
+                    "delivery_id": d.get("id", ""),
+                    "status": d.get("status", ""),
+                    "delivery_time": d.get("delivery_time", {}).get("start", ""),
+                    "total_price": d.get("total_price", 0),
+                    "creation_time": d.get("creation_time", ""),
+                })
+        return {
+            "status": "success",
+            "deliveries": deliveries,
+            "count": len(deliveries),
+        }
+    except Exception as e:
+        msg = f"Failed to get Picnic order history: {e}"
+        logger.error(msg)
+        logger.debug(traceback.format_exc())
+        return {"status": "error", "message": msg[:300]}
+
+
+def _format_list_summary(lst: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalise a Picnic list into a compact summary dict."""
+    return {
+        "list_id": lst.get("id", ""),
+        "name": lst.get("name", lst.get("title", "")),
+        "item_count": lst.get("item_count", lst.get("items_count", 0)),
+    }
+
+
+def _extract_list_items(raw_list: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extract product items from a raw list response."""
+    items = []
+    # Try common structures
+    for key in ("items", "products", "decorators"):
+        entries = raw_list.get(key, [])
+        if isinstance(entries, list):
+            for item in entries:
+                if isinstance(item, dict):
+                    product = {
+                        "product_id": item.get("id", ""),
+                        "name": item.get("name", ""),
+                        "price": item.get("price", 0),
+                    }
+                    if product["product_id"] or product["name"]:
+                        items.append(product)
+    return items
+
+
 # ---------------------------------------------------------------------------
 # Wrap as ADK FunctionTools
 # ---------------------------------------------------------------------------
@@ -430,6 +577,9 @@ clear_picnic_cart_tool = FunctionTool(clear_picnic_cart)
 get_picnic_delivery_slots_tool = FunctionTool(get_picnic_delivery_slots)
 set_picnic_delivery_slot_tool = FunctionTool(set_picnic_delivery_slot)
 submit_shopping_list_to_picnic_tool = FunctionTool(submit_shopping_list_to_picnic)
+get_picnic_lists_tool = FunctionTool(get_picnic_lists)
+get_picnic_list_details_tool = FunctionTool(get_picnic_list_details)
+get_picnic_order_history_tool = FunctionTool(get_picnic_order_history)
 
 PICNIC_TOOLS = [
     search_picnic_product_tool,
@@ -440,4 +590,7 @@ PICNIC_TOOLS = [
     get_picnic_delivery_slots_tool,
     set_picnic_delivery_slot_tool,
     submit_shopping_list_to_picnic_tool,
+    get_picnic_lists_tool,
+    get_picnic_list_details_tool,
+    get_picnic_order_history_tool,
 ]

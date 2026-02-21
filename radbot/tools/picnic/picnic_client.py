@@ -154,7 +154,27 @@ class PicnicClientWrapper:
         """Get current/upcoming deliveries."""
         return self._api.get_current_deliveries()
 
-    # ── Custom method (not in python-picnic-api2) ─────────────
+    def get_deliveries(self, summary: bool = True) -> List[Dict[str, Any]]:
+        """Get past delivery summaries."""
+        return self._api._post("/deliveries/summary", data=[])
+
+    def get_delivery(self, delivery_id: str) -> Dict[str, Any]:
+        """Get full details for a specific delivery."""
+        return self._api._get(f"/deliveries/{delivery_id}")
+
+    # ── Custom methods (not in python-picnic-api2) ────────────
+
+    def get_lists(self) -> List[Dict[str, Any]]:
+        """Get all user lists (favorites, last ordered, etc.).
+
+        This endpoint exists in the Picnic REST API but was dropped
+        from python-picnic-api2.  We call it directly.
+        """
+        return self._api._get("/lists")
+
+    def get_list(self, list_id: str) -> Dict[str, Any]:
+        """Get a specific user list by ID."""
+        return self._api._get(f"/lists/{list_id}")
 
     def set_delivery_slot(self, slot_id: str) -> Dict[str, Any]:
         """Select a delivery slot and place the order.
