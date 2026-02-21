@@ -143,6 +143,16 @@ def _get_quota_project() -> Optional[str]:
         except Exception:
             pass
 
+    # Fall back to DB config (google_cloud_project in agent section)
+    try:
+        from radbot.config import config_manager
+
+        project = config_manager.get_google_cloud_project()
+        if project:
+            return project
+    except Exception:
+        pass
+
     return None
 
 

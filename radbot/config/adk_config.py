@@ -149,6 +149,9 @@ def setup_vertex_environment():
     Returns:
         True if using Vertex AI, False if using API key
     """
+    # Reload config so we pick up DB overrides that arrived after import time
+    config.reload_model_config()
+
     # Check if using Vertex AI
     use_vertex_ai = config.is_using_vertex_ai()
 
