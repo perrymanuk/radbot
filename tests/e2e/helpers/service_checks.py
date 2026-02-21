@@ -5,6 +5,50 @@ import os
 
 logger = logging.getLogger(__name__)
 
+# Cached Docker admin status response
+_docker_status_cache = None
+
+
+def _get_docker_status() -> dict:
+    """Fetch and cache the integration status from a running Docker stack."""
+    global _docker_status_cache
+    if _docker_status_cache is not None:
+        return _docker_status_cache
+
+    test_url = os.environ.get("RADBOT_TEST_URL", "").rstrip("/")
+    admin_token = os.environ.get("RADBOT_ADMIN_TOKEN", "")
+    if not test_url or not admin_token:
+        return {}
+
+    try:
+        import httpx
+        resp = httpx.get(
+            f"{test_url}/admin/api/status",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            timeout=10.0,
+        )
+        if resp.status_code == 200:
+            _docker_status_cache = resp.json()
+            return _docker_status_cache
+        logger.debug(f"Docker status check returned {resp.status_code}")
+    except Exception as e:
+        logger.debug(f"Docker status check failed: {e}")
+
+    return {}
+
+
+def _docker_check(integration_key: str) -> bool:
+    """Check if an integration is available via the Docker admin status endpoint.
+
+    Returns True if the integration reports status "ok".
+    Returns False for "unconfigured", "error", or if the key is missing.
+    """
+    status = _get_docker_status()
+    info = status.get(integration_key, {})
+    if isinstance(info, dict):
+        return info.get("status") == "ok"
+    return False
+
 
 def _try_import_and_check(check_fn) -> bool:
     """Run a check function, return False on any error."""
@@ -16,13 +60,9 @@ def _try_import_and_check(check_fn) -> bool:
 
 
 def is_gemini_available() -> bool:
-    """Check if the Google Gemini API key is configured.
-
-    When RADBOT_TEST_URL is set (docker mode), the running server has the
-    API key in its DB credential store — no local check needed.
-    """
+    """Check if the Google Gemini API key is configured."""
     if os.environ.get("RADBOT_TEST_URL"):
-        return True
+        return _docker_check("google")
 
     def _check():
         # Check env var first
@@ -44,6 +84,9 @@ def is_gemini_available() -> bool:
 
 def is_ha_reachable() -> bool:
     """Check if Home Assistant is reachable."""
+    if os.environ.get("RADBOT_TEST_URL"):
+        return _docker_check("home_assistant")
+
     def _check():
         from radbot.config.config_loader import config_loader
         cfg = config_loader.get_integrations_config().get("home_assistant", {})
@@ -71,6 +114,9 @@ def is_ha_reachable() -> bool:
 
 def is_calendar_available() -> bool:
     """Check if Google Calendar credentials are available."""
+    if os.environ.get("RADBOT_TEST_URL"):
+        return _docker_check("calendar")
+
     def _check():
         from radbot.credentials.store import get_credential_store
         store = get_credential_store()
@@ -81,6 +127,9 @@ def is_calendar_available() -> bool:
 
 def is_gmail_available() -> bool:
     """Check if Gmail credentials are available."""
+    if os.environ.get("RADBOT_TEST_URL"):
+        return _docker_check("gmail")
+
     def _check():
         from radbot.credentials.store import get_credential_store
         store = get_credential_store()
@@ -92,6 +141,9 @@ def is_gmail_available() -> bool:
 
 def is_jira_reachable() -> bool:
     """Check if Jira is configured and reachable."""
+    if os.environ.get("RADBOT_TEST_URL"):
+        return _docker_check("jira")
+
     def _check():
         from radbot.config.config_loader import config_loader
         cfg = config_loader.get_integrations_config().get("jira", {})
@@ -106,6 +158,9 @@ def is_jira_reachable() -> bool:
 
 def is_overseerr_reachable() -> bool:
     """Check if Overseerr is configured and reachable."""
+    if os.environ.get("RADBOT_TEST_URL"):
+        return _docker_check("overseerr")
+
     def _check():
         from radbot.config.config_loader import config_loader
         cfg = config_loader.get_integrations_config().get("overseerr", {})
@@ -124,6 +179,9 @@ def is_overseerr_reachable() -> bool:
 
 def is_picnic_available() -> bool:
     """Check if Picnic credentials are configured."""
+    if os.environ.get("RADBOT_TEST_URL"):
+        return _docker_check("picnic")
+
     def _check():
         from radbot.config.config_loader import config_loader
         cfg = config_loader.get_integrations_config().get("picnic", {})

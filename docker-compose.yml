@@ -45,13 +45,15 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
       qdrant:
         condition: service_healthy
     ports:
-      - "${RADBOT_EXPOSED_PORT:-8000}:8000"
+      - "${RADBOT_EXPOSED_PORT:-8001}:8000"
     volumes:
       - ./docker/config.yaml:/app/config.yaml:ro
     environment:

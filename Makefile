@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-core test-e2e-api test-e2e-agent test-e2e-integrations test-e2e-docker test-e2e-docker-up test-e2e-docker-down lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-core test-e2e-api test-e2e-agent test-e2e-integrations test-e2e-docker test-e2e-docker-up test-e2e-docker-down seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -43,9 +43,10 @@ help:
 	@echo "  make docker-clean   # Stop all services and remove volumes"
 	@echo ""
 	@echo "Docker e2e test targets:"
-	@echo "  make test-e2e-docker      # Start stack, run e2e tests, tear down"
+	@echo "  make test-e2e-docker      # Start stack, seed credentials, run e2e tests, tear down"
 	@echo "  make test-e2e-docker-up   # Start docker stack for manual test runs"
 	@echo "  make test-e2e-docker-down # Tear down docker stack"
+	@echo "  make seed-docker          # Seed running docker stack with local dev credentials"
 
 # Set help as the default target
 .DEFAULT_GOAL := help
@@ -84,8 +85,12 @@ test-e2e-integrations:
 
 test-e2e-docker:
 	docker compose up -d --build --wait
-	RADBOT_TEST_URL=http://localhost:8000 \
-	RADBOT_ADMIN_TOKEN=$$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2) \
+	RADBOT_ENV=dev $(PYTHON) scripts/seed_docker_credentials.py \
+		--target-url http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
+		--admin-token $$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
+		--rewrite-localhost || true
+	RADBOT_TEST_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
+	RADBOT_ADMIN_TOKEN=$$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
 	$(PYTEST) tests/e2e -v --timeout=120 ; \
 	EXIT_CODE=$$? ; \
 	docker compose down ; \
@@ -96,6 +101,12 @@ test-e2e-docker-up:
 
 test-e2e-docker-down:
 	docker compose down
+
+seed-docker:
+	RADBOT_ENV=dev $(PYTHON) scripts/seed_docker_credentials.py \
+		--target-url http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
+		--admin-token $$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
+		--rewrite-localhost
 
 lint:
 	flake8 radbot tests
