@@ -337,7 +337,7 @@ class TestSubmitShoppingList:
 
 
 class TestToolCount:
-    def test_picnic_tools_has_eight_tools(self):
+    def test_picnic_tools_has_ten_tools(self):
         from radbot.tools.picnic.picnic_tools import PICNIC_TOOLS
 
-        assert len(PICNIC_TOOLS) == 8
+        assert len(PICNIC_TOOLS) == 10

@@ -323,6 +323,31 @@ def set_picnic_delivery_slot(
         return {"status": "error", "message": msg[:300]}
 
 
+def _extract_picnic_id_from_description(description: str) -> Optional[str]:
+    """Extract a stored Picnic product ID from a task description.
+
+    Descriptions from the 'Picnic Favorites' project contain lines like:
+        '130g | Picnic ID: s1020321 | In 10/10 orders | Usual qty: 2'
+    """
+    if not description:
+        return None
+    import re
+    match = re.search(r"Picnic ID:\s*(\S+)", description)
+    return match.group(1) if match else None
+
+
+def _extract_usual_qty_from_description(description: str) -> int:
+    """Extract the usual quantity from a task description.
+
+    Looks for 'Usual qty: N' pattern.
+    """
+    if not description:
+        return 1
+    import re
+    match = re.search(r"Usual qty:\s*(\d+)", description)
+    return int(match.group(1)) if match else 1
+
+
 def submit_shopping_list_to_picnic(
     project_name: str = "Groceries",
 ) -> Dict[str, Any]:
@@ -334,8 +359,13 @@ def submit_shopping_list_to_picnic(
     were not found. Does NOT automatically checkout — use get_picnic_delivery_slots
     and set_picnic_delivery_slot to complete the order.
 
+    For the 'Picnic Favorites' project, stored product IDs are used directly
+    instead of searching, for more accurate matching.
+
     Args:
-        project_name: The todo project name containing shopping list items (default "Groceries").
+        project_name: The todo project name containing shopping list items
+                      (default "Groceries"). Use "Picnic Favorites" to reorder
+                      frequently bought items.
 
     Returns:
         On success: {"status": "success", "matched": [...], "unmatched": [...], "cart_total": N}
@@ -371,12 +401,33 @@ def submit_shopping_list_to_picnic(
 
     for task in tasks:
         title = task.get("title", "")
+        description = task.get("description", "") or ""
         related_info = task.get("related_info", {}) or {}
         quantity = related_info.get("quantity", 1) if isinstance(related_info, dict) else 1
 
         if not title:
             continue
 
+        # Try to use a stored product ID (from Picnic Favorites descriptions)
+        stored_id = _extract_picnic_id_from_description(description)
+        if stored_id:
+            qty = _extract_usual_qty_from_description(description)
+            if qty < 1:
+                qty = 1
+            try:
+                client.add_product(stored_id, count=qty)
+                matched.append({
+                    "task": title,
+                    "product_name": title,
+                    "product_id": stored_id,
+                    "quantity": qty,
+                    "source": "stored_id",
+                })
+                continue
+            except Exception as e:
+                logger.debug("Stored product ID %s failed, falling back to search: %s", stored_id, e)
+
+        # Fall back to search
         try:
             search_results = _unwrap_search_results(client.search(title))
             if search_results:
@@ -391,6 +442,7 @@ def submit_shopping_list_to_picnic(
                         "product_id": product_id,
                         "price": best.get("price", 0),
                         "quantity": quantity,
+                        "source": "search",
                     })
                 else:
                     unmatched.append(title)

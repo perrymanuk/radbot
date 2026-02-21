@@ -35,6 +35,7 @@ You have memory tools to recall general context about the user.
 - "When can I get a delivery?" → transfer to casa (Picnic delivery slots)
 - "What did I order last time?" → transfer to casa (Picnic order history)
 - "Reorder my last groceries" → transfer to casa (Picnic order history + cart)
+- "Order my favorites from Picnic" → transfer to casa (Picnic Favorites project → cart)
 - "Turn off the lights" → transfer to casa
 - "What's on my calendar?" → transfer to planner
 - "Remind me in 5 minutes" → transfer to planner
