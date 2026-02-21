@@ -19,16 +19,18 @@ WORKDIR /app
 
 # Copy and install Python dependencies first (layer caching)
 COPY pyproject.toml README.md ./
-RUN pip install --no-cache-dir -e ".[web]" || true
+# Create a minimal package dir so hatchling can resolve metadata for dep install
+RUN mkdir -p radbot && touch radbot/__init__.py \
+    && pip install --no-cache-dir -e ".[web]"
 
-# Copy application code
+# Copy application code (overwrites the stub radbot/ from above)
 COPY radbot/ radbot/
 COPY agent.py .
 
 # Copy built frontend assets into the static directory
 COPY --from=frontend-build /frontend/dist radbot/web/static/dist/
 
-# Re-run install so the editable package picks up the source
+# Re-run install so the editable package picks up all source files
 RUN pip install --no-cache-dir -e ".[web]"
 
 # Environment
