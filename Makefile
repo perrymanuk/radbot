@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-core test-e2e-api test-e2e-agent test-e2e-integrations lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -61,6 +61,21 @@ test-unit:
 
 test-integration:
 	$(PYTEST) tests/integration
+
+test-e2e:
+	RADBOT_ENV=dev $(PYTEST) tests/e2e -v --timeout=120
+
+test-e2e-core:
+	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_health.py tests/e2e/test_sessions_api.py tests/e2e/test_websocket_basic.py -v
+
+test-e2e-api:
+	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_tasks_api.py tests/e2e/test_scheduler_api.py tests/e2e/test_reminders_api.py tests/e2e/test_webhooks_api.py tests/e2e/test_memory_api.py -v
+
+test-e2e-agent:
+	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_agent_chat.py tests/e2e/test_agent_routing.py -v --timeout=180
+
+test-e2e-integrations:
+	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_integration_ha.py tests/e2e/test_integration_calendar.py tests/e2e/test_integration_gmail.py tests/e2e/test_integration_jira.py tests/e2e/test_integration_overseerr.py tests/e2e/test_integration_picnic.py -v --timeout=180
 
 lint:
 	flake8 radbot tests
