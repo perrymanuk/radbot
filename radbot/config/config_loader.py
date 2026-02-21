@@ -271,6 +271,7 @@ class ConfigLoader:
                 == "TRUE",
                 "vertex_project": os.getenv("GOOGLE_CLOUD_PROJECT"),
                 "vertex_location": os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1"),
+                "google_cloud_project": os.getenv("GOOGLE_CLOUD_PROJECT"),
             },
             "cache": {
                 "enabled": os.getenv("RADBOT_CACHE_ENABLED", "TRUE").upper()

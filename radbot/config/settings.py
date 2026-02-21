@@ -107,6 +107,9 @@ class ConfigManager:
                 if "enable_adk_code_execution" in agent_config
                 else os.getenv("RADBOT_ENABLE_ADK_CODE_EXEC", "FALSE").upper() == "TRUE"
             ),
+            # Google Cloud project ID (for quota attribution on Gmail/Calendar etc.)
+            "google_cloud_project": agent_config.get("google_cloud_project")
+            or os.getenv("GOOGLE_CLOUD_PROJECT"),
         }
 
     def reload_model_config(self) -> None:
@@ -296,6 +299,18 @@ class ConfigManager:
             The project ID or None if not configured
         """
         return self.model_config.get("vertex_project")
+
+    def get_google_cloud_project(self) -> Optional[str]:
+        """
+        Get the Google Cloud project ID for quota attribution.
+
+        This is used by Gmail, Calendar, and other services that need a project
+        ID for quota purposes, independent of whether Vertex AI is enabled.
+
+        Returns:
+            The project ID or None if not configured
+        """
+        return self.model_config.get("google_cloud_project")
 
     def get_vertex_location(self) -> str:
         """

@@ -202,6 +202,12 @@ def setup_vertex_environment():
         else:
             logger.warning("No Google API key found - ADK may fail to initialize")
 
+        # Set project ID for quota attribution (Gmail, Calendar, etc.)
+        project_id = config.get_google_cloud_project()
+        if project_id:
+            os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+            logger.info(f"Set GOOGLE_CLOUD_PROJECT={project_id} for quota attribution")
+
         return False
 
 
