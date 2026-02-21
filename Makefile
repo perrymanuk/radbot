@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-core test-e2e-api test-e2e-agent test-e2e-integrations test-e2e-docker test-e2e-docker-up test-e2e-docker-down seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -42,11 +42,11 @@ help:
 	@echo "  make docker-logs    # Tail radbot container logs"
 	@echo "  make docker-clean   # Stop all services and remove volumes"
 	@echo ""
-	@echo "Docker e2e test targets:"
-	@echo "  make test-e2e-docker      # Start stack, seed credentials, run e2e tests, tear down"
-	@echo "  make test-e2e-docker-up   # Start docker stack for manual test runs"
-	@echo "  make test-e2e-docker-down # Tear down docker stack"
-	@echo "  make seed-docker          # Seed running docker stack with local dev credentials"
+	@echo "e2e test targets (Docker-based):"
+	@echo "  make test-e2e        # Start stack, seed credentials, run e2e tests, tear down"
+	@echo "  make test-e2e-up     # Start docker stack for manual test runs"
+	@echo "  make test-e2e-down   # Tear down docker stack"
+	@echo "  make seed-docker     # Seed running docker stack with local dev credentials"
 
 # Set help as the default target
 .DEFAULT_GOAL := help
@@ -69,21 +69,6 @@ test-integration:
 	$(PYTEST) tests/integration
 
 test-e2e:
-	RADBOT_ENV=dev $(PYTEST) tests/e2e -v --timeout=120
-
-test-e2e-core:
-	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_health.py tests/e2e/test_sessions_api.py tests/e2e/test_websocket_basic.py -v
-
-test-e2e-api:
-	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_tasks_api.py tests/e2e/test_scheduler_api.py tests/e2e/test_reminders_api.py tests/e2e/test_webhooks_api.py tests/e2e/test_memory_api.py -v
-
-test-e2e-agent:
-	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_agent_chat.py tests/e2e/test_agent_routing.py -v --timeout=180
-
-test-e2e-integrations:
-	RADBOT_ENV=dev $(PYTEST) tests/e2e/test_integration_ha.py tests/e2e/test_integration_calendar.py tests/e2e/test_integration_gmail.py tests/e2e/test_integration_jira.py tests/e2e/test_integration_overseerr.py tests/e2e/test_integration_picnic.py -v --timeout=180
-
-test-e2e-docker:
 	docker compose up -d --build --wait
 	RADBOT_ENV=dev $(PYTHON) scripts/seed_docker_credentials.py \
 		--target-url http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
@@ -96,10 +81,10 @@ test-e2e-docker:
 	docker compose down ; \
 	exit $$EXIT_CODE
 
-test-e2e-docker-up:
+test-e2e-up:
 	docker compose up -d --wait
 
-test-e2e-docker-down:
+test-e2e-down:
 	docker compose down
 
 seed-docker:
