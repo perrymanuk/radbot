@@ -197,6 +197,18 @@ async def save_config_section(
             config_manager.apply_model_config(root_agent)
         except Exception as e:
             logger.warning(f"Agent model hot-reload failed: {e}")
+        # Hot-reload GOOGLE_CLOUD_PROJECT env var
+        try:
+            from radbot.config import config_manager as _cm
+
+            project_id = _cm.get_google_cloud_project()
+            if project_id:
+                os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+                logger.info(f"Updated GOOGLE_CLOUD_PROJECT={project_id}")
+            else:
+                os.environ.pop("GOOGLE_CLOUD_PROJECT", None)
+        except Exception as e:
+            logger.warning(f"GOOGLE_CLOUD_PROJECT hot-reload failed: {e}")
     # Re-initialize memory service when vector_db config changes
     if section == "vector_db":
         try:

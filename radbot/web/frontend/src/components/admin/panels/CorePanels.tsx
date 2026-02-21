@@ -185,6 +185,7 @@ export function AgentModelsPanel() {
 
   const [mainModel, setMainModel] = useState("");
   const [subAgentModel, setSubAgentModel] = useState("");
+  const [googleCloudProject, setGoogleCloudProject] = useState("");
   const [enableSearch, setEnableSearch] = useState(false);
   const [enableCodeExec, setEnableCodeExec] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -202,6 +203,7 @@ export function AgentModelsPanel() {
     if (agent.main_model) setMainModel(agent.main_model);
     else if (agent.model) setMainModel(agent.model); // legacy fallback
     if (agent.sub_agent_model) setSubAgentModel(agent.sub_agent_model);
+    if (agent.google_cloud_project !== undefined) setGoogleCloudProject(agent.google_cloud_project || "");
     if (agent.enable_adk_search !== undefined) setEnableSearch(!!agent.enable_adk_search);
     if (agent.enable_adk_code_execution !== undefined) setEnableCodeExec(!!agent.enable_adk_code_execution);
 
@@ -230,6 +232,7 @@ export function AgentModelsPanel() {
       await mergeConfigSection("agent", {
         main_model: mainModel,
         sub_agent_model: subAgentModel,
+        google_cloud_project: googleCloudProject || undefined,
         enable_adk_search: enableSearch,
         enable_adk_code_execution: enableCodeExec,
         agent_models: agentModels,
@@ -264,6 +267,12 @@ export function AgentModelsPanel() {
             datalist={MODEL_OPTIONS}
           />
         </FormRow>
+        <FormInput
+          label="Google Cloud Project ID"
+          value={googleCloudProject}
+          onChange={setGoogleCloudProject}
+          placeholder="my-gcp-project"
+        />
         <FormToggle label="Enable ADK Search" checked={enableSearch} onChange={setEnableSearch} />
         <FormToggle label="Enable ADK Code Execution" checked={enableCodeExec} onChange={setEnableCodeExec} />
       </Card>
