@@ -92,6 +92,17 @@ export default function ChatHeader() {
           active={activePanel === "events"}
           onClick={() => togglePanel("events")}
         />
+        <a
+          href="/terminal"
+          className={cn(
+            "px-1.5 sm:px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
+            "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+            "bg-bg-tertiary text-terminal-amber border-terminal-amber hover:bg-terminal-amber hover:text-bg-primary",
+          )}
+        >
+          <span className="hidden sm:inline">TERM</span>
+          <span className="sm:hidden">T</span>
+        </a>
       </div>
     </div>
   );

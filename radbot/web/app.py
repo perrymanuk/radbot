@@ -43,6 +43,11 @@ from radbot.web.api.session import (
 from radbot.web.api.sessions import register_sessions_router
 from radbot.web.api.stt import router as stt_router
 from radbot.web.api.tts import router as tts_router
+from radbot.web.api.terminal import (
+    TerminalManager,
+    register_terminal_websocket,
+    router as terminal_router,
+)
 from radbot.web.api.webhooks import router as webhooks_router
 from radbot.web.api.health import router as health_router
 
@@ -75,6 +80,8 @@ def create_app():
     app.include_router(stt_router)
     app.include_router(admin_router)
     app.include_router(reminders_router)
+    app.include_router(terminal_router)
+    register_terminal_websocket(app)
     logger.debug("API routers registered during app initialization")
 
     return app
@@ -211,6 +218,16 @@ async def initialize_app_startup():
             )
         except Exception as cfg_err:
             logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
+
+        # Re-initialize filesystem allowed directories now that DB config is loaded.
+        # The agent is created at import time before load_db_config(), so the
+        # filesystem security layer only has file-config defaults at that point.
+        try:
+            from radbot.filesystem.adapter import reload_filesystem_config
+
+            reload_filesystem_config()
+        except Exception as fs_err:
+            logger.warning(f"Error reloading filesystem config: {fs_err}")
 
         # Re-initialize memory service now that DB config (including Qdrant host) is loaded
         try:
@@ -395,6 +412,15 @@ async def shutdown_scheduler():
             logger.info("Scheduler engine shut down")
     except Exception as e:
         logger.error(f"Error shutting down scheduler engine: {e}", exc_info=True)
+
+
+@app.on_event("shutdown")
+async def shutdown_terminals():
+    """Kill all terminal PTY sessions on shutdown."""
+    try:
+        TerminalManager.get_instance().kill_all()
+    except Exception as e:
+        logger.error(f"Error shutting down terminal sessions: {e}", exc_info=True)
 
 
 # Handle X-Forwarded-Proto/Host behind reverse proxies (Traefik, etc.)
