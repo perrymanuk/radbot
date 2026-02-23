@@ -41,6 +41,7 @@ dependencies = [
     "atlassian-python-api>=3.41.0",        # Required for Jira Cloud integration
     "cryptography>=42.0.0",                # Required for credential store encryption
     "python-picnic-api2>=1.3.0",           # Required for Picnic grocery delivery integration
+    "PyJWT[crypto]>=2.8.0",                   # Required for GitHub App JWT generation (RS256)
     # Removed gcsa due to dependency conflict with ADK (tzlocal version conflict)
 ]
 

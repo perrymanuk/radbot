@@ -589,12 +589,17 @@
         },
         "filesystem": {
           "type": "object",
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "Filesystem access settings",
           "properties": {
             "root_dir": {
               "type": ["string", "null"],
               "description": "Root directory for filesystem access"
+            },
+            "allowed_directories": {
+              "type": "array",
+              "description": "Additional directories to allow filesystem access to (beyond root_dir)",
+              "items": { "type": "string" }
             },
             "allow_write": {
               "type": "boolean",
@@ -605,6 +610,42 @@
               "type": "boolean",
               "description": "Allow delete operations",
               "default": false
+            }
+          }
+        },
+        "github": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "GitHub App integration for repo clone/push operations",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable GitHub App integration",
+              "default": false
+            },
+            "app_id": {
+              "type": ["string", "null"],
+              "description": "GitHub App ID"
+            },
+            "installation_id": {
+              "type": ["string", "null"],
+              "description": "GitHub App Installation ID"
+            },
+            "private_key": {
+              "type": ["string", "null"],
+              "description": "GitHub App private key (PEM format)"
+            }
+          }
+        },
+        "claude_code": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Claude Code CLI integration for autonomous coding",
+          "properties": {
+            "workspace_dir": {
+              "type": "string",
+              "description": "Base directory for cloned repository workspaces",
+              "default": "/app/workspaces"
             }
           }
         },

@@ -16,15 +16,16 @@ from radbot.filesystem.integration import create_filesystem_tools
 logger = logging.getLogger(__name__)
 
 
-def get_filesystem_config() -> tuple[str, bool, bool]:
+def get_filesystem_config() -> tuple[str, bool, bool, List[str]]:
     """
     Get the filesystem configuration from YAML config.
 
     Reads filesystem configuration directly from the YAML config file.
 
     Returns:
-        Tuple of (root_dir, allow_write, allow_delete)
+        Tuple of (root_dir, allow_write, allow_delete, allowed_directories)
     """
+    allowed_directories: List[str] = []
     try:
         from radbot.config.config_loader import config_loader
 
@@ -34,6 +35,7 @@ def get_filesystem_config() -> tuple[str, bool, bool]:
         root_dir = fs_config.get("root_dir", os.path.expanduser("~"))
         allow_write = fs_config.get("allow_write", False)
         allow_delete = fs_config.get("allow_delete", False)
+        allowed_directories = fs_config.get("allowed_directories", [])
 
         # Set environment variables for compatibility with components that might still use them
         os.environ["MCP_FS_ROOT_DIR"] = root_dir
@@ -47,10 +49,11 @@ def get_filesystem_config() -> tuple[str, bool, bool]:
         allow_delete = False
 
     logger.info(
-        f"Filesystem Config: root_dir={root_dir}, allow_write={allow_write}, allow_delete={allow_delete}"
+        f"Filesystem Config: root_dir={root_dir}, allow_write={allow_write}, "
+        f"allow_delete={allow_delete}, allowed_directories={allowed_directories}"
     )
 
-    return root_dir, allow_write, allow_delete
+    return root_dir, allow_write, allow_delete, allowed_directories
 
 
 def create_fileserver_toolset() -> List[FunctionTool]:
@@ -63,16 +66,19 @@ def create_fileserver_toolset() -> List[FunctionTool]:
     Returns:
         List of FunctionTool instances
     """
-    root_dir, allow_write, allow_delete = get_filesystem_config()
+    root_dir, allow_write, allow_delete, extra_dirs = get_filesystem_config()
+
+    # Build the full list of allowed directories
+    all_dirs = [root_dir] + [d for d in extra_dirs if d and d != root_dir]
 
     logger.info(
-        f"Creating filesystem tools with root_dir={root_dir}, "
+        f"Creating filesystem tools with allowed_directories={all_dirs}, "
         f"allow_write={allow_write}, allow_delete={allow_delete}"
     )
 
     # Create the tools with the configured directories and permissions
     return create_filesystem_tools(
-        allowed_directories=[root_dir],
+        allowed_directories=all_dirs,
         enable_write=allow_write,
         enable_delete=allow_delete,
     )

@@ -1,0 +1,135 @@
+"""
+Database operations for the Claude Code / Coder Workspaces module.
+
+Handles schema creation and CRUD for the ``coder_workspaces`` table,
+reusing the shared PostgreSQL pool from ``radbot.tools.todo.db.connection``.
+"""
+
+import logging
+import uuid
+from typing import Any, Dict, List, Optional
+
+import psycopg2
+import psycopg2.extras
+
+from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+
+logger = logging.getLogger(__name__)
+
+
+def init_coder_schema() -> None:
+    """Create the coder_workspaces table if it doesn't exist."""
+    from radbot.tools.shared.db_schema import init_table_schema
+
+    init_table_schema(
+        table_name="coder_workspaces",
+        create_table_sql="""
+            CREATE TABLE coder_workspaces (
+                workspace_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                owner TEXT NOT NULL,
+                repo TEXT NOT NULL,
+                branch TEXT NOT NULL DEFAULT 'main',
+                local_path TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                last_session_id TEXT,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                last_used_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(owner, repo, branch)
+            );
+        """,
+        create_index_sqls=[
+            """
+            CREATE INDEX idx_coder_workspaces_active
+            ON coder_workspaces (status) WHERE status = 'active';
+            """,
+        ],
+    )
+
+
+def create_workspace(
+    owner: str,
+    repo: str,
+    branch: str,
+    local_path: str,
+) -> Dict[str, Any]:
+    """Insert or update a workspace record and return its data."""
+    sql = """
+        INSERT INTO coder_workspaces (owner, repo, branch, local_path)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (owner, repo, branch) DO UPDATE
+            SET local_path = EXCLUDED.local_path,
+                status = 'active',
+                last_used_at = CURRENT_TIMESTAMP
+        RETURNING workspace_id, owner, repo, branch, local_path, status,
+                  last_session_id, created_at, last_used_at;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(sql, (owner, repo, branch, local_path))
+                conn.commit()
+                row = cursor.fetchone()
+                return dict(row) if row else {}
+    except psycopg2.Error as e:
+        logger.error(f"Database error creating workspace: {e}")
+        raise
+
+
+def get_workspace(
+    owner: str,
+    repo: str,
+    branch: str = "main",
+) -> Optional[Dict[str, Any]]:
+    """Get a workspace by owner/repo/branch."""
+    sql = """
+        SELECT * FROM coder_workspaces
+        WHERE owner = %s AND repo = %s AND branch = %s;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(sql, (owner, repo, branch))
+                row = cursor.fetchone()
+                return dict(row) if row else None
+    except psycopg2.Error as e:
+        logger.error(f"Database error getting workspace: {e}")
+        raise
+
+
+def update_session_id(
+    owner: str,
+    repo: str,
+    branch: str,
+    session_id: str,
+) -> None:
+    """Update the Claude Code session ID for a workspace."""
+    sql = """
+        UPDATE coder_workspaces
+        SET last_session_id = %s,
+            last_used_at = CURRENT_TIMESTAMP
+        WHERE owner = %s AND repo = %s AND branch = %s;
+    """
+    try:
+        with get_db_connection() as conn:
+            with get_db_cursor(conn, commit=True) as cursor:
+                cursor.execute(sql, (session_id, owner, repo, branch))
+    except psycopg2.Error as e:
+        logger.error(f"Database error updating session ID: {e}")
+        raise
+
+
+def list_active_workspaces() -> List[Dict[str, Any]]:
+    """List all active workspaces."""
+    sql = """
+        SELECT * FROM coder_workspaces
+        WHERE status = 'active'
+        ORDER BY last_used_at DESC;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(sql)
+                return [dict(row) for row in cursor.fetchall()]
+    except psycopg2.Error as e:
+        logger.error(f"Database error listing workspaces: {e}")
+        raise

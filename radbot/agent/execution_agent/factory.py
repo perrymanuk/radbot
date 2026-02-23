@@ -99,6 +99,15 @@ def create_execution_agent(
     except Exception as e:
         logger.warning(f"Failed to add dynamic MCP tools to Axel: {e}")
 
+    # Add Claude Code + GitHub tools
+    try:
+        from radbot.tools.claude_code.claude_code_tools import CLAUDE_CODE_TOOLS
+
+        agent_tools.extend(CLAUDE_CODE_TOOLS)
+        logger.info(f"Added {len(CLAUDE_CODE_TOOLS)} Claude Code tools to Axel")
+    except Exception as e:
+        logger.warning(f"Failed to add Claude Code tools to Axel: {e}")
+
     # Add artifacts loading tool
     try:
         from google.adk.tools import load_artifacts

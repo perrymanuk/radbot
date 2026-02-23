@@ -74,11 +74,12 @@ class FilesystemIntegrationTest(unittest.TestCase):
                 "allow_delete": False,
             }
         }
-        root_dir, allow_write, allow_delete = get_filesystem_config()
+        root_dir, allow_write, allow_delete, allowed_dirs = get_filesystem_config()
 
         self.assertEqual(root_dir, "/test/dir")
         self.assertTrue(allow_write)
         self.assertFalse(allow_delete)
+        self.assertIsInstance(allowed_dirs, list)
 
     @patch("radbot.filesystem.adapter.create_filesystem_tools")
     @patch("radbot.config.config_loader.config_loader")

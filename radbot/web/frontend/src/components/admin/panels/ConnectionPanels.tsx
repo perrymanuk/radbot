@@ -781,6 +781,7 @@ export function FilesystemPanel() {
   const { loadLiveConfig, mergeConfigSection, toast, loadStatus } = useAdminStore();
 
   const [rootDir, setRootDir] = useState("");
+  const [allowedDirs, setAllowedDirs] = useState("");
   const [allowWrite, setAllowWrite] = useState(false);
   const [allowDelete, setAllowDelete] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -788,20 +789,27 @@ export function FilesystemPanel() {
   useEffect(() => {
     loadLiveConfig().then((cfg) => {
       const fs = dig(cfg, "integrations.filesystem", {});
-      setRootDir(fs.root_directory || "");
+      setRootDir(fs.root_dir || fs.root_directory || "");
       setAllowWrite(!!fs.allow_write);
       setAllowDelete(!!fs.allow_delete);
+      const dirs = fs.allowed_directories || [];
+      setAllowedDirs(Array.isArray(dirs) ? dirs.join("\n") : "");
     });
   }, [loadLiveConfig]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const dirsList = allowedDirs
+        .split("\n")
+        .map((d: string) => d.trim())
+        .filter(Boolean);
       await mergeConfigSection("integrations", {
         filesystem: {
-          root_directory: rootDir || undefined,
+          root_dir: rootDir || undefined,
           allow_write: allowWrite,
           allow_delete: allowDelete,
+          allowed_directories: dirsList.length > 0 ? dirsList : undefined,
         },
       });
       toast("Filesystem settings saved", "success");
@@ -824,6 +832,13 @@ export function FilesystemPanel() {
           label="Root Directory"
           value={rootDir}
           onChange={setRootDir}
+          placeholder="/app or /home/user"
+        />
+        <FormTextarea
+          label="Additional Allowed Directories"
+          value={allowedDirs}
+          onChange={setAllowedDirs}
+          placeholder={"One directory per line, e.g.:\n/app/workspaces\n/tmp/radbot"}
         />
         <FormToggle label="Allow Write" checked={allowWrite} onChange={setAllowWrite} />
         <FormToggle label="Allow Delete" checked={allowDelete} onChange={setAllowDelete} />

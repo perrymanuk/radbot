@@ -256,6 +256,12 @@ async def save_config_section(
             reset_picnic_client()
         except Exception:
             pass
+        try:
+            from radbot.tools.github.github_app_client import reset_github_client
+
+            reset_github_client()
+        except Exception:
+            pass
     return {"status": "ok", "section": section}
 
 
@@ -1009,6 +1015,76 @@ async def test_picnic(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Picnic connection failed: {e}")
 
 
+@router.post("/api/test/github")
+async def test_github(request: Request, _: None = Depends(_verify_admin)):
+    """Test GitHub App connectivity by verifying the JWT against the GitHub API."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    app_id = body.get("app_id", "")
+    installation_id = body.get("installation_id", "")
+    private_key = body.get("private_key", "")
+
+    # Fall back to stored config
+    if not app_id or not installation_id:
+        try:
+            from radbot.config.config_loader import config_loader
+
+            gh_cfg = (
+                config_loader.get_config().get("integrations", {}).get("github", {})
+            )
+            app_id = app_id or gh_cfg.get("app_id", "")
+            installation_id = installation_id or gh_cfg.get("installation_id", "")
+        except Exception:
+            pass
+    if not private_key or private_key == "***":
+        store = get_credential_store()
+        if store.available:
+            private_key = store.get("github_app_private_key") or ""
+        if not private_key:
+            try:
+                from radbot.config.config_loader import config_loader
+
+                private_key = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("github", {})
+                    .get("private_key", "")
+                )
+            except Exception:
+                pass
+
+    if not app_id or not installation_id or not private_key:
+        return _err("GitHub App ID, Installation ID, and private key are all required")
+
+    try:
+        from radbot.tools.github.github_app_client import GitHubAppClient
+
+        client = GitHubAppClient(str(app_id), str(installation_id), private_key)
+        status = client.get_status()
+        if status.get("status") == "ok":
+            return _ok(f"Connected to GitHub App '{status.get('app_name')}'")
+        return _err(status.get("message", "Unknown error"))
+    except Exception as e:
+        return _err(f"GitHub App test failed: {e}")
+
+
+@router.post("/api/test/claude-code")
+async def test_claude_code(request: Request, _: None = Depends(_verify_admin)):
+    """Test Claude Code CLI availability and token configuration."""
+    try:
+        from radbot.tools.claude_code.claude_code_client import get_claude_code_status
+
+        status = get_claude_code_status()
+        if status.get("status") == "ok":
+            return _ok(status.get("message", "Claude Code CLI ready"))
+        return _err(status.get("message", "Unknown error"))
+    except Exception as e:
+        return _err(f"Claude Code test failed: {e}")
+
+
 @router.post("/api/test/redis")
 async def test_redis(request: Request, _: None = Depends(_verify_admin)):
     """Test Redis connectivity."""
@@ -1249,6 +1325,26 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
             status["redis"] = {"status": "error", "message": str(e)[:100]}
     else:
         status["redis"] = {"status": "unconfigured"}
+
+    # GitHub App
+    gh_cfg = cfg.get("integrations", {}).get("github", {})
+    gh_key = _store_get("github_app_private_key") or gh_cfg.get("private_key", "")
+    if gh_cfg.get("app_id") and gh_cfg.get("installation_id") and gh_key:
+        status["github"] = {"status": "ok"}
+    elif gh_cfg.get("enabled"):
+        status["github"] = {
+            "status": "error",
+            "message": "Enabled but missing config",
+        }
+    else:
+        status["github"] = {"status": "unconfigured"}
+
+    # Claude Code CLI
+    cc_token = _store_get("claude_code_oauth_token")
+    if cc_token:
+        status["claude_code"] = {"status": "ok"}
+    else:
+        status["claude_code"] = {"status": "unconfigured"}
 
     # PostgreSQL — always ok if we got this far (admin page loaded)
     status["postgresql"] = {"status": "ok"}

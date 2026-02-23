@@ -19,7 +19,7 @@ RadBot uses specialized sub-agents with focused toolsets, reducing token usage a
 *   **Tracker**: Todo lists, projects, webhooks
 *   **Comms**: Email (Gmail), issue tracking (Jira)
 *   **Scout**: Technical research with sequential thinking
-*   **Axel**: Code implementation with dynamic worker system for parallel execution
+*   **Axel**: Code implementation, Claude Code plan/execute, GitHub repo management
 *   **Search Agent**: Web search with focused query handling
 *   **Code Execution Agent**: Secure Python code execution via Google ADK's built-in sandbox
 
@@ -139,6 +139,19 @@ Three-tier semantic memory backed by Qdrant vector database:
 *   **`web_search`**: General web search
 *   **`call_search_agent`**: Focused web search via search agent
 
+### Claude Code + GitHub Integration
+
+Autonomous coding workflow powered by Claude Code CLI and GitHub App authentication.
+
+*   **`clone_repository`**: Clone or update a GitHub repo via GitHub App (supports private repos)
+*   **`claude_code_plan`**: Run Claude Code in read-only plan mode to analyze and design changes
+*   **`claude_code_continue`**: Iterate on the plan with feedback using `--resume` for conversation continuity
+*   **`claude_code_execute`**: Execute the approved plan with `--dangerously-skip-permissions`
+*   **`commit_and_push`**: Stage, commit, and push changes back to GitHub using App installation tokens
+*   **`list_workspaces`**: List all cloned repo workspaces
+*   GitHub App auth: JWT + short-lived installation tokens (no personal access tokens needed)
+*   Session persistence: Claude Code session IDs stored in DB for cross-chat resume
+
 ### File System & Shell
 
 *   **File tools**: `list_files`, `read_file`, `write_file`, `edit_file_func`, `copy_file`, `move_file`, `delete_file`, `get_file_info`
@@ -241,7 +254,7 @@ Set `RADBOT_TEST_URL` to point tests at any running RadBot instance. Integration
 ## Project Structure
 
 - `/radbot/agent`: Core agent logic, initializer, and persona definitions
-- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, ntfy, Picnic, Overseerr, TTS, STT, shell, search)
+- `/radbot/tools`: Tool implementations (HA, calendar, tasks, scheduler, reminders, webhooks, ntfy, Picnic, Overseerr, TTS, STT, Claude Code, GitHub, shell, search)
 - `/radbot/memory`: Qdrant-backed semantic memory system
 - `/radbot/web`: FastAPI server, WebSocket handler, React frontend
 - `/radbot/web/frontend`: React SPA source (Vite + TypeScript + Tailwind)
@@ -252,7 +265,7 @@ Set `RADBOT_TEST_URL` to point tests at any running RadBot instance. Integration
 
 ## Tech Stack
 
-- **Agent framework**: Google ADK 1.21.0
+- **Agent framework**: Google ADK 1.24.1
 - **LLM**: Google Gemini (configurable per agent)
 - **Backend**: FastAPI, WebSockets, APScheduler
 - **Frontend**: React 18, Vite 6, TypeScript, Tailwind CSS, Zustand

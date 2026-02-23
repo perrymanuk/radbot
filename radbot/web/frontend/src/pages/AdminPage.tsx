@@ -10,6 +10,7 @@ import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
 import { NtfyPanel } from "@/components/admin/panels/NotificationPanels";
 import { SchedulerPanel, WebhooksPanel } from "@/components/admin/panels/AutomationPanels";
 import { SanitizationPanel } from "@/components/admin/panels/SecurityPanels";
+import { GitHubAppPanel, ClaudeCodePanel } from "@/components/admin/panels/DeveloperPanels";
 import { MCPServersPanel } from "@/components/admin/panels/MCPPanel";
 import { CredentialsPanel } from "@/components/admin/panels/CredentialsPanel";
 import { RawConfigPanel } from "@/components/admin/panels/RawConfigPanel";
@@ -48,6 +49,9 @@ const NAV_ITEMS: NavItem[] = [
   // Automation
   { id: "scheduler", label: "Scheduler", group: "Automation" },
   { id: "webhooks", label: "Webhooks", group: "Automation" },
+  // Developer
+  { id: "github_app", label: "GitHub App", group: "Developer", statusKey: "github" },
+  { id: "claude_code", label: "Claude Code", group: "Developer", statusKey: "claude_code" },
   // Security
   { id: "sanitization", label: "Sanitization", group: "Security" },
   // Advanced
@@ -77,6 +81,8 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   ntfy: NtfyPanel,
   scheduler: SchedulerPanel,
   webhooks: WebhooksPanel,
+  github_app: GitHubAppPanel,
+  claude_code: ClaudeCodePanel,
   sanitization: SanitizationPanel,
   mcp_servers: MCPServersPanel,
   credentials: CredentialsPanel,

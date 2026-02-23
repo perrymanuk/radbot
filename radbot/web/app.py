@@ -174,6 +174,18 @@ async def initialize_app_startup():
                 f"Error initializing reminder database: {str(rem_err)}", exc_info=True
             )
 
+        logger.debug("Initializing coder workspaces database schema...")
+        try:
+            from radbot.tools.claude_code.db import init_coder_schema
+
+            init_coder_schema()
+            logger.debug("Coder workspaces database schema initialized")
+        except Exception as coder_err:
+            logger.error(
+                f"Error initializing coder workspaces database: {str(coder_err)}",
+                exc_info=True,
+            )
+
         # Initialize credential store schema
         logger.debug("Initializing credential store schema...")
         try:

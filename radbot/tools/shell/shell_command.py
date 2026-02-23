@@ -99,6 +99,11 @@ ALLOWED_COMMANDS = {
     # Python tooling
     "uv",
     "pip",
+    # Node.js / Claude Code
+    "claude",
+    "node",
+    "npm",
+    "npx",
     # Miscellaneous utilities
     "date",
     "cal",
@@ -191,6 +196,12 @@ def execute_shell_command(
         # Package managers often use URLs or complex arguments
         "pip": ["<", ">", "@", "=", "+", ".."],
         "uv": ["<", ">", "@", "=", "+", ".."],
+        # Claude Code CLI uses various flags with dashes
+        "claude": ["<", ">", "(", ")", "\\", "..", "-"],
+        # Node.js tools
+        "node": ["<", ">", "..", "-"],
+        "npm": ["<", ">", "@", "=", "+", ".."],
+        "npx": ["<", ">", "@", "=", "+", ".."],
     }
 
     # Get the list of characters exempted for this command
