@@ -262,6 +262,12 @@ async def save_config_section(
             reset_github_client()
         except Exception:
             pass
+        try:
+            from radbot.filesystem.adapter import reload_filesystem_config
+
+            reload_filesystem_config()
+        except Exception:
+            pass
     return {"status": "ok", "section": section}
 
 

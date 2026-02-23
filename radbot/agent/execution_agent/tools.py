@@ -3,6 +3,10 @@ Specialized tools for the Axel execution agent.
 
 This module provides tools specific to the execution agent's needs,
 focused on code execution, testing, and implementation tasks.
+
+Filesystem tools (read, write, list, search, etc.) are NOT included here.
+They are added via create_fileserver_toolset() in the factory, which provides
+proper error handling and respects the filesystem security config.
 """
 
 import logging
@@ -12,15 +16,6 @@ from typing import Any, Dict, List, Optional, Union
 
 from google.adk.tools.function_tool import FunctionTool
 
-from radbot.filesystem.tools import copy as copy_file
-from radbot.filesystem.tools import edit_file as edit_file_func
-from radbot.filesystem.tools import (
-    get_info,
-    list_directory,
-    read_file,
-    search,
-    write_file,
-)
 from radbot.tools.shell.shell_command import execute_shell_command
 
 # Set up logging
@@ -170,26 +165,12 @@ run_tests_tool = create_function_tool(run_tests)
 validate_code_tool = create_function_tool(validate_code)
 generate_documentation_tool = create_function_tool(generate_documentation)
 
-# File operation tools - we reuse these from the filesystem module
-list_directory_tool = create_function_tool(list_directory)
-read_file_tool = create_function_tool(read_file)
-write_file_tool = create_function_tool(write_file)
-edit_file_tool = create_function_tool(edit_file_func)
-copy_file_tool = create_function_tool(copy_file)
-search_tool = create_function_tool(search)
-get_info_tool = create_function_tool(get_info)
-
-# Collect all execution tools
+# Collect execution-specific tools only.
+# Filesystem tools (read, write, list, search, etc.) are added separately
+# via create_fileserver_toolset() in the factory with proper error handling.
 execution_tools = [
     code_execution_tool_obj,
     run_tests_tool,
     validate_code_tool,
     generate_documentation_tool,
-    list_directory_tool,
-    read_file_tool,
-    write_file_tool,
-    edit_file_tool,
-    copy_file_tool,
-    search_tool,
-    get_info_tool,
 ]

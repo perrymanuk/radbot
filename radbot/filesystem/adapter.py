@@ -56,6 +56,40 @@ def get_filesystem_config() -> tuple[str, bool, bool, List[str]]:
     return root_dir, allow_write, allow_delete, allowed_directories
 
 
+def _get_workspace_dir() -> Optional[str]:
+    """Get the Claude Code workspace directory if configured."""
+    try:
+        from radbot.tools.claude_code.claude_code_tools import _get_workspace_dir as get_ws_dir
+
+        ws_dir = get_ws_dir()
+        if ws_dir and os.path.isabs(ws_dir):
+            return ws_dir
+    except Exception:
+        pass
+    return None
+
+
+def reload_filesystem_config() -> None:
+    """
+    Reload filesystem security config from the current config state.
+
+    Called by the admin API when filesystem config is updated via the UI,
+    so that allowed directories take effect without a restart.
+    """
+    from radbot.filesystem.security import set_allowed_directories
+
+    root_dir, allow_write, allow_delete, extra_dirs = get_filesystem_config()
+    all_dirs = [root_dir] + [d for d in extra_dirs if d and d != root_dir]
+
+    # Include workspace directory automatically
+    ws_dir = _get_workspace_dir()
+    if ws_dir and ws_dir not in all_dirs:
+        all_dirs.append(ws_dir)
+
+    set_allowed_directories(all_dirs)
+    logger.info(f"Reloaded filesystem config: allowed_directories={all_dirs}")
+
+
 def create_fileserver_toolset() -> List[FunctionTool]:
     """
     Create the filesystem tools using previous MCP fileserver environment variables.
@@ -70,6 +104,12 @@ def create_fileserver_toolset() -> List[FunctionTool]:
 
     # Build the full list of allowed directories
     all_dirs = [root_dir] + [d for d in extra_dirs if d and d != root_dir]
+
+    # Automatically include the Claude Code workspace directory so that
+    # filesystem tools can access cloned repositories without manual config.
+    ws_dir = _get_workspace_dir()
+    if ws_dir and ws_dir not in all_dirs:
+        all_dirs.append(ws_dir)
 
     logger.info(
         f"Creating filesystem tools with allowed_directories={all_dirs}, "

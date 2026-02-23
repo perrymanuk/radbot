@@ -12,7 +12,6 @@ These tools are added to the Axel (execution) agent, enabling:
 All tools return ``{"status": "success/error", ...}`` per project convention.
 """
 
-import asyncio
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -93,7 +92,7 @@ def clone_repository(
 # ── Claude Code Plan ────────────────────────────────────────
 
 
-def claude_code_plan(
+async def claude_code_plan(
     prompt: str,
     work_folder: str,
     session_id: Optional[str] = None,
@@ -116,9 +115,7 @@ def claude_code_plan(
         from radbot.tools.claude_code.claude_code_client import ClaudeCodeClient
 
         client = ClaudeCodeClient()
-        result = asyncio.get_event_loop().run_until_complete(
-            client.run_plan(work_folder, prompt, session_id)
-        )
+        result = await client.run_plan(work_folder, prompt, session_id)
 
         # Store session_id in workspace DB if available
         if result.get("session_id"):
@@ -145,7 +142,7 @@ def claude_code_plan(
 # ── Claude Code Continue (iterate on plan) ──────────────────
 
 
-def claude_code_continue(
+async def claude_code_continue(
     prompt: str,
     session_id: str,
     work_folder: str,
@@ -166,9 +163,7 @@ def claude_code_continue(
         from radbot.tools.claude_code.claude_code_client import ClaudeCodeClient
 
         client = ClaudeCodeClient()
-        result = asyncio.get_event_loop().run_until_complete(
-            client.run_plan(work_folder, prompt, session_id)
-        )
+        result = await client.run_plan(work_folder, prompt, session_id)
 
         new_session_id = result.get("session_id") or session_id
         _update_workspace_session(work_folder, new_session_id)
@@ -194,7 +189,7 @@ def claude_code_continue(
 # ── Claude Code Execute ─────────────────────────────────────
 
 
-def claude_code_execute(
+async def claude_code_execute(
     prompt: str,
     work_folder: str,
     session_id: Optional[str] = None,
@@ -217,9 +212,7 @@ def claude_code_execute(
         from radbot.tools.claude_code.claude_code_client import ClaudeCodeClient
 
         client = ClaudeCodeClient()
-        result = asyncio.get_event_loop().run_until_complete(
-            client.run_execute(work_folder, prompt, session_id)
-        )
+        result = await client.run_execute(work_folder, prompt, session_id)
 
         new_session_id = result.get("session_id") or session_id
         if new_session_id:

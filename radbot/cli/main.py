@@ -202,6 +202,14 @@ async def setup_agent() -> Optional[RadBotAgent]:
     except Exception as e:
         logger.warning(f"Could not load DB config: {e}")
 
+    # Re-initialize filesystem allowed directories now that DB config is loaded
+    try:
+        from radbot.filesystem.adapter import reload_filesystem_config
+
+        reload_filesystem_config()
+    except Exception as e:
+        logger.warning(f"Could not reload filesystem config: {e}")
+
     # Initialize memory service now that DB config is loaded
     try:
         from agent import root_agent

@@ -97,8 +97,11 @@ ALLOWED_COMMANDS = {
     "git",
     "gh",
     # Python tooling
+    "python",
+    "python3",
     "uv",
     "pip",
+    "pytest",
     # Node.js / Claude Code
     "claude",
     "node",
