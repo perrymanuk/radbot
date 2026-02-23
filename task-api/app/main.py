@@ -19,6 +19,11 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+@app.get("/healthz")
+async def healthz_check():
+    """Healthz endpoint."""
+    return {"status": "ok"}
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""

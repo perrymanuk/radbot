@@ -44,6 +44,7 @@ from radbot.web.api.sessions import register_sessions_router
 from radbot.web.api.stt import router as stt_router
 from radbot.web.api.tts import router as tts_router
 from radbot.web.api.webhooks import router as webhooks_router
+from radbot.web.api.health import router as health_router
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ def create_app():
     app.include_router(memory_router)
     app.include_router(scheduler_router)
     app.include_router(webhooks_router)
+    app.include_router(health_router)
     app.include_router(tts_router)
     app.include_router(stt_router)
     app.include_router(admin_router)
@@ -598,6 +600,11 @@ async def index(request: Request):
         status_code=503,
     )
 
+
+@app.get("/healthz")
+async def healthz_check():
+    """Healthz endpoint."""
+    return {"status": "ok"}
 
 @app.get("/health")
 async def health_check():
