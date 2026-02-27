@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTerminalStore } from "@/stores/terminal-store";
 import { cn } from "@/lib/utils";
+import { useSTT } from "@/hooks/use-stt";
 import TerminalEmulator from "@/components/terminal/TerminalEmulator";
 import WorkspaceSelector from "@/components/terminal/WorkspaceSelector";
 
@@ -25,6 +26,19 @@ export default function TerminalPage() {
   const loadStatus = useTerminalStore((s) => s.loadStatus);
   const killTerminal = useTerminalStore((s) => s.killTerminal);
   const [terminalClosed, setTerminalClosed] = useState(false);
+
+  // STT: ref to sendInput from TerminalEmulator
+  const sendInputRef = useRef<((data: string) => void) | null>(null);
+
+  const handleSendInputRef = useCallback((fn: (data: string) => void) => {
+    sendInputRef.current = fn;
+  }, []);
+
+  const handleTranscript = useCallback((text: string) => {
+    sendInputRef.current?.(text);
+  }, []);
+
+  const { state: sttState, toggle: sttToggle } = useSTT(handleTranscript);
 
   useEffect(() => {
     loadStatus();
@@ -83,6 +97,21 @@ export default function TerminalPage() {
           {activeTerminalId && (
             <>
               <button
+                onClick={sttToggle}
+                disabled={sttState === "processing"}
+                className={cn(
+                  "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                  "flex items-center min-h-[40px] sm:min-h-0",
+                  sttState === "recording"
+                    ? "bg-bg-tertiary text-terminal-red border-terminal-red animate-pulse"
+                    : sttState === "processing"
+                      ? "bg-bg-tertiary text-terminal-amber border-terminal-amber opacity-70 cursor-not-allowed"
+                      : "bg-bg-tertiary text-txt-primary border-border hover:bg-accent-blue hover:text-bg-primary",
+                )}
+              >
+                {sttState === "recording" ? "Rec" : sttState === "processing" ? "..." : "Mic"}
+              </button>
+              <button
                 onClick={handleBack}
                 className={cn(
                   "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
@@ -136,6 +165,7 @@ export default function TerminalPage() {
               <TerminalEmulator
                 terminalId={activeTerminalId}
                 onClosed={handleClosed}
+                onSendInputRef={handleSendInputRef}
               />
             </div>
           </div>

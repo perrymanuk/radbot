@@ -8,19 +8,25 @@ import { useTerminalWS } from "@/hooks/use-terminal-ws";
 interface TerminalEmulatorProps {
   terminalId: string;
   onClosed?: (exitCode: number) => void;
+  onSendInputRef?: (fn: (data: string) => void) => void;
 }
 
-export default function TerminalEmulator({ terminalId, onClosed }: TerminalEmulatorProps) {
+export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef }: TerminalEmulatorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [terminal, setTerminal] = useState<Terminal | null>(null);
 
-  const { sendResize } = useTerminalWS({
+  const { sendInput, sendResize } = useTerminalWS({
     terminalId,
     terminal,
     onClosed,
   });
+
+  // Expose sendInput to parent
+  useEffect(() => {
+    onSendInputRef?.(sendInput);
+  }, [sendInput, onSendInputRef]);
 
   // Create terminal instance
   useEffect(() => {
