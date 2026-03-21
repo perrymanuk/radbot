@@ -1091,38 +1091,6 @@ async def test_claude_code(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Claude Code test failed: {e}")
 
 
-@router.post("/api/test/redis")
-async def test_redis(request: Request, _: None = Depends(_verify_admin)):
-    """Test Redis connectivity."""
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-
-    redis_url = body.get("redis_url", "")
-    if not redis_url:
-        try:
-            from radbot.config.config_loader import config_loader
-
-            redis_url = config_loader.get_config().get("cache", {}).get("redis_url", "")
-        except Exception:
-            pass
-
-    if not redis_url:
-        return _err("No Redis URL configured")
-
-    try:
-        import redis
-
-        r = redis.from_url(redis_url, socket_timeout=5)
-        r.ping()
-        info = r.info("server")
-        version = info.get("redis_version", "unknown")
-        r.close()
-        return _ok(f"Connected — Redis {version}")
-    except Exception as e:
-        return _err(f"Redis connection failed: {e}")
-
 
 # ------------------------------------------------------------------
 # Telemetry endpoints
@@ -1316,21 +1284,6 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
             status["qdrant"] = {"status": "error", "message": str(e)[:100]}
     else:
         status["qdrant"] = {"status": "unconfigured"}
-
-    # Redis
-    redis_url = cfg.get("cache", {}).get("redis_url", "")
-    if redis_url:
-        try:
-            import redis as redis_lib
-
-            r = redis_lib.from_url(redis_url, socket_timeout=3)
-            r.ping()
-            r.close()
-            status["redis"] = {"status": "ok"}
-        except Exception as e:
-            status["redis"] = {"status": "error", "message": str(e)[:100]}
-    else:
-        status["redis"] = {"status": "unconfigured"}
 
     # GitHub App
     gh_cfg = cfg.get("integrations", {}).get("github", {})

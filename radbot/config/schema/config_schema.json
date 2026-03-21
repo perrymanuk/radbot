@@ -313,11 +313,6 @@
           "description": "Minimum tokens in response to cache",
           "minimum": 0,
           "default": 50
-        },
-        "redis_url": {
-          "type": ["string", "null"],
-          "description": "Redis connection URL for global cache",
-          "default": null
         }
       }
     },

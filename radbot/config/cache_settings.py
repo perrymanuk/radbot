@@ -16,8 +16,6 @@ def get_cache_config() -> Dict[str, Any]:
     - RADBOT_CACHE_MAX_SIZE: Maximum entries in session cache (default: 1000)
     - RADBOT_CACHE_SELECTIVE: Only cache eligible requests (default: true)
     - RADBOT_CACHE_MIN_TOKENS: Minimum tokens in response to cache (default: 50)
-    - REDIS_URL: Redis connection URL for global cache (default: None)
-
     Returns:
         Dictionary of cache configuration settings
     """
@@ -45,5 +43,4 @@ def get_cache_config() -> Dict[str, Any]:
         "max_size": parse_int("RADBOT_CACHE_MAX_SIZE", 1000),
         "selective": parse_bool("RADBOT_CACHE_SELECTIVE", True),
         "min_tokens": parse_int("RADBOT_CACHE_MIN_TOKENS", 50),
-        "redis_url": os.getenv("REDIS_URL"),
     }

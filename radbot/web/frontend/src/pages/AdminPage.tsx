@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 // Panel imports
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
 import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel } from "@/components/admin/panels/ConnectionPanels";
-import { PostgresqlPanel, QdrantPanel, RedisPanel } from "@/components/admin/panels/InfrastructurePanels";
+import { PostgresqlPanel, QdrantPanel } from "@/components/admin/panels/InfrastructurePanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
 import { NtfyPanel } from "@/components/admin/panels/NotificationPanels";
 import { SchedulerPanel, WebhooksPanel } from "@/components/admin/panels/AutomationPanels";
@@ -40,7 +40,6 @@ const NAV_ITEMS: NavItem[] = [
   // Infrastructure
   { id: "postgresql", label: "PostgreSQL", group: "Infrastructure", statusKey: "postgresql" },
   { id: "qdrant", label: "Qdrant", group: "Infrastructure", statusKey: "qdrant" },
-  { id: "redis", label: "Redis", group: "Infrastructure", statusKey: "redis" },
   // Media & Voice
   { id: "tts", label: "Text-to-Speech", group: "Media & Voice", statusKey: "tts" },
   { id: "stt", label: "Speech-to-Text", group: "Media & Voice", statusKey: "stt" },
@@ -75,7 +74,6 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   filesystem: FilesystemPanel,
   postgresql: PostgresqlPanel,
   qdrant: QdrantPanel,
-  redis: RedisPanel,
   tts: TTSPanel,
   stt: STTPanel,
   ntfy: NtfyPanel,

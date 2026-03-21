@@ -281,7 +281,6 @@ class ConfigLoader:
                 "selective": os.getenv("RADBOT_CACHE_SELECTIVE", "TRUE").upper()
                 in ("TRUE", "YES", "1"),
                 "min_tokens": int(os.getenv("RADBOT_CACHE_MIN_TOKENS", "50")),
-                "redis_url": os.getenv("REDIS_URL"),
             },
             "integrations": {
                 "home_assistant": {

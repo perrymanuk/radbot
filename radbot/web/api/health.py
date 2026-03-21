@@ -86,23 +86,6 @@ async def detailed_health_check(response: Response):
         # Actually, for an agent, memory is pretty critical. Let's fail it.
         overall_status = "error"
 
-    # 4. Check Redis (Optional/Cache)
-    redis_url = config_loader.get_config().get("cache", {}).get("redis_url")
-    if redis_url:
-        try:
-            import redis
-            r = redis.from_url(redis_url, socket_timeout=1)
-            if r.ping():
-                components["redis"] = ComponentStatus(status="ok")
-            else:
-                components["redis"] = ComponentStatus(status="error", message="Ping failed")
-        except Exception as e:
-            components["redis"] = ComponentStatus(status="error", message=str(e))
-            # Redis is usually optional/cache, so maybe just warning or error without failing overall?
-            # Let's keep it as error in component but overall status depends on criticality.
-            # Assuming cache is enhancement, not critical.
-            pass
-    
     # Determine final status code
     if overall_status != "ok":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

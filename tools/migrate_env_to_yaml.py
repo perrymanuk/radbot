@@ -28,7 +28,6 @@ SENSITIVE_VARS = {
     "GOOGLE_API_KEY", 
     "GEMINI_API_KEY",
     "GOOGLE_GENAI_API_KEY",
-    "REDIS_PASSWORD",
     "POSTGRES_PASSWORD",
     "DB_PASSWORD",
     "GOOGLE_APPLICATION_CREDENTIALS"  # Service account file path
@@ -55,8 +54,6 @@ ENV_TO_CONFIG_MAP = {
     "RADBOT_CACHE_MAX_SIZE": ["cache", "max_size"],
     "RADBOT_CACHE_SELECTIVE": ["cache", "selective"],
     "RADBOT_CACHE_MIN_TOKENS": ["cache", "min_tokens"],
-    "REDIS_URL": ["cache", "redis_url"],
-    
     # Database section
     "POSTGRES_HOST": ["database", "host"],
     "POSTGRES_PORT": ["database", "port"],
