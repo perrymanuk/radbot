@@ -1,0 +1,17 @@
+# E2E test override — uses a separate database to avoid
+# clobbering the local dev instance's data.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
+#
+# The init script creates the radbot_e2e database if it doesn't exist.
+# The dev database (radbot) is untouched.
+
+services:
+  postgres:
+    volumes:
+      - ./docker/init-e2e-db.sh:/docker-entrypoint-initdb.d/init-e2e-db.sh:ro
+
+  radbot:
+    environment:
+      POSTGRES_DB: radbot_e2e

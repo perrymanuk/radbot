@@ -40,16 +40,30 @@ If any check fails, report clearly and stop.
 
 ### 1. Start the Docker Stack
 
-The Docker compose stack provides PostgreSQL, Qdrant, and the RadBot service. Start it
-and wait for health checks:
+The Docker compose stack provides PostgreSQL, Qdrant, and the RadBot service.
+The e2e override (`docker-compose.e2e.yml`) uses a separate `radbot_e2e` database
+so e2e tests never touch the local dev database.
+
+Use this compose command for ALL docker compose operations in this skill:
 
 ```bash
-docker compose up -d --build --wait
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
 ```
 
-### 2. Seed Credentials
+### 2. Seed Credentials (if needed)
 
-Seed the Docker stack with credentials from the local dev database:
+Check if the e2e database already has credentials seeded from a previous run.
+If the health endpoint responds AND the admin status shows `google: ok`, skip
+seeding and restart — just proceed to step 4.
+
+```bash
+# Quick check: is the stack already seeded?
+SEEDED=$(curl -sf -H "Authorization: Bearer $(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-)" \
+  http://localhost:${RADBOT_EXPOSED_PORT:-8001}/admin/api/status 2>/dev/null \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('google',{}).get('status',''))" 2>/dev/null)
+```
+
+If `$SEEDED` is NOT `ok`, seed credentials from the local dev database:
 
 ```bash
 RADBOT_ENV=dev uv run python scripts/seed_docker_credentials.py \
@@ -60,11 +74,11 @@ RADBOT_ENV=dev uv run python scripts/seed_docker_credentials.py \
 
 ### 3. Restart RadBot to Pick Up Credentials
 
-The radbot container initializes the agent (including API key setup) at startup,
-before credentials are seeded. Restart it so it picks up the seeded credentials:
+Only needed if credentials were seeded in step 2. The radbot container initializes
+the agent at startup before credentials are seeded, so restart to pick them up:
 
 ```bash
-docker compose restart radbot
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml restart radbot
 ```
 
 Then poll the health endpoint until ready (timeout after 60s):
@@ -237,17 +251,22 @@ Save a compact run summary to `reports/e2e-analysis-history/run-{YYYYMMDD-HHMMSS
 After reports are generated:
 
 1. Clean up the team using `TeamDelete`
-2. Tear down the Docker stack:
+2. Stop the Docker stack (preserve volumes so credentials persist for next run):
 
 ```bash
-docker compose down --volumes --remove-orphans 2>/dev/null || true
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml down --remove-orphans 2>/dev/null || true
 ```
+
+**Do NOT use `--volumes`** — the e2e database is separate from the dev database
+and credentials persist between runs, making subsequent runs faster.
 
 Print a summary of where reports were written.
 
 ## Important Notes
 
-- The compose file is `docker-compose.yml` (not a separate e2e file)
+- Always use BOTH compose files: `docker compose -f docker-compose.yml -f docker-compose.e2e.yml`
+- The e2e override uses `radbot_e2e` database, separate from the dev `radbot` database
+- Do NOT use `--volumes` on teardown — volumes persist so credentials carry over between runs
 - The RadBot health endpoint is `http://localhost:${RADBOT_EXPOSED_PORT:-8001}/health`
 - The admin status endpoint is `http://localhost:${RADBOT_EXPOSED_PORT:-8001}/admin/api/status`
 - Container logs are structured JSON (one JSON object per line)
