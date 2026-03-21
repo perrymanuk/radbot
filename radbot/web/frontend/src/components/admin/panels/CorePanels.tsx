@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAdminStore } from "@/stores/admin-store";
+import * as adminApi from "@/lib/admin-api";
 import {
   FormInput,
   FormToggle,
@@ -12,12 +13,25 @@ import {
   Note,
 } from "@/components/admin/FormFields";
 
-const MODEL_OPTIONS = [
-  "gemini-3.0-pro",
+const FALLBACK_MODELS = [
   "gemini-2.5-pro",
   "gemini-2.5-flash",
-  "gemini-2.0-flash",
 ];
+
+/** Shared hook: fetches available models from the API once per mount. */
+function useModelOptions() {
+  const { token } = useAdminStore();
+  const [models, setModels] = useState<string[]>(FALLBACK_MODELS);
+
+  useEffect(() => {
+    if (!token) return;
+    adminApi.listModels(token).then((m) => {
+      if (m.length > 0) setModels(m);
+    }).catch(() => {/* keep fallback */});
+  }, [token]);
+
+  return models;
+}
 
 // Display labels and their config keys in agent_models
 const OVERRIDE_AGENTS = [
@@ -182,6 +196,7 @@ export function GooglePanel() {
 
 export function AgentModelsPanel() {
   const { liveConfig, loadLiveConfig, mergeConfigSection, toast } = useAdminStore();
+  const modelOptions = useModelOptions();
 
   const [mainModel, setMainModel] = useState("");
   const [subAgentModel, setSubAgentModel] = useState("");
@@ -257,14 +272,14 @@ export function AgentModelsPanel() {
             value={mainModel}
             onChange={setMainModel}
             placeholder="gemini-2.5-pro"
-            datalist={MODEL_OPTIONS}
+            datalist={modelOptions}
           />
           <FormInput
             label="Sub-Agent Default Model"
             value={subAgentModel}
             onChange={setSubAgentModel}
             placeholder="gemini-2.5-flash"
-            datalist={MODEL_OPTIONS}
+            datalist={modelOptions}
           />
         </FormRow>
         <FormInput
@@ -306,7 +321,7 @@ export function AgentModelsPanel() {
                   value={overrides[agent] || ""}
                   onChange={(v) => setOverride(agent, v)}
                   placeholder="(default)"
-                  datalist={MODEL_OPTIONS}
+                  datalist={modelOptions}
                 />
               ))}
             </div>

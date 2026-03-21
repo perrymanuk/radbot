@@ -106,6 +106,12 @@ export async function getStatus(token: string): Promise<IntegrationStatus> {
   return adminFetch("/admin/api/status", { token });
 }
 
+// ── Models ──────────────────────────────────────────────
+export async function listModels(token: string): Promise<string[]> {
+  const data = await adminFetch<{ models: string[] }>("/admin/api/models", { token });
+  return data.models;
+}
+
 // ── Gmail ────────────────────────────────────────────────
 export async function getGmailAccounts(token: string): Promise<{ accounts: any[]; error?: string }> {
   return adminFetch("/admin/api/gmail/accounts", { token });

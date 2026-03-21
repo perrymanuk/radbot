@@ -621,6 +621,44 @@ async def test_google(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Connection failed: {e}")
 
 
+@router.get("/api/models")
+async def list_models(_: None = Depends(_verify_admin)):
+    """List available Gemini models that support content generation."""
+    api_key = ""
+    store = get_credential_store()
+    if store.available:
+        api_key = store.get("google_api_key") or ""
+    if not api_key:
+        try:
+            from radbot.config.config_loader import config_loader
+
+            api_key = config_loader.get_config().get("api_keys", {}).get("google", "")
+        except Exception:
+            pass
+    if not api_key:
+        return {"models": []}
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=api_key)
+        model_names = []
+        for m in client.models.list():
+            name = m.name or ""
+            # Strip "models/" prefix if present
+            if name.startswith("models/"):
+                name = name[7:]
+            # Only include gemini models that support generateContent
+            actions = m.supported_actions or []
+            if name.startswith("gemini") and "generateContent" in actions:
+                model_names.append(name)
+        # Sort: newest/highest version first, then alphabetical
+        model_names.sort(reverse=True)
+        return {"models": model_names}
+    except Exception as e:
+        logger.warning("Failed to list models: %s", e)
+        return {"models": []}
+
+
 @router.post("/api/test/gmail/{account}")
 async def test_gmail(account: str, _: None = Depends(_verify_admin)):
     """Test Gmail token for a specific account."""
