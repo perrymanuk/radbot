@@ -95,6 +95,25 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
 // ── Main Admin Page ────────────────────────────────────────
 export default function AdminPage() {
   const authenticated = useAdminStore((s) => s.authenticated);
+  const token = useAdminStore((s) => s.token);
+  const [checking, setChecking] = useState(() => !!token && !authenticated);
+
+  useEffect(() => {
+    if (!checking) return;
+    const unsub = useAdminStore.subscribe((s) => {
+      if (s.authenticated || !s.token) setChecking(false);
+    });
+    const t = setTimeout(() => setChecking(false), 3000);
+    return () => { unsub(); clearTimeout(t); };
+  }, [checking]);
+
+  if (checking) {
+    return (
+      <div className="fixed inset-0 bg-[#1a1a2e] z-[1000] flex items-center justify-center">
+        <div className="text-[#999] text-sm">Authenticating…</div>
+      </div>
+    );
+  }
 
   if (!authenticated) return <AuthOverlay />;
 

@@ -216,3 +216,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   loading: false,
   error: null,
 }));
+
+// Auto-authenticate on load if token exists in sessionStorage
+const { token } = useAdminStore.getState();
+if (token) {
+  useAdminStore.getState().authenticate();
+}

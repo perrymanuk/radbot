@@ -355,8 +355,8 @@ class ConfigLoader:
                 if not name.startswith("config:"):
                     continue
                 section = name[len("config:") :]
-                if section in ("database", "vector_db"):
-                    continue  # never override infra bootstrap from the store
+                if section == "database":
+                    continue  # never override DB bootstrap from the store
                 raw = store.get(name)
                 if raw:
                     try:
