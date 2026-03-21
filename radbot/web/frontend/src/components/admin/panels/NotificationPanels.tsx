@@ -26,6 +26,7 @@ export function NtfyPanel() {
   const [accessToken, setAccessToken] = useState("");
   const [defaultPriority, setDefaultPriority] = useState("default");
   const [clickBaseUrl, setClickBaseUrl] = useState("");
+  const [subscribeTopics, setSubscribeTopics] = useState("");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
@@ -38,18 +39,24 @@ export function NtfyPanel() {
       setAccessToken(ntfy.token ? "***" : "");
       setDefaultPriority(ntfy.default_priority ?? "default");
       setClickBaseUrl(ntfy.click_base_url ?? "");
+      setSubscribeTopics((ntfy.subscribe_topics ?? []).join(", "));
     });
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
     try {
+      const subTopics = subscribeTopics
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
       const payload: Record<string, any> = {
         enabled,
         url,
         topic,
         default_priority: defaultPriority,
         click_base_url: clickBaseUrl,
+        subscribe_topics: subTopics,
       };
       // Only send token if user changed it (not the masked value)
       if (accessToken && accessToken !== "***") {
@@ -128,6 +135,12 @@ export function NtfyPanel() {
           value={clickBaseUrl}
           onChange={setClickBaseUrl}
           placeholder="https://radbot.example.com"
+        />
+        <FormInput
+          label="Subscribe Topics (for alerts)"
+          value={subscribeTopics}
+          onChange={setSubscribeTopics}
+          placeholder="alerts (comma-separated, for alert ingestion)"
         />
         <ActionBar
           onSave={handleSave}

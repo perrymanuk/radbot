@@ -167,11 +167,13 @@ class SessionRunner:
 
         logger.debug("===============================")
 
-    async def process_message(self, message: str) -> dict:
+    async def process_message(self, message: str, run_config=None) -> dict:
         """Process a user message and return the agent's response with event data.
 
         Args:
             message: The user's message text
+            run_config: Optional ``RunConfig`` passed through to ``runner.run_async()``.
+                        Use to set ``max_llm_calls`` or other per-request limits.
 
         Returns:
             Dictionary containing the agent's response text and event data
@@ -271,7 +273,8 @@ class SessionRunner:
             for attempt in range(MAX_RETRIES):
                 events = []
                 async for event in self.runner.run_async(
-                    user_id=self.user_id, session_id=session.id, new_message=user_message
+                    user_id=self.user_id, session_id=session.id, new_message=user_message,
+                    run_config=run_config,
                 ):
                     events.append(event)
 

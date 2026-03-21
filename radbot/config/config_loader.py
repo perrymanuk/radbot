@@ -331,11 +331,15 @@ class ConfigLoader:
                 import json as _json
 
                 db_config = _json.loads(full_json)
-                # Preserve the database section from file config (bootstrap)
-                db_section = self.config.get("database")
+                # Preserve infrastructure sections from file config (bootstrap).
+                # These are deployment-specific (docker-compose vs Nomad) and
+                # must not be overridden by DB entries from another environment.
+                preserved = {}
+                for key in ("database", "vector_db"):
+                    if key in self.config:
+                        preserved[key] = self.config[key]
                 self.config = self._deep_merge(self.config, db_config)
-                if db_section:
-                    self.config["database"] = db_section
+                self.config.update(preserved)
                 logger.info("Loaded full config override from credential store")
                 return
 
@@ -351,8 +355,8 @@ class ConfigLoader:
                 if not name.startswith("config:"):
                     continue
                 section = name[len("config:") :]
-                if section == "database":
-                    continue  # never override DB bootstrap from the store
+                if section in ("database", "vector_db"):
+                    continue  # never override infra bootstrap from the store
                 raw = store.get(name)
                 if raw:
                     try:

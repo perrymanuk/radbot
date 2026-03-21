@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
 import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel } from "@/components/admin/panels/ConnectionPanels";
 import { PostgresqlPanel, QdrantPanel } from "@/components/admin/panels/InfrastructurePanels";
+import { NomadPanel, AlertmanagerPanel } from "@/components/admin/panels/AlertmanagerPanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
 import { NtfyPanel } from "@/components/admin/panels/NotificationPanels";
 import { SchedulerPanel, WebhooksPanel } from "@/components/admin/panels/AutomationPanels";
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   // Infrastructure
   { id: "postgresql", label: "PostgreSQL", group: "Infrastructure", statusKey: "postgresql" },
   { id: "qdrant", label: "Qdrant", group: "Infrastructure", statusKey: "qdrant" },
+  { id: "nomad", label: "Nomad", group: "Infrastructure", statusKey: "nomad" },
   // Media & Voice
   { id: "tts", label: "Text-to-Speech", group: "Media & Voice", statusKey: "tts" },
   { id: "stt", label: "Speech-to-Text", group: "Media & Voice", statusKey: "stt" },
@@ -48,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
   // Automation
   { id: "scheduler", label: "Scheduler", group: "Automation" },
   { id: "webhooks", label: "Webhooks", group: "Automation" },
+  { id: "alertmanager", label: "Alertmanager", group: "Automation", statusKey: "alertmanager" },
   // Developer
   { id: "github_app", label: "GitHub App", group: "Developer", statusKey: "github" },
   { id: "claude_code", label: "Claude Code", group: "Developer", statusKey: "claude_code" },
@@ -74,11 +77,13 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   filesystem: FilesystemPanel,
   postgresql: PostgresqlPanel,
   qdrant: QdrantPanel,
+  nomad: NomadPanel,
   tts: TTSPanel,
   stt: STTPanel,
   ntfy: NtfyPanel,
   scheduler: SchedulerPanel,
   webhooks: WebhooksPanel,
+  alertmanager: AlertmanagerPanel,
   github_app: GitHubAppPanel,
   claude_code: ClaudeCodePanel,
   sanitization: SanitizationPanel,
@@ -125,7 +130,18 @@ function AuthOverlay() {
         <p className="text-[#999] text-sm mb-6">Enter your admin token</p>
         {error && <div className="text-[#c0392b] text-sm mb-3">{error}</div>}
         <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value="admin"
+          readOnly
+          hidden
+        />
+        <input
           type="password"
+          name="password"
+          id="admin-token"
+          autoComplete="current-password"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Token"

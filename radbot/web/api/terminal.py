@@ -108,17 +108,20 @@ class TerminalManager:
         env = os.environ.copy()
         token_injected = False
 
-        # 1. Try CLAUDE_CODE_OAUTH_TOKEN (works for both interactive + --print)
+        # 1. Resolve auth token (API key or OAuth) from config/env
         try:
-            from radbot.tools.claude_code.claude_code_client import _get_oauth_token
+            from radbot.tools.claude_code.claude_code_client import _get_auth_token
 
-            token = _get_oauth_token()
+            token, kind = _get_auth_token()
             if token:
-                env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+                if kind == "api_key":
+                    env["ANTHROPIC_API_KEY"] = token
+                else:
+                    env["CLAUDE_CODE_OAUTH_TOKEN"] = token
                 token_injected = True
-                logger.info("Terminal: injected CLAUDE_CODE_OAUTH_TOKEN from credential store")
+                logger.info("Terminal: injected Claude Code %s token", kind)
         except Exception as e:
-            logger.warning("Terminal: failed to get OAuth token: %s", e)
+            logger.warning("Terminal: failed to get auth token: %s", e)
 
         # 2. Also try ANTHROPIC_API_KEY as fallback
         if not token_injected:

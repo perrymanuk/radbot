@@ -22,12 +22,24 @@ _MAX_OUTPUT_CHARS = 200_000
 _DEFAULT_TIMEOUT = 600
 
 
-def _get_oauth_token() -> Optional[str]:
-    """Resolve the Claude Code OAuth token from credential store or env."""
-    token = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
-    if token:
-        return token
+def _get_auth_token() -> tuple[Optional[str], str]:
+    """Resolve the Claude Code auth token and its type.
 
+    Returns:
+        (token, kind) where kind is ``"api_key"`` or ``"oauth"``.
+        API keys (``sk-ant-*``) go into ``ANTHROPIC_API_KEY``;
+        everything else is treated as an OAuth token.
+    """
+    # 1. Explicit env vars
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
+        return api_key, "api_key"
+
+    oauth = os.environ.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if oauth:
+        return oauth, "oauth"
+
+    # 2. Credential store (admin UI saves here as "claude_code_oauth_token")
     try:
         from radbot.credentials.store import get_credential_store
 
@@ -35,12 +47,37 @@ def _get_oauth_token() -> Optional[str]:
         if store.available:
             token = store.get("claude_code_oauth_token")
             if token:
-                logger.debug("Claude Code: Using OAuth token from credential store")
-                return token
+                # sk-ant-api* = API key, everything else = OAuth
+                kind = "api_key" if token.startswith("sk-ant-api") else "oauth"
+                logger.debug(f"Claude Code: Using {kind} token from credential store")
+                return token, kind
     except Exception as e:
         logger.debug(f"Claude Code credential store lookup failed: {e}")
 
-    return None
+    return None, "oauth"
+
+
+def _write_auth_token_files(token: str) -> None:
+    """Write the OAuth token to the file path Claude Code checks at startup.
+
+    Claude Code reads from /home/claude/.claude/remote/.oauth_token.
+    The container filesystem is ephemeral, so we write before each invocation.
+    We must NOT write to .api_key — that would cause Claude Code to use the
+    token in the API-key auth path instead of the OAuth path.
+    """
+    base = "/home/claude/.claude/remote"
+    token_path = os.path.join(base, ".oauth_token")
+    try:
+        os.makedirs(base, mode=0o700, exist_ok=True)
+        # Remove stale .api_key if it exists to avoid auth path confusion
+        api_key_path = os.path.join(base, ".api_key")
+        if os.path.exists(api_key_path):
+            os.remove(api_key_path)
+        with open(token_path, "w") as f:
+            f.write(token)
+        os.chmod(token_path, 0o600)
+    except Exception as e:
+        logger.debug(f"Failed to write token to {token_path}: {e}")
 
 
 def _claude_cli_available() -> bool:
@@ -52,7 +89,10 @@ class ClaudeCodeClient:
     """Async wrapper for the Claude Code CLI."""
 
     def __init__(self, oauth_token: Optional[str] = None):
-        self._oauth_token = oauth_token or _get_oauth_token()
+        if oauth_token:
+            self._token = oauth_token
+        else:
+            self._token, _ = _get_auth_token()
 
     async def run_plan(
         self,
@@ -76,7 +116,7 @@ class ClaudeCodeClient:
         Returns:
             Dict with output, session_id, return_code, stderr
         """
-        cmd = ["claude", "--print", "--output-format", "stream-json"]
+        cmd = ["claude", "--print", "--verbose", "--output-format", "stream-json"]
         if session_id:
             cmd.extend(["--resume", session_id])
         cmd.extend(["-p", prompt])
@@ -106,6 +146,7 @@ class ClaudeCodeClient:
         cmd = [
             "claude",
             "--print",
+            "--verbose",
             "--output-format",
             "stream-json",
             "--dangerously-skip-permissions",
@@ -127,8 +168,19 @@ class ClaudeCodeClient:
         events. Extracts session_id from the output for --resume support.
         """
         env = os.environ.copy()
-        if self._oauth_token:
-            env["CLAUDE_CODE_OAUTH_TOKEN"] = self._oauth_token
+        if self._token:
+            if self._token.startswith("sk-ant-api"):
+                # Standard Anthropic API key (sk-ant-api*)
+                env["ANTHROPIC_API_KEY"] = self._token
+            else:
+                # OAuth token (sk-ant-oat*) or setup-token: use OAuth path.
+                # ANTHROPIC_API_KEY must NOT be set — it disables OAuth mode.
+                env["CLAUDE_CODE_OAUTH_TOKEN"] = self._token
+                _write_auth_token_files(self._token)
+        # Allow --dangerously-skip-permissions when running as root inside a
+        # container.  Claude Code checks for IS_SANDBOX=1 to permit this.
+        if os.getuid() == 0:
+            env["IS_SANDBOX"] = "1"
 
         logger.info(
             "Running Claude Code: %s (cwd=%s)",
@@ -242,7 +294,8 @@ class ClaudeCodeClient:
 def get_claude_code_status() -> Dict[str, Any]:
     """Check whether Claude Code CLI is available and token is configured."""
     cli_available = _claude_cli_available()
-    token_configured = bool(_get_oauth_token())
+    token, _ = _get_auth_token()
+    token_configured = bool(token)
 
     if not cli_available:
         return {

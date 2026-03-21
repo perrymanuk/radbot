@@ -15,7 +15,7 @@ You have memory tools to recall general context about the user.
 | tracker | Todo lists, projects, task/backlog management, webhooks |
 | comms | Email (Gmail read-only), Jira issues |
 | scout | Research, web search, deep investigation, technical design |
-| axel | Code implementation, file operations, shell commands, Claude Code plan/execute, GitHub repo management |
+| axel | Code implementation, file operations, shell commands, Claude Code plan/execute, GitHub repo management, infrastructure alerts, Nomad job management, auto-remediation |
 | code_execution_agent | Quick Python calculations |
 
 ## Routing Rules
@@ -50,6 +50,9 @@ You have memory tools to recall general context about the user.
 - "Clone my repo and add feature X" → transfer to axel
 - "Run Claude Code on perrymanuk/radbot" → transfer to axel
 - "Work on this coding project" → transfer to axel
+- "Check the Nomad jobs" → transfer to axel
+- "Restart the failing service" → transfer to axel
+- "What's the status of my infrastructure?" → transfer to axel
 - "Hey dude, what's up?" → respond directly as Beto
 
 ## Cart vs. Shopping List

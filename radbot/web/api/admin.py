@@ -263,6 +263,21 @@ async def save_config_section(
         except Exception:
             pass
         try:
+            from radbot.tools.nomad.nomad_client import reset_nomad_client
+
+            reset_nomad_client()
+        except Exception:
+            pass
+        # Restart ntfy subscriber with updated config (subscribe_topics may have changed)
+        try:
+            import asyncio
+
+            from radbot.tools.ntfy.ntfy_subscriber import start_ntfy_subscriber
+
+            asyncio.create_task(start_ntfy_subscriber())
+        except Exception:
+            pass
+        try:
             from radbot.filesystem.adapter import reload_filesystem_config
 
             reload_filesystem_config()
@@ -1092,6 +1107,32 @@ async def test_claude_code(request: Request, _: None = Depends(_verify_admin)):
 
 
 
+@router.post("/api/test/nomad")
+async def test_nomad(request: Request, _: None = Depends(_verify_admin)):
+    """Test Nomad API connectivity using the configured address and token."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    addr = body.get("addr", "").strip()
+    token = body.get("token", "").strip()
+
+    if not addr:
+        return _err("Nomad address is required")
+
+    try:
+        from radbot.tools.nomad.nomad_client import NomadClient
+
+        client = NomadClient(addr=addr, token=token)
+        result = await client.test()
+        member = result.get("member", {})
+        name = member.get("Name", "unknown")
+        return _ok(f"Connected to Nomad agent: {name}", agent_name=name)
+    except Exception as e:
+        return _err(f"Nomad connection failed: {e}")
+
+
 # ------------------------------------------------------------------
 # Telemetry endpoints
 # ------------------------------------------------------------------
@@ -1304,6 +1345,22 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         status["claude_code"] = {"status": "ok"}
     else:
         status["claude_code"] = {"status": "unconfigured"}
+
+    # Nomad (token is optional — not all clusters have ACL enabled)
+    nomad_cfg = cfg.get("integrations", {}).get("nomad", {})
+    nomad_addr = nomad_cfg.get("addr") or os.environ.get("NOMAD_ADDR", "")
+    if nomad_addr:
+        status["nomad"] = {"status": "ok"}
+    else:
+        status["nomad"] = {"status": "unconfigured"}
+
+    # Alertmanager (check if ntfy subscribe topic is configured)
+    ntfy_cfg = cfg.get("integrations", {}).get("ntfy", {})
+    subscribe_topics = ntfy_cfg.get("subscribe_topics", [])
+    if subscribe_topics:
+        status["alertmanager"] = {"status": "ok", "message": f"Subscribed to: {', '.join(subscribe_topics)}"}
+    else:
+        status["alertmanager"] = {"status": "unconfigured"}
 
     # PostgreSQL — always ok if we got this far (admin page loaded)
     status["postgresql"] = {"status": "ok"}

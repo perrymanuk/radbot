@@ -173,6 +173,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     const { token } = get();
     await adminApi.saveConfigSection(token, section, data);
     get().invalidateLiveConfig();
+    get().loadStatus();
   },
 
   mergeConfigSection: async (section, patch) => {
@@ -191,6 +192,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     const merged = deepMerge(current, patch);
     await adminApi.saveConfigSection(token, section, merged);
     get().invalidateLiveConfig();
+    get().loadStatus();
   },
 
   saveCredential: async (name, value, type = "api_key", description) => {

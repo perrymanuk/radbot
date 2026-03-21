@@ -66,6 +66,8 @@ class NtfyClient:
 
     # Valid ntfy priority values
     PRIORITIES = {"min", "low", "default", "high", "max"}
+    # JSON API uses integer priorities
+    PRIORITY_NAMES = {"min": 1, "low": 2, "default": 3, "high": 4, "max": 5}
 
     def __init__(
         self,
@@ -108,27 +110,29 @@ class NtfyClient:
         Returns:
             The ntfy API response dict on success, or None on failure.
         """
-        url = f"{self.server_url}/{self.topic}"
+        url = self.server_url
 
-        # Build headers for this request
-        headers = dict(self._headers)
-        headers["Title"] = title[:256]
-
+        # Use JSON body instead of headers to avoid ASCII encoding
+        # issues with unicode characters (emoji etc.) in titles/messages.
         prio = priority if priority in self.PRIORITIES else self.default_priority
-        headers["Priority"] = prio
+        payload: Dict[str, Any] = {
+            "topic": self.topic,
+            "title": title[:256],
+            "message": (message[:2000] if message else "(no content)"),
+            "priority": self.PRIORITY_NAMES.get(prio, 3),
+        }
 
         if tags:
-            headers["Tags"] = tags
+            payload["tags"] = [t.strip() for t in tags.split(",")]
 
         if session_id and self.click_base_url:
-            headers["Click"] = f"{self.click_base_url}/?session={session_id}"
+            payload["click"] = f"{self.click_base_url}/?session={session_id}"
 
-        # Truncate body
-        body = message[:2000] if message else "(no content)"
+        headers = dict(self._headers)
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(url, content=body, headers=headers)
+                resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
                     logger.info(f"ntfy notification sent: {title[:60]}")
                     return resp.json()

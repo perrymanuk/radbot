@@ -108,6 +108,15 @@ def create_execution_agent(
     except Exception as e:
         logger.warning(f"Failed to add Claude Code tools to Axel: {e}")
 
+    # Add Nomad infrastructure tools
+    try:
+        from radbot.tools.nomad import NOMAD_TOOLS
+
+        agent_tools.extend(NOMAD_TOOLS)
+        logger.info(f"Added {len(NOMAD_TOOLS)} Nomad tools to Axel")
+    except Exception as e:
+        logger.warning(f"Failed to add Nomad tools to Axel: {e}")
+
     # Add artifacts loading tool
     try:
         from google.adk.tools import load_artifacts

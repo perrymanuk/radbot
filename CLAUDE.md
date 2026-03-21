@@ -131,7 +131,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
 | **scout** | `agent/research_agent/factory.py` | 2 memory | Technical research, design collab |
-| **axel** | `agent/execution_agent/factory.py` | 11 exec + 4 fs + MCP + shell + 6 claude_code + 2 memory | Implementation, shell, files, Claude Code, GitHub |
+| **axel** | `agent/execution_agent/factory.py` | 11 exec + 4 fs + MCP + shell + 6 claude_code + 7 nomad + 2 memory | Implementation, shell, files, Claude Code, GitHub, Nomad, alert remediation |
 | **search_agent** | `tools/adk_builtin/search_tool.py` | 1 google_search | Google Search grounding |
 | **code_execution_agent** | `tools/adk_builtin/code_execution_tool.py` | BuiltInCodeExecutor | Python code execution |
 
@@ -161,13 +161,15 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/shell/` | `shell_tool.py`, `shell_command.py` | `shell_command_tool` (via `get_shell_tool()`) | Shell execution |
 | `tools/adk_builtin/` | `search_tool.py`, `code_execution_tool.py` | Agent factories (not direct tools) | ADK search + code exec agents |
 | `tools/mcp/` | `mcp_tools.py`, `dynamic_tools_loader.py` | `create_fileserver_toolset()`, `load_dynamic_mcp_tools()` | MCP server integration |
-| `tools/ntfy/` | `ntfy_client.py` | `NtfyClient` class (async push notifications) | ntfy.sh push notifications |
+| `tools/ntfy/` | `ntfy_client.py`, `ntfy_subscriber.py` | `NtfyClient` class (push), `NtfySubscriber` class (SSE listener) | ntfy.sh push + subscribe |
 | `tools/ollama/` | `ollama_client.py` | `OllamaClient` class (admin model management) | Ollama local LLM server |
 | `tools/tts/` | `tts_service.py` | `TTSService` class (REST only, no FunctionTool) | Google Cloud TTS |
 | `tools/stt/` | `stt_service.py` | `STTService` class (REST only, no FunctionTool) | Google Cloud STT |
 | `tools/specialized/` | `base_toolset.py`, 11 toolset files | `create_specialized_toolset()` | Domain toolsets for sub-agents |
 | `tools/github/` | `github_app_client.py` | `GitHubAppClient` class (JWT auth, clone, push) | GitHub App integration |
 | `tools/claude_code/` | `claude_code_client.py`, `claude_code_tools.py`, `db.py` | `clone_repository`, `claude_code_plan`, `claude_code_continue`, `claude_code_execute`, `commit_and_push`, `list_workspaces` | Claude Code CLI + GitHub workflow |
+| `tools/nomad/` | `nomad_client.py`, `nomad_tools.py` | `list_nomad_jobs`, `get_nomad_job_status`, `get_nomad_allocation_logs`, `restart_nomad_allocation`, `plan_nomad_job_update`, `submit_nomad_job_update`, `check_nomad_service_health` | Nomad HTTP API |
+| `tools/alertmanager/` | `db.py`, `processor.py`, `ntfy_handler.py` | (pipeline, not FunctionTools) | Alert ingestion + autonomous remediation |
 | `tools/shared/` | `db_schema.py`, `errors.py`, `validation.py` | Utilities (no FunctionTools) | Shared helpers |
 
 ---
@@ -187,6 +189,8 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |
 | `chat_messages` | `web/db/chat_operations.py` | `message_id` (UUID), `session_id`, `role`, `content`, `agent_name`, `metadata` (JSONB) |
 | `coder_workspaces` | `tools/claude_code/db.py` | `workspace_id` (UUID), `owner`, `repo`, `branch`, `local_path`, `status`, `last_session_id`, UNIQUE(owner,repo,branch) |
+| `alert_events` | `tools/alertmanager/db.py` | `alert_id` (UUID), `fingerprint`, `alertname`, `status`, `severity`, `instance`, `raw_payload` (JSONB), `remediation_action`, `remediation_result` |
+| `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `user_id`, `preview`, `is_active` |
 
 Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own pool in `web/db/connection.py`.

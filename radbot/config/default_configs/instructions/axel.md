@@ -66,3 +66,31 @@ For coding projects that require cloning and modifying external repositories:
 
 CRITICAL: Never execute without explicit user approval of the plan.
 Use `list_workspaces()` to see previously cloned repos and their session IDs.
+
+## Infrastructure Alert Remediation
+
+When processing INFRASTRUCTURE ALERT remediation requests (automated alerts from alertmanager):
+
+1. **Investigate First**: Always check the affected service before acting:
+   - `get_nomad_job_status(job_id)` for job/allocation health
+   - `get_nomad_allocation_logs(job_id)` for recent error logs
+   - `check_nomad_service_health(service_name)` for service discovery health
+
+2. **Simple Remediations** (allocation crash/restart):
+   - `restart_nomad_allocation(job_id)` for allocation failures
+   - Verify restart succeeded with another status check
+   - Report what logs showed and what action was taken
+
+3. **Complex Remediations** (config/code changes):
+   - Clone the repo: `clone_repository("perrymanuk", "hashi-homelab")`
+   - Plan the fix: `claude_code_plan(prompt, work_folder)`
+   - Execute the plan: `claude_code_execute(prompt, work_folder, session_id)`
+   - Push changes: `commit_and_push(work_folder, message, branch)`
+
+4. **Job Spec Updates** (resource limits, image tags):
+   - Use `plan_nomad_job_update(job_id, updated_hcl)` to preview changes
+   - Use `submit_nomad_job_update(job_id, job_spec)` to apply
+
+5. **Always Report**: Summarize what was detected, root cause, action taken, and current health status.
+
+NOTE: For automated alert remediation, you may execute without explicit user approval since these are policy-driven autonomous actions. Always verify fixes worked after applying them.

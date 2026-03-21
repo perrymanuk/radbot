@@ -50,6 +50,7 @@ from radbot.web.api.terminal import (
 )
 from radbot.web.api.webhooks import router as webhooks_router
 from radbot.web.api.health import router as health_router
+from radbot.web.api.alerts import router as alerts_router
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,7 @@ def create_app():
     app.include_router(scheduler_router)
     app.include_router(webhooks_router)
     app.include_router(health_router)
+    app.include_router(alerts_router)
     app.include_router(tts_router)
     app.include_router(stt_router)
     app.include_router(admin_router)
@@ -190,6 +192,18 @@ async def initialize_app_startup():
         except Exception as coder_err:
             logger.error(
                 f"Error initializing coder workspaces database: {str(coder_err)}",
+                exc_info=True,
+            )
+
+        logger.debug("Initializing alert database schema...")
+        try:
+            from radbot.tools.alertmanager.db import init_alert_schema
+
+            init_alert_schema()
+            logger.debug("Alert database schema initialized")
+        except Exception as alert_err:
+            logger.error(
+                f"Error initializing alert database: {str(alert_err)}",
                 exc_info=True,
             )
 
@@ -340,6 +354,16 @@ async def initialize_app_startup():
                 f"Error starting scheduler engine: {str(engine_err)}", exc_info=True
             )
 
+        # Start ntfy subscriber for alert ingestion
+        logger.debug("Starting ntfy subscriber...")
+        try:
+            from radbot.tools.ntfy.ntfy_subscriber import start_ntfy_subscriber
+
+            await start_ntfy_subscriber()
+            logger.debug("ntfy subscriber started")
+        except Exception as ntfy_err:
+            logger.warning(f"ntfy subscriber startup failed: {ntfy_err}")
+
         # Initialize TTS service (lazy, just load config)
         try:
             from radbot.config import config_loader
@@ -412,6 +436,18 @@ async def shutdown_scheduler():
             logger.info("Scheduler engine shut down")
     except Exception as e:
         logger.error(f"Error shutting down scheduler engine: {e}", exc_info=True)
+
+
+@app.on_event("shutdown")
+async def shutdown_ntfy_subscriber():
+    """Stop the ntfy subscriber on shutdown."""
+    try:
+        from radbot.tools.ntfy.ntfy_subscriber import stop_ntfy_subscriber
+
+        await stop_ntfy_subscriber()
+        logger.info("ntfy subscriber shut down")
+    except Exception as e:
+        logger.error(f"Error shutting down ntfy subscriber: {e}", exc_info=True)
 
 
 @app.on_event("shutdown")

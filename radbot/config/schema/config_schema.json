@@ -579,6 +579,53 @@
             "click_base_url": {
               "type": ["string", "null"],
               "description": "Base URL for notification click-through (e.g. https://radbot.example.com)"
+            },
+            "subscribe_topics": {
+              "type": "array",
+              "description": "ntfy topics to subscribe to for incoming alerts/events",
+              "items": { "type": "string" },
+              "default": []
+            }
+          }
+        },
+        "nomad": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "HashiCorp Nomad integration settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Nomad integration",
+              "default": false
+            },
+            "addr": {
+              "type": ["string", "null"],
+              "description": "Nomad HTTP API address (e.g. http://nomad.service.consul:4646)"
+            },
+            "token": {
+              "type": ["string", "null"],
+              "description": "Nomad ACL token"
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Nomad namespace",
+              "default": "default"
+            }
+          }
+        },
+        "alertmanager": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Alertmanager integration settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable alertmanager integration",
+              "default": true
+            },
+            "webhook_secret": {
+              "type": ["string", "null"],
+              "description": "HMAC secret for direct webhook verification"
             }
           }
         },
