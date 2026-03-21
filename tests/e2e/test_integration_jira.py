@@ -32,3 +32,40 @@ class TestJiraIntegration:
             )
         finally:
             await ws.close()
+
+    async def test_search_jira_issues(self, live_server):
+        """Search Jira issues."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "Search Jira for issues about deployment"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "issue", "jira", "result", "found", "no issue",
+                "deployment", "search",
+            )
+        finally:
+            await ws.close()
+
+    @pytest.mark.writes_external
+    async def test_add_jira_comment(self, live_server):
+        """Add a comment to a Jira issue (requires --run-writes)."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            # First list issues to get a real key
+            r1 = await ws.send_and_wait_response("Show my Jira issues")
+            text1 = assert_response_not_empty(r1)
+
+            # Try to add a comment — may fail if no issues exist
+            result = await ws.send_and_wait_response(
+                "Add a comment to my most recent Jira issue saying 'E2E test comment - please ignore'"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "comment", "added", "jira", "issue", "no issue", "couldn't"
+            )
+        finally:
+            await ws.close()

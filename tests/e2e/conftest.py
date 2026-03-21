@@ -15,9 +15,12 @@ import pytest_asyncio
 from tests.e2e.helpers.service_checks import (
     is_calendar_available,
     is_gemini_available,
+    is_github_available,
     is_gmail_available,
     is_ha_reachable,
     is_jira_reachable,
+    is_nomad_available,
+    is_ntfy_available,
     is_overseerr_reachable,
     is_picnic_available,
     is_stt_available,
@@ -36,6 +39,16 @@ def pytest_configure(config):
             "Use `make test-e2e` to start the Docker stack and run tests, "
             "or set RADBOT_TEST_URL manually for a running instance."
         )
+
+
+def pytest_addoption(parser):
+    """Add custom CLI options."""
+    parser.addoption(
+        "--run-writes",
+        action="store_true",
+        default=False,
+        help="Run tests that mutate external systems (writes_external marker)",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -99,18 +112,20 @@ class CleanupTracker:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def cleanup(client):
+async def cleanup(client, admin_headers):
     """Track and clean up test resources after each test."""
     tracker = CleanupTracker()
     yield tracker
 
-    # Teardown: delete all tracked resources via REST API
+    admin_routes = {"alert_policy"}
+
     delete_routes = {
         "session": "/api/sessions/{id}",
         "task": "/api/tasks/{id}",
         "scheduled_task": "/api/scheduler/tasks/{id}",
         "reminder": "/api/reminders/{id}",
         "webhook": "/api/webhooks/definitions/{id}",
+        "alert_policy": "/api/alerts/policies/{id}",
     }
 
     for resource_type, resource_id in reversed(tracker.items):
@@ -118,9 +133,10 @@ async def cleanup(client):
         if route:
             url = route.format(id=resource_id)
             try:
-                await client.delete(url)
+                headers = admin_headers if resource_type in admin_routes else {}
+                await client.delete(url, headers=headers)
             except Exception:
-                pass  # best-effort cleanup
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +182,21 @@ def stt_available():
     return is_stt_available()
 
 
+@pytest.fixture(scope="session")
+def nomad_available():
+    return is_nomad_available()
+
+
+@pytest.fixture(scope="session")
+def github_available():
+    return is_github_available()
+
+
+@pytest.fixture(scope="session")
+def ntfy_available():
+    return is_ntfy_available()
+
+
 def pytest_collection_modifyitems(config, items):
     """Auto-skip tests based on service availability markers."""
     marker_checks = {
@@ -178,6 +209,9 @@ def pytest_collection_modifyitems(config, items):
         "requires_picnic": is_picnic_available,
         "requires_tts": is_tts_available,
         "requires_stt": is_stt_available,
+        "requires_nomad": is_nomad_available,
+        "requires_github": is_github_available,
+        "requires_ntfy": is_ntfy_available,
     }
 
     _cache = {}
@@ -192,3 +226,12 @@ def pytest_collection_modifyitems(config, items):
                     item.add_marker(
                         pytest.mark.skip(reason=f"{service} service not available")
                     )
+
+    # Skip writes_external tests unless --run-writes is passed
+    run_writes = config.getoption("--run-writes", default=False)
+    if not run_writes:
+        for item in items:
+            if "writes_external" in item.keywords:
+                item.add_marker(
+                    pytest.mark.skip(reason="Skipped without --run-writes flag")
+                )

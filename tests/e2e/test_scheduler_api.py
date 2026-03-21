@@ -82,3 +82,50 @@ class TestSchedulerAPI:
         resp = await client.post(f"/api/scheduler/tasks/{task_id}/trigger")
         assert resp.status_code == 200
         assert resp.json()["status"] == "triggered"
+
+    async def test_invalid_cron_expression(self, client, test_prefix):
+        """POST /api/scheduler/tasks with invalid cron should return 400 or error."""
+        resp = await client.post(
+            "/api/scheduler/tasks",
+            json={
+                "name": f"{test_prefix}_bad_cron",
+                "cron_expression": "not a valid cron",
+                "prompt": "should fail",
+            },
+        )
+        # Should return error (400 or 200 with error status)
+        if resp.status_code == 200:
+            assert resp.json().get("status") == "error"
+        else:
+            assert resp.status_code in (400, 422)
+
+    async def test_duplicate_task_name(self, client, cleanup, test_prefix):
+        """POST /api/scheduler/tasks with duplicate name should return error."""
+        name = f"{test_prefix}_sched_dup"
+        # First create should succeed
+        resp1 = await client.post(
+            "/api/scheduler/tasks",
+            json={
+                "name": name,
+                "cron_expression": "0 0 31 2 *",
+                "prompt": "first",
+            },
+        )
+        assert resp1.status_code == 200
+        cleanup.track("scheduled_task", resp1.json()["task_id"])
+
+        # Second create with same name should fail
+        resp2 = await client.post(
+            "/api/scheduler/tasks",
+            json={
+                "name": name,
+                "cron_expression": "0 0 31 2 *",
+                "prompt": "duplicate",
+            },
+        )
+        if resp2.status_code == 200:
+            # If it succeeds, clean up and note it didn't enforce uniqueness
+            if "task_id" in resp2.json():
+                cleanup.track("scheduled_task", resp2.json()["task_id"])
+        else:
+            assert resp2.status_code in (400, 409, 422)

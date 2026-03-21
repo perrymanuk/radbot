@@ -88,3 +88,15 @@ def is_tts_available() -> bool:
 
 def is_stt_available() -> bool:
     return _docker_check("stt")
+
+
+def is_nomad_available() -> bool:
+    return _docker_check("nomad")
+
+
+def is_github_available() -> bool:
+    return _docker_check("github")
+
+
+def is_ntfy_available() -> bool:
+    return _docker_check("ntfy")

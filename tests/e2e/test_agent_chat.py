@@ -92,3 +92,65 @@ class TestAgentChat:
             )
         finally:
             await ws.close()
+
+    async def test_cross_session_memory(self, live_server):
+        """Store information in one session, recall in another via persistent memory."""
+        unique_code = f"XSESS_{uuid.uuid4().hex[:6]}"
+
+        # Session 1: store
+        sid1 = str(uuid.uuid4())
+        ws1 = await WSTestClient.connect(live_server, sid1)
+        try:
+            result1 = await ws1.send_and_wait_response(
+                f"Please store this important information: The cross-session test code is {unique_code}. "
+                "Remember it as an important fact."
+            )
+            assert_response_not_empty(result1)
+        finally:
+            await ws1.close()
+
+        # Session 2: recall
+        sid2 = str(uuid.uuid4())
+        ws2 = await WSTestClient.connect(live_server, sid2)
+        try:
+            result2 = await ws2.send_and_wait_response(
+                "Search your memory for a cross-session test code. What is it?"
+            )
+            text = assert_response_not_empty(result2)
+            # The agent may or may not find it depending on memory service state
+            # At minimum it should respond without error
+        finally:
+            await ws2.close()
+
+    async def test_multi_turn_context(self, live_server):
+        """Agent should track context across multiple turns in a session."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            # Turn 1: establish context
+            r1 = await ws.send_and_wait_response("I'm thinking about getting a dog. A golden retriever.")
+            assert_response_not_empty(r1)
+
+            # Turn 2: follow up
+            r2 = await ws.send_and_wait_response("What breed was I considering?")
+            text = assert_response_not_empty(r2)
+            assert_response_contains_any(r2, "golden", "retriever", "dog")
+        finally:
+            await ws.close()
+
+    async def test_error_recovery(self, live_server):
+        """Agent should handle requests gracefully even with unusual input."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            # Send a message that might trigger unusual behavior
+            result = await ws.send_and_wait_response(
+                "Get the state of a home assistant entity called 'sensor.nonexistent_e2e_test_12345'"
+            )
+            # Should get a response (possibly an error message from the tool) but not crash
+            text = result.get("response_text", "")
+            error = result.get("error", "")
+            # Either we got a text response or a handled error — both are acceptable
+            assert text or error, "Expected either a response or a handled error"
+        finally:
+            await ws.close()

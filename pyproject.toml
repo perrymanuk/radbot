@@ -100,6 +100,10 @@ markers = [
     "requires_tts: requires Google Cloud TTS",
     "requires_stt: requires Google Cloud STT",
     "mcp_compat: mark test as needing special MCP compatibility handling",
+    "requires_nomad: requires Nomad HTTP API connectivity",
+    "requires_github: requires GitHub App connectivity",
+    "requires_ntfy: requires ntfy.sh connectivity",
+    "writes_external: mutates external systems (skipped without --run-writes)",
 ]
 filterwarnings = [
     "ignore::pytest.PytestUnknownMarkWarning",

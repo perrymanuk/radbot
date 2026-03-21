@@ -144,3 +144,49 @@ class TestAdminAPI:
         db_config = data.get("database", {})
         if db_config.get("password"):
             assert db_config["password"] == "***"
+
+    async def test_admin_models_list(self, client, admin_headers, admin_token):
+        """GET /admin/api/models should return available model names."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.get("/admin/api/models", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "models" in data
+        assert isinstance(data["models"], list)
+
+    async def test_admin_telemetry_usage(self, client, admin_headers, admin_token):
+        """GET /admin/api/telemetry/usage should return usage stats."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.get("/admin/api/telemetry/usage", headers=admin_headers)
+        assert resp.status_code == 200
+
+    async def test_admin_test_google(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/google should test Google API connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/google", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "status" in data
+
+    async def test_admin_test_qdrant(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/qdrant should test Qdrant connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/qdrant", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "status" in data
+
+    async def test_admin_status_has_integrations(self, client, admin_headers, admin_token):
+        """GET /admin/api/status should include per-integration status entries."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.get("/admin/api/status", headers=admin_headers)
+        assert resp.status_code == 200
+        data = resp.json()
+        # Should have at least the google entry
+        assert "google" in data
+        assert "status" in data["google"]

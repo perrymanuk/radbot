@@ -96,3 +96,20 @@ def assert_agent_transferred(ws_result: Dict[str, Any], agent_name: str) -> bool
         if event.get("category") == "agent_transfer" and agent_lower in str(event).lower():
             return True
     return False
+
+
+def assert_no_error(ws_result: Dict[str, Any]) -> None:
+    """Assert the WebSocket result has no error."""
+    _check_gemini_available(ws_result)
+    error = ws_result.get("error", "")
+    assert not error, f"Unexpected error: {error}"
+
+
+def assert_response_matches_pattern(ws_result: Dict[str, Any], pattern: str) -> str:
+    """Assert the response text matches a regex pattern."""
+    import re
+    text = assert_response_not_empty(ws_result)
+    assert re.search(pattern, text, re.IGNORECASE), (
+        f"Response does not match pattern '{pattern}': {text[:200]}"
+    )
+    return text

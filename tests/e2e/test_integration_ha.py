@@ -48,3 +48,51 @@ class TestHomeAssistantIntegration:
             )
         finally:
             await ws.close()
+
+    async def test_ha_list_lights(self, live_server):
+        """Ask to list light entities."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "List all light entities in Home Assistant"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "light", "entity", "entities", "lamp", "bulb", "no light"
+            )
+        finally:
+            await ws.close()
+
+    async def test_ha_nonexistent_entity(self, live_server):
+        """Ask about a nonexistent entity — should handle gracefully."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "What is the state of sensor.nonexistent_e2e_test_entity in Home Assistant?"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "not found", "error", "doesn't exist", "unknown",
+                "no entity", "couldn't find", "unavailable",
+            )
+        finally:
+            await ws.close()
+
+    @pytest.mark.writes_external
+    async def test_ha_toggle_entity(self, live_server):
+        """Toggle a Home Assistant entity (requires --run-writes)."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "Toggle the office light in Home Assistant"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "toggled", "turned", "on", "off", "light", "office",
+                "state", "changed",
+            )
+        finally:
+            await ws.close()
