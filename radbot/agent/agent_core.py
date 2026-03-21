@@ -30,6 +30,12 @@ from radbot.agent.specialized_agent_factory import create_specialized_agents
 # Import sanitization callback
 from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
 
+# Import empty content defense callbacks
+from radbot.callbacks.empty_content_callback import (
+    handle_empty_response_after_model,
+    scrub_empty_content_before_model,
+)
+
 # Import telemetry callback
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.config.config_loader import config_loader
@@ -126,8 +132,8 @@ root_agent = Agent(
     sub_agents=[search_agent, code_execution_agent, scout_agent],
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
-    before_model_callback=sanitize_before_model_callback,
-    after_model_callback=telemetry_after_model_callback,
+    before_model_callback=[scrub_empty_content_before_model, sanitize_before_model_callback],
+    after_model_callback=[handle_empty_response_after_model, telemetry_after_model_callback],
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
 

@@ -44,6 +44,14 @@ def create_scheduled_task(
         On success: {"status": "success", "task_id": "...", "name": "...", "cron_expression": "..."}
         On failure: {"status": "error", "message": "..."}
     """
+    # Validate cron expression before persisting
+    try:
+        from apscheduler.triggers.cron import CronTrigger
+
+        CronTrigger.from_crontab(cron_expression)
+    except (ValueError, KeyError) as e:
+        return {"status": "error", "message": f"Invalid cron expression: {e}"}
+
     try:
         row = scheduler_db.create_task(
             name=name,

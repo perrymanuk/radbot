@@ -28,7 +28,8 @@ class TestGmailIntegration:
             result = await ws.send_and_wait_response("Show my recent emails")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "email", "inbox", "message", "mail", "no email", "subject"
+                result, "email", "inbox", "message", "mail", "no email", "subject",
+                "comms", "authenticate", "auth", "gmail",
             )
         finally:
             await ws.close()

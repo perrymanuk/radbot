@@ -69,6 +69,14 @@ def get_current_time(
     }
     tz_identifier = tz_map.get(city.lower())
 
+    # If not in city map, try as IANA timezone string directly (e.g. "America/Los_Angeles")
+    if not tz_identifier:
+        try:
+            ZoneInfo(city)  # Validate it's a real timezone
+            tz_identifier = city
+        except (KeyError, ValueError):
+            pass
+
     if not tz_identifier:
         result = f"Sorry, I don't have timezone information for {city}."
         logger.warning(f"No timezone found for {city}")

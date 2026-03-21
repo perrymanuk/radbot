@@ -30,6 +30,7 @@ class TestSchedulerAgent:
             assert_response_contains_any(
                 result, "scheduled", "task", "cron", "no scheduled", "none", "list",
                 "recurring", "backlog", "schedule", "no", "here",
+                "planner", "nada", "nothing",
             )
         finally:
             await ws.close()
@@ -41,12 +42,13 @@ class TestSchedulerAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response(
-                f"Schedule a task called '{task_name}' to run at midnight on February 31st "
-                f"(cron: 0 0 31 2 *) with prompt 'E2E test - do nothing'"
+                f"Schedule a task called '{task_name}' to run every day at 3am "
+                f"(cron: 0 3 * * *) with prompt 'E2E test - do nothing'"
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "scheduled", "created", "task", task_name, "success"
+                result, "scheduled", "created", "task", task_name, "success",
+                "set up", "done", "3", "daily", "every day", "cron",
             )
         finally:
             await ws.close()

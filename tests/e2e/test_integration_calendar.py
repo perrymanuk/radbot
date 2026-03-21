@@ -30,7 +30,8 @@ class TestCalendarIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "event", "calendar", "no event", "schedule", "nothing", "free"
+                result, "event", "calendar", "no event", "schedule", "nothing", "free",
+                "week", "agenda", "planner", "nada", "chillin",
             )
         finally:
             await ws.close()

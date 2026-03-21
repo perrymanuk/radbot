@@ -4,6 +4,11 @@ import pytest
 
 from typing import Any, Dict, List
 
+# Common Beto personality synonyms for "not found" / "missing" / "error".
+# Import and spread into assert_response_contains_any() calls that check
+# for absence/missing concepts to handle Beto's 90s SoCal phrasing.
+PERSONALITY_NOT_FOUND = ("mia", "ghost", "bummer", "nada", "wipeout", "gnarly", "zilch")
+
 # Error patterns that indicate Gemini/LLM is not configured
 _GEMINI_UNAVAILABLE_PATTERNS = [
     "missing key inputs",

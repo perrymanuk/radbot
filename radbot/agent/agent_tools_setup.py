@@ -111,12 +111,19 @@ search_agent = create_search_agent(name="search_agent")
 code_execution_agent = create_code_execution_agent(name="code_execution_agent")
 scout_agent = create_research_agent(name="scout", as_subagent=False)
 
-# Attach telemetry callback to builtin sub-agents
+# Attach empty content defense + telemetry callbacks to builtin sub-agents
 try:
+    from radbot.callbacks.empty_content_callback import (
+        handle_empty_response_after_model,
+        scrub_empty_content_before_model,
+    )
     from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 
+    _after_cbs = [handle_empty_response_after_model, telemetry_after_model_callback]
     for _sa in (search_agent, code_execution_agent, scout_agent):
         if _sa and not _sa.after_model_callback:
-            _sa.after_model_callback = telemetry_after_model_callback
+            _sa.after_model_callback = _after_cbs
+        if _sa and not _sa.before_model_callback:
+            _sa.before_model_callback = scrub_empty_content_before_model
 except Exception:
     pass

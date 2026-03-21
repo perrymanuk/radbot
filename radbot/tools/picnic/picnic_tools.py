@@ -266,8 +266,12 @@ def get_picnic_delivery_slots() -> Dict[str, Any]:
 
     try:
         raw_slots = client.get_delivery_slots()
+        if isinstance(raw_slots, str):
+            return {"status": "error", "message": f"Unexpected API response: {raw_slots[:200]}"}
         slots = []
         for day in raw_slots:
+            if not isinstance(day, dict):
+                continue
             for slot in day.get("slot_list", []):
                 slots.append({
                     "slot_id": slot.get("slot_id", ""),

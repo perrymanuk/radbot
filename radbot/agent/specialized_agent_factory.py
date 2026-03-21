@@ -82,19 +82,35 @@ def create_specialized_agents(root_agent: Agent) -> List[Agent]:
         ("axel", _create_axel_agent),
     ]
 
-    # Import telemetry callback for sub-agents
+    # Import callbacks for sub-agents
     try:
         from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
     except Exception:
         telemetry_after_model_callback = None
+    try:
+        from radbot.callbacks.empty_content_callback import (
+            handle_empty_response_after_model,
+            scrub_empty_content_before_model,
+        )
+    except Exception:
+        handle_empty_response_after_model = None
+        scrub_empty_content_before_model = None
 
     for agent_name, factory in factories:
         try:
             agent = factory()
             if agent:
-                # Attach telemetry callback to each sub-agent
-                if telemetry_after_model_callback and not agent.after_model_callback:
-                    agent.after_model_callback = telemetry_after_model_callback
+                # Attach empty content + telemetry callbacks to each sub-agent
+                after_callbacks = [
+                    cb for cb in [handle_empty_response_after_model, telemetry_after_model_callback]
+                    if cb is not None
+                ]
+                if after_callbacks and not agent.after_model_callback:
+                    agent.after_model_callback = after_callbacks
+
+                # Attach history scrubbing before_model callback
+                if scrub_empty_content_before_model and not agent.before_model_callback:
+                    agent.before_model_callback = scrub_empty_content_before_model
                 specialized_agents.append(agent)
                 logger.debug(f"Created {agent_name} agent")
             else:

@@ -4,6 +4,7 @@ Session runner for RadBot web interface.
 This module provides the SessionRunner class for managing ADK Runner instances.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -268,7 +269,7 @@ class SessionRunner:
                 setattr(ToolContext, "user_id", self.user_id)
 
             # Run with consistent parameters (use run_async to avoid blocking the event loop)
-            MAX_RETRIES = 2
+            MAX_RETRIES = 3
             events = []
             for attempt in range(MAX_RETRIES):
                 events = []
@@ -314,6 +315,9 @@ class SessionRunner:
                     # A clean session with just the current message is safer.
                 except Exception as e:
                     logger.warning("Failed to reset session for retry: %s", e)
+
+                # Brief backoff before next attempt — gives Gemini API time to recover
+                await asyncio.sleep(0.5 * (attempt + 1))
 
             # Process events
             logger.debug(f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}")

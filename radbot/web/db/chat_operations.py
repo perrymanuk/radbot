@@ -216,7 +216,8 @@ def get_messages_by_session_id(
 
 
 def create_or_update_session(
-    session_id: str, name: Optional[str] = None, user_id: Optional[str] = None
+    session_id: str, name: Optional[str] = None, user_id: Optional[str] = None,
+    preview: Optional[str] = None,
 ) -> bool:
     """
     Create or update a chat session.
@@ -225,6 +226,7 @@ def create_or_update_session(
         session_id: Session identifier
         name: Optional session name
         user_id: Optional user identifier
+        preview: Optional preview text for the session
 
     Returns:
         bool: True if successful, False on error
@@ -239,16 +241,17 @@ def create_or_update_session(
 
     # Insert or update SQL
     sql = f"""
-        INSERT INTO {CHAT_SCHEMA}.chat_sessions (session_id, name, user_id)
-        VALUES (%s, %s, %s)
+        INSERT INTO {CHAT_SCHEMA}.chat_sessions (session_id, name, user_id, preview)
+        VALUES (%s, %s, %s, %s)
         ON CONFLICT (session_id)
         DO UPDATE SET
             name = COALESCE(EXCLUDED.name, chat_sessions.name),
             user_id = COALESCE(EXCLUDED.user_id, chat_sessions.user_id),
+            preview = COALESCE(EXCLUDED.preview, chat_sessions.preview),
             is_active = true;
     """
 
-    params = (session_id, name, user_id)
+    params = (session_id, name, user_id, preview)
 
     try:
         with get_chat_db_connection() as conn:
