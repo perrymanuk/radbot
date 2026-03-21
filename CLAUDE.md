@@ -1,6 +1,6 @@
 # RadBot - Claude Code Instructions
 
-RadBot is an AI agent framework built on Google ADK 1.24.1, PostgreSQL, Qdrant,
+RadBot is an AI agent framework built on Google ADK 1.27.2, PostgreSQL, Qdrant,
 and MCP. The main agent "beto" has a 90s SoCal personality. Multi-agent architecture
 with specialized sub-agents (casa, planner, tracker, comms, scout, axel, search, code execution).
 
