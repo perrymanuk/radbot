@@ -58,9 +58,16 @@ RADBOT_ENV=dev uv run python scripts/seed_docker_credentials.py \
   --rewrite-localhost || true
 ```
 
-### 3. Wait for RadBot Readiness
+### 3. Restart RadBot to Pick Up Credentials
 
-Poll the health endpoint until ready (timeout after 60s):
+The radbot container initializes the agent (including API key setup) at startup,
+before credentials are seeded. Restart it so it picks up the seeded credentials:
+
+```bash
+docker compose restart radbot
+```
+
+Then poll the health endpoint until ready (timeout after 60s):
 
 ```bash
 for i in $(seq 1 12); do

@@ -74,6 +74,12 @@ test-e2e:
 		--target-url http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
 		--admin-token $$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
 		--rewrite-localhost || true
+	@echo "Restarting radbot to pick up seeded credentials..."
+	docker compose restart radbot
+	@for i in $$(seq 1 12); do \
+		curl -sf http://localhost:$${RADBOT_EXPOSED_PORT:-8001}/health > /dev/null 2>&1 && break; \
+		sleep 5; \
+	done
 	RADBOT_TEST_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
 	RADBOT_ADMIN_TOKEN=$$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
 	$(PYTEST) tests/e2e -v --timeout=120 ; \
