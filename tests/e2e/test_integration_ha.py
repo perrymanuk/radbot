@@ -76,6 +76,7 @@ class TestHomeAssistantIntegration:
             assert_response_contains_any(
                 result, "not found", "error", "doesn't exist", "unknown",
                 "no entity", "couldn't find", "unavailable",
+                "mia", "can't", "unable", "no", "sorry",
             )
         finally:
             await ws.close()

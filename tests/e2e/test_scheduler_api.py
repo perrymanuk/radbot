@@ -84,7 +84,7 @@ class TestSchedulerAPI:
         assert resp.json()["status"] == "triggered"
 
     async def test_invalid_cron_expression(self, client, test_prefix):
-        """POST /api/scheduler/tasks with invalid cron should return 400 or error."""
+        """POST /api/scheduler/tasks with invalid cron should return 400."""
         resp = await client.post(
             "/api/scheduler/tasks",
             json={
@@ -93,11 +93,7 @@ class TestSchedulerAPI:
                 "prompt": "should fail",
             },
         )
-        # Should return error (400 or 200 with error status)
-        if resp.status_code == 200:
-            assert resp.json().get("status") == "error"
-        else:
-            assert resp.status_code in (400, 422)
+        assert resp.status_code == 400
 
     async def test_duplicate_task_name(self, client, cleanup, test_prefix):
         """POST /api/scheduler/tasks with duplicate name should return error."""

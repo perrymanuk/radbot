@@ -79,14 +79,18 @@ def create_code_execution_agent(
         "Call transfer_to_agent(agent_name='beto') to return control to the main agent."
     )
 
+    # Disable transfer_to_agent auto-injection to avoid "Built-in tools
+    # and Function Calling cannot be combined" 400 error from the Gemini API.
+    # The agent returns results via its response text instead.
     code_agent = Agent(
         name=name,
         model=model_name,
         instruction=instruction + transfer_instructions,
         description="A specialized agent that can execute Python code securely.",
-        # Note: transfer_to_agent is auto-injected by ADK for sub_agents
         tools=[],
         code_executor=BuiltInCodeExecutor(),
+        disallow_transfer_to_parent=True,
+        disallow_transfer_to_peers=True,
     )
 
     logger.info(

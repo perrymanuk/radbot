@@ -73,3 +73,19 @@ class TestCalendarIntegration:
             assert_response_not_empty(result2)
         finally:
             await ws.close()
+
+    async def test_search_calendar_events(self, live_server):
+        """Search for specific calendar events by keyword."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "Show any calendar events with 'meeting' in the title this week"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "event", "meeting", "calendar", "no", "found",
+                "schedule", "week", "nothing",
+            )
+        finally:
+            await ws.close()

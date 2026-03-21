@@ -154,3 +154,19 @@ class TestAgentChat:
             assert text or error, "Expected either a response or a handled error"
         finally:
             await ws.close()
+
+    async def test_web_search(self, live_server):
+        """Ask the agent to search the web — should use google_search agent."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "Search the web for the latest Python release version number"
+            )
+            text = assert_response_not_empty(result)
+            # Should contain some Python version info
+            assert_response_contains_any(
+                result, "python", "3.", "release", "version", "latest"
+            )
+        finally:
+            await ws.close()

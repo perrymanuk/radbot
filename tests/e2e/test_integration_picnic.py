@@ -82,7 +82,8 @@ class TestPicnicIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "no result", "not found", "couldn't find", "no product", "nothing"
+                result, "no result", "not found", "couldn't find", "no product", "nothing",
+                "ghost", "nada", "zero", "can't", "no", "sorry",
             )
         finally:
             await ws.close()

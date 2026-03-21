@@ -140,3 +140,18 @@ class TestAgentRouting:
             assert has_time, "Second response should contain time info"
         finally:
             await ws.close()
+
+    async def test_route_to_axel(self, live_server):
+        """Ask axel to execute a shell command."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            result = await ws.send_and_wait_response(
+                "Use the shell to run 'echo hello_e2e_test' and show me the output"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "hello", "output", "executed", "command", "echo", "shell"
+            )
+        finally:
+            await ws.close()

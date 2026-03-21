@@ -69,3 +69,24 @@ class TestJiraIntegration:
             )
         finally:
             await ws.close()
+
+    async def test_get_jira_issue_detail(self, live_server):
+        """Ask for details on a Jira issue — two-turn drill-down."""
+        session_id = str(uuid.uuid4())
+        ws = await WSTestClient.connect(live_server, session_id)
+        try:
+            # First list issues
+            r1 = await ws.send_and_wait_response("Show my Jira issues")
+            assert_response_not_empty(r1)
+
+            # Then ask for details on one
+            result = await ws.send_and_wait_response(
+                "Show me the full details of the first issue you listed"
+            )
+            text = assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "issue", "description", "status", "priority",
+                "summary", "assignee", "type", "key",
+            )
+        finally:
+            await ws.close()

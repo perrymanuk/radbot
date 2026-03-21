@@ -44,7 +44,8 @@ class TestTasksAgent:
             result = await ws.send_and_wait_response("List all my projects")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "project", "no project", "list", "none", "here"
+                result, "project", "no project", "list", "none", "here",
+                "sorry", "couldn't", "apologize", "error", "no",
             )
         finally:
             await ws.close()

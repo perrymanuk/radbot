@@ -309,7 +309,9 @@ class SessionRunner:
                     session = await self.session_service.create_session(
                         app_name=app_name, user_id=self.user_id, session_id=self.session_id
                     )
-                    await self._load_history_into_session(session)
+                    # Don't reload history on retry — it may contain the
+                    # poisoned empty-content event that caused the failure.
+                    # A clean session with just the current message is safer.
                 except Exception as e:
                     logger.warning("Failed to reset session for retry: %s", e)
 

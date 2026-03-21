@@ -190,3 +190,83 @@ class TestAdminAPI:
         # Should have at least the google entry
         assert "google" in data
         assert "status" in data["google"]
+
+    async def test_admin_test_ha(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/home-assistant should test HA connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/home-assistant", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_overseerr(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/overseerr should test Overseerr connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/overseerr", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_jira(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/jira should test Jira connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/jira", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_ntfy(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/ntfy should test ntfy connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/ntfy", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_picnic(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/picnic should test Picnic connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/picnic", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_nomad(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/nomad should test Nomad connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/nomad", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_github(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/github should test GitHub App connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/github", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_calendar(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/calendar should test Google Calendar connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/calendar", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_gmail_default(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/gmail/default should test Gmail connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/gmail/default", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()
+
+    async def test_admin_test_claude_code(self, client, admin_headers, admin_token):
+        """POST /admin/api/test/claude-code should test Claude Code connectivity."""
+        if not admin_token:
+            pytest.skip("RADBOT_ADMIN_TOKEN not set")
+        resp = await client.post("/admin/api/test/claude-code", headers=admin_headers, json={})
+        assert resp.status_code == 200
+        assert "status" in resp.json()

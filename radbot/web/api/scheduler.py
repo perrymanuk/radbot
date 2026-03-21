@@ -44,6 +44,14 @@ async def list_scheduled_tasks():
 @router.post("/tasks", response_model=ScheduledTaskResponse)
 async def create_scheduled_task(body: ScheduledTaskCreate):
     """Create a new scheduled task via REST."""
+    # Validate cron expression
+    try:
+        from apscheduler.triggers.cron import CronTrigger
+
+        CronTrigger.from_crontab(body.cron_expression)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid cron expression: {e}")
+
     try:
         from radbot.tools.scheduler.db import create_task
 

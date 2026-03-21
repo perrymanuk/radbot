@@ -526,51 +526,60 @@ async def mount_static_files_on_startup():
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
+        self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
-        if session_id not in self.active_connections:
-            self.active_connections[session_id] = []
-        self.active_connections[session_id].append(websocket)
-        count = len(self.active_connections[session_id])
+        async with self._lock:
+            if session_id not in self.active_connections:
+                self.active_connections[session_id] = []
+            self.active_connections[session_id].append(websocket)
+            count = len(self.active_connections[session_id])
         logger.info(
             f"WebSocket connected for session {session_id} ({count} connection(s) now)"
         )
 
-    def disconnect(self, session_id: str, websocket: WebSocket = None):
-        if session_id not in self.active_connections:
-            return
-        if websocket is None:
-            del self.active_connections[session_id]
-        else:
-            self.active_connections[session_id] = [
-                ws for ws in self.active_connections[session_id] if ws is not websocket
-            ]
-            if not self.active_connections[session_id]:
+    async def disconnect(self, session_id: str, websocket: WebSocket = None):
+        async with self._lock:
+            if session_id not in self.active_connections:
+                return
+            if websocket is None:
                 del self.active_connections[session_id]
+            else:
+                self.active_connections[session_id] = [
+                    ws for ws in self.active_connections[session_id] if ws is not websocket
+                ]
+                if not self.active_connections[session_id]:
+                    del self.active_connections[session_id]
 
     async def _send_to_all(self, session_id: str, payload: dict) -> None:
         """Send payload to all WebSocket connections for a session, removing dead ones."""
-        if session_id not in self.active_connections:
+        async with self._lock:
+            conns = list(self.active_connections.get(session_id, []))
+        if not conns:
             return
         dead: List[WebSocket] = []
-        for ws in self.active_connections[session_id]:
+        for ws in conns:
             try:
                 await ws.send_json(payload)
             except Exception:
                 dead.append(ws)
         if dead:
-            self.active_connections[session_id] = [
-                ws for ws in self.active_connections[session_id] if ws not in dead
-            ]
-            if not self.active_connections[session_id]:
-                del self.active_connections[session_id]
+            async with self._lock:
+                if session_id in self.active_connections:
+                    self.active_connections[session_id] = [
+                        ws for ws in self.active_connections[session_id] if ws not in dead
+                    ]
+                    if not self.active_connections[session_id]:
+                        del self.active_connections[session_id]
 
     async def broadcast_to_all_sessions(self, payload: dict) -> int:
         """Send payload to every connection across all sessions. Returns send count."""
+        async with self._lock:
+            snapshot = {sid: list(wss) for sid, wss in self.active_connections.items()}
         sent = 0
-        for session_id in list(self.active_connections):
-            for ws in list(self.active_connections.get(session_id, [])):
+        for session_id, websockets in snapshot.items():
+            for ws in websockets:
                 try:
                     await ws.send_json(payload)
                     sent += 1
@@ -1192,7 +1201,7 @@ async def websocket_endpoint(
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}", exc_info=True)
     finally:
-        manager.disconnect(session_id, websocket)
+        await manager.disconnect(session_id, websocket)
 
 
 @app.post("/api/tasks")
