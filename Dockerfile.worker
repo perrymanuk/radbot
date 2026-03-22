@@ -35,6 +35,7 @@ RUN pip install --no-cache-dir \
     python-dotenv \
     cryptography \
     httpx \
+    pyyaml \
     "pyjwt[crypto]"
 
 # Copy only the modules the worker needs.
