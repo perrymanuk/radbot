@@ -278,12 +278,9 @@ def _start_worker(
     )
 
     # -- Startup --
-
-    original_startup_handlers = list(a2a_app.on_startup)
+    # Starlette >= 0.26 removed on_startup list; use add_event_handler only.
 
     async def startup():
-        for handler in original_startup_handlers:
-            await handler()
         # Seed chat history if this is a session worker
         if session_id:
             await _seed_session(session_id, session_service, app_name)
@@ -291,7 +288,6 @@ def _start_worker(
         if workspace_id:
             _ensure_workspace_ready(workspace_id)
 
-    a2a_app.on_startup.clear()
     a2a_app.add_event_handler("startup", startup)
 
     logger.info("Worker server starting on %s:%d", host, port)
