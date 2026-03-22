@@ -126,6 +126,8 @@ class TerminalManager:
 
         # Build environment — inject auth tokens for Claude Code
         env = os.environ.copy()
+        env.setdefault("TERM", "xterm-256color")
+        env.setdefault("COLORTERM", "truecolor")
         token_injected = False
 
         # 1. Resolve auth token (API key or OAuth) from config/env
