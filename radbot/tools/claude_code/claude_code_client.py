@@ -89,26 +89,25 @@ def _write_auth_token_files(token: str) -> None:
         logger.debug("Failed to write token to %s: %s", token_path, e)
 
     # 2. Write ~/.claude/.credentials.json (interactive CLI path)
-    # Only write if no existing credentials file (don't overwrite a valid login)
+    # Always overwrite — token may have been updated in the credential store
     creds_path = claude_dir / ".credentials.json"
-    if not creds_path.exists():
-        try:
-            claude_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
-            # expiresAt is unix timestamp in milliseconds, set far in the future
-            creds = {
-                "claudeAiOauth": {
-                    "accessToken": token,
-                    "refreshToken": "",
-                    "expiresAt": 32503680000000,
-                    "scopes": [],
-                    "subscriptionType": "max",
-                }
+    try:
+        claude_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+        # expiresAt is unix timestamp in milliseconds, set far in the future
+        creds = {
+            "claudeAiOauth": {
+                "accessToken": token,
+                "refreshToken": "",
+                "expiresAt": 32503680000000,
+                "scopes": [],
+                "subscriptionType": "max",
             }
-            creds_path.write_text(_json.dumps(creds, indent=2))
-            creds_path.chmod(0o600)
-            logger.debug("Wrote credentials to %s", creds_path)
-        except Exception as e:
-            logger.debug("Failed to write credentials to %s: %s", creds_path, e)
+        }
+        creds_path.write_text(_json.dumps(creds, indent=2))
+        creds_path.chmod(0o600)
+        logger.debug("Wrote credentials to %s", creds_path)
+    except Exception as e:
+        logger.debug("Failed to write credentials to %s: %s", creds_path, e)
 
 
 def _claude_cli_available() -> bool:
