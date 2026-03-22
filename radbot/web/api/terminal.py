@@ -10,10 +10,12 @@ import fcntl
 import logging
 import os
 import pty
+import select
 import signal
 import struct
 import termios
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -24,6 +26,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/terminal", tags=["terminal"])
 
 _MAX_CONCURRENT_SESSIONS = 3
+
+# Binary WebSocket protocol constants
+_MSG_DATA = 0x01  # terminal I/O data
+_MSG_RESIZE = 0x02  # client→server resize (uint16 cols + uint16 rows)
+_MSG_CLOSED = 0x03  # server→client session closed (int32 exit code)
+
+# Dedicated thread pool for PTY reads (avoids contention with default executor)
+_pty_executor = ThreadPoolExecutor(
+    max_workers=_MAX_CONCURRENT_SESSIONS, thread_name_prefix="pty-reader"
+)
+
+# PTY read buffer size — 64KB to minimise syscalls for large screen redraws
+_PTY_READ_SIZE = 65536
+
+# Output coalescing window — drain additional pending bytes for up to this long
+# before sending a WebSocket frame.  Imperceptible to humans but batches rapid
+# output (e.g. full-screen ANSI redraws) into fewer frames.
+_COALESCE_SECS = 0.002  # 2 ms
 
 
 # ------------------------------------------------------------------
@@ -486,18 +506,37 @@ def register_terminal_websocket(app) -> None:
 
         loop = asyncio.get_event_loop()
 
+        def _pty_read_coalesced(fd: int) -> bytes:
+            """Blocking read from PTY fd with output coalescing.
+
+            Reads available data, then drains any additional bytes that
+            arrive within a short window so that rapid output (e.g. a
+            full-screen ANSI redraw) is batched into a single frame.
+            """
+            data = os.read(fd, _PTY_READ_SIZE)
+            if not data:
+                return data
+            while True:
+                r, _, _ = select.select([fd], [], [], _COALESCE_SECS)
+                if not r:
+                    break
+                more = os.read(fd, _PTY_READ_SIZE)
+                if not more:
+                    break
+                data += more
+            return data
+
         async def pty_reader():
-            """Read from PTY fd and forward to WebSocket."""
+            """Read from PTY fd and forward to WebSocket as binary frames."""
             while not session.closed:
                 try:
                     data = await loop.run_in_executor(
-                        None, os.read, session.fd, 4096
+                        _pty_executor, _pty_read_coalesced, session.fd
                     )
                     if not data:
                         break
-                    await websocket.send_json(
-                        {"type": "output", "data": data.decode("utf-8", errors="replace")}
-                    )
+                    # Binary frame: 0x01 prefix + raw PTY bytes
+                    await websocket.send_bytes(bytes([_MSG_DATA]) + data)
                 except OSError:
                     # PTY closed
                     break
@@ -517,8 +556,9 @@ def register_terminal_websocket(app) -> None:
                 pass
             session.closed = True
             try:
-                await websocket.send_json(
-                    {"type": "closed", "exit_code": exit_code}
+                # Binary frame: 0x03 prefix + int32 BE exit code
+                await websocket.send_bytes(
+                    bytes([_MSG_CLOSED]) + struct.pack(">i", exit_code)
                 )
             except Exception:
                 pass
@@ -527,18 +567,34 @@ def register_terminal_websocket(app) -> None:
             """Read from WebSocket and forward to PTY."""
             while not session.closed:
                 try:
-                    raw = await websocket.receive_text()
-                    import json
+                    msg = await websocket.receive()
 
-                    msg = json.loads(raw)
+                    # Binary frame (new protocol)
+                    if "bytes" in msg and msg["bytes"]:
+                        raw = msg["bytes"]
+                        if not raw:
+                            continue
+                        msg_type = raw[0]
+                        if msg_type == _MSG_DATA:
+                            os.write(session.fd, raw[1:])
+                        elif msg_type == _MSG_RESIZE:
+                            if len(raw) >= 5:
+                                cols = int.from_bytes(raw[1:3], "big")
+                                rows = int.from_bytes(raw[3:5], "big")
+                                mgr.resize_terminal(terminal_id, cols, rows)
 
-                    if msg.get("type") == "input":
-                        data = msg.get("data", "")
-                        os.write(session.fd, data.encode("utf-8"))
-                    elif msg.get("type") == "resize":
-                        cols = msg.get("cols", 80)
-                        rows = msg.get("rows", 24)
-                        mgr.resize_terminal(terminal_id, cols, rows)
+                    # Text frame (legacy JSON fallback)
+                    elif "text" in msg and msg["text"]:
+                        import json
+
+                        data = json.loads(msg["text"])
+                        if data.get("type") == "input":
+                            os.write(session.fd, data.get("data", "").encode("utf-8"))
+                        elif data.get("type") == "resize":
+                            cols = data.get("cols", 80)
+                            rows = data.get("rows", 24)
+                            mgr.resize_terminal(terminal_id, cols, rows)
+
                 except WebSocketDisconnect:
                     break
                 except Exception as e:

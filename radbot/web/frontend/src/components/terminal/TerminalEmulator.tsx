@@ -2,6 +2,9 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
+import { CanvasAddon } from "@xterm/addon-canvas";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import "@xterm/xterm/css/xterm.css";
 import { useTerminalWS } from "@/hooks/use-terminal-ws";
 
@@ -15,6 +18,7 @@ export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef 
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const resizeTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [terminal, setTerminal] = useState<Terminal | null>(null);
 
   const { sendInput, sendResize } = useTerminalWS({
@@ -31,9 +35,12 @@ export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef 
   // Create terminal instance
   useEffect(() => {
     if (!containerRef.current) return;
+    let disposed = false;
 
     const term = new Terminal({
       cursorBlink: true,
+      cursorStyle: "block",
+      cursorInactiveStyle: "outline",
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
       theme: {
@@ -59,8 +66,10 @@ export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef 
         brightCyan: "#56b6c2",
         brightWhite: "#ffffff",
       },
-      scrollback: 10000,
+      scrollback: 50000,
+      smoothScrollDuration: 0,
       convertEol: true,
+      allowProposedApi: true,
     });
 
     const fitAddon = new FitAddon();
@@ -68,20 +77,49 @@ export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef 
 
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
-    term.open(containerRef.current);
 
-    // Initial fit
-    try {
-      fitAddon.fit();
-    } catch {
-      // Container may not be sized yet
-    }
+    // Wait for fonts to load before opening to prevent column miscalculation
+    const init = async () => {
+      await document.fonts.ready;
+      if (disposed) return;
 
-    terminalRef.current = term;
-    fitAddonRef.current = fitAddon;
-    setTerminal(term);
+      term.open(containerRef.current!);
+
+      // GPU-accelerated renderer with fallback chain: WebGL → Canvas → DOM
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => {
+          webgl.dispose();
+          try { term.loadAddon(new CanvasAddon()); } catch { /* fall back to DOM */ }
+        });
+        term.loadAddon(webgl);
+      } catch {
+        try { term.loadAddon(new CanvasAddon()); } catch { /* fall back to DOM */ }
+      }
+
+      // Unicode 11 for proper CJK/emoji character widths
+      try {
+        const unicode = new Unicode11Addon();
+        term.loadAddon(unicode);
+        term.unicode.activeVersion = "11";
+      } catch { /* continue without unicode11 */ }
+
+      // Initial fit
+      try {
+        fitAddon.fit();
+      } catch {
+        // Container may not be sized yet
+      }
+
+      terminalRef.current = term;
+      fitAddonRef.current = fitAddon;
+      setTerminal(term);
+    };
+
+    init();
 
     return () => {
+      disposed = true;
       term.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
@@ -89,16 +127,19 @@ export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef 
     };
   }, []);
 
-  // ResizeObserver for fit + sendResize
+  // Debounced ResizeObserver for fit + sendResize (150ms debounce)
   const handleResize = useCallback(() => {
-    if (fitAddonRef.current && terminalRef.current) {
-      try {
-        fitAddonRef.current.fit();
-        sendResize(terminalRef.current.cols, terminalRef.current.rows);
-      } catch {
-        // Ignore fit errors during transitions
+    clearTimeout(resizeTimerRef.current);
+    resizeTimerRef.current = setTimeout(() => {
+      if (fitAddonRef.current && terminalRef.current) {
+        try {
+          fitAddonRef.current.fit();
+          sendResize(terminalRef.current.cols, terminalRef.current.rows);
+        } catch {
+          // Ignore fit errors during transitions
+        }
       }
-    }
+    }, 150);
   }, [sendResize]);
 
   useEffect(() => {
@@ -109,7 +150,10 @@ export default function TerminalEmulator({ terminalId, onClosed, onSendInputRef 
     });
     observer.observe(containerRef.current);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(resizeTimerRef.current);
+    };
   }, [handleResize]);
 
   // Focus terminal on click
