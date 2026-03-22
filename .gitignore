@@ -44,6 +44,9 @@ config.yaml
 config.*.yaml
 !docker/config.yaml
 
+# Generated reports
+reports/
+
 # React frontend build output
 radbot/web/static/dist/
 radbot/web/frontend/node_modules/
