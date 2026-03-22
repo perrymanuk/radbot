@@ -59,23 +59,19 @@ def _get_auth_token() -> tuple[Optional[str], str]:
 
 
 def _write_auth_token_files(token: str) -> None:
-    """Write the OAuth token to the file paths Claude Code checks at startup.
+    """Write the OAuth token to ``~/.claude/remote/.oauth_token``.
 
-    The CLI checks two locations:
-    1. ``~/.claude/.credentials.json`` — used by interactive ``claude`` sessions
-    2. ``~/.claude/remote/.oauth_token`` — used by headless/remote invocations
+    The CLI reads this file for headless/remote auth. For interactive PTY
+    sessions, auth is provided via ``CLAUDE_CODE_OAUTH_TOKEN`` env var
+    (set by ``terminal.py`` in the PTY environment).
 
     The container filesystem is ephemeral, so we write before each invocation.
     Uses ``Path.home()`` to resolve the correct home directory for the current user.
     """
     from pathlib import Path
-    import json as _json
 
     home = Path.home()
-    claude_dir = home / ".claude"
-
-    # 1. Write ~/.claude/remote/.oauth_token (headless path)
-    remote_dir = claude_dir / "remote"
+    remote_dir = home / ".claude" / "remote"
     token_path = remote_dir / ".oauth_token"
     try:
         remote_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
@@ -87,40 +83,6 @@ def _write_auth_token_files(token: str) -> None:
         token_path.chmod(0o600)
     except Exception as e:
         logger.debug("Failed to write token to %s: %s", token_path, e)
-
-    # 2. Write ~/.claude/.credentials.json (interactive CLI path)
-    # Always overwrite — token may have been updated in the credential store
-    creds_path = claude_dir / ".credentials.json"
-    try:
-        claude_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
-        # expiresAt is unix timestamp in milliseconds, set far in the future
-        creds = {
-            "claudeAiOauth": {
-                "accessToken": token,
-                "refreshToken": "",
-                "expiresAt": 32503680000000,
-                "scopes": [],
-                "subscriptionType": "max",
-            }
-        }
-        creds_path.write_text(_json.dumps(creds, indent=2))
-        creds_path.chmod(0o600)
-        logger.debug("Wrote credentials to %s", creds_path)
-    except Exception as e:
-        logger.debug("Failed to write credentials to %s: %s", creds_path, e)
-
-    # 3. Write settings.json if missing — skip onboarding wizard in interactive mode
-    settings_path = claude_dir / "settings.json"
-    if not settings_path.exists():
-        try:
-            settings = {
-                "hasCompletedOnboarding": True,
-                "theme": "dark",
-            }
-            settings_path.write_text(_json.dumps(settings, indent=2))
-            logger.debug("Wrote default settings to %s", settings_path)
-        except Exception as e:
-            logger.debug("Failed to write settings to %s: %s", settings_path, e)
 
 
 def _claude_cli_available() -> bool:

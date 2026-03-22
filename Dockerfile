@@ -23,6 +23,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && npm install -g @anthropic-ai/claude-code \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Seed Claude Code config to skip interactive onboarding wizard.
+# The onboarding runs on first interactive launch regardless of auth;
+# running once in -p mode creates the required state files.
+RUN ANTHROPIC_API_KEY=sk-ant-dummy claude -p "hi" --max-turns 1 2>/dev/null || true \
+    && mkdir -p /root/.claude \
+    && echo '{"theme":"dark"}' > /root/.claude/settings.json \
+    && echo '{}' > /root/.claude/settings.local.json
+
 # Create workspaces directory for cloned repos
 RUN mkdir -p /app/workspaces
 
