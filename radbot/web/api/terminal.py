@@ -168,7 +168,32 @@ class TerminalManager:
 
         local_path = ws["local_path"]
         if not os.path.isdir(local_path):
-            raise ValueError(f"Workspace directory does not exist: {local_path}")
+            # Directory lost (container restart). Re-create it.
+            if ws.get("owner") == "_scratch":
+                # Scratch workspace — just recreate the directory
+                os.makedirs(local_path, exist_ok=True)
+                logger.info("Recreated scratch workspace directory: %s", local_path)
+            else:
+                # Git workspace — re-clone the repo
+                try:
+                    from radbot.tools.claude_code.claude_code_tools import clone_repository
+
+                    result = clone_repository(
+                        owner=ws["owner"],
+                        repo=ws["repo"],
+                        branch=ws.get("branch", "main"),
+                    )
+                    if result.get("status") != "success":
+                        raise ValueError(
+                            f"Failed to re-clone {ws['owner']}/{ws['repo']}: {result.get('message')}"
+                        )
+                    # Update local_path in case it changed
+                    local_path = result.get("local_path", local_path)
+                    logger.info("Re-cloned workspace %s/%s to %s", ws["owner"], ws["repo"], local_path)
+                except Exception as e:
+                    raise ValueError(
+                        f"Workspace directory missing and re-clone failed: {local_path} — {e}"
+                    )
 
         # Build environment — inject auth tokens for Claude Code
         env = os.environ.copy()
