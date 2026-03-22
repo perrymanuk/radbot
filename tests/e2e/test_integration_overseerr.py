@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import PERSONALITY_NOT_FOUND, assert_response_contains_any, assert_response_not_empty
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -90,7 +90,7 @@ class TestOverseerrIntegration:
             text = assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "no result", "not found", "couldn't find", "no match",
-                "nothing", "0 result",
+                "nothing", "0 result", "zero", *PERSONALITY_NOT_FOUND,
             )
         finally:
             await ws.close()

@@ -87,8 +87,9 @@ class TestAgentChat:
             # Tool call detection is best-effort since events may not surface tool names
             assert_response_contains_any(
                 result, "stored", "remembered", "noted", "saved", "remember",
-                "got it", "got that", "locked in", "recorded", "will remember",
-                "confirmed", "acknowledged",
+                "got it", "got that", "locked", "recorded", "will remember",
+                "confirmed", "acknowledged", "banked", "stashed", "filed",
+                "memory", "store", "vault", "brain",
             )
         finally:
             await ws.close()

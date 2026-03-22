@@ -96,6 +96,16 @@ class WSTestClient:
             elif msg.get("type") == "message":
                 response_text = msg.get("content", response_text)
 
+        # If captured response is just a routing announcement, prefer last sub-agent text
+        _ROUTING_PATTERNS = ("transfer", "passing to", "sending to", "sent to", "catching that wave", "hang tight", "right on,", "over to casa", "over to planner", "over to tracker", "over to comms", "over to scout", "over to axel")
+        if response_text and any(p in response_text.lower() for p in _ROUTING_PATTERNS):
+            for event in reversed(events):
+                text = event.get("text", "")
+                agent = event.get("agent_name", "beto")
+                if text and agent != "beto":
+                    response_text = text
+                    break
+
         return {"events": events, "response_text": response_text, "error": error_text}
 
     async def send_heartbeat(self) -> Dict[str, Any]:

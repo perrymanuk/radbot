@@ -127,10 +127,10 @@ class SessionRunner:
             self.runner.context_cache_config = ContextCacheConfig(
                 cache_intervals=20,
                 ttl_seconds=3600,
-                min_tokens=1024,
+                min_tokens=2048,
             )
             logger.debug(
-                "Enabled context caching on web Runner (intervals=20, ttl=3600s, min_tokens=1024)"
+                "Enabled context caching on web Runner (intervals=20, ttl=3600s, min_tokens=2048)"
             )
         except Exception as e:
             logger.warning(f"Could not enable context caching: {e}")
