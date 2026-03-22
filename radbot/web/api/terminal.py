@@ -386,6 +386,76 @@ async def clone_repository_endpoint(request: Request):
         raise HTTPException(500, f"Error cloning repository: {e}")
 
 
+@router.delete("/workspaces/{workspace_id}")
+async def delete_workspace_endpoint(workspace_id: str):
+    """Delete (soft) a workspace."""
+    try:
+        from radbot.tools.claude_code.db import delete_workspace
+
+        # Kill any active terminal sessions for this workspace
+        mgr = TerminalManager.get_instance()
+        for s in list(mgr._sessions.values()):
+            if s.workspace_id == workspace_id:
+                mgr.kill_session(s.terminal_id)
+
+        success = delete_workspace(workspace_id)
+        if not success:
+            raise HTTPException(404, f"Workspace {workspace_id} not found")
+        return {"status": "success", "message": f"Workspace {workspace_id} deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error deleting workspace: %s", e, exc_info=True)
+        raise HTTPException(500, f"Error deleting workspace: {e}")
+
+
+@router.put("/workspaces/{workspace_id}")
+async def update_workspace_endpoint(workspace_id: str, request: Request):
+    """Update workspace name and/or description."""
+    body = await request.json()
+    name = body.get("name")
+    description = body.get("description")
+
+    if name is None and description is None:
+        raise HTTPException(400, "name or description is required")
+
+    try:
+        from radbot.tools.claude_code.db import update_workspace
+
+        success = update_workspace(workspace_id, name=name, description=description)
+        if not success:
+            raise HTTPException(404, f"Workspace {workspace_id} not found")
+        return {"status": "success"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error updating workspace: %s", e, exc_info=True)
+        raise HTTPException(500, f"Error updating workspace: {e}")
+
+
+@router.post("/workspaces/scratch/")
+async def create_scratch_workspace_endpoint(request: Request):
+    """Create a scratch workspace (no repo) for a fresh Claude session."""
+    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    name = body.get("name")
+    description = body.get("description")
+
+    try:
+        from radbot.tools.claude_code.db import create_scratch_workspace
+
+        ws = create_scratch_workspace(name=name, description=description)
+        # Serialize UUIDs/datetimes
+        for k, v in ws.items():
+            if hasattr(v, "isoformat"):
+                ws[k] = v.isoformat()
+            elif hasattr(v, "hex"):
+                ws[k] = str(v)
+        return {"status": "success", "workspace": ws}
+    except Exception as e:
+        logger.error("Error creating scratch workspace: %s", e, exc_info=True)
+        raise HTTPException(500, f"Error creating scratch workspace: {e}")
+
+
 @router.get("/status/")
 async def terminal_status():
     """Check Claude Code CLI and token availability."""

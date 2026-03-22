@@ -45,6 +45,23 @@ def init_coder_schema() -> None:
         ],
     )
 
+    # Migrations for existing tables
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # Add name/description columns
+                cursor.execute("""
+                    ALTER TABLE coder_workspaces
+                    ADD COLUMN IF NOT EXISTS name TEXT;
+                """)
+                cursor.execute("""
+                    ALTER TABLE coder_workspaces
+                    ADD COLUMN IF NOT EXISTS description TEXT;
+                """)
+                conn.commit()
+    except Exception as e:
+        logger.debug("Migration for coder_workspaces columns: %s", e)
+
 
 def create_workspace(
     owner: str,
@@ -132,4 +149,85 @@ def list_active_workspaces() -> List[Dict[str, Any]]:
                 return [dict(row) for row in cursor.fetchall()]
     except psycopg2.Error as e:
         logger.error(f"Database error listing workspaces: {e}")
+        raise
+
+
+def delete_workspace(workspace_id: str) -> bool:
+    """Mark a workspace as deleted (soft delete)."""
+    sql = """
+        UPDATE coder_workspaces
+        SET status = 'deleted'
+        WHERE workspace_id = %s AND status = 'active';
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (uuid.UUID(workspace_id),))
+                conn.commit()
+                return cursor.rowcount > 0
+    except psycopg2.Error as e:
+        logger.error(f"Database error deleting workspace: {e}")
+        raise
+
+
+def update_workspace(
+    workspace_id: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+) -> bool:
+    """Update workspace name and/or description."""
+    updates = []
+    params: list = []
+    if name is not None:
+        updates.append("name = %s")
+        params.append(name)
+    if description is not None:
+        updates.append("description = %s")
+        params.append(description)
+    if not updates:
+        return False
+
+    sql = f"""
+        UPDATE coder_workspaces
+        SET {', '.join(updates)}, last_used_at = CURRENT_TIMESTAMP
+        WHERE workspace_id = %s AND status = 'active';
+    """
+    params.append(uuid.UUID(workspace_id))
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, tuple(params))
+                conn.commit()
+                return cursor.rowcount > 0
+    except psycopg2.Error as e:
+        logger.error(f"Database error updating workspace: {e}")
+        raise
+
+
+def create_scratch_workspace(
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Create a scratch workspace (no repo) with a temporary directory."""
+    import tempfile
+
+    scratch_dir = tempfile.mkdtemp(prefix="claude-scratch-")
+    workspace_name = name or "scratch"
+    sql = """
+        INSERT INTO coder_workspaces (owner, repo, branch, local_path, name, description)
+        VALUES ('_scratch', %s, 'main', %s, %s, %s)
+        RETURNING workspace_id, owner, repo, branch, local_path, status,
+                  last_session_id, created_at, last_used_at, name, description;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                # Use a unique repo name to avoid UNIQUE constraint
+                repo_name = f"scratch-{uuid.uuid4().hex[:8]}"
+                cursor.execute(sql, (repo_name, scratch_dir, workspace_name, description))
+                conn.commit()
+                row = cursor.fetchone()
+                return dict(row) if row else {}
+    except psycopg2.Error as e:
+        logger.error(f"Database error creating scratch workspace: {e}")
         raise

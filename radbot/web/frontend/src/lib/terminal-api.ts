@@ -54,3 +54,38 @@ export async function cloneRepository(
 export async function getTerminalStatus(): Promise<TerminalStatus> {
   return json("/terminal/status/");
 }
+
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  const res = await fetch(`${BASE}/terminal/workspaces/${workspaceId}`, { method: "DELETE" });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+}
+
+export async function updateWorkspace(
+  workspaceId: string,
+  data: { name?: string; description?: string },
+): Promise<void> {
+  const res = await fetch(`${BASE}/terminal/workspaces/${workspaceId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+}
+
+export async function createScratchWorkspace(
+  name?: string,
+  description?: string,
+): Promise<Workspace> {
+  const data = await json<{ workspace: Workspace }>("/terminal/workspaces/scratch/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description }),
+  });
+  return data.workspace;
+}

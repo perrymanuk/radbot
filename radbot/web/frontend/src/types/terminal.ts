@@ -8,6 +8,8 @@ export interface Workspace {
   last_session_id: string | null;
   created_at: string;
   last_used_at: string;
+  name: string | null;
+  description: string | null;
 }
 
 export interface TerminalSession {

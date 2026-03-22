@@ -27,6 +27,9 @@ interface TerminalState {
   openTerminal: (workspaceId: string, resumeSessionId?: string) => Promise<void>;
   killTerminal: (terminalId: string) => Promise<void>;
   cloneRepo: (owner: string, repo: string, branch: string) => Promise<{ status: string; message?: string }>;
+  deleteWorkspace: (workspaceId: string) => Promise<void>;
+  updateWorkspace: (workspaceId: string, data: { name?: string; description?: string }) => Promise<void>;
+  createScratchWorkspace: (name?: string, description?: string) => Promise<void>;
 
   // Error
   error: string | null;
@@ -110,6 +113,53 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       const msg = `Failed to clone repository: ${e}`;
       set({ error: msg });
       return { status: "error", message: msg };
+    }
+  },
+
+  deleteWorkspace: async (workspaceId) => {
+    try {
+      set({ error: null });
+      await termApi.deleteWorkspace(workspaceId);
+      set((s) => ({
+        workspaces: s.workspaces.filter((ws) => String(ws.workspace_id) !== workspaceId),
+        // If active terminal was in this workspace, go back to selector
+        activeTerminalId:
+          s.sessions.find(
+            (sess) => sess.workspace_id === workspaceId && sess.terminal_id === s.activeTerminalId,
+          )
+            ? null
+            : s.activeTerminalId,
+      }));
+    } catch (e) {
+      set({ error: `Failed to delete workspace: ${e}` });
+    }
+  },
+
+  updateWorkspace: async (workspaceId, data) => {
+    try {
+      await termApi.updateWorkspace(workspaceId, data);
+      set((s) => ({
+        workspaces: s.workspaces.map((ws) =>
+          String(ws.workspace_id) === workspaceId
+            ? { ...ws, ...(data.name !== undefined && { name: data.name }), ...(data.description !== undefined && { description: data.description }) }
+            : ws,
+        ),
+      }));
+    } catch (e) {
+      set({ error: `Failed to update workspace: ${e}` });
+    }
+  },
+
+  createScratchWorkspace: async (name, description) => {
+    try {
+      set({ error: null });
+      const ws = await termApi.createScratchWorkspace(name, description);
+      set((s) => ({
+        workspaces: [ws, ...s.workspaces],
+        showCloneForm: false,
+      }));
+    } catch (e) {
+      set({ error: `Failed to create scratch workspace: ${e}` });
     }
   },
 

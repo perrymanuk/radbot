@@ -150,6 +150,7 @@ Autonomous coding workflow powered by Claude Code CLI and GitHub App authenticat
 *   **`claude_code_execute`**: Execute the approved plan with `--dangerously-skip-permissions`
 *   **`commit_and_push`**: Stage, commit, and push changes back to GitHub using App installation tokens
 *   **`list_workspaces`**: List all cloned repo workspaces
+*   **Web terminal** at `/terminal`: Interactive Claude Code sessions via xterm.js with workspace management (create, delete, name, describe), scratch sessions without a repo, and automatic OAuth token injection
 *   GitHub App auth: JWT + short-lived installation tokens (no personal access tokens needed)
 *   Session persistence: Claude Code session IDs stored in DB for cross-chat resume
 
