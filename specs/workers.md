@@ -345,12 +345,15 @@ Nomad RestartPolicy (attempts=3, mode=delay)
 | File | Purpose |
 |------|---------|
 | `radbot/worker/__init__.py` | Package |
-| `radbot/worker/__main__.py` | Entry point: A2A server + idle watchdog + history seeding |
+| `radbot/worker/__main__.py` | Entry point: A2A + terminal routes, --workspace-id/--session-id |
+| `radbot/worker/terminal_handler.py` | Shared PTY module: `TerminalManager`, `TerminalSession`, binary WS handler |
 | `radbot/worker/idle_watchdog.py` | `ActivityWatchdog` + `ActivityMiddleware` |
 | `radbot/worker/history_loader.py` | Shared: seed ADK session from chat DB |
-| `radbot/worker/nomad_template.py` | `build_worker_job_spec()` → Nomad JSON |
-| `radbot/worker/db.py` | `session_workers` table schema + CRUD |
-| `radbot/web/api/session/session_proxy.py` | `SessionProxy`: lifecycle + A2A proxy + fallback |
+| `radbot/worker/nomad_template.py` | `build_worker_job_spec()` + `build_workspace_worker_spec()` |
+| `radbot/worker/db.py` | `session_workers` + `workspace_workers` tables |
+| `radbot/web/api/terminal.py` | Terminal REST + WS proxy (local/remote mode) |
+| `radbot/web/api/terminal_proxy.py` | `WorkspaceProxy`: workspace worker lifecycle |
+| `radbot/web/api/session/session_proxy.py` | `SessionProxy`: chat session A2A proxy |
 | `radbot/web/api/session/session_manager.py` | Mode switching (local/remote) |
 | `radbot/web/api/session/dependencies.py` | FastAPI dep: Runner or Proxy based on mode |
 | `radbot/tools/nomad/nomad_client.py` | `list_services()`, `find_service_by_tag()` |

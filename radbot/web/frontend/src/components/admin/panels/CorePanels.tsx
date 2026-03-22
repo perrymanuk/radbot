@@ -203,6 +203,8 @@ export function AgentModelsPanel() {
   const [googleCloudProject, setGoogleCloudProject] = useState("");
   const [enableSearch, setEnableSearch] = useState(false);
   const [enableCodeExec, setEnableCodeExec] = useState(false);
+  const [sessionMode, setSessionMode] = useState(false);
+  const [maxWorkers, setMaxWorkers] = useState("10");
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [overridesOpen, setOverridesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -221,6 +223,8 @@ export function AgentModelsPanel() {
     if (agent.google_cloud_project !== undefined) setGoogleCloudProject(agent.google_cloud_project || "");
     if (agent.enable_adk_search !== undefined) setEnableSearch(!!agent.enable_adk_search);
     if (agent.enable_adk_code_execution !== undefined) setEnableCodeExec(!!agent.enable_adk_code_execution);
+    if (agent.session_mode !== undefined) setSessionMode(agent.session_mode === "remote");
+    if (agent.max_session_workers !== undefined) setMaxWorkers(String(agent.max_session_workers));
 
     const agentModels = agent.agent_models || {};
     const init: Record<string, string> = {};
@@ -250,6 +254,8 @@ export function AgentModelsPanel() {
         google_cloud_project: googleCloudProject || undefined,
         enable_adk_search: enableSearch,
         enable_adk_code_execution: enableCodeExec,
+        session_mode: sessionMode ? "remote" : "local",
+        max_session_workers: parseInt(maxWorkers, 10) || 10,
         agent_models: agentModels,
       });
 
@@ -290,6 +296,21 @@ export function AgentModelsPanel() {
         />
         <FormToggle label="Enable ADK Search" checked={enableSearch} onChange={setEnableSearch} />
         <FormToggle label="Enable ADK Code Execution" checked={enableCodeExec} onChange={setEnableCodeExec} />
+      </Card>
+
+      <Card title="Session Workers">
+        <Note>
+          When enabled, chat and terminal sessions run in separate Nomad worker containers that persist across main app restarts.
+        </Note>
+        <FormToggle label="Remote Session Mode" checked={sessionMode} onChange={setSessionMode} />
+        {sessionMode && (
+          <FormInput
+            label="Max Concurrent Workers"
+            value={maxWorkers}
+            onChange={setMaxWorkers}
+            placeholder="10"
+          />
+        )}
       </Card>
 
       {/* Collapsible Per-Agent Model Overrides */}

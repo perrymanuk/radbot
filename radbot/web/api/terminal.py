@@ -1,449 +1,60 @@
 """Interactive Claude Code terminal via PTY + WebSocket.
 
 Spawns the ``claude`` CLI in a PTY, bridges I/O over a WebSocket to an
-xterm.js frontend. Manages concurrent terminal sessions with lifecycle
-tracking and cleanup.
+xterm.js frontend. Supports two modes:
+
+- **local**: PTY runs in the main app container (default)
+- **remote**: PTY runs in a Nomad worker, main app proxies the WebSocket
+
+The core PTY logic lives in ``radbot.worker.terminal_handler``.
 """
 
 import asyncio
-import fcntl
 import logging
 import os
-import pty
-import select
-import signal
-import struct
-import termios
-import uuid
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+
+from radbot.worker.terminal_handler import (
+    MSG_CLOSED,
+    TerminalManager,
+    handle_terminal_websocket,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/terminal", tags=["terminal"])
 
-_MAX_CONCURRENT_SESSIONS = 3
-
-# Binary WebSocket protocol constants
-_MSG_DATA = 0x01  # terminal I/O data
-_MSG_RESIZE = 0x02  # client→server resize (uint16 cols + uint16 rows)
-_MSG_CLOSED = 0x03  # server→client session closed (int32 exit code)
-
-# Dedicated thread pool for PTY reads (avoids contention with default executor)
-_pty_executor = ThreadPoolExecutor(
-    max_workers=_MAX_CONCURRENT_SESSIONS, thread_name_prefix="pty-reader"
-)
-
-# PTY read buffer size — 64KB to minimise syscalls for large screen redraws
-_PTY_READ_SIZE = 65536
-
-# Output coalescing window — drain additional pending bytes for up to this long
-# before sending a WebSocket frame.  Imperceptible to humans but batches rapid
-# output (e.g. full-screen ANSI redraws) into fewer frames.
-_COALESCE_SECS = 0.002  # 2 ms
+# Singleton TerminalManager for local mode
+_local_manager: Optional[TerminalManager] = None
 
 
-# ------------------------------------------------------------------
-# Terminal session data
-# ------------------------------------------------------------------
-# Max bytes to keep in the scrollback replay buffer per session
-_SCROLLBACK_BUFFER_SIZE = 128 * 1024  # 128 KB
+def _get_local_manager() -> TerminalManager:
+    """Get or create the local TerminalManager singleton."""
+    global _local_manager
+    if _local_manager is None:
+        _local_manager = TerminalManager()
+    return _local_manager
 
 
-class _TerminalSession:
-    """Tracks a single PTY-backed terminal session.
+def _is_remote_mode() -> bool:
+    """Check if session_mode is 'remote' in config."""
+    try:
+        from radbot.config.config_loader import config_loader
 
-    Supports multiple simultaneous WebSocket clients.  A single background
-    PTY reader task broadcasts output to all connected sockets.
-    """
-
-    __slots__ = (
-        "terminal_id",
-        "workspace_id",
-        "workspace",
-        "pid",
-        "fd",
-        "created_at",
-        "closed",
-        "_scrollback",
-        "_clients",
-        "_reader_task",
-    )
-
-    def __init__(
-        self,
-        terminal_id: str,
-        workspace_id: str,
-        workspace: Dict[str, Any],
-        pid: int,
-        fd: int,
-    ):
-        self.terminal_id = terminal_id
-        self.workspace_id = workspace_id
-        self.workspace = workspace
-        self.pid = pid
-        self.fd = fd
-        self.created_at = __import__("time").time()
-        self.closed = False
-        self._scrollback = bytearray()
-        self._clients: List[WebSocket] = []
-        self._reader_task: Optional[asyncio.Task] = None
-
-    def append_output(self, data: bytes) -> None:
-        """Append PTY output to the scrollback buffer (ring buffer)."""
-        self._scrollback.extend(data)
-        if len(self._scrollback) > _SCROLLBACK_BUFFER_SIZE:
-            excess = len(self._scrollback) - _SCROLLBACK_BUFFER_SIZE
-            del self._scrollback[:excess]
-
-    def get_scrollback(self) -> bytes:
-        """Return the scrollback buffer contents for replay on reconnect."""
-        return bytes(self._scrollback)
-
-    def add_client(self, ws: WebSocket) -> None:
-        self._clients.append(ws)
-
-    def remove_client(self, ws: WebSocket) -> None:
-        try:
-            self._clients.remove(ws)
-        except ValueError:
-            pass
-
-    async def broadcast(self, data: bytes) -> None:
-        """Send raw bytes to all connected clients, removing dead ones."""
-        frame = bytes([_MSG_DATA]) + data
-        dead: List[WebSocket] = []
-        for ws in self._clients:
-            try:
-                await ws.send_bytes(frame)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.remove_client(ws)
+        agent_config = config_loader.config.get("agent", {})
+        return agent_config.get("session_mode") == "remote"
+    except Exception:
+        return False
 
 
 # ------------------------------------------------------------------
-# TerminalManager singleton
+# Mapping of terminal_id → worker_url for remote-mode proxy routing
 # ------------------------------------------------------------------
-class TerminalManager:
-    """Manages PTY sessions for Claude Code terminals."""
-
-    _instance: Optional["TerminalManager"] = None
-
-    def __init__(self) -> None:
-        self._sessions: Dict[str, _TerminalSession] = {}
-
-    @classmethod
-    def get_instance(cls) -> "TerminalManager":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
-
-    # -- create session --
-
-    def create_session(
-        self,
-        workspace_id: str,
-        resume_session_id: Optional[str] = None,
-    ) -> _TerminalSession:
-        """Spawn ``claude`` in a PTY inside the given workspace directory."""
-        if len(self._sessions) >= _MAX_CONCURRENT_SESSIONS:
-            raise RuntimeError(
-                f"Maximum concurrent terminal sessions ({_MAX_CONCURRENT_SESSIONS}) reached"
-            )
-
-        # Look up workspace
-        from radbot.tools.claude_code.db import list_active_workspaces
-
-        workspaces = list_active_workspaces()
-        ws = next(
-            (w for w in workspaces if str(w["workspace_id"]) == workspace_id),
-            None,
-        )
-        if ws is None:
-            raise ValueError(f"Workspace {workspace_id} not found")
-
-        local_path = ws["local_path"]
-        if not os.path.isdir(local_path):
-            # Directory lost (container restart). Re-create it.
-            if ws.get("owner") == "_scratch":
-                # Scratch workspace — just recreate the directory
-                os.makedirs(local_path, exist_ok=True)
-                logger.info("Recreated scratch workspace directory: %s", local_path)
-            else:
-                # Git workspace — re-clone the repo
-                try:
-                    from radbot.tools.claude_code.claude_code_tools import clone_repository
-
-                    result = clone_repository(
-                        owner=ws["owner"],
-                        repo=ws["repo"],
-                        branch=ws.get("branch", "main"),
-                    )
-                    if result.get("status") != "success":
-                        raise ValueError(
-                            f"Failed to re-clone {ws['owner']}/{ws['repo']}: {result.get('message')}"
-                        )
-                    # Update local_path in case it changed
-                    local_path = result.get("local_path", local_path)
-                    logger.info("Re-cloned workspace %s/%s to %s", ws["owner"], ws["repo"], local_path)
-                except Exception as e:
-                    raise ValueError(
-                        f"Workspace directory missing and re-clone failed: {local_path} — {e}"
-                    )
-
-        # Build environment — inject auth tokens for Claude Code
-        env = os.environ.copy()
-        env.setdefault("TERM", "xterm-256color")
-        env.setdefault("COLORTERM", "truecolor")
-        token_injected = False
-
-        # 1. Resolve auth token (API key or OAuth) from config/env
-        try:
-            from radbot.tools.claude_code.claude_code_client import (
-                _get_auth_token,
-                _write_auth_token_files,
-            )
-
-            token, kind = _get_auth_token()
-            if token:
-                if kind == "api_key":
-                    # Standard Anthropic API key (sk-ant-api*)
-                    env["ANTHROPIC_API_KEY"] = token
-                else:
-                    # OAuth token — use CLAUDE_CODE_OAUTH_TOKEN.
-                    # ANTHROPIC_API_KEY must NOT be set — it disables OAuth mode.
-                    env["CLAUDE_CODE_OAUTH_TOKEN"] = token
-                    env.pop("ANTHROPIC_API_KEY", None)
-                    _write_auth_token_files(token)
-                token_injected = True
-                logger.info("Terminal: injected Claude Code %s token", kind)
-        except Exception as e:
-            logger.warning("Terminal: failed to get auth token: %s", e)
-
-        # 2. Also try ANTHROPIC_API_KEY as fallback
-        if not token_injected:
-            try:
-                from radbot.credentials.store import get_credential_store
-
-                store = get_credential_store()
-                if store.available:
-                    api_key = store.get("anthropic_api_key")
-                    if api_key:
-                        env["ANTHROPIC_API_KEY"] = api_key
-                        token_injected = True
-                        logger.info("Terminal: injected ANTHROPIC_API_KEY from credential store")
-            except Exception as e:
-                logger.warning("Terminal: failed to get Anthropic API key: %s", e)
-
-        if not token_injected:
-            logger.warning(
-                "Terminal: no auth token found — Claude Code will prompt for login. "
-                "Set 'claude_code_oauth_token' or 'anthropic_api_key' in credential store."
-            )
-
-        # Ensure Claude Code onboarding is marked complete for interactive sessions.
-        # Without this, the CLI forces the onboarding flow (interactive login prompt)
-        # even when CLAUDE_CODE_OAUTH_TOKEN is set.  Also pre-accepts the trust
-        # dialog for the workspace directory and the bypass-permissions warning.
-        if token_injected:
-            try:
-                from radbot.tools.claude_code.claude_code_client import _ensure_onboarding_complete
-
-                _ensure_onboarding_complete(workspace_dir=local_path)
-            except Exception as e:
-                logger.warning("Terminal: failed to set onboarding flag: %s", e)
-
-        # Allow --dangerously-skip-permissions when running as root inside a
-        # container.  Claude Code checks for IS_SANDBOX=1 to permit this.
-        # This also bypasses the per-directory trust prompt on first access.
-        use_bypass = False
-        if os.getuid() == 0:
-            env["IS_SANDBOX"] = "1"
-            use_bypass = True
-
-        # Build command
-        cmd = ["claude"]
-        if use_bypass:
-            cmd.append("--dangerously-skip-permissions")
-        if resume_session_id:
-            cmd.extend(["--resume", resume_session_id])
-
-        # Fork PTY
-        pid, fd = pty.fork()
-
-        if pid == 0:
-            # Child process
-            os.chdir(local_path)
-            os.execvpe(cmd[0], cmd, env)
-            # execvpe never returns; if it somehow does, exit
-            os._exit(1)
-
-        # Parent process — set initial terminal size
-        try:
-            winsize = struct.pack("HHHH", 30, 120, 0, 0)
-            fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-        except Exception:
-            pass
-
-        terminal_id = str(uuid.uuid4())
-        session = _TerminalSession(
-            terminal_id=terminal_id,
-            workspace_id=workspace_id,
-            workspace=ws,
-            pid=pid,
-            fd=fd,
-        )
-        self._sessions[terminal_id] = session
-        logger.info(
-            "Terminal session %s created: pid=%d, workspace=%s/%s",
-            terminal_id,
-            pid,
-            ws.get("owner"),
-            ws.get("repo"),
-        )
-        return session
-
-    # -- lookup --
-
-    def get_session(self, terminal_id: str) -> Optional[_TerminalSession]:
-        return self._sessions.get(terminal_id)
-
-    def list_sessions(self) -> List[Dict[str, Any]]:
-        result = []
-        for s in self._sessions.values():
-            result.append(
-                {
-                    "terminal_id": s.terminal_id,
-                    "workspace_id": s.workspace_id,
-                    "owner": s.workspace.get("owner"),
-                    "repo": s.workspace.get("repo"),
-                    "branch": s.workspace.get("branch"),
-                    "pid": s.pid,
-                    "closed": s.closed,
-                }
-            )
-        return result
-
-    # -- resize --
-
-    def resize_terminal(self, terminal_id: str, cols: int, rows: int) -> None:
-        session = self._sessions.get(terminal_id)
-        if session and not session.closed:
-            try:
-                winsize = struct.pack("HHHH", rows, cols, 0, 0)
-                fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
-            except Exception as e:
-                logger.debug("resize_terminal failed: %s", e)
-
-    # -- kill --
-
-    def kill_session(self, terminal_id: str) -> bool:
-        session = self._sessions.pop(terminal_id, None)
-        if session is None:
-            return False
-        self._cleanup_session(session)
-        return True
-
-    def kill_all(self) -> None:
-        for session in list(self._sessions.values()):
-            self._cleanup_session(session)
-        self._sessions.clear()
-        logger.info("All terminal sessions killed")
-
-    def _cleanup_session(self, session: _TerminalSession) -> None:
-        session.closed = True
-        try:
-            os.kill(session.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
-        except Exception as e:
-            logger.debug("Error sending SIGTERM to pid %d: %s", session.pid, e)
-        try:
-            os.close(session.fd)
-        except Exception:
-            pass
-        # Reap the child to avoid zombie
-        try:
-            os.waitpid(session.pid, os.WNOHANG)
-        except Exception:
-            pass
-
-        # Capture Claude Code session ID for future --resume
-        self._save_claude_session_id(session)
-
-        logger.info("Terminal session %s cleaned up (pid=%d)", session.terminal_id, session.pid)
-
-    def _save_claude_session_id(self, session: _TerminalSession) -> None:
-        """Find and persist the Claude Code session ID from its state files."""
-        try:
-            import glob
-            import json as _json
-            from pathlib import Path
-
-            home = Path.home()
-            # Claude stores sessions in ~/.claude/projects/<path-hash>/sessions-index.json
-            index_files = glob.glob(str(home / ".claude" / "projects" / "*" / "sessions-index.json"))
-            if not index_files:
-                return
-
-            # Find the most recently modified index
-            latest_idx = max(index_files, key=os.path.getmtime)
-            with open(latest_idx) as f:
-                sessions = _json.load(f)
-
-            if not sessions:
-                return
-
-            # Get the most recent session ID
-            latest = max(sessions, key=lambda s: s.get("lastUpdated", 0))
-            claude_session_id = latest.get("sessionId")
-            if not claude_session_id:
-                return
-
-            # Save to workspace DB
-            from radbot.tools.claude_code.db import update_session_id
-
-            ws = session.workspace
-            if ws.get("owner") and ws.get("repo"):
-                update_session_id(
-                    owner=ws["owner"],
-                    repo=ws["repo"],
-                    branch=ws.get("branch", "main"),
-                    session_id=claude_session_id,
-                )
-                logger.info(
-                    "Saved Claude session ID %s for workspace %s/%s",
-                    claude_session_id[:12],
-                    ws["owner"],
-                    ws["repo"],
-                )
-        except Exception as e:
-            logger.debug("Failed to capture Claude session ID: %s", e)
-
-    # -- reap dead children --
-
-    def _reap_dead(self) -> None:
-        """Check for exited child processes and mark sessions as closed."""
-        for session in list(self._sessions.values()):
-            if session.closed:
-                continue
-            try:
-                pid, status = os.waitpid(session.pid, os.WNOHANG)
-                if pid != 0:
-                    session.closed = True
-                    logger.info(
-                        "Terminal session %s child exited (status=%d)",
-                        session.terminal_id,
-                        status,
-                    )
-            except ChildProcessError:
-                session.closed = True
-            except Exception:
-                pass
+_terminal_worker_map: Dict[str, str] = {}
 
 
 # ------------------------------------------------------------------
@@ -474,12 +85,11 @@ async def list_workspaces():
         from radbot.tools.claude_code.db import list_active_workspaces
 
         workspaces = list_active_workspaces()
-        # Serialize UUIDs and datetimes to strings
         for ws in workspaces:
             for k, v in ws.items():
                 if hasattr(v, "isoformat"):
                     ws[k] = v.isoformat()
-                elif hasattr(v, "hex"):  # UUID
+                elif hasattr(v, "hex"):
                     ws[k] = str(v)
         return {"workspaces": workspaces}
     except Exception as e:
@@ -497,7 +107,17 @@ async def create_terminal_session(request: Request):
     if not workspace_id:
         raise HTTPException(400, "workspace_id is required")
 
-    mgr = TerminalManager.get_instance()
+    if _is_remote_mode():
+        return await _create_remote_session(workspace_id, resume_session_id)
+
+    return _create_local_session(workspace_id, resume_session_id)
+
+
+def _create_local_session(
+    workspace_id: str, resume_session_id: Optional[str] = None
+) -> dict:
+    """Create a terminal session in the local process."""
+    mgr = _get_local_manager()
     try:
         session = mgr.create_session(workspace_id, resume_session_id)
     except RuntimeError as e:
@@ -518,17 +138,111 @@ async def create_terminal_session(request: Request):
     }
 
 
+async def _create_remote_session(
+    workspace_id: str, resume_session_id: Optional[str] = None
+) -> dict:
+    """Create a terminal session on a remote Nomad worker."""
+    try:
+        from radbot.web.api.terminal_proxy import get_workspace_proxy
+
+        proxy = get_workspace_proxy(workspace_id)
+        worker_url = await proxy.ensure_worker()
+        if not worker_url:
+            logger.warning(
+                "No worker available for workspace %s — falling back to local",
+                workspace_id,
+            )
+            return _create_local_session(workspace_id, resume_session_id)
+
+        # Forward session creation to the worker
+        payload = {"workspace_id": workspace_id}
+        if resume_session_id:
+            payload["resume_session_id"] = resume_session_id
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{worker_url}/terminal/sessions/",
+                json=payload,
+            )
+            if resp.status_code != 200:
+                logger.error(
+                    "Worker session creation failed (%d): %s",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                return _create_local_session(workspace_id, resume_session_id)
+
+            result = resp.json()
+            terminal_id = result.get("terminal_id")
+            if terminal_id:
+                _terminal_worker_map[terminal_id] = worker_url
+            return result
+
+    except Exception as e:
+        logger.error("Remote session creation failed: %s", e, exc_info=True)
+        return _create_local_session(workspace_id, resume_session_id)
+
+
 @router.get("/sessions/")
 async def list_terminal_sessions():
     """List active terminal sessions."""
-    mgr = TerminalManager.get_instance()
+    if _is_remote_mode():
+        # Include both local and remote sessions
+        sessions = _get_local_manager().list_sessions()
+        remote = await _list_remote_sessions()
+        sessions.extend(remote)
+        return {"sessions": sessions}
+
+    mgr = _get_local_manager()
     return {"sessions": mgr.list_sessions()}
+
+
+async def _list_remote_sessions() -> list:
+    """Aggregate terminal sessions from active workspace workers."""
+    try:
+        from radbot.worker.db import list_active_workspace_workers
+
+        workers = list_active_workspace_workers()
+        sessions = []
+        async with httpx.AsyncClient(timeout=10) as client:
+            for w in workers:
+                url = w.get("worker_url")
+                if not url:
+                    continue
+                try:
+                    resp = await client.get(f"{url}/terminal/sessions/")
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        for s in data.get("sessions", []):
+                            s["remote"] = True
+                            s["worker_url"] = url
+                            sessions.append(s)
+                except Exception:
+                    pass
+        return sessions
+    except Exception as e:
+        logger.debug("Failed to list remote sessions: %s", e)
+        return []
 
 
 @router.delete("/sessions/{terminal_id}")
 async def kill_terminal_session(terminal_id: str):
     """Kill a terminal session."""
-    mgr = TerminalManager.get_instance()
+    # Check remote first
+    worker_url = _terminal_worker_map.pop(terminal_id, None)
+    if worker_url:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.delete(
+                    f"{worker_url}/terminal/sessions/{terminal_id}"
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+        except Exception as e:
+            logger.warning("Failed to kill remote session: %s", e)
+
+    # Fall back to local
+    mgr = _get_local_manager()
     if mgr.kill_session(terminal_id):
         return {"status": "success", "message": f"Session {terminal_id} killed"}
     raise HTTPException(404, f"Terminal session {terminal_id} not found")
@@ -536,11 +250,7 @@ async def kill_terminal_session(terminal_id: str):
 
 @router.post("/clone/")
 async def clone_repository_endpoint(request: Request):
-    """Clone a GitHub repository into a workspace.
-
-    Always creates a new workspace record, allowing multiple workspaces
-    for the same repo/branch (e.g. different projects on the same codebase).
-    """
+    """Clone a GitHub repository into a workspace."""
     body = await request.json()
     owner = body.get("owner")
     repo = body.get("repo")
@@ -558,7 +268,6 @@ async def clone_repository_endpoint(request: Request):
         if not client:
             raise HTTPException(500, "GitHub App not configured")
 
-        # Clone (or update) the repo on disk
         workspace_dir = os.path.join(
             os.environ.get("WORKSPACE_DIR", "/app/workspaces"),
         )
@@ -570,7 +279,6 @@ async def clone_repository_endpoint(request: Request):
 
         local_path = result["local_path"]
 
-        # Always create a NEW workspace record (allows multiple per repo)
         from radbot.tools.claude_code.db import create_workspace
 
         ws = create_workspace(
@@ -598,15 +306,25 @@ async def clone_repository_endpoint(request: Request):
 
 @router.delete("/workspaces/{workspace_id}")
 async def delete_workspace_endpoint(workspace_id: str):
-    """Delete (soft) a workspace."""
+    """Delete (soft) a workspace and stop its worker if any."""
     try:
         from radbot.tools.claude_code.db import delete_workspace
 
-        # Kill any active terminal sessions for this workspace
-        mgr = TerminalManager.get_instance()
+        # Kill any active local terminal sessions for this workspace
+        mgr = _get_local_manager()
         for s in list(mgr._sessions.values()):
             if s.workspace_id == workspace_id:
                 mgr.kill_session(s.terminal_id)
+
+        # Stop the remote worker if running
+        if _is_remote_mode():
+            try:
+                from radbot.web.api.terminal_proxy import get_workspace_proxy
+
+                proxy = get_workspace_proxy(workspace_id)
+                await proxy.stop_worker()
+            except Exception as e:
+                logger.warning("Failed to stop workspace worker: %s", e)
 
         success = delete_workspace(workspace_id)
         if not success:
@@ -646,7 +364,11 @@ async def update_workspace_endpoint(workspace_id: str, request: Request):
 @router.post("/workspaces/scratch/")
 async def create_scratch_workspace_endpoint(request: Request):
     """Create a scratch workspace (no repo) for a fresh Claude session."""
-    body = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    body = (
+        await request.json()
+        if request.headers.get("content-type") == "application/json"
+        else {}
+    )
     name = body.get("name")
     description = body.get("description")
 
@@ -654,7 +376,6 @@ async def create_scratch_workspace_endpoint(request: Request):
         from radbot.tools.claude_code.db import create_scratch_workspace
 
         ws = create_scratch_workspace(name=name, description=description)
-        # Serialize UUIDs/datetimes
         for k, v in ws.items():
             if hasattr(v, "isoformat"):
                 ws[k] = v.isoformat()
@@ -683,69 +404,16 @@ async def terminal_status():
 def register_terminal_websocket(app) -> None:
     """Register the terminal WebSocket endpoint on the FastAPI app."""
 
-    def _pty_read_coalesced(fd: int) -> bytes:
-        """Blocking read from PTY fd with output coalescing."""
-        data = os.read(fd, _PTY_READ_SIZE)
-        if not data:
-            return data
-        while True:
-            r, _, _ = select.select([fd], [], [], _COALESCE_SECS)
-            if not r:
-                break
-            more = os.read(fd, _PTY_READ_SIZE)
-            if not more:
-                break
-            data += more
-        return data
-
-    async def _ensure_pty_reader(session: _TerminalSession) -> None:
-        """Start the shared PTY reader task if not already running.
-
-        One reader per session reads from the PTY fd and broadcasts to
-        all connected WebSocket clients.  Runs until the PTY closes.
-        """
-        if session._reader_task is not None and not session._reader_task.done():
-            return
-
-        loop = asyncio.get_event_loop()
-
-        async def _reader():
-            while not session.closed:
-                try:
-                    data = await loop.run_in_executor(
-                        _pty_executor, _pty_read_coalesced, session.fd
-                    )
-                    if not data:
-                        break
-                    session.append_output(data)
-                    await session.broadcast(data)
-                except OSError:
-                    break
-                except Exception as e:
-                    logger.debug("PTY reader error: %s", e)
-                    break
-
-            # PTY closed — notify all clients
-            exit_code = -1
-            try:
-                _, status = os.waitpid(session.pid, os.WNOHANG)
-                if os.WIFEXITED(status):
-                    exit_code = os.WEXITSTATUS(status)
-            except Exception:
-                pass
-            session.closed = True
-            close_frame = bytes([_MSG_CLOSED]) + struct.pack(">i", exit_code)
-            for ws in list(session._clients):
-                try:
-                    await ws.send_bytes(close_frame)
-                except Exception:
-                    pass
-
-        session._reader_task = asyncio.create_task(_reader())
-
     @app.websocket("/ws/terminal/{terminal_id}")
     async def terminal_ws(websocket: WebSocket, terminal_id: str):
-        mgr = TerminalManager.get_instance()
+        # Check if this terminal is on a remote worker
+        worker_url = _terminal_worker_map.get(terminal_id)
+        if worker_url:
+            await _proxy_terminal_ws(websocket, terminal_id, worker_url)
+            return
+
+        # Local mode — handle PTY directly
+        mgr = _get_local_manager()
         session = mgr.get_session(terminal_id)
 
         if session is None or session.closed:
@@ -753,70 +421,69 @@ def register_terminal_websocket(app) -> None:
             return
 
         await websocket.accept()
-        session.add_client(websocket)
-        client_count = len(session._clients)
-        logger.info(
-            "Terminal WS connected: %s (%d client%s)",
-            terminal_id, client_count, "s" if client_count > 1 else "",
-        )
+        await handle_terminal_websocket(websocket, session, mgr)
 
-        # Replay scrollback buffer so reconnecting clients see prior output
-        scrollback = session.get_scrollback()
-        if scrollback:
-            try:
-                await websocket.send_bytes(bytes([_MSG_DATA]) + scrollback)
-                logger.info(
-                    "Terminal WS replayed %d bytes of scrollback for %s",
-                    len(scrollback),
-                    terminal_id,
-                )
-            except Exception as e:
-                logger.debug("Failed to replay scrollback: %s", e)
 
-        # Start the shared PTY reader if this is the first client
-        await _ensure_pty_reader(session)
+async def _proxy_terminal_ws(
+    browser_ws: WebSocket, terminal_id: str, worker_url: str
+) -> None:
+    """Bidirectional binary WebSocket proxy between browser and worker.
 
-        # This client only needs to read WS input → PTY
-        try:
-            while not session.closed:
+    Forwards all binary frames unchanged. The worker handles the PTY,
+    scrollback, and broadcast logic.
+    """
+    import websockets
+
+    ws_url = worker_url.replace("http://", "ws://").replace("https://", "wss://")
+    ws_url = f"{ws_url}/ws/terminal/{terminal_id}"
+
+    await browser_ws.accept()
+    logger.info("Terminal proxy connecting to worker: %s", ws_url)
+
+    try:
+        async with websockets.connect(ws_url) as worker_ws:
+            async def browser_to_worker():
                 try:
-                    msg = await websocket.receive()
+                    while True:
+                        msg = await browser_ws.receive()
+                        if "bytes" in msg and msg["bytes"]:
+                            await worker_ws.send(msg["bytes"])
+                        elif "text" in msg and msg["text"]:
+                            await worker_ws.send(msg["text"])
+                except (WebSocketDisconnect, Exception):
+                    pass
 
-                    # Binary frame (new protocol)
-                    if "bytes" in msg and msg["bytes"]:
-                        raw = msg["bytes"]
-                        if not raw:
-                            continue
-                        msg_type = raw[0]
-                        if msg_type == _MSG_DATA:
-                            os.write(session.fd, raw[1:])
-                        elif msg_type == _MSG_RESIZE:
-                            if len(raw) >= 5:
-                                cols = int.from_bytes(raw[1:3], "big")
-                                rows = int.from_bytes(raw[3:5], "big")
-                                mgr.resize_terminal(terminal_id, cols, rows)
+            async def worker_to_browser():
+                try:
+                    async for data in worker_ws:
+                        if isinstance(data, bytes):
+                            await browser_ws.send_bytes(data)
+                        else:
+                            await browser_ws.send_text(data)
+                except Exception:
+                    pass
 
-                    # Text frame (legacy JSON fallback)
-                    elif "text" in msg and msg["text"]:
-                        import json
-
-                        data = json.loads(msg["text"])
-                        if data.get("type") == "input":
-                            os.write(session.fd, data.get("data", "").encode("utf-8"))
-                        elif data.get("type") == "resize":
-                            cols = data.get("cols", 80)
-                            rows = data.get("rows", 24)
-                            mgr.resize_terminal(terminal_id, cols, rows)
-
-                except WebSocketDisconnect:
-                    break
-                except Exception as e:
-                    logger.debug("WS reader error: %s", e)
-                    break
-        finally:
-            session.remove_client(websocket)
-            logger.info(
-                "Terminal WS disconnected: %s (%d client%s remaining)",
-                terminal_id, len(session._clients),
-                "s" if len(session._clients) != 1 else "",
+            # Run both directions concurrently
+            done, pending = await asyncio.wait(
+                [
+                    asyncio.create_task(browser_to_worker()),
+                    asyncio.create_task(worker_to_browser()),
+                ],
+                return_when=asyncio.FIRST_COMPLETED,
             )
+            # Cancel whichever is still running
+            for task in pending:
+                task.cancel()
+
+    except Exception as e:
+        logger.warning("Terminal proxy error for %s: %s", terminal_id, e)
+        # Try to notify the browser that the session closed
+        try:
+            import struct
+
+            close_frame = bytes([MSG_CLOSED]) + struct.pack(">i", -1)
+            await browser_ws.send_bytes(close_frame)
+        except Exception:
+            pass
+
+    logger.info("Terminal proxy disconnected: %s", terminal_id)

@@ -222,10 +222,11 @@ async def initialize_app_startup():
         # Initialize session workers schema
         logger.debug("Initializing session workers database schema...")
         try:
-            from radbot.worker.db import init_session_workers_schema
+            from radbot.worker.db import init_session_workers_schema, init_workspace_workers_schema
 
             init_session_workers_schema()
-            logger.debug("Session workers database schema initialized")
+            init_workspace_workers_schema()
+            logger.debug("Session/workspace workers database schemas initialized")
         except Exception as sw_err:
             logger.error(
                 f"Error initializing session workers database: {str(sw_err)}",

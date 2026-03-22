@@ -19,6 +19,7 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 | `alert_events` | `tools/alertmanager/db.py` | `alert_id` (UUID), `fingerprint`, `alertname`, `status`, `severity`, `instance`, `raw_payload` (JSONB) |
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
+| `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
 ### Chat History DB (separate pool)
 

@@ -110,12 +110,13 @@ radbot/
 │   └── store.py                  # Encrypted PostgreSQL credential store
 ├── memory/
 │   └── enhanced_memory/          # Qdrant-backed semantic memory
-├── worker/                       # Session worker (Nomad batch jobs)
-│   ├── __main__.py               # Entry: python -m radbot.worker --session-id <UUID>
-│   ├── idle_watchdog.py          # ASGI middleware + self-termination on idle
+├── worker/                       # Session/workspace workers (Nomad service jobs)
+│   ├── __main__.py               # Entry: python -m radbot.worker --workspace-id/--session-id <UUID>
+│   ├── terminal_handler.py       # Shared PTY/WS module (used by terminal.py + worker)
+│   ├── idle_watchdog.py          # ActivityWatchdog for health reporting
 │   ├── history_loader.py         # Shared: seed ADK sessions from chat DB
-│   ├── nomad_template.py         # Nomad JSON job spec generator
-│   └── db.py                     # session_workers table CRUD
+│   ├── nomad_template.py         # Nomad JSON job spec generator (session + workspace)
+│   └── db.py                     # session_workers + workspace_workers table CRUD
 ├── callbacks/                    # ADK callback handlers
 ├── cache/                        # Response caching
 ├── cli/                          # CLI entry point
@@ -199,6 +200,7 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |
 | `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
+| `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
 Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own pool in `web/db/connection.py`.
 
