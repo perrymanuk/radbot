@@ -288,23 +288,53 @@ class NomadClient:
     ) -> Optional[Dict[str, Any]]:
         """Find a single service instance matching a tag.
 
+        Tries Nomad native service discovery first, then falls back to
+        Consul catalog API (Nomad registers services in Consul by default).
+
         Args:
-            service_name: Nomad service name (e.g. "radbot-session").
-            tag: Exact tag to match (e.g. "session_id=<uuid>").
+            service_name: Nomad service name (e.g. "radbot-workspace").
+            tag: Exact tag to match (e.g. "workspace_id=<uuid>").
 
         Returns:
-            Service registration dict with Address/Port, or None.
+            Dict with Address/Port keys, or None.
         """
+        # 1. Try Nomad native service discovery
         try:
             services = await self.list_services(service_name)
             for svc in services:
                 tags = svc.get("Tags") or []
                 if tag in tags:
                     return svc
-            return None
         except Exception as e:
-            logger.debug("Service lookup for %s tag=%s failed: %s", service_name, tag, e)
-            return None
+            logger.debug("Nomad service lookup failed: %s", e)
+
+        # 2. Fall back to Consul catalog API
+        try:
+            consul_addr = self.addr.replace(":4646", ":8500")
+            if ":4646" not in self.addr:
+                # Nomad addr doesn't use standard port — try consul.service.consul
+                consul_addr = "http://consul.service.consul:8500"
+
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(
+                    f"{consul_addr}/v1/catalog/service/{service_name}",
+                    params={"tag": tag},
+                )
+                if resp.is_success:
+                    services = resp.json()
+                    for svc in services:
+                        addr = svc.get("ServiceAddress") or svc.get("Address", "")
+                        port = svc.get("ServicePort", 0)
+                        if addr and port:
+                            return {
+                                "Address": addr,
+                                "Port": port,
+                                "Tags": svc.get("ServiceTags", []),
+                            }
+        except Exception as e:
+            logger.debug("Consul service lookup for %s tag=%s failed: %s", service_name, tag, e)
+
+        return None
 
     # ── Health ────────────────────────────────────────────────
 
