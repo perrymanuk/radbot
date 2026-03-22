@@ -37,8 +37,18 @@ RUN pip install --no-cache-dir \
     httpx \
     "pyjwt[crypto]"
 
-# Copy only the modules the worker needs (with a minimal __init__.py)
-RUN mkdir -p radbot && echo '__version__ = "0.1.0"' > radbot/__init__.py
+# Copy only the modules the worker needs.
+# Generate minimal __init__.py files to avoid importing agent/ADK dependencies
+# from the main app's __init__.py files.
+RUN mkdir -p radbot radbot/worker radbot/tools radbot/tools/shared \
+             radbot/tools/todo radbot/tools/todo/db \
+             radbot/tools/claude_code radbot/tools/github \
+    && echo '__version__ = "0.1.0"' > radbot/__init__.py \
+    && touch radbot/tools/__init__.py \
+    && touch radbot/tools/todo/__init__.py \
+    && touch radbot/tools/claude_code/__init__.py \
+    && touch radbot/tools/github/__init__.py
+
 COPY radbot/logging_config.py radbot/
 COPY radbot/worker/__init__.py radbot/worker/
 COPY radbot/worker/__main__.py radbot/worker/
@@ -47,14 +57,10 @@ COPY radbot/worker/db.py radbot/worker/
 COPY radbot/worker/nomad_template.py radbot/worker/
 COPY radbot/config/ radbot/config/
 COPY radbot/credentials/ radbot/credentials/
-COPY radbot/tools/__init__.py radbot/tools/
 COPY radbot/tools/shared/ radbot/tools/shared/
-COPY radbot/tools/todo/__init__.py radbot/tools/todo/
 COPY radbot/tools/todo/db/ radbot/tools/todo/db/
-COPY radbot/tools/claude_code/__init__.py radbot/tools/claude_code/
 COPY radbot/tools/claude_code/db.py radbot/tools/claude_code/
 COPY radbot/tools/claude_code/claude_code_client.py radbot/tools/claude_code/
-COPY radbot/tools/github/__init__.py radbot/tools/github/
 COPY radbot/tools/github/github_app_client.py radbot/tools/github/
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
