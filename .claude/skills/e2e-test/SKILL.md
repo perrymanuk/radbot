@@ -1,13 +1,13 @@
 ---
 name: e2e-test
-description: Run RadBot E2E tests with parallel log analysis, performance review, and test coverage analysis using agent teams
+description: Run RadBot E2E tests with parallel log analysis, performance review, cost analysis, test coverage analysis, and documentation drift detection using agent teams
 disable-model-invocation: true
 user-invocable: true
 ---
 
 # E2E Test Orchestration with Agent Teams
 
-Run RadBot E2E tests against a Docker compose stack with three agent teammates providing deep analysis of logs, performance, and test coverage gaps.
+Run RadBot E2E tests against a Docker compose stack with five agent teammates providing deep analysis of logs, performance, cost, test coverage gaps, and documentation drift.
 
 ## Argument Parsing
 
@@ -116,6 +116,27 @@ docker compose logs --no-color --no-log-prefix radbot > reports/e2e-container-lo
 cp reports/e2e-container-logs.txt "reports/e2e-container-logs-$(date +%Y%m%d-%H%M%S).txt"
 ```
 
+### 5b. Export Cost Data
+
+Capture LLM cost data before teardown. The e2e stack sets `RADBOT_RUN_LABEL=e2e` so
+all usage is tagged. Costs persist in the DB across runs, but this snapshot provides
+quick access without DB queries.
+
+```bash
+ADMIN_TOKEN=$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-)
+BASE_URL="http://localhost:${RADBOT_EXPOSED_PORT:-8001}"
+
+# Export persistent cost dashboard (filtered to e2e label)
+curl -sf -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$BASE_URL/admin/api/telemetry/costs?label=e2e" \
+  > reports/e2e-cost-$(date +%Y%m%d-%H%M%S).json 2>/dev/null || true
+
+# Export current session usage stats (in-memory, resets on restart)
+curl -sf -H "Authorization: Bearer $ADMIN_TOKEN" \
+  "$BASE_URL/admin/api/telemetry/usage" \
+  > reports/e2e-session-usage.json 2>/dev/null || true
+```
+
 ### 6. Create Team and Spawn Teammates (after tests complete)
 
 Only after the test run finishes, create the team and spawn all analysis teammates.
@@ -125,7 +146,7 @@ Since all artifacts are already available, no teammate needs to poll for files.
 TeamCreate(team_name="e2e-analysis", description="RadBot E2E test analysis team")
 ```
 
-Spawn teammates 1-2 in parallel (no dependencies). Teammate 3 depends on both.
+Spawn teammates 1, 2, and 4 in parallel (no dependencies). Teammates 3 and 5 depend on 1+2 (spawn after those complete).
 
 **Teammate 1: Log Analyst**
 - `Agent(name="log-analyst", team_name="e2e-analysis", run_in_background=true, ...)`
@@ -135,13 +156,21 @@ Spawn teammates 1-2 in parallel (no dependencies). Teammate 3 depends on both.
 - `Agent(name="perf-reviewer", team_name="e2e-analysis", run_in_background=true, ...)`
 - Prompt: "Review performance of both the RadBot application and the E2E test suite. Read `.claude/skills/e2e-test/performance-review-guide.md` for detailed instructions. The test run is COMPLETE -- `reports/e2e-pytest-output.txt` and `reports/e2e-junit.xml` are ready. Read `reports/e2e-container-logs.txt` for runtime timing data. Compare against previous runs in `reports/e2e-analysis-history/`. Write findings to `reports/e2e-performance-review.md`."
 
-**Teammate 3: Test Coverage Reviewer** (depends on teammates 1 and 2)
+**Teammate 4: Cost Analyst**
+- `Agent(name="cost-analyst", team_name="e2e-analysis", run_in_background=true, ...)`
+- Prompt: "Analyze LLM cost data from the E2E run. Read `.claude/skills/e2e-test/cost-analysis-guide.md` for detailed instructions. The test run is COMPLETE -- `reports/e2e-session-usage.json` and any `reports/e2e-cost-*.json` files are ready. Compare against historical runs in `reports/e2e-analysis-history/`. Write findings to `reports/e2e-cost-analysis.md`."
+
+**Teammate 3: Test Coverage Reviewer** (depends on teammates 1, 2, and 4)
 - `Agent(name="test-coverage", team_name="e2e-analysis", run_in_background=true, ...)`
-- Prompt: "Analyze E2E run findings and identify test coverage gaps. Read `.claude/skills/e2e-test/test-coverage-guide.md` for detailed instructions. The test run is COMPLETE and `reports/e2e-pytest-output.txt` is ready. Wait for BOTH of these teammate reports to exist (poll every 20s): `reports/e2e-log-analysis.md`, `reports/e2e-performance-review.md`. Then cross-reference findings against existing tests in `tests/` to identify missing unit tests, missing E2E scenarios, and assertion gaps. Propose concrete test code for each gap. Write findings to `reports/e2e-test-coverage.md`."
+- Prompt: "Analyze E2E run findings and identify test coverage gaps. Read `.claude/skills/e2e-test/test-coverage-guide.md` for detailed instructions. The test run is COMPLETE and `reports/e2e-pytest-output.txt` is ready. Wait for ALL THREE of these teammate reports to exist (poll every 20s): `reports/e2e-log-analysis.md`, `reports/e2e-performance-review.md`, `reports/e2e-cost-analysis.md`. Then cross-reference findings against existing tests in `tests/` to identify missing unit tests, missing E2E scenarios, and assertion gaps. Propose concrete test code for each gap. Write findings to `reports/e2e-test-coverage.md`."
+
+**Teammate 5: Doc Keeper** (depends on teammates 1 and 2)
+- `Agent(name="doc-keeper", team_name="e2e-analysis", run_in_background=true, ...)`
+- Prompt: "Audit project documentation for drift after this E2E run. Read `.claude/skills/e2e-test/doc-update-guide.md` for detailed instructions. The test run is COMPLETE. Wait for BOTH of these teammate reports to exist (poll every 20s): `reports/e2e-log-analysis.md`, `reports/e2e-performance-review.md`. Then audit CLAUDE.md and the SPEC.md ecosystem against the current codebase using terse LLM-optimized writing style. Apply minimal updates for any drift detected. Write your change manifest to `reports/e2e-doc-updates.md`."
 
 ### 7. Wait for Teammates
 
-Wait for all three teammates to finish and write their report files.
+Wait for all five teammates to finish and write their report files.
 You will be notified automatically when each teammate completes.
 
 ### 8. Extract Per-Test Durations
@@ -159,10 +188,12 @@ for tc in tree.iter('testcase'):
 
 ### 9. Collect Findings and Generate Unified Report
 
-Read the three teammate reports:
+Read the five teammate reports:
 - `reports/e2e-log-analysis.md`
 - `reports/e2e-performance-review.md`
+- `reports/e2e-cost-analysis.md`
 - `reports/e2e-test-coverage.md`
+- `reports/e2e-doc-updates.md`
 
 Generate a unified report combining all findings.
 
@@ -173,10 +204,10 @@ Generate a unified report combining all findings.
 
 ## Summary
 
-| Test | Pytest | Duration | Log Findings | Perf Findings | Coverage Gaps |
-|------|--------|----------|-------------|---------------|---------------|
-| test_health | PASSED | 0.3s | 0 findings | 0 bottlenecks | 0 gaps |
-| test_agent_chat | PASSED | 45.2s | 1 medium | 1 bottleneck | 1 gap |
+| Test | Pytest | Duration | Log Findings | Perf Findings | Coverage Gaps | Est. Cost |
+|------|--------|----------|-------------|---------------|---------------|-----------|
+| test_health | PASSED | 0.3s | 0 findings | 0 bottlenecks | 0 gaps | $0.00 |
+| test_agent_chat | PASSED | 45.2s | 1 medium | 1 bottleneck | 1 gap | $0.05 |
 
 ## Delta from Previous Run
 (Compare against most recent file in reports/e2e-analysis-history/)
@@ -194,6 +225,29 @@ Generate a unified report combining all findings.
 (findings from performance reviewer)
 #### Test Coverage Gaps
 (gaps identified by coverage reviewer)
+
+## Cost Analysis
+(findings from cost analyst)
+
+### Per-Agent Cost Breakdown
+| Agent | Model | Requests | Cost | % Total |
+|-------|-------|----------|------|---------|
+
+### Cost Trend
+(delta from previous runs)
+
+### Cost Optimization Recommendations
+(prioritized recommendations from cost analyst)
+
+## Documentation Updates
+(findings from doc keeper)
+
+### Files Modified
+| File | Changes | Lines +/- | Trigger |
+|------|---------|-----------|---------|
+
+### Flagged for Review
+(items needing human judgment)
 
 ## Recommended Actions
 (prioritized list based on severity)
@@ -222,6 +276,14 @@ Generate a unified report combining all findings.
     "skipped": 0,
     "critical_findings": 0,
     "warnings": 0
+  },
+  "cost_analysis": {
+    "total_cost_usd": 0.19,
+    "cost_per_test_usd": 0.0014,
+    "cache_hit_rate_pct": 25.0,
+    "top_cost_agent": "beto",
+    "top_cost_agent_pct": 42.0,
+    "recommendations": ["Switch agent X to flash", "Improve cache hit rate"]
   }
 }
 ```
@@ -239,6 +301,12 @@ Save a compact run summary to `reports/e2e-analysis-history/run-{YYYYMMDD-HHMMSS
   "failed": 0,
   "skipped": 5,
   "findings": {"critical": 0, "high": 0, "medium": 1, "low": 0},
+  "cost": {
+    "session_cost_usd": 0.125,
+    "session_requests": 42,
+    "session_prompt_tokens": 50000,
+    "session_output_tokens": 12000
+  },
   "tests": {
     "test_health_returns_ok": {"result": "passed", "duration_seconds": 0.3},
     "test_agent_chat_greeting": {"result": "passed", "duration_seconds": 45.2}
@@ -274,4 +342,5 @@ Print a summary of where reports were written.
 - Tests use service availability auto-skip markers (`requires_gemini`, `requires_ha`, etc.)
 - Tests marked `writes_external` are skipped unless `--run-writes` is passed
 - Teammates are spawned AFTER the test run completes, so all artifacts are fully written before analysis begins
-- Test coverage reviewer runs last (waits for log analysis and performance review)
+- Test coverage reviewer runs last (waits for log analysis, performance review, and cost analysis)
+- Doc-keeper modifies `CLAUDE.md`, `specs/`, and `docs/guides/` files — review `git diff` after the run to approve changes
