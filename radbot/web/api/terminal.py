@@ -291,7 +291,58 @@ class TerminalManager:
             os.waitpid(session.pid, os.WNOHANG)
         except Exception:
             pass
+
+        # Capture Claude Code session ID for future --resume
+        self._save_claude_session_id(session)
+
         logger.info("Terminal session %s cleaned up (pid=%d)", session.terminal_id, session.pid)
+
+    def _save_claude_session_id(self, session: _TerminalSession) -> None:
+        """Find and persist the Claude Code session ID from its state files."""
+        try:
+            import glob
+            import json as _json
+            from pathlib import Path
+
+            home = Path.home()
+            # Claude stores sessions in ~/.claude/projects/<path-hash>/sessions-index.json
+            index_files = glob.glob(str(home / ".claude" / "projects" / "*" / "sessions-index.json"))
+            if not index_files:
+                return
+
+            # Find the most recently modified index
+            latest_idx = max(index_files, key=os.path.getmtime)
+            with open(latest_idx) as f:
+                sessions = _json.load(f)
+
+            if not sessions:
+                return
+
+            # Get the most recent session ID
+            latest = max(sessions, key=lambda s: s.get("lastUpdated", 0))
+            claude_session_id = latest.get("sessionId")
+            if not claude_session_id:
+                return
+
+            # Save to workspace DB
+            from radbot.tools.claude_code.db import update_session_id
+
+            ws = session.workspace
+            if ws.get("owner") and ws.get("repo"):
+                update_session_id(
+                    owner=ws["owner"],
+                    repo=ws["repo"],
+                    branch=ws.get("branch", "main"),
+                    session_id=claude_session_id,
+                )
+                logger.info(
+                    "Saved Claude session ID %s for workspace %s/%s",
+                    claude_session_id[:12],
+                    ws["owner"],
+                    ws["repo"],
+                )
+        except Exception as e:
+            logger.debug("Failed to capture Claude session ID: %s", e)
 
     # -- reap dead children --
 
