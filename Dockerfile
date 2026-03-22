@@ -2,7 +2,7 @@
 FROM node:20-slim AS frontend-build
 
 WORKDIR /frontend
-COPY radbot/web/frontend/package.json radbot/web/frontend/package-lock.json* ./
+COPY radbot/web/frontend/package.json radbot/web/frontend/package-lock.json* radbot/web/frontend/.npmrc ./
 RUN npm ci
 COPY radbot/web/frontend/ .
 RUN npx tsc -b && npx vite build --outDir dist
