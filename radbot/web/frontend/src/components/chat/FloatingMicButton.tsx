@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useDraggable } from "@/hooks/use-draggable";
 
 type STTState = "idle" | "recording" | "processing";
 
@@ -8,14 +9,24 @@ interface Props {
 }
 
 export default function FloatingMicButton({ state, toggle }: Props) {
+  const { position, isDragging, handlers } = useDraggable({
+    storageKey: "radbot-mic-position",
+    defaultPosition: { x: 16, y: 80 },
+    elementSize: 56,
+    onTap: toggle,
+    disabled: state === "processing",
+  });
+
   return (
     <button
-      onClick={toggle}
+      {...handlers}
       disabled={state === "processing"}
+      style={{ top: position.top, left: position.left }}
       className={cn(
-        "fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full",
-        "flex items-center justify-center transition-all",
-        "shadow-lg active:scale-95",
+        "fixed z-40 w-14 h-14 rounded-full touch-none",
+        "flex items-center justify-center",
+        "shadow-lg",
+        !isDragging && "transition-all",
         state === "idle" && "bg-accent-blue text-white hover:bg-accent-blue/80",
         state === "recording" &&
           "bg-terminal-red text-white animate-pulse shadow-[0_0_20px_rgba(255,0,0,0.4)]",
