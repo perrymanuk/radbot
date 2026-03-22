@@ -43,11 +43,13 @@ export async function cloneRepository(
   owner: string,
   repo: string,
   branch: string = "main",
+  name?: string,
+  description?: string,
 ): Promise<{ status: string; message?: string }> {
   return json("/terminal/clone/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ owner, repo, branch }),
+    body: JSON.stringify({ owner, repo, branch, ...(name && { name }), ...(description && { description }) }),
   });
 }
 

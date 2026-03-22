@@ -7,6 +7,8 @@ export default function CloneForm() {
   const [owner, setOwner] = useState("");
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("main");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
@@ -17,13 +19,21 @@ export default function CloneForm() {
     setLoading(true);
     setMessage(null);
 
-    const result = await cloneRepo(owner.trim(), repo.trim(), branch.trim());
+    const result = await cloneRepo(
+      owner.trim(),
+      repo.trim(),
+      branch.trim(),
+      name.trim() || undefined,
+      description.trim() || undefined,
+    );
 
     if (result.status === "success") {
       setMessage({ text: "Repository cloned successfully!", isError: false });
       setOwner("");
       setRepo("");
       setBranch("main");
+      setName("");
+      setDescription("");
     } else {
       setMessage({ text: result.message || "Clone failed", isError: true });
     }
@@ -74,6 +84,33 @@ export default function CloneForm() {
             value={branch}
             onChange={(e) => setBranch(e.target.value)}
             placeholder="main"
+            className="w-full bg-bg-primary border border-border text-txt-primary text-sm font-mono px-2 py-1.5 focus:border-accent-blue focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <label className="text-xs font-mono text-txt-secondary mb-1 block">
+            Name (optional)
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="My project"
+            className="w-full bg-bg-primary border border-border text-txt-primary text-sm font-mono px-2 py-1.5 focus:border-accent-blue focus:outline-none"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-mono text-txt-secondary mb-1 block">
+            Description (optional)
+          </label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What this workspace is for"
             className="w-full bg-bg-primary border border-border text-txt-primary text-sm font-mono px-2 py-1.5 focus:border-accent-blue focus:outline-none"
           />
         </div>

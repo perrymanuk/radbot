@@ -26,7 +26,7 @@ interface TerminalState {
   // Actions
   openTerminal: (workspaceId: string, resumeSessionId?: string) => Promise<void>;
   killTerminal: (terminalId: string) => Promise<void>;
-  cloneRepo: (owner: string, repo: string, branch: string) => Promise<{ status: string; message?: string }>;
+  cloneRepo: (owner: string, repo: string, branch: string, name?: string, description?: string) => Promise<{ status: string; message?: string }>;
   deleteWorkspace: (workspaceId: string) => Promise<void>;
   updateWorkspace: (workspaceId: string, data: { name?: string; description?: string }) => Promise<void>;
   createScratchWorkspace: (name?: string, description?: string) => Promise<void>;
@@ -100,10 +100,10 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }
   },
 
-  cloneRepo: async (owner, repo, branch) => {
+  cloneRepo: async (owner, repo, branch, name, description) => {
     try {
       set({ error: null });
-      const result = await termApi.cloneRepository(owner, repo, branch);
+      const result = await termApi.cloneRepository(owner, repo, branch, name, description);
       if (result.status === "success") {
         await get().loadWorkspaces();
         set({ showCloneForm: false });

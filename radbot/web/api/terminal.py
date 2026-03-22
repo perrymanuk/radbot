@@ -519,6 +519,8 @@ async def clone_repository_endpoint(request: Request):
     owner = body.get("owner")
     repo = body.get("repo")
     branch = body.get("branch", "main")
+    name = body.get("name")
+    description = body.get("description")
 
     if not owner or not repo:
         raise HTTPException(400, "owner and repo are required")
@@ -527,6 +529,22 @@ async def clone_repository_endpoint(request: Request):
         from radbot.tools.claude_code.claude_code_tools import clone_repository
 
         result = clone_repository(owner=owner, repo=repo, branch=branch)
+
+        # Update name/description if provided
+        if result.get("status") == "success" and (name or description):
+            try:
+                from radbot.tools.claude_code.db import get_workspace, update_workspace
+
+                ws = get_workspace(owner=owner, repo=repo, branch=branch)
+                if ws:
+                    update_workspace(
+                        str(ws["workspace_id"]),
+                        name=name,
+                        description=description,
+                    )
+            except Exception as e:
+                logger.warning("Failed to set workspace name/description: %s", e)
+
         return result
     except Exception as e:
         logger.error("Error cloning repository: %s", e, exc_info=True)
