@@ -219,6 +219,19 @@ async def initialize_app_startup():
                 exc_info=True,
             )
 
+        # Initialize session workers schema
+        logger.debug("Initializing session workers database schema...")
+        try:
+            from radbot.worker.db import init_session_workers_schema
+
+            init_session_workers_schema()
+            logger.debug("Session workers database schema initialized")
+        except Exception as sw_err:
+            logger.error(
+                f"Error initializing session workers database: {str(sw_err)}",
+                exc_info=True,
+            )
+
         # Initialize credential store schema
         logger.debug("Initializing credential store schema...")
         try:

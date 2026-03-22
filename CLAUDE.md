@@ -110,6 +110,12 @@ radbot/
 │   └── store.py                  # Encrypted PostgreSQL credential store
 ├── memory/
 │   └── enhanced_memory/          # Qdrant-backed semantic memory
+├── worker/                       # Session worker (Nomad batch jobs)
+│   ├── __main__.py               # Entry: python -m radbot.worker --session-id <UUID>
+│   ├── idle_watchdog.py          # ASGI middleware + self-termination on idle
+│   ├── history_loader.py         # Shared: seed ADK sessions from chat DB
+│   ├── nomad_template.py         # Nomad JSON job spec generator
+│   └── db.py                     # session_workers table CRUD
 ├── callbacks/                    # ADK callback handlers
 ├── cache/                        # Response caching
 ├── cli/                          # CLI entry point
@@ -192,6 +198,7 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `alert_events` | `tools/alertmanager/db.py` | `alert_id` (UUID), `fingerprint`, `alertname`, `status`, `severity`, `instance`, `raw_payload` (JSONB), `remediation_action`, `remediation_result` |
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |
+| `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
 Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own pool in `web/db/connection.py`.
 
@@ -203,6 +210,7 @@ Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own poo
 |---|---|
 | `uv run python -m radbot.web` / `make run-web` | Start FastAPI web server |
 | `uv run python -m radbot` / `make run-cli` | Start CLI interface |
+| `uv run python -m radbot.worker --session-id <UUID>` | Start headless A2A session worker |
 | `make dev-frontend` | Vite dev server at :5173 (proxies to FastAPI :8000) |
 | `make build-frontend` | Build React SPA → `radbot/web/static/dist/` |
 | `make test` / `make test-unit` | Run all tests / unit tests only |
@@ -290,6 +298,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **`RADBOT_CONFIG_FILE`**: Alias for `RADBOT_CONFIG` — both are supported. Nomad sets `RADBOT_CONFIG_FILE`.
 - **Trailing-slash redirects**: FastAPI router root paths (`@router.get("/")`) redirect without trailing slash via 307. Behind a reverse proxy this can produce `http://` redirect URLs that browsers block as mixed content. Always use trailing slashes in frontend API calls to router root paths.
 - **Ollama models**: Use `ollama_chat/<model>` prefix (e.g. `ollama_chat/mistral-small3.2`). `search_agent` (google_search) and `code_execution_agent` (BuiltInCodeExecutor) require Gemini and will NOT work with Ollama.
+- **Session mode**: `config:agent` → `session_mode` controls local (default) vs remote (Nomad workers). Remote mode spawns per-session Nomad batch jobs via A2A protocol. Falls back to local if Nomad is unreachable or worker limit (`max_session_workers`, default 10) is reached.
 
 ---
 

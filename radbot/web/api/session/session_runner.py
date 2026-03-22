@@ -1266,66 +1266,15 @@ class SessionRunner:
         Args:
             session: The ADK session object to populate.
         """
-        try:
-            import uuid
+        from radbot.worker.history_loader import load_history_into_session
 
-            from google.adk.events import Event
-
-            from radbot.web.db import chat_operations
-
-            db_messages = chat_operations.get_messages_by_session_id(
-                self.session_id, limit=30
-            )
-            if not db_messages:
-                logger.debug(f"No DB history found for session {self.session_id}")
-                return
-
-            # Take the last N messages to keep context manageable
-            MAX_HISTORY = 15
-            recent = db_messages[-MAX_HISTORY:]
-
-            # Get the agent name for model events
-            agent_name = root_agent.name if hasattr(root_agent, "name") else "beto"
-
-            loaded = 0
-            # Group user/assistant pairs under the same invocation_id.
-            # Each user message starts a new invocation; the following
-            # assistant message shares the same id (they're one turn).
-            current_invocation_id = str(uuid.uuid4())
-            for msg in recent:
-                role = msg.get("role", "")
-                content_text = msg.get("content", "")
-                if not content_text:
-                    continue
-
-                if role == "user":
-                    # New turn → new invocation id
-                    current_invocation_id = str(uuid.uuid4())
-                    event = Event(
-                        invocation_id=current_invocation_id,
-                        author="user",
-                        content=Content(parts=[Part(text=content_text)], role="user"),
-                    )
-                elif role == "assistant":
-                    event = Event(
-                        invocation_id=current_invocation_id,
-                        author=agent_name,
-                        content=Content(parts=[Part(text=content_text)], role="model"),
-                    )
-                else:
-                    continue
-
-                await self.session_service.append_event(session, event)
-                loaded += 1
-
-            if loaded:
-                logger.debug(
-                    f"Loaded {loaded} events from DB into ADK session {self.session_id}"
-                )
-        except Exception as e:
-            logger.warning(
-                f"Failed to load history from DB into session: {e}", exc_info=True
-            )
+        agent_name = root_agent.name if hasattr(root_agent, "name") else "beto"
+        await load_history_into_session(
+            session=session,
+            session_id=self.session_id,
+            session_service=self.session_service,
+            agent_name=agent_name,
+        )
 
     async def reset_session(self):
         """Reset the session conversation history."""

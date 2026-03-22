@@ -272,6 +272,40 @@ class NomadClient:
         """List deployments for a job."""
         return await self._get(f"/v1/job/{job_id}/deployments")
 
+    # ── Nomad Service Discovery ─────────────────────────────
+
+    async def list_services(
+        self, service_name: str
+    ) -> List[Dict[str, Any]]:
+        """List service registrations via Nomad's native service discovery.
+
+        Uses the Nomad ``/v1/service/{name}`` endpoint (not Consul).
+        """
+        return await self._get(f"/v1/service/{service_name}")
+
+    async def find_service_by_tag(
+        self, service_name: str, tag: str
+    ) -> Optional[Dict[str, Any]]:
+        """Find a single service instance matching a tag.
+
+        Args:
+            service_name: Nomad service name (e.g. "radbot-session").
+            tag: Exact tag to match (e.g. "session_id=<uuid>").
+
+        Returns:
+            Service registration dict with Address/Port, or None.
+        """
+        try:
+            services = await self.list_services(service_name)
+            for svc in services:
+                tags = svc.get("Tags") or []
+                if tag in tags:
+                    return svc
+            return None
+        except Exception as e:
+            logger.debug("Service lookup for %s tag=%s failed: %s", service_name, tag, e)
+            return None
+
     # ── Health ────────────────────────────────────────────────
 
     async def test(self) -> Dict[str, Any]:
