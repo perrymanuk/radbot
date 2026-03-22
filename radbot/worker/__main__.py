@@ -1,10 +1,11 @@
 """Entry point for RadBot session worker.
 
-Starts a headless A2A agent server that holds a single session in memory.
-Designed to run as a Nomad batch job — self-terminates after idle timeout.
+Starts a persistent headless A2A agent server that holds a single session
+in memory. Designed to run as a Nomad service job — survives main app
+restarts and runs until explicitly stopped.
 
 Usage:
-    python -m radbot.worker --session-id <UUID> [--port 8000] [--idle-timeout 3600]
+    python -m radbot.worker --session-id <UUID> [--port 8000]
 """
 
 import argparse
@@ -43,30 +44,22 @@ def main():
         default="0.0.0.0",
         help="Host to bind to (default: 0.0.0.0)",
     )
-    parser.add_argument(
-        "--idle-timeout",
-        type=int,
-        default=3600,
-        help="Seconds of inactivity before self-termination (default: 3600)",
-    )
 
     args = parser.parse_args()
     logger.info(
-        "Starting session worker: session_id=%s, port=%d, idle_timeout=%ds",
+        "Starting session worker: session_id=%s, port=%d",
         args.session_id,
         args.port,
-        args.idle_timeout,
     )
 
     _start_worker(
         session_id=args.session_id,
         host=args.host,
         port=args.port,
-        idle_timeout=args.idle_timeout,
     )
 
 
-def _start_worker(session_id: str, host: str, port: int, idle_timeout: int):
+def _start_worker(session_id: str, host: str, port: int):
     """Build the A2A Starlette app and run it with uvicorn."""
     import uvicorn
     from starlette.responses import JSONResponse
@@ -77,7 +70,7 @@ def _start_worker(session_id: str, host: str, port: int, idle_timeout: int):
     from google.adk.runners import Runner
     from google.adk.sessions import InMemorySessionService
 
-    from radbot.worker.idle_watchdog import IdleWatchdog, IdleWatchdogMiddleware
+    from radbot.worker.idle_watchdog import ActivityMiddleware, ActivityWatchdog
 
     # Import the root agent (triggers agent creation)
     from radbot.agent.agent_core import root_agent
@@ -115,7 +108,7 @@ def _start_worker(session_id: str, host: str, port: int, idle_timeout: int):
         runner.context_cache_config = ContextCacheConfig(
             cache_intervals=20,
             ttl_seconds=3600,
-            min_tokens=1024,
+            min_tokens=2048,
         )
         logger.debug("Enabled context caching on worker Runner")
     except Exception as e:
@@ -130,9 +123,9 @@ def _start_worker(session_id: str, host: str, port: int, idle_timeout: int):
         runner=runner,
     )
 
-    # Set up idle watchdog
-    watchdog = IdleWatchdog(idle_timeout=idle_timeout)
-    a2a_app.add_middleware(IdleWatchdogMiddleware, watchdog=watchdog)
+    # Set up activity watchdog for health reporting
+    watchdog = ActivityWatchdog()
+    a2a_app.add_middleware(ActivityMiddleware, watchdog=watchdog)
 
     # Add health and metadata endpoints
     async def health_endpoint(request):
@@ -141,7 +134,7 @@ def _start_worker(session_id: str, host: str, port: int, idle_timeout: int):
                 "status": "healthy",
                 "session_id": session_id,
                 "idle_seconds": round(watchdog.idle_seconds),
-                "idle_timeout": idle_timeout,
+                "uptime_seconds": round(watchdog.uptime_seconds),
             }
         )
 
@@ -151,32 +144,23 @@ def _start_worker(session_id: str, host: str, port: int, idle_timeout: int):
                 "session_id": session_id,
                 "agent_name": app_name,
                 "idle_seconds": round(watchdog.idle_seconds),
-                "idle_timeout": idle_timeout,
+                "uptime_seconds": round(watchdog.uptime_seconds),
             }
         )
 
     a2a_app.routes.insert(0, Route("/health", health_endpoint))
     a2a_app.routes.insert(1, Route("/info", info_endpoint))
 
-    # Start watchdog on app startup
+    # Seed session history on startup
     original_startup_handlers = list(a2a_app.on_startup)
 
-    async def startup_with_watchdog():
+    async def startup_with_seed():
         for handler in original_startup_handlers:
             await handler()
-        await watchdog.start()
-        # Load chat history into session if available
         await _seed_session(session_id, session_service, app_name)
 
     a2a_app.on_startup.clear()
-    a2a_app.add_event_handler("startup", startup_with_watchdog)
-
-    # Stop watchdog on shutdown
-    async def shutdown_watchdog():
-        await watchdog.stop()
-        logger.info("Worker shutdown complete for session %s", session_id)
-
-    a2a_app.add_event_handler("shutdown", shutdown_watchdog)
+    a2a_app.add_event_handler("startup", startup_with_seed)
 
     logger.info("Worker A2A server starting on %s:%d", host, port)
     uvicorn.run(a2a_app, host=host, port=port, log_level="info")

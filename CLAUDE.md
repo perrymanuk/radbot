@@ -298,7 +298,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **`RADBOT_CONFIG_FILE`**: Alias for `RADBOT_CONFIG` — both are supported. Nomad sets `RADBOT_CONFIG_FILE`.
 - **Trailing-slash redirects**: FastAPI router root paths (`@router.get("/")`) redirect without trailing slash via 307. Behind a reverse proxy this can produce `http://` redirect URLs that browsers block as mixed content. Always use trailing slashes in frontend API calls to router root paths.
 - **Ollama models**: Use `ollama_chat/<model>` prefix (e.g. `ollama_chat/mistral-small3.2`). `search_agent` (google_search) and `code_execution_agent` (BuiltInCodeExecutor) require Gemini and will NOT work with Ollama.
-- **Session mode**: `config:agent` → `session_mode` controls local (default) vs remote (Nomad workers). Remote mode spawns per-session Nomad batch jobs via A2A protocol. Falls back to local if Nomad is unreachable or worker limit (`max_session_workers`, default 10) is reached.
+- **Session mode**: `config:agent` → `session_mode` controls local (default) vs remote (Nomad workers). Remote mode spawns persistent per-session Nomad service jobs via A2A protocol. Workers restart on crash and run until explicitly stopped. Falls back to local if Nomad is unreachable or worker limit (`max_session_workers`, default 10) is reached.
 
 ---
 

@@ -33,7 +33,7 @@ resources: cpu=1000, memory=2048
 
 ## Session Workers (Remote Mode)
 
-When `config:agent` → `session_mode = "remote"`, each chat session runs as an independent Nomad batch job (`type = "batch"`). Workers hold full ADK session state in memory and expose A2A endpoints. The main app proxies messages via `SessionProxy`.
+When `config:agent` → `session_mode = "remote"`, each chat session runs as a persistent Nomad service job (`type = "service"`). Workers hold full ADK session state in memory, expose A2A endpoints, and restart on crash. The main app proxies messages via `SessionProxy`.
 
 See **`specs/workers.md`** for full architecture, protocol details, and file inventory.
 

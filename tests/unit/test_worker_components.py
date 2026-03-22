@@ -4,7 +4,6 @@ Tests the Nomad job template generator, idle watchdog, history loader,
 and worker DB operations — all without external service dependencies.
 """
 
-import asyncio
 import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -31,7 +30,7 @@ class TestNomadJobTemplate:
 
         assert "Job" in spec
         job = spec["Job"]
-        assert job["Type"] == "batch"
+        assert job["Type"] == "service"
         assert job["ID"] == "radbot-session-550e8400"
         assert job["Name"] == "radbot-session-550e8400"
         assert job["Datacenters"] == ["dc1"]
@@ -60,7 +59,6 @@ class TestNomadJobTemplate:
             credential_key="k",
             admin_token="t",
             postgres_pass="p",
-            idle_timeout=7200,
         )
 
         task = spec["Job"]["TaskGroups"][0]["Tasks"][0]
@@ -70,7 +68,7 @@ class TestNomadJobTemplate:
         assert "radbot.worker" in args
         assert "--session-id" in args
         assert "test-sid" in args
-        assert "--idle-timeout" in args
+        assert "--idle-timeout" not in args
         assert "7200" in args
 
     def test_image_tag(self):
@@ -181,8 +179,8 @@ class TestNomadJobTemplate:
         )
 
         restart = spec["Job"]["TaskGroups"][0]["RestartPolicy"]
-        assert restart["Mode"] == "fail"
-        assert restart["Attempts"] == 1
+        assert restart["Mode"] == "delay"
+        assert restart["Attempts"] == 3
 
     def test_config_yaml_template(self):
         from radbot.worker.nomad_template import build_worker_job_spec
@@ -252,63 +250,31 @@ class TestNomadJobTemplate:
 # ---------------------------------------------------------------------------
 # Idle Watchdog
 # ---------------------------------------------------------------------------
-class TestIdleWatchdog:
-    """Tests for radbot.worker.idle_watchdog.IdleWatchdog."""
+class TestActivityWatchdog:
+    """Tests for radbot.worker.idle_watchdog.ActivityWatchdog."""
 
     def test_initial_activity(self):
-        from radbot.worker.idle_watchdog import IdleWatchdog
+        from radbot.worker.idle_watchdog import ActivityWatchdog
 
-        w = IdleWatchdog(idle_timeout=60)
+        w = ActivityWatchdog()
         assert w.idle_seconds < 1.0
 
     def test_touch_resets_idle(self):
-        from radbot.worker.idle_watchdog import IdleWatchdog
+        from radbot.worker.idle_watchdog import ActivityWatchdog
 
-        w = IdleWatchdog(idle_timeout=60)
+        w = ActivityWatchdog()
         # Simulate some passage of time
         w.last_activity = time.monotonic() - 30
         assert w.idle_seconds >= 29
         w.touch()
         assert w.idle_seconds < 1.0
 
-    @pytest.mark.asyncio
-    async def test_watchdog_signals_on_timeout(self):
-        from radbot.worker.idle_watchdog import IdleWatchdog
+    def test_uptime_increases(self):
+        from radbot.worker.idle_watchdog import ActivityWatchdog
 
-        w = IdleWatchdog(idle_timeout=1, check_interval=0.2)
-        # Set last_activity far in the past
-        w.last_activity = time.monotonic() - 100
-
-        with patch("radbot.worker.idle_watchdog.signal") as mock_signal:
-            await w.start()
-            # Wait for the check loop to fire
-            await asyncio.sleep(0.5)
-            mock_signal.raise_signal.assert_called_once()
-            await w.stop()
-
-    @pytest.mark.asyncio
-    async def test_watchdog_no_signal_when_active(self):
-        from radbot.worker.idle_watchdog import IdleWatchdog
-
-        w = IdleWatchdog(idle_timeout=10, check_interval=0.1)
-        w.touch()
-
-        with patch("radbot.worker.idle_watchdog.signal") as mock_signal:
-            await w.start()
-            await asyncio.sleep(0.3)
-            mock_signal.raise_signal.assert_not_called()
-            await w.stop()
-
-    @pytest.mark.asyncio
-    async def test_stop_cancels_loop(self):
-        from radbot.worker.idle_watchdog import IdleWatchdog
-
-        w = IdleWatchdog(idle_timeout=3600, check_interval=0.1)
-        await w.start()
-        assert w._task is not None
-        assert not w._task.done()
-        await w.stop()
-        assert w._task.done()
+        w = ActivityWatchdog()
+        w._start_time = time.monotonic() - 60
+        assert w.uptime_seconds >= 59
 
 
 # ---------------------------------------------------------------------------

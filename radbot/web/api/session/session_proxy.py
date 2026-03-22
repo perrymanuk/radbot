@@ -153,7 +153,7 @@ class SessionProxy:
         return None
 
     async def _spawn_worker(self) -> Optional[str]:
-        """Submit a Nomad batch job for this session and wait for it to be healthy."""
+        """Submit a Nomad service job for this session and wait for it to be healthy."""
         try:
             from radbot.tools.nomad.nomad_client import get_nomad_client
             from radbot.worker.db import count_active_workers, upsert_worker

@@ -1,8 +1,8 @@
-"""Nomad job template for session worker batch jobs.
+"""Nomad job template for session worker service jobs.
 
 Generates a JSON job specification compatible with the Nomad HTTP API.
-The template mirrors the production radbot job structure but uses
-batch type and lighter resources.
+Workers are persistent service jobs — they restart on crash and run
+until explicitly stopped.
 """
 
 import logging
@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 # Default resource limits for worker containers
 DEFAULT_CPU = 500
 DEFAULT_MEMORY = 1024
-DEFAULT_IDLE_TIMEOUT = 3600
 
 
 def build_worker_job_spec(
@@ -30,7 +29,6 @@ def build_worker_job_spec(
     dns_server: Optional[str] = None,
     cpu: int = DEFAULT_CPU,
     memory: int = DEFAULT_MEMORY,
-    idle_timeout: int = DEFAULT_IDLE_TIMEOUT,
     datacenters: Optional[list] = None,
     region: str = "global",
     namespace: str = "default",
@@ -51,7 +49,6 @@ def build_worker_job_spec(
         dns_server: DNS server IP for Docker container.
         cpu: CPU MHz allocation.
         memory: Memory MB allocation.
-        idle_timeout: Seconds before idle self-termination.
         datacenters: List of datacenters (default: ["dc1"]).
         region: Nomad region.
         namespace: Nomad namespace.
@@ -95,8 +92,6 @@ def build_worker_job_spec(
             session_id,
             "--port",
             "8000",
-            "--idle-timeout",
-            str(idle_timeout),
         ],
         "ports": ["a2a"],
         "volumes": ["local/config.yaml:/app/config.yaml"],
@@ -107,7 +102,7 @@ def build_worker_job_spec(
     job_spec = {
         "ID": job_id,
         "Name": job_id,
-        "Type": "batch",
+        "Type": "service",
         "Region": region,
         "Datacenters": datacenters,
         "Namespace": namespace,
@@ -138,10 +133,10 @@ def build_worker_job_spec(
                     }
                 ],
                 "RestartPolicy": {
-                    "Attempts": 1,
+                    "Attempts": 3,
                     "Delay": 15_000_000_000,  # 15s in nanoseconds
                     "Interval": 600_000_000_000,  # 10m in nanoseconds
-                    "Mode": "fail",
+                    "Mode": "delay",
                 },
                 "Tasks": [
                     {

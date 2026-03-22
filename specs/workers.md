@@ -2,11 +2,11 @@
 
 ## Overview
 
-Session workers run agent sessions as independent Nomad batch jobs. Each worker holds full ADK session state in memory and exposes an A2A (Agent-to-Agent) HTTP endpoint. The main radbot app acts as a gateway — the WebSocket handler delegates to a `SessionProxy` that manages worker lifecycle and proxies messages.
+Session workers run agent sessions as independent persistent Nomad service jobs. Each worker holds full ADK session state in memory and exposes an A2A (Agent-to-Agent) HTTP endpoint. The main radbot app acts as a gateway — the WebSocket handler delegates to a `SessionProxy` that manages worker lifecycle and proxies messages.
 
-**Why**: `InMemorySessionService` loses all state on restart. Workers keep sessions alive as independent processes — surviving main app restarts, providing resource isolation, and enabling horizontal scaling.
+**Why**: `InMemorySessionService` loses all state on restart. Workers keep sessions alive as independent processes — surviving main app restarts, providing resource isolation, and enabling horizontal scaling. Primary use case is persistent Claude Code terminal environments.
 
-**Design principle**: Workers are "dumb" session holders. They run the agent runtime and hold state. The main app evolves independently — new features (UI, routing, integrations) don't require restarting existing workers. Only new sessions get the latest image tag.
+**Design principle**: Workers are persistent session holders. They run the agent runtime (including Claude Code CLI) and hold state indefinitely. Workers restart on crash and run until explicitly stopped — there is no idle self-termination. The main app evolves independently — new features don't require restarting existing workers.
 
 ## Architecture
 
@@ -45,7 +45,7 @@ Session workers run agent sessions as independent Nomad batch jobs. Each worker 
                               │  │  memory service      │     │
                               │  └─────────────────────┘     │
                               │                              │
-                              │  IdleWatchdog ──► SIGTERM    │
+                              │  ActivityWatchdog (tracking)  │
                               └──────────────────────────────┘
 ```
 
@@ -54,7 +54,7 @@ Session workers run agent sessions as independent Nomad batch jobs. Each worker 
 ### Entry Point: `radbot/worker/__main__.py`
 
 ```
-python -m radbot.worker --session-id <UUID> [--host 0.0.0.0] [--port 8000] [--idle-timeout 3600]
+python -m radbot.worker --session-id <UUID> [--host 0.0.0.0] [--port 8000]
 ```
 
 Startup sequence:
@@ -64,7 +64,7 @@ Startup sequence:
 4. Create `Runner` with `InMemorySessionService`, `InMemoryArtifactService`, memory service
 5. Enable context caching (intervals=20, ttl=3600s, min_tokens=1024)
 6. Call `to_a2a(root_agent, runner=runner)` → Starlette app with A2A routes
-7. Add `IdleWatchdogMiddleware` (touches on every request)
+7. Add `ActivityMiddleware` (touches watchdog on every request)
 8. Add `/health` and `/info` routes
 9. On startup: start watchdog + seed session from chat DB history
 10. Run with `uvicorn`
@@ -89,18 +89,18 @@ The A2A endpoint handles:
 
 | Path | Method | Purpose |
 |------|--------|---------|
-| `/health` | GET | Health check — returns `{status, session_id, idle_seconds, idle_timeout}` |
-| `/info` | GET | Metadata — returns `{session_id, agent_name, idle_seconds, idle_timeout}` |
+| `/health` | GET | Health check — returns `{status, session_id, idle_seconds, uptime_seconds}` |
+| `/info` | GET | Metadata — returns `{session_id, agent_name, idle_seconds, uptime_seconds}` |
 | `/.well-known/agent.json` | GET | A2A agent card (auto-generated) |
 | `/` | POST | A2A JSON-RPC endpoint (message/send, tasks) |
 
 ### Idle Watchdog: `radbot/worker/idle_watchdog.py`
 
 Two components:
-- **`IdleWatchdog`**: Background `asyncio.Task` that checks `time.monotonic()` against last activity. Raises `SIGTERM` when idle exceeds threshold (graceful uvicorn shutdown → exit 0 → Nomad marks batch complete).
-- **`IdleWatchdogMiddleware`**: Starlette middleware that calls `watchdog.touch()` on every HTTP request.
+- **`ActivityWatchdog`**: Tracks `last_activity` and `uptime_seconds` via `time.monotonic()`. Pure observability — no shutdown logic. Health and info endpoints report these values.
+- **`ActivityMiddleware`**: Starlette middleware that calls `watchdog.touch()` on every HTTP request.
 
-Defaults: `idle_timeout=3600` (1h), `check_interval=60` (1min).
+Workers are persistent — they do not self-terminate. Stop them explicitly via `NomadClient.stop_job()` or workspace deletion.
 
 ### History Seeding: `radbot/worker/history_loader.py`
 
@@ -140,7 +140,7 @@ Priority order:
 1. **Cached URL** — check health, use if still healthy
 2. **Nomad service discovery** — `GET /v1/service/radbot-session`, filter by `session_id` tag
 3. **DB fallback** — `session_workers` table lookup
-4. **Spawn new** — submit Nomad batch job, poll until healthy
+4. **Spawn new** — submit Nomad service job, poll until healthy
 
 #### Spawning
 
@@ -194,13 +194,13 @@ build_worker_job_spec(
     admin_token="...",      # RADBOT_ADMIN_TOKEN
     postgres_pass="...",    # DB password
     # Optional:
-    cpu=500, memory=1024, idle_timeout=3600,
+    cpu=500, memory=1024,
     dns_server=None, extra_env=None,
 ) -> {"Job": {...}}
 ```
 
 Key properties:
-- `type = "batch"` — Nomad won't reschedule after exit 0
+- `type = "service"` — Nomad restarts on crash, runs until explicitly stopped
 - `restart: attempts=1, mode=fail` — minimal retry, no restart loop
 - Dynamic port on `host_network = "lan"`
 - Service `radbot-session` with tag `session_id=<UUID>` for discovery
@@ -292,23 +292,29 @@ Browser ──WS──► /ws/{session_id}
                   No history reconstruction needed
 ```
 
-### Worker Idle Timeout
+### Worker Explicit Stop
 
 ```
-Worker running, no requests for 3600s
-                  │
-    IdleWatchdog._watch_loop()
-      └─ idle_seconds >= idle_timeout
-           └─ signal.raise_signal(SIGTERM)
+Admin or workspace delete
+      │
+SessionProxy.stop_worker()
+      └─ NomadClient.stop_job("radbot-session-{id}")
+           └─ DELETE /v1/job/{id}
                 │
                 ▼
-    uvicorn graceful shutdown
-      └─ shutdown_watchdog() callback
-           └─ exit(0)
-                │
-                ▼
-    Nomad marks batch job "complete"
-    session_workers.status → "stopped" (on next proxy attempt)
+    Nomad deregisters job, kills allocation
+    session_workers.status → "stopped"
+```
+
+### Worker Crash Recovery
+
+```
+Worker process crashes (OOM, unhandled exception)
+      │
+Nomad RestartPolicy (attempts=3, mode=delay)
+      └─ Restart allocation after 15s delay
+           └─ Worker boots, re-seeds from DB
+                └─ Claude Code can --resume from saved session ID
 ```
 
 ## Testing
@@ -318,7 +324,7 @@ Worker running, no requests for 3600s
 | Class | Tests | Covers |
 |-------|-------|--------|
 | `TestNomadJobTemplate` | 13 | Job structure, args, env, service tags, resources, constraints, serialization |
-| `TestIdleWatchdog` | 5 | Activity tracking, SIGTERM on timeout, cancellation |
+| `TestActivityWatchdog` | 3 | Activity tracking, touch reset, uptime |
 | `TestHistoryLoader` | 6 | DB loading, empty handling, max limit, invocation ID pairing |
 | `TestSessionManagerMode` | 5 | Mode switching, runner registry |
 | `TestSessionProxyUnit` | 7 | Health checks, fallback, concurrency limits, message routing |
@@ -340,7 +346,7 @@ Worker running, no requests for 3600s
 |------|---------|
 | `radbot/worker/__init__.py` | Package |
 | `radbot/worker/__main__.py` | Entry point: A2A server + idle watchdog + history seeding |
-| `radbot/worker/idle_watchdog.py` | `IdleWatchdog` + `IdleWatchdogMiddleware` |
+| `radbot/worker/idle_watchdog.py` | `ActivityWatchdog` + `ActivityMiddleware` |
 | `radbot/worker/history_loader.py` | Shared: seed ADK session from chat DB |
 | `radbot/worker/nomad_template.py` | `build_worker_job_spec()` → Nomad JSON |
 | `radbot/worker/db.py` | `session_workers` table schema + CRUD |
