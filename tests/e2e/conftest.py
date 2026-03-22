@@ -14,6 +14,7 @@ import pytest_asyncio
 
 from tests.e2e.helpers.service_checks import (
     is_calendar_available,
+    is_claude_code_available,
     is_gemini_available,
     is_github_available,
     is_gmail_available,
@@ -126,6 +127,8 @@ async def cleanup(client, admin_headers):
         "reminder": "/api/reminders/{id}",
         "webhook": "/api/webhooks/definitions/{id}",
         "alert_policy": "/api/alerts/policies/{id}",
+        "terminal_session": "/terminal/sessions/{id}",
+        "workspace": "/terminal/workspaces/{id}",
     }
 
     for resource_type, resource_id in reversed(tracker.items):
@@ -197,6 +200,11 @@ def ntfy_available():
     return is_ntfy_available()
 
 
+@pytest.fixture(scope="session")
+def claude_code_available():
+    return is_claude_code_available()
+
+
 def pytest_collection_modifyitems(config, items):
     """Auto-skip tests based on service availability markers."""
     marker_checks = {
@@ -212,6 +220,7 @@ def pytest_collection_modifyitems(config, items):
         "requires_nomad": is_nomad_available,
         "requires_github": is_github_available,
         "requires_ntfy": is_ntfy_available,
+        "requires_claude_code": is_claude_code_available,
     }
 
     _cache = {}

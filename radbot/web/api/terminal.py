@@ -245,8 +245,30 @@ class TerminalManager:
                 "Set 'claude_code_oauth_token' or 'anthropic_api_key' in credential store."
             )
 
+        # Ensure Claude Code onboarding is marked complete for interactive sessions.
+        # Without this, the CLI forces the onboarding flow (interactive login prompt)
+        # even when CLAUDE_CODE_OAUTH_TOKEN is set.  Also pre-accepts the trust
+        # dialog for the workspace directory and the bypass-permissions warning.
+        if token_injected:
+            try:
+                from radbot.tools.claude_code.claude_code_client import _ensure_onboarding_complete
+
+                _ensure_onboarding_complete(workspace_dir=local_path)
+            except Exception as e:
+                logger.warning("Terminal: failed to set onboarding flag: %s", e)
+
+        # Allow --dangerously-skip-permissions when running as root inside a
+        # container.  Claude Code checks for IS_SANDBOX=1 to permit this.
+        # This also bypasses the per-directory trust prompt on first access.
+        use_bypass = False
+        if os.getuid() == 0:
+            env["IS_SANDBOX"] = "1"
+            use_bypass = True
+
         # Build command
         cmd = ["claude"]
+        if use_bypass:
+            cmd.append("--dangerously-skip-permissions")
         if resume_session_id:
             cmd.extend(["--resume", resume_session_id])
 

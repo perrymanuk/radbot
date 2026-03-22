@@ -85,6 +85,70 @@ def _write_auth_token_files(token: str) -> None:
         logger.debug("Failed to write token to %s: %s", token_path, e)
 
 
+def _ensure_onboarding_complete(workspace_dir: Optional[str] = None) -> None:
+    """Ensure Claude Code can start without interactive prompts.
+
+    Sets up three things in the Claude Code config:
+
+    1. ``~/.claude.json`` → ``hasCompletedOnboarding: true``
+       Without this, interactive mode forces the onboarding flow even
+       when ``CLAUDE_CODE_OAUTH_TOKEN`` is set.
+
+    2. ``~/.claude.json`` → ``projects.<path>.hasTrustDialogAccepted: true``
+       Pre-accepts the per-directory trust dialog so the user doesn't
+       have to click "Yes, I trust this folder" on first access.
+
+    3. ``~/.claude/settings.json`` → ``skipDangerousModePermissionPrompt: true``
+       Skips the bypass-permissions warning dialog when
+       ``--dangerously-skip-permissions`` is used.
+
+    All writes are idempotent.
+    """
+    import json
+    from pathlib import Path
+
+    home = Path.home()
+
+    # 1 & 2: ~/.claude.json — onboarding flag + per-directory trust
+    claude_json = home / ".claude.json"
+    try:
+        data = {}
+        if claude_json.exists():
+            data = json.loads(claude_json.read_text())
+
+        dirty = False
+
+        if not data.get("hasCompletedOnboarding"):
+            data["hasCompletedOnboarding"] = True
+            dirty = True
+
+        if workspace_dir:
+            projects = data.setdefault("projects", {})
+            project = projects.setdefault(workspace_dir, {})
+            if not project.get("hasTrustDialogAccepted"):
+                project["hasTrustDialogAccepted"] = True
+                dirty = True
+
+        if dirty:
+            claude_json.write_text(json.dumps(data, indent=2))
+            claude_json.chmod(0o600)
+    except Exception as e:
+        logger.debug("Failed to write %s: %s", claude_json, e)
+
+    # 3: ~/.claude/settings.json — skip bypass-permissions warning
+    settings_json = home / ".claude" / "settings.json"
+    try:
+        settings = {}
+        if settings_json.exists():
+            settings = json.loads(settings_json.read_text())
+        if not settings.get("skipDangerousModePermissionPrompt"):
+            settings["skipDangerousModePermissionPrompt"] = True
+            settings_json.parent.mkdir(parents=True, exist_ok=True)
+            settings_json.write_text(json.dumps(settings, indent=2))
+    except Exception as e:
+        logger.debug("Failed to write %s: %s", settings_json, e)
+
+
 def _claude_cli_available() -> bool:
     """Check whether the ``claude`` CLI is on PATH."""
     return shutil.which("claude") is not None

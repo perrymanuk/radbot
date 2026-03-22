@@ -100,3 +100,7 @@ def is_github_available() -> bool:
 
 def is_ntfy_available() -> bool:
     return _docker_check("ntfy")
+
+
+def is_claude_code_available() -> bool:
+    return _docker_check("claude_code")
