@@ -175,12 +175,13 @@ def _start_server(workspace_id: str | None, host: str, port: int):
         WebSocketRoute("/ws/terminal/{terminal_id}", terminal_ws),
     ]
 
-    async def startup():
+    async def lifespan(app):
         if workspace_id:
             _ensure_workspace_ready(workspace_id)
         logger.info("Terminal worker ready on %s:%d", host, port)
+        yield
 
-    app = Starlette(routes=routes, on_startup=[startup])
+    app = Starlette(routes=routes, lifespan=lifespan)
 
     uvicorn.run(app, host=host, port=port, log_level="info")
 
