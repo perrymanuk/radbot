@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -322,9 +323,9 @@ class ClaudeCodeClient:
 
 
 def get_claude_code_status() -> Dict[str, Any]:
-    """Check whether Claude Code CLI is available and token is configured."""
+    """Check whether Claude Code CLI is available and token actually works."""
     cli_available = _claude_cli_available()
-    token, _ = _get_auth_token()
+    token, kind = _get_auth_token()
     token_configured = bool(token)
 
     if not cli_available:
@@ -343,9 +344,38 @@ def get_claude_code_status() -> Dict[str, Any]:
             "token_configured": False,
         }
 
+    # Validate the token by running `claude auth status` with it
+    try:
+        import json as _json
+
+        env = os.environ.copy()
+        if kind == "api_key":
+            env["ANTHROPIC_API_KEY"] = token
+        else:
+            env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+
+        result = subprocess.run(
+            ["claude", "auth", "status"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+        auth_info = _json.loads(result.stdout) if result.stdout.strip() else {}
+        if not auth_info.get("loggedIn"):
+            return {
+                "status": "error",
+                "message": f"Token configured but authentication failed — token may be expired or invalid",
+                "cli_available": True,
+                "token_configured": True,
+            }
+    except Exception as e:
+        logger.debug("Could not validate token via CLI: %s", e)
+        # Fall through — if we can't validate, report as configured
+
     return {
         "status": "ok",
-        "message": "Claude Code CLI available and token configured",
+        "message": "Claude Code CLI available and token authenticated",
         "cli_available": True,
         "token_configured": True,
     }
