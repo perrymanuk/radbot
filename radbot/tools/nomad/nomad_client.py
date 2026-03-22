@@ -272,48 +272,26 @@ class NomadClient:
         """List deployments for a job."""
         return await self._get(f"/v1/job/{job_id}/deployments")
 
-    # ── Nomad Service Discovery ─────────────────────────────
-
-    async def list_services(
-        self, service_name: str
-    ) -> List[Dict[str, Any]]:
-        """List service registrations via Nomad's native service discovery.
-
-        Uses the Nomad ``/v1/service/{name}`` endpoint (not Consul).
-        """
-        return await self._get(f"/v1/service/{service_name}")
+    # ── Consul Service Discovery ─────────────────────────────
 
     async def find_service_by_tag(
         self, service_name: str, tag: str
     ) -> Optional[Dict[str, Any]]:
-        """Find a single service instance matching a tag.
+        """Find a service instance matching a tag via Consul catalog API.
 
-        Tries Nomad native service discovery first, then falls back to
-        Consul catalog API (Nomad registers services in Consul by default).
+        Nomad registers services in Consul by default.
 
         Args:
-            service_name: Nomad service name (e.g. "radbot-workspace").
+            service_name: Service name (e.g. "radbot-workspace").
             tag: Exact tag to match (e.g. "workspace_id=<uuid>").
 
         Returns:
             Dict with Address/Port keys, or None.
         """
-        # 1. Try Nomad native service discovery
         try:
-            services = await self.list_services(service_name)
-            for svc in services:
-                tags = svc.get("Tags") or []
-                if tag in tags:
-                    return svc
-        except Exception as e:
-            logger.debug("Nomad service lookup failed: %s", e)
-
-        # 2. Fall back to Consul catalog API
-        try:
-            consul_addr = self.addr.replace(":4646", ":8500")
-            if ":4646" not in self.addr:
-                # Nomad addr doesn't use standard port — try consul.service.consul
-                consul_addr = "http://consul.service.consul:8500"
+            consul_addr = os.environ.get(
+                "CONSUL_HTTP_ADDR", "http://consul.service.consul:8500"
+            )
 
             async with httpx.AsyncClient(timeout=5) as client:
                 resp = await client.get(
@@ -321,8 +299,7 @@ class NomadClient:
                     params={"tag": tag},
                 )
                 if resp.is_success:
-                    services = resp.json()
-                    for svc in services:
+                    for svc in resp.json():
                         addr = svc.get("ServiceAddress") or svc.get("Address", "")
                         port = svc.get("ServicePort", 0)
                         if addr and port:
@@ -332,7 +309,7 @@ class NomadClient:
                                 "Tags": svc.get("ServiceTags", []),
                             }
         except Exception as e:
-            logger.debug("Consul service lookup for %s tag=%s failed: %s", service_name, tag, e)
+            logger.debug("Consul lookup for %s tag=%s failed: %s", service_name, tag, e)
 
         return None
 
