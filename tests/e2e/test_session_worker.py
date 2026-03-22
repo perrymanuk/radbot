@@ -118,7 +118,7 @@ class TestNomadJobSubmission:
 
         # Basic structural validation
         job = spec["Job"]
-        assert job["Type"] == "batch"
+        assert job["Type"] == "service"
         assert len(job["TaskGroups"]) == 1
         assert len(job["TaskGroups"][0]["Tasks"]) == 1
 
