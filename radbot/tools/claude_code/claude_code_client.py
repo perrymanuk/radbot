@@ -109,6 +109,19 @@ def _write_auth_token_files(token: str) -> None:
     except Exception as e:
         logger.debug("Failed to write credentials to %s: %s", creds_path, e)
 
+    # 3. Write settings.json if missing — skip onboarding wizard in interactive mode
+    settings_path = claude_dir / "settings.json"
+    if not settings_path.exists():
+        try:
+            settings = {
+                "hasCompletedOnboarding": True,
+                "theme": "dark",
+            }
+            settings_path.write_text(_json.dumps(settings, indent=2))
+            logger.debug("Wrote default settings to %s", settings_path)
+        except Exception as e:
+            logger.debug("Failed to write settings to %s: %s", settings_path, e)
+
 
 def _claude_cli_available() -> bool:
     """Check whether the ``claude`` CLI is on PATH."""
