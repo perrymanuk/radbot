@@ -188,7 +188,7 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |
 | `chat_messages` | `web/db/chat_operations.py` | `message_id` (UUID), `session_id`, `role`, `content`, `agent_name`, `metadata` (JSONB) |
-| `coder_workspaces` | `tools/claude_code/db.py` | `workspace_id` (UUID), `owner`, `repo`, `branch`, `local_path`, `status`, `last_session_id`, `name`, `description`, UNIQUE(owner,repo,branch) |
+| `coder_workspaces` | `tools/claude_code/db.py` | `workspace_id` (UUID), `owner`, `repo`, `branch`, `local_path`, `status`, `last_session_id`, `name`, `description` |
 | `alert_events` | `tools/alertmanager/db.py` | `alert_id` (UUID), `fingerprint`, `alertname`, `status`, `severity`, `instance`, `raw_payload` (JSONB), `remediation_action`, `remediation_result` |
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |

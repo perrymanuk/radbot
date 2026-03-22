@@ -68,11 +68,11 @@ def clone_repository(
 
         if result.get("status") == "success":
             local_path = result["local_path"]
-            # Record workspace in DB
+            # Record workspace in DB (upsert — axel reuses existing workspaces)
             try:
-                from radbot.tools.claude_code.db import create_workspace
+                from radbot.tools.claude_code.db import upsert_workspace
 
-                create_workspace(owner, repo, branch, local_path)
+                upsert_workspace(owner, repo, branch, local_path)
             except Exception as e:
                 logger.warning(f"Failed to record workspace in DB: {e}")
 

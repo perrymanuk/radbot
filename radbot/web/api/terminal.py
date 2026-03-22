@@ -514,7 +514,11 @@ async def kill_terminal_session(terminal_id: str):
 
 @router.post("/clone/")
 async def clone_repository_endpoint(request: Request):
-    """Clone a GitHub repository into a workspace."""
+    """Clone a GitHub repository into a workspace.
+
+    Always creates a new workspace record, allowing multiple workspaces
+    for the same repo/branch (e.g. different projects on the same codebase).
+    """
     body = await request.json()
     owner = body.get("owner")
     repo = body.get("repo")
@@ -526,26 +530,45 @@ async def clone_repository_endpoint(request: Request):
         raise HTTPException(400, "owner and repo are required")
 
     try:
-        from radbot.tools.claude_code.claude_code_tools import clone_repository
+        from radbot.tools.github.github_app_client import get_github_client
 
-        result = clone_repository(owner=owner, repo=repo, branch=branch)
+        client = get_github_client()
+        if not client:
+            raise HTTPException(500, "GitHub App not configured")
 
-        # Update name/description if provided
-        if result.get("status") == "success" and (name or description):
-            try:
-                from radbot.tools.claude_code.db import get_workspace, update_workspace
+        # Clone (or update) the repo on disk
+        workspace_dir = os.path.join(
+            os.environ.get("WORKSPACE_DIR", "/app/workspaces"),
+        )
+        os.makedirs(workspace_dir, exist_ok=True)
+        result = client.clone_repo(owner, repo, workspace_dir, branch)
 
-                ws = get_workspace(owner=owner, repo=repo, branch=branch)
-                if ws:
-                    update_workspace(
-                        str(ws["workspace_id"]),
-                        name=name,
-                        description=description,
-                    )
-            except Exception as e:
-                logger.warning("Failed to set workspace name/description: %s", e)
+        if result.get("status") != "success":
+            raise HTTPException(500, result.get("message", "Clone failed"))
 
-        return result
+        local_path = result["local_path"]
+
+        # Always create a NEW workspace record (allows multiple per repo)
+        from radbot.tools.claude_code.db import create_workspace
+
+        ws = create_workspace(
+            owner=owner,
+            repo=repo,
+            branch=branch,
+            local_path=local_path,
+            name=name,
+            description=description,
+        )
+
+        return {
+            "status": "success",
+            "workspace_id": str(ws.get("workspace_id", "")),
+            "work_folder": local_path,
+            "action": result.get("action", "clone"),
+            "message": f"Repository {owner}/{repo} ({branch}) available at {local_path}",
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error cloning repository: %s", e, exc_info=True)
         raise HTTPException(500, f"Error cloning repository: {e}")

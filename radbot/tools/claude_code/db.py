@@ -58,9 +58,62 @@ def init_coder_schema() -> None:
                     ALTER TABLE coder_workspaces
                     ADD COLUMN IF NOT EXISTS description TEXT;
                 """)
+                # Drop the UNIQUE constraint to allow multiple workspaces per repo/branch
+                cursor.execute("""
+                    ALTER TABLE coder_workspaces
+                    DROP CONSTRAINT IF EXISTS coder_workspaces_owner_repo_branch_key;
+                """)
                 conn.commit()
     except Exception as e:
         logger.debug("Migration for coder_workspaces columns: %s", e)
+
+
+def upsert_workspace(
+    owner: str,
+    repo: str,
+    branch: str,
+    local_path: str,
+) -> Dict[str, Any]:
+    """Insert or update a workspace by owner/repo/branch.
+
+    Used by the axel agent's ``clone_repository`` tool where we want to
+    reuse existing workspaces for the same repo.
+    """
+    # Try to find an existing active workspace for this repo/branch
+    find_sql = """
+        SELECT workspace_id FROM coder_workspaces
+        WHERE owner = %s AND repo = %s AND branch = %s AND status = 'active'
+        ORDER BY last_used_at DESC
+        LIMIT 1;
+    """
+    upsert_sql = """
+        UPDATE coder_workspaces
+        SET local_path = %s, status = 'active', last_used_at = CURRENT_TIMESTAMP
+        WHERE workspace_id = %s
+        RETURNING workspace_id, owner, repo, branch, local_path, status,
+                  last_session_id, created_at, last_used_at, name, description;
+    """
+    insert_sql = """
+        INSERT INTO coder_workspaces (owner, repo, branch, local_path)
+        VALUES (%s, %s, %s, %s)
+        RETURNING workspace_id, owner, repo, branch, local_path, status,
+                  last_session_id, created_at, last_used_at, name, description;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(find_sql, (owner, repo, branch))
+                existing = cursor.fetchone()
+                if existing:
+                    cursor.execute(upsert_sql, (local_path, existing["workspace_id"]))
+                else:
+                    cursor.execute(insert_sql, (owner, repo, branch, local_path))
+                conn.commit()
+                row = cursor.fetchone()
+                return dict(row) if row else {}
+    except psycopg2.Error as e:
+        logger.error(f"Database error upserting workspace: {e}")
+        raise
 
 
 def create_workspace(
@@ -68,22 +121,20 @@ def create_workspace(
     repo: str,
     branch: str,
     local_path: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Insert or update a workspace record and return its data."""
+    """Always insert a new workspace record (allows multiple per repo/branch)."""
     sql = """
-        INSERT INTO coder_workspaces (owner, repo, branch, local_path)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (owner, repo, branch) DO UPDATE
-            SET local_path = EXCLUDED.local_path,
-                status = 'active',
-                last_used_at = CURRENT_TIMESTAMP
+        INSERT INTO coder_workspaces (owner, repo, branch, local_path, name, description)
+        VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING workspace_id, owner, repo, branch, local_path, status,
-                  last_session_id, created_at, last_used_at;
+                  last_session_id, created_at, last_used_at, name, description;
     """
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute(sql, (owner, repo, branch, local_path))
+                cursor.execute(sql, (owner, repo, branch, local_path, name, description))
                 conn.commit()
                 row = cursor.fetchone()
                 return dict(row) if row else {}
