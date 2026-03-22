@@ -14,8 +14,9 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-WORKER_STARTUP_TIMEOUT = 120  # seconds
-WORKER_HEALTH_POLL_INTERVAL = 3  # seconds
+# First pull can take minutes; subsequent starts are fast (image cached)
+WORKER_STARTUP_TIMEOUT = 300  # 5 minutes
+WORKER_HEALTH_POLL_INTERVAL = 5  # seconds
 
 # Singleton cache of proxies per workspace
 _proxies: Dict[str, "WorkspaceProxy"] = {}
@@ -35,19 +36,22 @@ class WorkspaceProxy:
         self.workspace_id = workspace_id
         self._worker_url: Optional[str] = None
         self._nomad_job_id: Optional[str] = None
+        self._spawn_lock = asyncio.Lock()
+        self._spawning = False
 
     async def ensure_worker(self) -> Optional[str]:
         """Make sure a Nomad worker is running for this workspace.
 
+        Uses a lock to prevent multiple concurrent spawn attempts.
         Returns the worker's base URL, or None if unavailable.
         """
-        # 1. Check cached URL
+        # Fast path: cached and healthy
         if self._worker_url:
             if await self._check_health(self._worker_url):
                 return self._worker_url
             self._worker_url = None
 
-        # 2. Discover existing worker
+        # Discover existing worker (already running from previous call)
         url = await self._discover_worker()
         if url and await self._check_health(url):
             self._worker_url = url
@@ -61,12 +65,74 @@ class WorkspaceProxy:
                 pass
             return url
 
-        # 3. Spawn new worker
-        logger.info("Spawning workspace worker for %s", self.workspace_id)
-        url = await self._spawn_worker()
-        if url:
-            self._worker_url = url
-        return url
+        # Check if already spawning (another coroutine is waiting)
+        if self._spawning:
+            logger.info(
+                "Worker for %s already spawning — waiting for it",
+                self.workspace_id,
+            )
+            return await self._wait_for_existing_spawn()
+
+        # Spawn new worker (with lock to prevent races)
+        async with self._spawn_lock:
+            # Re-check after acquiring lock (another caller may have finished)
+            url = await self._discover_worker()
+            if url and await self._check_health(url):
+                self._worker_url = url
+                return url
+
+            # Also check DB — if status is "starting", job was already submitted
+            try:
+                from radbot.worker.db import get_workspace_worker
+
+                record = get_workspace_worker(self.workspace_id)
+                if record and record.get("status") == "starting":
+                    logger.info(
+                        "Worker for %s already submitted (status=starting) — waiting",
+                        self.workspace_id,
+                    )
+                    job_id = record.get("nomad_job_id", "")
+                    self._nomad_job_id = job_id
+                    self._spawning = True
+                    try:
+                        url = await self._wait_for_healthy(job_id)
+                        if url:
+                            self._worker_url = url
+                            from radbot.worker.db import update_workspace_worker_status
+
+                            update_workspace_worker_status(
+                                self.workspace_id, "healthy", worker_url=url
+                            )
+                        return url
+                    finally:
+                        self._spawning = False
+            except Exception:
+                pass
+
+            logger.info("Spawning workspace worker for %s", self.workspace_id)
+            self._spawning = True
+            try:
+                url = await self._spawn_worker()
+                if url:
+                    self._worker_url = url
+                return url
+            finally:
+                self._spawning = False
+
+    async def _wait_for_existing_spawn(self) -> Optional[str]:
+        """Wait for an in-progress spawn to complete."""
+        for _ in range(int(WORKER_STARTUP_TIMEOUT / WORKER_HEALTH_POLL_INTERVAL)):
+            await asyncio.sleep(WORKER_HEALTH_POLL_INTERVAL)
+            if self._worker_url:
+                return self._worker_url
+            if not self._spawning:
+                # Spawn finished (maybe failed) — try discover
+                url = await self._discover_worker()
+                if url and await self._check_health(url):
+                    self._worker_url = url
+                    return url
+                return None
+        return None
 
     async def stop_worker(self) -> bool:
         """Stop the Nomad worker job for this workspace."""
@@ -120,15 +186,12 @@ class WorkspaceProxy:
         except Exception as e:
             logger.debug("Nomad service discovery failed: %s", e)
 
-        # DB fallback
+        # DB fallback — only if worker_url is known
         try:
             from radbot.worker.db import get_workspace_worker
 
             record = get_workspace_worker(self.workspace_id)
-            if record and record.get("worker_url") and record.get("status") in (
-                "starting",
-                "healthy",
-            ):
+            if record and record.get("worker_url") and record.get("status") == "healthy":
                 return record["worker_url"]
         except Exception as e:
             logger.debug("DB workspace worker lookup failed: %s", e)
@@ -141,8 +204,8 @@ class WorkspaceProxy:
             from radbot.tools.nomad.nomad_client import get_nomad_client
             from radbot.worker.db import (
                 count_active_workspace_workers,
-                upsert_workspace_worker,
                 update_workspace_worker_status,
+                upsert_workspace_worker,
             )
             from radbot.worker.nomad_template import build_workspace_worker_spec
 
@@ -157,7 +220,9 @@ class WorkspaceProxy:
             if active >= max_workers:
                 logger.warning(
                     "Worker limit reached (%d/%d) — cannot spawn for workspace %s",
-                    active, max_workers, self.workspace_id,
+                    active,
+                    max_workers,
+                    self.workspace_id,
                 )
                 return None
 
@@ -190,7 +255,9 @@ class WorkspaceProxy:
             result = await client.submit_job(job_spec)
             logger.info(
                 "Submitted workspace worker %s for workspace %s: %s",
-                job_id, self.workspace_id, result.get("EvalID", ""),
+                job_id,
+                self.workspace_id,
+                result.get("EvalID", ""),
             )
 
             url = await self._wait_for_healthy(job_id)
@@ -232,21 +299,26 @@ class WorkspaceProxy:
                         if await self._check_health(url):
                             logger.info(
                                 "Workspace worker %s healthy after %.0fs at %s",
-                                job_id, elapsed, url,
+                                job_id,
+                                elapsed,
+                                url,
                             )
                             return url
             except Exception as e:
                 logger.debug("Health poll attempt failed: %s", e)
 
-            if elapsed % 15 < WORKER_HEALTH_POLL_INTERVAL:
-                logger.debug(
+            if int(elapsed) % 30 == 0:
+                logger.info(
                     "Waiting for worker %s... (%.0fs/%ds)",
-                    job_id, elapsed, WORKER_STARTUP_TIMEOUT,
+                    job_id,
+                    elapsed,
+                    WORKER_STARTUP_TIMEOUT,
                 )
 
         logger.warning(
             "Worker %s did not become healthy within %ds",
-            job_id, WORKER_STARTUP_TIMEOUT,
+            job_id,
+            WORKER_STARTUP_TIMEOUT,
         )
         return None
 
