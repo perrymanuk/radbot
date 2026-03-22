@@ -85,6 +85,36 @@ services:
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./docker/config.yaml:/app/config.yaml:ro
+      - workspaces:/app/workspaces
+    environment:
+      RADBOT_CONFIG_FILE: /app/config.yaml
+      RADBOT_CREDENTIAL_KEY: ${RADBOT_CREDENTIAL_KEY}
+      RADBOT_ADMIN_TOKEN: ${RADBOT_ADMIN_TOKEN:-changeme}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-radbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-radbot}
+      POSTGRES_DB: ${POSTGRES_DB:-radbot}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - worker
+
 volumes:
   pgdata:
   qdrant_data:

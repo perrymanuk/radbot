@@ -1,0 +1,98 @@
+name: Build and Push Worker Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'radbot/worker/**'
+      - 'radbot/tools/claude_code/**'
+      - 'radbot/tools/github/**'
+      - 'radbot/tools/shared/**'
+      - 'radbot/tools/todo/db/**'
+      - 'radbot/config/**'
+      - 'radbot/credentials/**'
+      - 'radbot/logging_config.py'
+      - 'Dockerfile.worker'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-worker
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Compute next version
+        id: version
+        run: |
+          git fetch --tags --force
+
+          # Use worker-specific tag namespace
+          MAJOR=$(git tag -l 'worker-v[0-9]*' | sed -n 's/^worker-v\([0-9]*\)$/\1/p' | sort -rn | head -1)
+          if [ -z "$MAJOR" ]; then
+            MAJOR=0
+          fi
+
+          BUILD=$(git tag -l "worker-v${MAJOR}.[0-9]*" | sed -n "s/^worker-v${MAJOR}\.\([0-9]*\)$/\1/p" | sort -rn | head -1)
+          if [ -z "$BUILD" ]; then
+            BUILD=0
+          fi
+
+          NEXT_BUILD=$((BUILD + 1))
+          VERSION="worker-v${MAJOR}.${NEXT_BUILD}"
+
+          echo "major=${MAJOR}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Computed next worker version: ${VERSION}"
+
+      - name: Create and push version tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=worker-v${{ steps.version.outputs.major }}
+            type=sha,prefix=sha-
+
+      - name: Build and push Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.worker
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Trigger homelab deployment
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HOMELAB_DISPATCH_TOKEN }}
+          repository: perrymanuk/hashi-homelab
+          event-type: update-radbot-worker
+          client-payload: '{"tag": "${{ steps.version.outputs.version }}"}'

@@ -110,12 +110,10 @@ radbot/
 │   └── store.py                  # Encrypted PostgreSQL credential store
 ├── memory/
 │   └── enhanced_memory/          # Qdrant-backed semantic memory
-├── worker/                       # Session/workspace workers (Nomad service jobs)
-│   ├── __main__.py               # Entry: python -m radbot.worker --workspace-id/--session-id <UUID>
+├── worker/                       # Minimal PTY terminal server (separate Docker image)
+│   ├── __main__.py               # Entry: python -m radbot.worker --workspace-id <UUID>
 │   ├── terminal_handler.py       # Shared PTY/WS module (used by terminal.py + worker)
-│   ├── idle_watchdog.py          # ActivityWatchdog for health reporting
-│   ├── history_loader.py         # Shared: seed ADK sessions from chat DB
-│   ├── nomad_template.py         # Nomad JSON job spec generator (session + workspace)
+│   ├── nomad_template.py         # Nomad JSON job spec generator
 │   └── db.py                     # session_workers + workspace_workers table CRUD
 ├── callbacks/                    # ADK callback handlers
 ├── cache/                        # Response caching

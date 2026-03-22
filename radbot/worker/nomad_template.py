@@ -249,7 +249,7 @@ def build_workspace_worker_spec(
         env.update(extra_env)
 
     docker_config: Dict[str, Any] = {
-        "image": f"ghcr.io/perrymanuk/radbot:{image_tag}",
+        "image": f"ghcr.io/perrymanuk/radbot-worker:{image_tag}",
         "command": "python",
         "args": [
             "-m",
