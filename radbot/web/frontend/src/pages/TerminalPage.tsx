@@ -22,6 +22,9 @@ export default function TerminalPage() {
   const activeTerminalId = useTerminalStore((s) => s.activeTerminalId);
   const setActiveTerminalId = useTerminalStore((s) => s.setActiveTerminalId);
   const sessions = useTerminalStore((s) => s.sessions);
+  const workspaces = useTerminalStore((s) => s.workspaces);
+  const openTerminal = useTerminalStore((s) => s.openTerminal);
+  const loadWorkspaces = useTerminalStore((s) => s.loadWorkspaces);
   const status = useTerminalStore((s) => s.status);
   const loadStatus = useTerminalStore((s) => s.loadStatus);
   const killTerminal = useTerminalStore((s) => s.killTerminal);
@@ -42,7 +45,8 @@ export default function TerminalPage() {
 
   useEffect(() => {
     loadStatus();
-  }, [loadStatus]);
+    loadWorkspaces();
+  }, [loadStatus, loadWorkspaces]);
 
   const handleClosed = useCallback((exitCode: number) => {
     setTerminalClosed(true);
@@ -68,9 +72,9 @@ export default function TerminalPage() {
   return (
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-2 py-1 bg-bg-tertiary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10">
+      <div className="flex items-center px-2 py-1 bg-bg-tertiary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10 gap-2">
         {/* Left: title + status */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <a
             href="/"
             className="text-sm sm:text-[0.85rem] tracking-wider font-normal text-accent-blue uppercase font-mono whitespace-nowrap hover:text-terminal-green transition-colors no-underline"
@@ -82,15 +86,61 @@ export default function TerminalPage() {
             Terminal
           </h1>
           {status && <StatusIndicator ok={status.status === "ok"} />}
-          {activeSession && (
-            <span className="text-xs text-txt-secondary font-mono hidden sm:inline">
-              <span className="text-terminal-amber">{activeSession.owner}</span>
-              <span>/</span>
-              <span className="text-accent-blue">{activeSession.repo}</span>
-              <span className="text-txt-secondary ml-1">({activeSession.branch})</span>
-            </span>
-          )}
         </div>
+
+        {/* Center: workspace tabs — horizontally scrollable */}
+        {workspaces.length > 0 && (
+          <div
+            className="flex-1 min-w-0 overflow-x-auto flex items-center gap-1 scrollbar-hide"
+            style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}
+          >
+            {[...workspaces]
+              .sort((a, b) => new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime())
+              .map((ws) => {
+                const wsId = String(ws.workspace_id);
+                const isScratch = ws.owner === "_scratch";
+                const label = ws.name || (isScratch ? "Scratch" : ws.repo);
+                const isActive = activeSession?.workspace_id === wsId;
+                const hasRunning = sessions.some(
+                  (s) => s.workspace_id === wsId && !s.closed,
+                );
+
+                const handleTabClick = () => {
+                  // If this workspace has a running session, switch to it
+                  const running = sessions.find(
+                    (s) => s.workspace_id === wsId && !s.closed,
+                  );
+                  if (running) {
+                    setActiveTerminalId(running.terminal_id);
+                    setTerminalClosed(false);
+                  } else {
+                    // Open a new session (or resume if last_session_id exists)
+                    openTerminal(wsId, ws.last_session_id ?? undefined);
+                    setTerminalClosed(false);
+                  }
+                };
+
+                return (
+                  <button
+                    key={wsId}
+                    onClick={handleTabClick}
+                    style={{ scrollSnapAlign: "start" }}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 border text-[0.7rem] font-mono whitespace-nowrap transition-all cursor-pointer flex-shrink-0",
+                      isActive
+                        ? "border-accent-blue bg-accent-blue/20 text-accent-blue"
+                        : "border-border bg-bg-secondary text-txt-secondary hover:border-accent-blue hover:text-txt-primary",
+                    )}
+                  >
+                    {hasRunning && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-terminal-green shadow-[0_0_4px_rgba(51,255,51,0.4)]" />
+                    )}
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
+        )}
 
         {/* Right: action buttons */}
         <div className="flex gap-1.5 flex-shrink-0">

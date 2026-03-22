@@ -45,6 +45,15 @@
     scrollbar-color: #3584e4 #0e1419;
   }
 
+  /* Hide scrollbar but keep scroll functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   /* Prism.js overrides for terminal theme */
   pre[class*="language-"],
   code[class*="language-"] {
