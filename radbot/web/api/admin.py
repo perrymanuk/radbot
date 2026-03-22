@@ -257,6 +257,12 @@ async def save_config_section(
         except Exception:
             pass
         try:
+            from radbot.tools.lidarr.lidarr_client import reset_lidarr_client
+
+            reset_lidarr_client()
+        except Exception:
+            pass
+        try:
             from radbot.tools.github.github_app_client import reset_github_client
 
             reset_github_client()
@@ -1171,6 +1177,64 @@ async def test_nomad(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Nomad connection failed: {e}")
 
 
+@router.post("/api/test/lidarr")
+async def test_lidarr(request: Request, _: None = Depends(_verify_admin)):
+    """Test Lidarr connectivity with provided or stored credentials."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("url", "")
+    api_key = body.get("api_key", "")
+
+    # Fall back to stored config/credentials
+    if not url:
+        try:
+            from radbot.config.config_loader import config_loader
+
+            lidarr_cfg = (
+                config_loader.get_config().get("integrations", {}).get("lidarr", {})
+            )
+            url = url or lidarr_cfg.get("url", "")
+        except Exception:
+            pass
+    if not api_key or api_key == "***":
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("lidarr_api_key") or ""
+        if not api_key:
+            try:
+                from radbot.config.config_loader import config_loader
+
+                api_key = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("lidarr", {})
+                    .get("api_key", "")
+                )
+            except Exception:
+                pass
+
+    if not url or not api_key:
+        return _err("Lidarr URL and API key are both required")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{url.rstrip('/')}/api/v1/system/status",
+                headers={"X-Api-Key": api_key},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return _ok(f"Connected to Lidarr v{data.get('version', '?')}")
+            return _err(
+                f"Lidarr returned HTTP {resp.status_code}: {resp.text[:200]}"
+            )
+    except Exception as e:
+        return _err(f"Lidarr connection failed: {e}")
+
+
 # ------------------------------------------------------------------
 # Telemetry endpoints
 # ------------------------------------------------------------------
@@ -1351,6 +1415,19 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         }
     else:
         status["overseerr"] = {"status": "unconfigured"}
+
+    # Lidarr
+    lidarr_cfg = cfg.get("integrations", {}).get("lidarr", {})
+    lidarr_key = _store_get("lidarr_api_key") or lidarr_cfg.get("api_key", "")
+    if lidarr_cfg.get("url") and lidarr_key:
+        status["lidarr"] = {"status": "ok"}
+    elif lidarr_cfg.get("enabled"):
+        status["lidarr"] = {
+            "status": "error",
+            "message": "Enabled but missing config",
+        }
+    else:
+        status["lidarr"] = {"status": "unconfigured"}
 
     # ntfy
     ntfy_cfg = cfg.get("integrations", {}).get("ntfy", {})

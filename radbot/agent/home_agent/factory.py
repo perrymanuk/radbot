@@ -76,6 +76,15 @@ def create_home_agent() -> Optional[Agent]:
         except Exception as e:
             logger.warning(f"Failed to add Overseerr tools to Casa: {e}")
 
+        # Lidarr music tools
+        try:
+            from radbot.tools.lidarr import LIDARR_TOOLS
+
+            tools.extend(LIDARR_TOOLS)
+            logger.info(f"Added {len(LIDARR_TOOLS)} Lidarr tools to Casa")
+        except Exception as e:
+            logger.warning(f"Failed to add Lidarr tools to Casa: {e}")
+
         # Picnic grocery tools
         try:
             from radbot.tools.picnic import PICNIC_TOOLS
@@ -94,7 +103,7 @@ def create_home_agent() -> Optional[Agent]:
         agent = Agent(
             name="casa",
             model=model,
-            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), and grocery ordering (Picnic).",
+            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), music collection (Lidarr), and grocery ordering (Picnic).",
             instruction=instruction,
             tools=tools,
         )

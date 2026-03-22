@@ -524,6 +524,26 @@
             }
           }
         },
+        "lidarr": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Lidarr music collection manager settings",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable/disable Lidarr integration",
+              "default": false
+            },
+            "url": {
+              "type": ["string", "null"],
+              "description": "Lidarr base URL (e.g. http://lidarr:8686)"
+            },
+            "api_key": {
+              "type": ["string", "null"],
+              "description": "Lidarr API key"
+            }
+          }
+        },
         "picnic": {
           "type": "object",
           "additionalProperties": true,

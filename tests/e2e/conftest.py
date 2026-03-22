@@ -20,6 +20,7 @@ from tests.e2e.helpers.service_checks import (
     is_gmail_available,
     is_ha_reachable,
     is_jira_reachable,
+    is_lidarr_reachable,
     is_nomad_available,
     is_ntfy_available,
     is_overseerr_reachable,
@@ -171,6 +172,11 @@ def overseerr_available():
 
 
 @pytest.fixture(scope="session")
+def lidarr_available():
+    return is_lidarr_reachable()
+
+
+@pytest.fixture(scope="session")
 def picnic_available():
     return is_picnic_available()
 
@@ -214,6 +220,7 @@ def pytest_collection_modifyitems(config, items):
         "requires_gmail": is_gmail_available,
         "requires_jira": is_jira_reachable,
         "requires_overseerr": is_overseerr_reachable,
+        "requires_lidarr": is_lidarr_reachable,
         "requires_picnic": is_picnic_available,
         "requires_tts": is_tts_available,
         "requires_stt": is_stt_available,

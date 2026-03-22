@@ -98,6 +98,10 @@ def is_github_available() -> bool:
     return _docker_check("github")
 
 
+def is_lidarr_reachable() -> bool:
+    return _docker_check("lidarr")
+
+
 def is_ntfy_available() -> bool:
     return _docker_check("ntfy")
 
