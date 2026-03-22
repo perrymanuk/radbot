@@ -58,26 +58,54 @@ def _get_auth_token() -> tuple[Optional[str], str]:
 
 
 def _write_auth_token_files(token: str) -> None:
-    """Write the OAuth token to the file path Claude Code checks at startup.
+    """Write the OAuth token to the file paths Claude Code checks at startup.
 
-    Claude Code reads from /home/claude/.claude/remote/.oauth_token.
+    The CLI checks two locations:
+    1. ``~/.claude/.credentials.json`` — used by interactive ``claude`` sessions
+    2. ``~/.claude/remote/.oauth_token`` — used by headless/remote invocations
+
     The container filesystem is ephemeral, so we write before each invocation.
-    We must NOT write to .api_key — that would cause Claude Code to use the
-    token in the API-key auth path instead of the OAuth path.
+    Uses ``Path.home()`` to resolve the correct home directory for the current user.
     """
-    base = "/home/claude/.claude/remote"
-    token_path = os.path.join(base, ".oauth_token")
+    from pathlib import Path
+    import json as _json
+
+    home = Path.home()
+    claude_dir = home / ".claude"
+
+    # 1. Write ~/.claude/remote/.oauth_token (headless path)
+    remote_dir = claude_dir / "remote"
+    token_path = remote_dir / ".oauth_token"
     try:
-        os.makedirs(base, mode=0o700, exist_ok=True)
+        remote_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
         # Remove stale .api_key if it exists to avoid auth path confusion
-        api_key_path = os.path.join(base, ".api_key")
-        if os.path.exists(api_key_path):
-            os.remove(api_key_path)
-        with open(token_path, "w") as f:
-            f.write(token)
-        os.chmod(token_path, 0o600)
+        api_key_path = remote_dir / ".api_key"
+        if api_key_path.exists():
+            api_key_path.unlink()
+        token_path.write_text(token)
+        token_path.chmod(0o600)
     except Exception as e:
-        logger.debug(f"Failed to write token to {token_path}: {e}")
+        logger.debug("Failed to write token to %s: %s", token_path, e)
+
+    # 2. Write ~/.claude/.credentials.json (interactive CLI path)
+    # Only write if no existing credentials file (don't overwrite a valid login)
+    creds_path = claude_dir / ".credentials.json"
+    if not creds_path.exists():
+        try:
+            claude_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+            creds = {
+                "claudeAiOauth": {
+                    "accessToken": token,
+                    "refreshToken": "",
+                    "expiresAt": "9999-12-31T23:59:59.999Z",
+                    "scopes": [],
+                }
+            }
+            creds_path.write_text(_json.dumps(creds, indent=2))
+            creds_path.chmod(0o600)
+            logger.debug("Wrote credentials to %s", creds_path)
+        except Exception as e:
+            logger.debug("Failed to write credentials to %s: %s", creds_path, e)
 
 
 def _claude_cli_available() -> bool:
