@@ -15,7 +15,8 @@
 | Storage | specs/storage.md | PostgreSQL tables, Qdrant, credential store |
 | Integrations | specs/integrations.md | HA, Overseerr, Picnic, Jira, Gmail, ntfy, Ollama, GitHub |
 | Config | specs/config.md | cfg system, priority chain, session mode, admin UI, hot-reload |
-| Deployment | specs/deployment.md | Docker, Nomad, CI/CD, session workers, env vars |
+| Workers | specs/workers.md | Session workers, A2A protocol, Nomad jobs, proxy, idle watchdog |
+| Deployment | specs/deployment.md | Docker, Nomad, CI/CD, env vars |
 
 ## Cross-Cutting
 
