@@ -306,12 +306,16 @@ class TerminalManager:
             return local_path
 
         try:
-            from radbot.tools.claude_code.claude_code_tools import clone_repository
+            from radbot.tools.github.github_app_client import get_github_client
 
-            result = clone_repository(
-                owner=ws["owner"],
-                repo=ws["repo"],
-                branch=ws.get("branch", "main"),
+            client = get_github_client()
+            if not client:
+                raise ValueError("GitHub App not configured — cannot clone workspace")
+
+            workspace_dir = os.path.dirname(local_path)
+            os.makedirs(workspace_dir, exist_ok=True)
+            result = client.clone_repo(
+                ws["owner"], ws["repo"], workspace_dir, ws.get("branch", "main")
             )
             if result.get("status") != "success":
                 raise ValueError(
