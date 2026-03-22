@@ -21,28 +21,40 @@ export async function fetchSessions(): Promise<Session[]> {
   return data.sessions;
 }
 
-export async function createSession(name?: string): Promise<Session> {
+export async function createSession(name?: string, description?: string): Promise<Session> {
   const sessionId = crypto.randomUUID();
   return json("/api/sessions/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId, name: name || `Session ${sessionId.slice(0, 8)}` }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      name: name || `Session ${sessionId.slice(0, 8)}`,
+      ...(description && { description }),
+    }),
   });
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  await fetch(`${BASE}/api/sessions/${sessionId}`, { method: "DELETE" });
+  const res = await fetch(`${BASE}/api/sessions/${sessionId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+}
+
+export async function updateSession(
+  sessionId: string,
+  data: { name?: string; description?: string },
+): Promise<void> {
+  await fetch(`${BASE}/api/sessions/${sessionId}/rename`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 }
 
 export async function renameSession(
   sessionId: string,
   name: string,
 ): Promise<void> {
-  await fetch(`${BASE}/api/sessions/${sessionId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
+  await updateSession(sessionId, { name });
 }
 
 // ── Messages ──────────────────────────────────────────────

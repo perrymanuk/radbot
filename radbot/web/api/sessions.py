@@ -32,6 +32,7 @@ class SessionMetadata(BaseModel):
 
     id: str
     name: str
+    description: Optional[str] = None
     created_at: str
     last_message_at: Optional[str] = None
     preview: Optional[str] = None
@@ -42,11 +43,19 @@ class CreateSessionRequest(BaseModel):
 
     session_id: Optional[str] = None
     name: Optional[str] = None
+    description: Optional[str] = None
     user_id: Optional[str] = None
 
 
+class UpdateSessionRequest(BaseModel):
+    """Request model for updating a session."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
 class RenameSessionRequest(BaseModel):
-    """Request model for renaming a session."""
+    """Request model for renaming a session (legacy)."""
 
     name: str
 
@@ -92,6 +101,7 @@ def register_sessions_router(app):
                 session_meta = SessionMetadata(
                     id=db_session["session_id"],
                     name=db_session["name"] or f"Session {db_session['created_at']}",
+                    description=db_session.get("description"),
                     created_at=db_session["created_at"],
                     last_message_at=db_session["last_message_at"],
                     preview=db_session["preview"] or "New session",
@@ -134,7 +144,8 @@ def register_sessions_router(app):
 
             # Create in database
             success = chat_operations.create_or_update_session(
-                session_id=session_id, name=session_name, user_id=user_id
+                session_id=session_id, name=session_name, user_id=user_id,
+                description=request.description,
             )
 
             if not success:
@@ -163,39 +174,33 @@ def register_sessions_router(app):
             )
 
     @router.put("/{session_id}/rename", response_model=SessionMetadata)
-    async def rename_session(
+    async def update_session(
         session_id: str = Path(...),
-        request: RenameSessionRequest = None,
+        request: UpdateSessionRequest = None,
         session_manager: SessionManager = Depends(get_session_manager),
     ):
-        """Rename a session."""
-        if not request or not request.name:
-            raise HTTPException(status_code=400, detail="Name is required")
+        """Update a session's name and/or description."""
+        if not request or (not request.name and request.description is None):
+            raise HTTPException(status_code=400, detail="Name or description is required")
 
-        logger.debug("Renaming session %s to %s", session_id, request.name)
+        logger.debug("Updating session %s", session_id)
 
         try:
-            # Check if session exists in the manager
-            runner = await session_manager.get_runner(session_id)
-            if not runner:
-                raise HTTPException(
-                    status_code=404, detail=f"Session {session_id} not found"
-                )
-
-            # Update in database
+            # Update in database — don't require runner to exist (session may be in DB only)
             success = chat_operations.create_or_update_session(
-                session_id=session_id, name=request.name
+                session_id=session_id, name=request.name,
+                description=request.description,
             )
 
             if not success:
                 raise HTTPException(
-                    status_code=500, detail="Failed to rename session in database"
+                    status_code=500, detail="Failed to update session in database"
                 )
 
             # Get session details
-            sessions = chat_operations.list_sessions(limit=1)
+            db_sessions = chat_operations.list_sessions(limit=100)
             db_session = next(
-                (s for s in sessions if s["session_id"] == session_id), None
+                (s for s in db_sessions if s["session_id"] == session_id), None
             )
 
             if not db_session:
@@ -206,17 +211,18 @@ def register_sessions_router(app):
 
             return SessionMetadata(
                 id=session_id,
-                name=request.name,
+                name=db_session.get("name", f"Session {session_id[:8]}"),
+                description=db_session.get("description"),
                 created_at=db_session["created_at"],
                 last_message_at=db_session.get("last_message_at"),
-                preview=db_session.get("preview", "Session renamed"),
+                preview=db_session.get("preview", "Session updated"),
             )
         except HTTPException:
             raise
         except Exception as e:
-            logger.error("Error renaming session: %s", str(e), exc_info=True)
+            logger.error("Error updating session: %s", str(e), exc_info=True)
             raise HTTPException(
-                status_code=500, detail=f"Error renaming session: {str(e)}"
+                status_code=500, detail=f"Error updating session: {str(e)}"
             )
 
     @router.delete("/{session_id}")
@@ -228,27 +234,20 @@ def register_sessions_router(app):
         logger.info("Deleting session %s", session_id)
 
         try:
-            # Check if session exists in the manager
+            # Remove from session manager if it has a runner
             runner = await session_manager.get_runner(session_id)
-            if not runner:
-                raise HTTPException(
-                    status_code=404, detail=f"Session {session_id} not found"
-                )
-
-            # Remove from session manager
-            await session_manager.remove_session(session_id)
+            if runner:
+                await session_manager.remove_session(session_id)
 
             # Mark as inactive in database
             success = chat_operations.delete_session(session_id)
 
             if not success:
                 logger.warning(
-                    f"Failed to mark session {session_id} as inactive in database"
+                    "Failed to mark session %s as inactive in database", session_id
                 )
 
             return {"status": "success", "message": f"Session {session_id} deleted"}
-        except HTTPException:
-            raise
         except Exception as e:
             logger.error("Error deleting session: %s", str(e), exc_info=True)
             raise HTTPException(

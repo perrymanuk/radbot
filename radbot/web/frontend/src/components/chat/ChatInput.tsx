@@ -2,8 +2,10 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { wsSend } from "@/hooks/use-websocket";
 import { useSTT } from "@/hooks/use-stt";
+import { useIsMobile } from "@/hooks/use-mobile";
 import CommandSuggestions from "./CommandSuggestions";
 import EmojiSuggestions from "./EmojiSuggestions";
+import FloatingMicButton from "./FloatingMicButton";
 import { cn, uuid } from "@/lib/utils";
 
 const COMMANDS = [
@@ -34,6 +36,7 @@ export default function ChatInput() {
     setText((prev) => (prev ? prev + " " + transcript : transcript));
   }, []);
   const stt = useSTT(handleTranscript);
+  const isMobile = useIsMobile();
 
   const isDisabled =
     connectionStatus === "disconnected" ||
@@ -208,6 +211,9 @@ export default function ChatInput() {
 
   return (
     <div className="px-1 py-1 border-t border-border bg-bg-primary flex-shrink-0 z-10">
+      {/* Floating mic FAB on mobile */}
+      {isMobile && <FloatingMicButton state={stt.state} toggle={stt.toggle} />}
+
       <div className="flex gap-1.5 relative items-stretch">
         {/* $ prompt prefix */}
         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-accent-blue font-bold text-base z-10 pointer-events-none">
@@ -256,15 +262,14 @@ export default function ChatInput() {
           )}
         />
 
-        {/* MIC button */}
+        {/* MIC button — inline on desktop only */}
         <button
           onClick={stt.toggle}
           disabled={stt.state === "processing"}
           className={cn(
             "px-2 border border-border bg-bg-tertiary text-txt-primary",
-            "cursor-pointer flex items-center justify-center transition-all",
+            "cursor-pointer hidden sm:flex items-center justify-center transition-all",
             "uppercase tracking-wider text-[0.7rem] font-mono",
-            "min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0",
             "hover:bg-accent-blue hover:text-bg-primary",
             stt.state === "recording" &&
               "bg-terminal-red/20 border-terminal-red text-terminal-red animate-pulse",

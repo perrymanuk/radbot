@@ -9,6 +9,9 @@ export default function SessionsPanel() {
   const createNewSession = useAppStore((s) => s.createNewSession);
   const setActivePanel = useAppStore((s) => s.setActivePanel);
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -18,8 +21,35 @@ export default function SessionsPanel() {
   const filtered = sessions.filter(
     (s) =>
       s.name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.description?.toLowerCase().includes(search.toLowerCase()) ||
       s.id.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const handleCreate = async () => {
+    const name = newName.trim() || undefined;
+    const description = newDescription.trim() || undefined;
+    await createNewSession(name, description);
+    setCreating(false);
+    setNewName("");
+    setNewDescription("");
+    if (isMobile) setActivePanel(null);
+  };
+
+  const handleCancel = () => {
+    setCreating(false);
+    setNewName("");
+    setNewDescription("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleCreate();
+    }
+    if (e.key === "Escape") {
+      handleCancel();
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-bg-primary">
@@ -37,12 +67,49 @@ export default function SessionsPanel() {
           Sessions
         </span>
         <button
-          onClick={() => createNewSession()}
+          onClick={() => setCreating(true)}
           className="px-2 py-1 sm:py-0.5 border border-border bg-bg-tertiary text-txt-primary text-[0.7rem] font-mono uppercase tracking-wider hover:bg-accent-blue hover:text-bg-primary transition-all cursor-pointer min-h-[36px] sm:min-h-0"
         >
           + NEW
         </button>
       </div>
+
+      {/* Inline create form */}
+      {creating && (
+        <div className="p-2 border-b border-accent-blue bg-bg-tertiary">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Project name..."
+            autoFocus
+            className="w-full bg-bg-secondary text-txt-primary border border-border px-2 py-1 font-mono text-[0.75rem] outline-none focus:border-accent-blue mb-1"
+          />
+          <textarea
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Description (optional)"
+            rows={2}
+            className="w-full bg-bg-secondary text-txt-primary border border-border px-2 py-1 font-mono text-[0.65rem] outline-none focus:border-accent-blue resize-none"
+          />
+          <div className="flex gap-2 mt-1">
+            <button
+              onClick={handleCreate}
+              className="px-2 py-0.5 border border-accent-blue text-accent-blue text-[0.7rem] font-mono uppercase hover:bg-accent-blue hover:text-bg-primary transition-all"
+            >
+              Create
+            </button>
+            <button
+              onClick={handleCancel}
+              className="px-2 py-0.5 border border-border text-txt-secondary text-[0.7rem] font-mono uppercase hover:text-txt-primary transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="p-1.5 border-b border-border">

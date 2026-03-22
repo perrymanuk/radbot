@@ -91,6 +91,12 @@ def create_schema_if_not_exists() -> bool:
                     );
                 """)
 
+                # Add description column if it doesn't exist (migration)
+                cursor.execute(f"""
+                    ALTER TABLE {CHAT_SCHEMA}.chat_sessions
+                    ADD COLUMN IF NOT EXISTS description TEXT;
+                """)
+
                 logger.info(
                     f"Chat history schema and tables created or verified in schema '{CHAT_SCHEMA}'"
                 )
@@ -217,7 +223,7 @@ def get_messages_by_session_id(
 
 def create_or_update_session(
     session_id: str, name: Optional[str] = None, user_id: Optional[str] = None,
-    preview: Optional[str] = None,
+    preview: Optional[str] = None, description: Optional[str] = None,
 ) -> bool:
     """
     Create or update a chat session.
@@ -227,6 +233,7 @@ def create_or_update_session(
         name: Optional session name
         user_id: Optional user identifier
         preview: Optional preview text for the session
+        description: Optional project description for the session
 
     Returns:
         bool: True if successful, False on error
@@ -241,17 +248,18 @@ def create_or_update_session(
 
     # Insert or update SQL
     sql = f"""
-        INSERT INTO {CHAT_SCHEMA}.chat_sessions (session_id, name, user_id, preview)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO {CHAT_SCHEMA}.chat_sessions (session_id, name, user_id, preview, description)
+        VALUES (%s, %s, %s, %s, %s)
         ON CONFLICT (session_id)
         DO UPDATE SET
             name = COALESCE(EXCLUDED.name, chat_sessions.name),
             user_id = COALESCE(EXCLUDED.user_id, chat_sessions.user_id),
             preview = COALESCE(EXCLUDED.preview, chat_sessions.preview),
+            description = COALESCE(EXCLUDED.description, chat_sessions.description),
             is_active = true;
     """
 
-    params = (session_id, name, user_id, preview)
+    params = (session_id, name, user_id, preview, description)
 
     try:
         with get_chat_db_connection() as conn:
@@ -324,7 +332,7 @@ def list_sessions(
         List of session dictionaries
     """
     base_sql = f"""
-        SELECT session_id, name, user_id, created_at, last_message_at, preview, is_active
+        SELECT session_id, name, user_id, created_at, last_message_at, preview, is_active, description
         FROM {CHAT_SCHEMA}.chat_sessions
         WHERE is_active = true
     """

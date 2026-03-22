@@ -110,7 +110,10 @@ class TerminalManager:
 
         # 1. Resolve auth token (API key or OAuth) from config/env
         try:
-            from radbot.tools.claude_code.claude_code_client import _get_auth_token
+            from radbot.tools.claude_code.claude_code_client import (
+                _get_auth_token,
+                _write_auth_token_files,
+            )
 
             token, kind = _get_auth_token()
             if token:
@@ -118,6 +121,8 @@ class TerminalManager:
                     env["ANTHROPIC_API_KEY"] = token
                 else:
                     env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+                    # Write token file so claude CLI finds it without prompting login
+                    _write_auth_token_files(token)
                 token_injected = True
                 logger.info("Terminal: injected Claude Code %s token", kind)
         except Exception as e:

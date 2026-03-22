@@ -11,6 +11,7 @@ export interface Message {
 export interface Session {
   id: string;
   name: string;
+  description?: string | null;
   created_at: string;
   last_message_at?: string | null;
   preview?: string | null;

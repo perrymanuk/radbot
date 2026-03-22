@@ -21,7 +21,9 @@ interface AppState {
   setSessionId: (id: string) => void;
   loadSessions: () => Promise<void>;
   switchSession: (id: string) => void;
-  createNewSession: (name?: string) => Promise<void>;
+  createNewSession: (name?: string, description?: string) => Promise<void>;
+  deleteSession: (id: string) => Promise<void>;
+  updateSession: (id: string, data: { name?: string; description?: string }) => Promise<void>;
 
   // ── Messages ────────────────────────────────────────────
   messages: Message[];
@@ -113,15 +115,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  createNewSession: async (name) => {
+  createNewSession: async (name, description) => {
     try {
-      const session = await api.createSession(name);
+      const session = await api.createSession(name, description);
       get().switchSession(session.id);
       get().loadSessions();
     } catch {
       // Fallback: generate locally
       const id = uuid();
       get().switchSession(id);
+    }
+  },
+
+  deleteSession: async (id) => {
+    try {
+      await api.deleteSession(id);
+      const { sessions, sessionId } = get();
+      const remaining = sessions.filter((s) => s.id !== id);
+      set({ sessions: remaining });
+      if (sessionId === id) {
+        if (remaining.length > 0) {
+          get().switchSession(remaining[0].id);
+        } else {
+          await get().createNewSession();
+        }
+      }
+    } catch {
+      // Reload sessions to get accurate state
+      get().loadSessions();
+    }
+  },
+
+  updateSession: async (id, data) => {
+    try {
+      await api.updateSession(id, data);
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.id === id
+            ? { ...sess, ...(data.name && { name: data.name }), ...(data.description !== undefined && { description: data.description }) }
+            : sess,
+        ),
+      }));
+    } catch {
+      // Ignore
     }
   },
 
