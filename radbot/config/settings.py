@@ -72,7 +72,7 @@ class ConfigManager:
             # Primary model for main agent
             "main_model": agent_config.get("main_model")
             or agent_config.get("model")
-            or os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
+            or os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-flash"),
             # Also check GEMINI_MODEL env var for compatibility
             "gemini_model": os.getenv("GEMINI_MODEL"),
             # Model for simpler sub-agents
@@ -234,7 +234,7 @@ class ConfigManager:
         Order of precedence:
         1. RADBOT_MAIN_MODEL env var
         2. GEMINI_MODEL env var
-        3. Default model (gemini-2.5-pro)
+        3. Default model (gemini-2.5-flash)
 
         Returns:
             The configured main model name
@@ -243,7 +243,7 @@ class ConfigManager:
         return (
             self.model_config["main_model"]
             or self.model_config.get("gemini_model")
-            or "gemini-2.5-pro"
+            or "gemini-2.5-flash"
         )
 
     def get_sub_agent_model(self) -> str:
@@ -271,9 +271,9 @@ class ConfigManager:
         if agent_name in agent_models and agent_models[agent_name]:
             return agent_models[agent_name]
 
-        # For scout (research) agent, use main model by default since it's complex
+        # For scout (research) agent, use flash by default — override via RADBOT_SCOUT_AGENT_MODEL
         if agent_name == "scout_agent":
-            return self.get_main_model()
+            return self.get_sub_agent_model()
 
         # For specialized search and code execution agents, use main model too
         if agent_name in ["search_agent", "code_execution_agent"]:

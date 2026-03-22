@@ -15,3 +15,5 @@ services:
   radbot:
     environment:
       POSTGRES_DB: radbot_e2e
+      RADBOT_RUN_LABEL: e2e
+      RADBOT_MAIN_MODEL: gemini-2.5-flash

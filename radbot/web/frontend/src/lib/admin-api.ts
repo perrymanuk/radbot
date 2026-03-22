@@ -112,6 +112,53 @@ export async function listModels(token: string): Promise<string[]> {
   return data.models;
 }
 
+// ── Telemetry / Cost Tracking ───────────────────────────
+export interface CostSummary {
+  total_requests: number;
+  total_prompt_tokens: number;
+  total_cached_tokens: number;
+  total_output_tokens: number;
+  total_cost_usd: number;
+  total_cost_without_cache_usd: number;
+}
+
+export interface CostDashboard {
+  year: number;
+  month: number;
+  summary: CostSummary;
+  previous_month_cost_usd: number;
+  daily: Array<{ day: string; requests: number; cost_usd: number; prompt_tokens: number; output_tokens: number }>;
+  by_agent: Array<{ agent_name: string; requests: number; cost_usd: number; prompt_tokens: number; cached_tokens: number; output_tokens: number }>;
+  by_model: Array<{ model: string; requests: number; cost_usd: number; prompt_tokens: number; cached_tokens: number; output_tokens: number }>;
+  available_months: Array<{ month: string; requests: number; cost_usd: number }>;
+}
+
+export interface SessionUsageStats {
+  uptime_seconds: number;
+  total_requests: number;
+  total_prompt_tokens: number;
+  total_cached_tokens: number;
+  total_output_tokens: number;
+  cache_hit_rate_pct: number;
+  estimated_cost_usd: number;
+  estimated_cost_without_cache_usd: number;
+  estimated_savings_usd: number;
+  per_agent: Record<string, { prompt_tokens: number; cached_tokens: number; output_tokens: number; requests: number; cost_usd: number }>;
+}
+
+export async function getCostDashboard(token: string, year?: number, month?: number, label?: string): Promise<CostDashboard> {
+  const params = new URLSearchParams();
+  if (year) params.set("year", String(year));
+  if (month) params.set("month", String(month));
+  if (label) params.set("label", label);
+  const qs = params.toString();
+  return adminFetch(`/admin/api/telemetry/costs${qs ? `?${qs}` : ""}`, { token });
+}
+
+export async function getSessionUsage(token: string): Promise<SessionUsageStats> {
+  return adminFetch("/admin/api/telemetry/usage", { token });
+}
+
 // ── Gmail ────────────────────────────────────────────────
 export async function getGmailAccounts(token: string): Promise<{ accounts: any[]; error?: string }> {
   return adminFetch("/admin/api/gmail/accounts", { token });

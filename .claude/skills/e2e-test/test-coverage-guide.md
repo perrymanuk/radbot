@@ -4,9 +4,10 @@ You are the Test Coverage Reviewer teammate. Analyze findings from other teammat
 
 ## When to Start
 
-Wait for BOTH of these report files to exist before starting analysis (poll every 20s):
+Wait for ALL THREE of these report files to exist before starting analysis (poll every 20s):
 - `reports/e2e-log-analysis.md`
 - `reports/e2e-performance-review.md`
+- `reports/e2e-cost-analysis.md`
 
 This teammate runs last since it needs the other teammates' findings as input.
 
@@ -37,6 +38,12 @@ Read both reports and look for findings that indicate missing test coverage:
 - Redundant tests identified -> flag tests that could be consolidated
 - E2E-to-unit conversion candidates -> tests that are slow E2E but could be fast unit tests
 - Test infrastructure bottlenecks -> fixture or setup improvements needed
+
+**From Cost Analysis (`reports/e2e-cost-analysis.md`):**
+- High-cost agents -> need tests verifying routing efficiency (e.g. beto not making unnecessary transfers)
+- Cache miss patterns -> need tests for context caching behavior
+- Model selection issues -> need tests verifying correct model is used per agent
+- Cost anomalies -> may indicate untested error/retry paths driving up token usage
 
 ### 3. Existing Test Coverage
 

@@ -55,7 +55,7 @@ def telemetry_after_model_callback(
         except Exception:
             pass
 
-        from radbot.telemetry.usage_tracker import usage_tracker
+        from radbot.telemetry.usage_tracker import compute_cost, usage_tracker
 
         usage_tracker.record(
             prompt_tokens=prompt_tokens,
@@ -64,6 +64,25 @@ def telemetry_after_model_callback(
             agent_name=agent_name,
             model=model,
         )
+
+        # Persist to database for historical cost tracking
+        try:
+            cost_usd, cost_without_cache_usd = compute_cost(
+                model, prompt_tokens, cached_tokens, output_tokens
+            )
+            from radbot.telemetry.db import record_usage
+
+            record_usage(
+                agent_name=agent_name,
+                model=model,
+                prompt_tokens=prompt_tokens,
+                cached_tokens=cached_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
+                cost_without_cache_usd=cost_without_cache_usd,
+            )
+        except Exception as persist_err:
+            logger.debug("Usage persistence error (non-fatal): %s", persist_err)
 
         if cached_tokens > 0:
             logger.debug(

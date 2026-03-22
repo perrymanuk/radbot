@@ -15,6 +15,7 @@ import { GitHubAppPanel, ClaudeCodePanel } from "@/components/admin/panels/Devel
 import { MCPServersPanel } from "@/components/admin/panels/MCPPanel";
 import { CredentialsPanel } from "@/components/admin/panels/CredentialsPanel";
 import { RawConfigPanel } from "@/components/admin/panels/RawConfigPanel";
+import { CostTrackingPanel } from "@/components/admin/panels/TelemetryPanels";
 
 // ── Navigation definition ──────────────────────────────────
 interface NavItem {
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "agent_models", label: "Agent & Models", group: "Core" },
   { id: "web_server", label: "Web Server", group: "Core" },
   { id: "logging", label: "Logging", group: "Core" },
+  { id: "cost_tracking", label: "Cost Tracking", group: "Core" },
   // Connections
   { id: "gmail", label: "Gmail", group: "Connections", statusKey: "gmail" },
   { id: "calendar", label: "Calendar", group: "Connections", statusKey: "calendar" },
@@ -68,6 +70,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   agent_models: AgentModelsPanel,
   web_server: WebServerPanel,
   logging: LoggingPanel,
+  cost_tracking: CostTrackingPanel,
   gmail: GmailPanel,
   calendar: CalendarPanel,
   jira: JiraPanel,

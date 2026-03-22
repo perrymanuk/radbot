@@ -207,6 +207,18 @@ async def initialize_app_startup():
                 exc_info=True,
             )
 
+        logger.debug("Initializing usage telemetry database schema...")
+        try:
+            from radbot.telemetry.db import init_usage_schema
+
+            init_usage_schema()
+            logger.debug("Usage telemetry database schema initialized")
+        except Exception as usage_err:
+            logger.error(
+                f"Error initializing usage telemetry database: {str(usage_err)}",
+                exc_info=True,
+            )
+
         # Initialize credential store schema
         logger.debug("Initializing credential store schema...")
         try:

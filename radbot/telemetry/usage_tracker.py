@@ -2,14 +2,14 @@
 
 Thread-safe accumulator that records per-request token counts, cache hits,
 and per-agent breakdowns.  Estimated costs use public Gemini pricing as of
-2026-02 (Pro: $1.25/M input, $5.00/M output; Flash: $0.075/M input,
-$0.30/M output; cached input: ~25% of base rate).
+2026-02 (Pro: $1.25/M input, $10.00/M output; Flash: $0.15/M input,
+$0.60/M output; cached input: ~25% of base rate).
 """
 
 import threading
 import time
 from collections import defaultdict
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # Gemini pricing per million tokens (USD)
 _PRICING = {
@@ -29,6 +29,30 @@ def _get_pricing(model: str) -> tuple:
         if prefix != "_default" and model_lower.startswith(prefix):
             return pricing
     return _PRICING["_default"]
+
+
+def compute_cost(
+    model: str,
+    prompt_tokens: int,
+    cached_tokens: int,
+    output_tokens: int,
+) -> tuple:
+    """Compute cost for a single LLM invocation.
+
+    Returns:
+        (cost_usd, cost_without_cache_usd) tuple.
+    """
+    input_price, output_price, cached_price = _get_pricing(model)
+    fresh_input = max(0, prompt_tokens - cached_tokens)
+    cost = (
+        (fresh_input / 1_000_000) * input_price
+        + (cached_tokens / 1_000_000) * cached_price
+        + (output_tokens / 1_000_000) * output_price
+    )
+    cost_without_cache = (prompt_tokens / 1_000_000) * input_price + (
+        output_tokens / 1_000_000
+    ) * output_price
+    return cost, cost_without_cache
 
 
 class UsageTracker:
@@ -63,18 +87,9 @@ class UsageTracker:
         model: str = "",
     ) -> None:
         """Record a single LLM invocation's token usage."""
-        input_price, output_price, cached_price = _get_pricing(model)
-
-        # Non-cached input tokens = total prompt - cached portion
-        fresh_input = max(0, prompt_tokens - cached_tokens)
-        cost = (
-            (fresh_input / 1_000_000) * input_price
-            + (cached_tokens / 1_000_000) * cached_price
-            + (output_tokens / 1_000_000) * output_price
+        cost, cost_without_cache = compute_cost(
+            model, prompt_tokens, cached_tokens, output_tokens
         )
-        cost_without_cache = (prompt_tokens / 1_000_000) * input_price + (
-            output_tokens / 1_000_000
-        ) * output_price
 
         with self._lock:
             self._total_prompt_tokens += prompt_tokens

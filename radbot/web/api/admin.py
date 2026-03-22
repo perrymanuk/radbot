@@ -1191,6 +1191,58 @@ async def reset_telemetry(_: None = Depends(_verify_admin)):
     return {"status": "ok", "message": "Telemetry counters reset"}
 
 
+@router.get("/api/telemetry/costs")
+async def get_telemetry_costs(
+    year: int = 0,
+    month: int = 0,
+    label: str = "",
+    _: None = Depends(_verify_admin),
+):
+    """Return persistent cost dashboard data for a given month."""
+    from datetime import datetime, timezone
+
+    from radbot.telemetry.db import (
+        get_agent_breakdown,
+        get_available_months,
+        get_daily_breakdown,
+        get_model_breakdown,
+        get_monthly_summary,
+    )
+
+    now = datetime.now(timezone.utc)
+    if year == 0:
+        year = now.year
+    if month == 0:
+        month = now.month
+
+    run_label = label if label else None
+
+    summary = get_monthly_summary(year, month, run_label)
+    daily = get_daily_breakdown(year, month, run_label)
+    by_agent = get_agent_breakdown(year, month, run_label)
+    by_model = get_model_breakdown(year, month, run_label)
+    available = get_available_months(run_label)
+
+    # Get previous month cost for comparison
+    prev_month = month - 1
+    prev_year = year
+    if prev_month < 1:
+        prev_month = 12
+        prev_year = year - 1
+    prev_summary = get_monthly_summary(prev_year, prev_month, run_label)
+
+    return {
+        "year": year,
+        "month": month,
+        "summary": summary,
+        "previous_month_cost_usd": prev_summary["total_cost_usd"],
+        "daily": daily,
+        "by_agent": by_agent,
+        "by_model": by_model,
+        "available_months": available,
+    }
+
+
 # ------------------------------------------------------------------
 # Aggregate status endpoint (powers sidebar dots)
 # ------------------------------------------------------------------

@@ -125,9 +125,9 @@ class SessionRunner:
             from google.adk.agents.context_cache_config import ContextCacheConfig
 
             self.runner.context_cache_config = ContextCacheConfig(
-                cache_intervals=10,
+                cache_intervals=5,
                 ttl_seconds=1800,
-                min_tokens=4096,
+                min_tokens=2048,
             )
             logger.debug(
                 "Enabled context caching on web Runner (ttl=1800s, min_tokens=4096)"
