@@ -30,6 +30,7 @@ WORKDIR /app
 # Install minimal Python deps (no ADK, no Qdrant, no google-genai)
 RUN pip install --no-cache-dir \
     uvicorn \
+    "uvicorn[standard]" \
     starlette \
     psycopg2-binary \
     python-dotenv \
