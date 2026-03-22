@@ -31,7 +31,7 @@
         "main_model": {
           "type": "string",
           "description": "Primary model for main agent",
-          "default": "gemini-2.5-pro"
+          "default": "gemini-2.5-flash"
         },
         "sub_agent_model": {
           "type": "string",

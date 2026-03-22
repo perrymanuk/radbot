@@ -259,7 +259,7 @@ class ConfigLoader:
         # Load from environment variables similar to settings.py
         return {
             "agent": {
-                "main_model": os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-pro"),
+                "main_model": os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-flash"),
                 "sub_agent_model": os.getenv("RADBOT_SUB_MODEL", "gemini-2.5-flash"),
                 "agent_models": {
                     "code_execution_agent": os.getenv("RADBOT_CODE_AGENT_MODEL", ""),

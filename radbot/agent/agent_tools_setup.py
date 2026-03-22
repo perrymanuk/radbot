@@ -15,13 +15,24 @@ from radbot.config import config_manager
 
 logger = logging.getLogger(__name__)
 
+# Process-level flag — schema init and HA enumeration only need to run once
+# per process, not once per session. The callback_context.state guard below
+# is per-session (resets on every new WebSocket connection), so without this
+# flag we'd fire 4 DB schema checks + an HA list_entities HTTP call on every
+# new connection (~293 times in a typical E2E run).
+_process_initialized = False
+
 
 def setup_before_agent_call(callback_context: CallbackContext):
     """Setup agent before each call.
 
     Initializes all DB schemas on first invocation. These are idempotent
-    (CREATE TABLE IF NOT EXISTS) and only run once per session.
+    (CREATE TABLE IF NOT EXISTS) and only run once per process.
     """
+    global _process_initialized
+    if _process_initialized:
+        return
+
     # Initialize Todo database schema if needed
     if "todo_init" not in callback_context.state:
         try:
@@ -98,6 +109,10 @@ def setup_before_agent_call(callback_context: CallbackContext):
         except Exception as e:
             logger.error(f"Error initializing Home Assistant client: {e}")
             callback_context.state["ha_client_init"] = False
+
+    # Mark process as initialized so subsequent sessions skip all the above
+    _process_initialized = True
+    logger.info("Process-level agent setup complete (schema init + HA check)")
 
 
 from radbot.agent.research_agent.factory import create_research_agent
