@@ -93,12 +93,14 @@ def _write_auth_token_files(token: str) -> None:
     if not creds_path.exists():
         try:
             claude_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+            # expiresAt is unix timestamp in milliseconds, set far in the future
             creds = {
                 "claudeAiOauth": {
                     "accessToken": token,
                     "refreshToken": "",
-                    "expiresAt": "9999-12-31T23:59:59.999Z",
+                    "expiresAt": 32503680000000,
                     "scopes": [],
+                    "subscriptionType": "max",
                 }
             }
             creds_path.write_text(_json.dumps(creds, indent=2))
