@@ -38,7 +38,7 @@ RUN pip install --no-cache-dir \
     "pyjwt[crypto]"
 
 # Copy only the modules the worker needs (with a minimal __init__.py)
-RUN echo '__version__ = "0.1.0"' > radbot/__init__.py
+RUN mkdir -p radbot && echo '__version__ = "0.1.0"' > radbot/__init__.py
 COPY radbot/logging_config.py radbot/
 COPY radbot/worker/__init__.py radbot/worker/
 COPY radbot/worker/__main__.py radbot/worker/
