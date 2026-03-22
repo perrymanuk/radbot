@@ -30,6 +30,7 @@ React SPA with a terminal-inspired, i3-style tiling layout. Built with React 18,
 *   **Mobile-responsive**: Full-screen panel overlays on mobile, proper touch targets (44px minimum), dvh viewport units for correct mobile address bar handling
 *   **Real-time**: WebSocket connection with heartbeat, reconnection, and message history sync
 *   **Panels**: Chat, Sessions, Tasks, and Events panels in a side-by-side split (desktop) or overlay (mobile)
+*   **Session management**: Project-based sessions with names, descriptions, deletion, and relative timestamps — sessions are persistent workspaces you can return to
 *   **Input features**: Slash commands (`/tasks`, `/clear`, `/help`), emoji autocomplete, command suggestions, input history (arrow keys)
 *   **Memory mode**: Prefix with `#` to save text directly to long-term memory
 
@@ -84,7 +85,7 @@ Google Cloud TTS integration with in-browser playback.
 
 Google Cloud STT integration with push-to-talk microphone input.
 
-*   MIC button in chat input (push-to-talk)
+*   Floating mic button (FAB) on mobile for easy access; inline MIC button on desktop
 *   Transcribed text injected into the input field for review before sending
 *   REST API at `/api/stt/transcribe`
 
