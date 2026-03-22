@@ -1,13 +1,13 @@
 ---
 name: e2e-test
-description: Run RadBot E2E tests with parallel log analysis, performance review, cost analysis, test coverage analysis, and documentation drift detection using agent teams
+description: Run RadBot E2E tests with parallel log analysis, performance review, cost analysis, and test coverage analysis using agent teams
 disable-model-invocation: true
 user-invocable: true
 ---
 
 # E2E Test Orchestration with Agent Teams
 
-Run RadBot E2E tests against a Docker compose stack with five agent teammates providing deep analysis of logs, performance, cost, test coverage gaps, and documentation drift.
+Run RadBot E2E tests against a Docker compose stack with four agent teammates providing deep analysis of logs, performance, cost, and test coverage gaps.
 
 ## Argument Parsing
 
@@ -146,7 +146,7 @@ Since all artifacts are already available, no teammate needs to poll for files.
 TeamCreate(team_name="e2e-analysis", description="RadBot E2E test analysis team")
 ```
 
-Spawn teammates 1, 2, and 4 in parallel (no dependencies). Teammates 3 and 5 depend on 1+2 (spawn after those complete).
+Spawn teammates 1, 2, and 4 in parallel (no dependencies). Teammate 3 depends on 1, 2, and 4 (spawn after those complete).
 
 **Teammate 1: Log Analyst**
 - `Agent(name="log-analyst", team_name="e2e-analysis", run_in_background=true, ...)`
@@ -164,13 +164,9 @@ Spawn teammates 1, 2, and 4 in parallel (no dependencies). Teammates 3 and 5 dep
 - `Agent(name="test-coverage", team_name="e2e-analysis", run_in_background=true, ...)`
 - Prompt: "Analyze E2E run findings and identify test coverage gaps. Read `.claude/skills/e2e-test/test-coverage-guide.md` for detailed instructions. The test run is COMPLETE and `reports/e2e-pytest-output.txt` is ready. Wait for ALL THREE of these teammate reports to exist (poll every 20s): `reports/e2e-log-analysis.md`, `reports/e2e-performance-review.md`, `reports/e2e-cost-analysis.md`. Then cross-reference findings against existing tests in `tests/` to identify missing unit tests, missing E2E scenarios, and assertion gaps. Propose concrete test code for each gap. Write findings to `reports/e2e-test-coverage.md`."
 
-**Teammate 5: Doc Keeper** (depends on teammates 1 and 2)
-- `Agent(name="doc-keeper", team_name="e2e-analysis", run_in_background=true, ...)`
-- Prompt: "Audit project documentation for drift after this E2E run. Read `.claude/skills/e2e-test/doc-update-guide.md` for detailed instructions. The test run is COMPLETE. Wait for BOTH of these teammate reports to exist (poll every 20s): `reports/e2e-log-analysis.md`, `reports/e2e-performance-review.md`. Then audit CLAUDE.md and the SPEC.md ecosystem against the current codebase using terse LLM-optimized writing style. Apply minimal updates for any drift detected. Write your change manifest to `reports/e2e-doc-updates.md`."
-
 ### 7. Wait for Teammates
 
-Wait for all five teammates to finish and write their report files.
+Wait for all four teammates to finish and write their report files.
 You will be notified automatically when each teammate completes.
 
 ### 8. Extract Per-Test Durations
@@ -188,12 +184,11 @@ for tc in tree.iter('testcase'):
 
 ### 9. Collect Findings and Generate Unified Report
 
-Read the five teammate reports:
+Read the four teammate reports:
 - `reports/e2e-log-analysis.md`
 - `reports/e2e-performance-review.md`
 - `reports/e2e-cost-analysis.md`
 - `reports/e2e-test-coverage.md`
-- `reports/e2e-doc-updates.md`
 
 Generate a unified report combining all findings.
 
@@ -238,16 +233,6 @@ Generate a unified report combining all findings.
 
 ### Cost Optimization Recommendations
 (prioritized recommendations from cost analyst)
-
-## Documentation Updates
-(findings from doc keeper)
-
-### Files Modified
-| File | Changes | Lines +/- | Trigger |
-|------|---------|-----------|---------|
-
-### Flagged for Review
-(items needing human judgment)
 
 ## Recommended Actions
 (prioritized list based on severity)
@@ -343,4 +328,3 @@ Print a summary of where reports were written.
 - Tests marked `writes_external` are skipped unless `--run-writes` is passed
 - Teammates are spawned AFTER the test run completes, so all artifacts are fully written before analysis begins
 - Test coverage reviewer runs last (waits for log analysis, performance review, and cost analysis)
-- Doc-keeper modifies `CLAUDE.md`, `specs/`, and `docs/guides/` files — review `git diff` after the run to approve changes
