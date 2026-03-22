@@ -54,7 +54,11 @@ _SCROLLBACK_BUFFER_SIZE = 128 * 1024  # 128 KB
 
 
 class _TerminalSession:
-    """Tracks a single PTY-backed terminal session."""
+    """Tracks a single PTY-backed terminal session.
+
+    Supports multiple simultaneous WebSocket clients.  A single background
+    PTY reader task broadcasts output to all connected sockets.
+    """
 
     __slots__ = (
         "terminal_id",
@@ -65,6 +69,8 @@ class _TerminalSession:
         "created_at",
         "closed",
         "_scrollback",
+        "_clients",
+        "_reader_task",
     )
 
     def __init__(
@@ -83,6 +89,8 @@ class _TerminalSession:
         self.created_at = __import__("time").time()
         self.closed = False
         self._scrollback = bytearray()
+        self._clients: List[WebSocket] = []
+        self._reader_task: Optional[asyncio.Task] = None
 
     def append_output(self, data: bytes) -> None:
         """Append PTY output to the scrollback buffer (ring buffer)."""
@@ -94,6 +102,27 @@ class _TerminalSession:
     def get_scrollback(self) -> bytes:
         """Return the scrollback buffer contents for replay on reconnect."""
         return bytes(self._scrollback)
+
+    def add_client(self, ws: WebSocket) -> None:
+        self._clients.append(ws)
+
+    def remove_client(self, ws: WebSocket) -> None:
+        try:
+            self._clients.remove(ws)
+        except ValueError:
+            pass
+
+    async def broadcast(self, data: bytes) -> None:
+        """Send raw bytes to all connected clients, removing dead ones."""
+        frame = bytes([_MSG_DATA]) + data
+        dead: List[WebSocket] = []
+        for ws in self._clients:
+            try:
+                await ws.send_bytes(frame)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.remove_client(ws)
 
 
 # ------------------------------------------------------------------
@@ -562,6 +591,66 @@ async def terminal_status():
 def register_terminal_websocket(app) -> None:
     """Register the terminal WebSocket endpoint on the FastAPI app."""
 
+    def _pty_read_coalesced(fd: int) -> bytes:
+        """Blocking read from PTY fd with output coalescing."""
+        data = os.read(fd, _PTY_READ_SIZE)
+        if not data:
+            return data
+        while True:
+            r, _, _ = select.select([fd], [], [], _COALESCE_SECS)
+            if not r:
+                break
+            more = os.read(fd, _PTY_READ_SIZE)
+            if not more:
+                break
+            data += more
+        return data
+
+    async def _ensure_pty_reader(session: _TerminalSession) -> None:
+        """Start the shared PTY reader task if not already running.
+
+        One reader per session reads from the PTY fd and broadcasts to
+        all connected WebSocket clients.  Runs until the PTY closes.
+        """
+        if session._reader_task is not None and not session._reader_task.done():
+            return
+
+        loop = asyncio.get_event_loop()
+
+        async def _reader():
+            while not session.closed:
+                try:
+                    data = await loop.run_in_executor(
+                        _pty_executor, _pty_read_coalesced, session.fd
+                    )
+                    if not data:
+                        break
+                    session.append_output(data)
+                    await session.broadcast(data)
+                except OSError:
+                    break
+                except Exception as e:
+                    logger.debug("PTY reader error: %s", e)
+                    break
+
+            # PTY closed — notify all clients
+            exit_code = -1
+            try:
+                _, status = os.waitpid(session.pid, os.WNOHANG)
+                if os.WIFEXITED(status):
+                    exit_code = os.WEXITSTATUS(status)
+            except Exception:
+                pass
+            session.closed = True
+            close_frame = bytes([_MSG_CLOSED]) + struct.pack(">i", exit_code)
+            for ws in list(session._clients):
+                try:
+                    await ws.send_bytes(close_frame)
+                except Exception:
+                    pass
+
+        session._reader_task = asyncio.create_task(_reader())
+
     @app.websocket("/ws/terminal/{terminal_id}")
     async def terminal_ws(websocket: WebSocket, terminal_id: str):
         mgr = TerminalManager.get_instance()
@@ -572,7 +661,12 @@ def register_terminal_websocket(app) -> None:
             return
 
         await websocket.accept()
-        logger.info("Terminal WS connected: %s", terminal_id)
+        session.add_client(websocket)
+        client_count = len(session._clients)
+        logger.info(
+            "Terminal WS connected: %s (%d client%s)",
+            terminal_id, client_count, "s" if client_count > 1 else "",
+        )
 
         # Replay scrollback buffer so reconnecting clients see prior output
         scrollback = session.get_scrollback()
@@ -587,69 +681,11 @@ def register_terminal_websocket(app) -> None:
             except Exception as e:
                 logger.debug("Failed to replay scrollback: %s", e)
 
-        loop = asyncio.get_event_loop()
+        # Start the shared PTY reader if this is the first client
+        await _ensure_pty_reader(session)
 
-        def _pty_read_coalesced(fd: int) -> bytes:
-            """Blocking read from PTY fd with output coalescing.
-
-            Reads available data, then drains any additional bytes that
-            arrive within a short window so that rapid output (e.g. a
-            full-screen ANSI redraw) is batched into a single frame.
-            """
-            data = os.read(fd, _PTY_READ_SIZE)
-            if not data:
-                return data
-            while True:
-                r, _, _ = select.select([fd], [], [], _COALESCE_SECS)
-                if not r:
-                    break
-                more = os.read(fd, _PTY_READ_SIZE)
-                if not more:
-                    break
-                data += more
-            return data
-
-        async def pty_reader():
-            """Read from PTY fd and forward to WebSocket as binary frames."""
-            while not session.closed:
-                try:
-                    data = await loop.run_in_executor(
-                        _pty_executor, _pty_read_coalesced, session.fd
-                    )
-                    if not data:
-                        break
-                    # Record in scrollback for reconnect replay
-                    session.append_output(data)
-                    # Binary frame: 0x01 prefix + raw PTY bytes
-                    await websocket.send_bytes(bytes([_MSG_DATA]) + data)
-                except OSError:
-                    # PTY closed
-                    break
-                except WebSocketDisconnect:
-                    break
-                except Exception as e:
-                    logger.debug("PTY reader error: %s", e)
-                    break
-
-            # Notify client that the terminal has closed
-            exit_code = -1
-            try:
-                _, status = os.waitpid(session.pid, os.WNOHANG)
-                if os.WIFEXITED(status):
-                    exit_code = os.WEXITSTATUS(status)
-            except Exception:
-                pass
-            session.closed = True
-            try:
-                # Binary frame: 0x03 prefix + int32 BE exit code
-                await websocket.send_bytes(
-                    bytes([_MSG_CLOSED]) + struct.pack(">i", exit_code)
-                )
-            except Exception:
-                pass
-
-        async def ws_reader():
-            """Read from WebSocket and forward to PTY."""
+        # This client only needs to read WS input → PTY
+        try:
             while not session.closed:
                 try:
                     msg = await websocket.receive()
@@ -685,20 +721,10 @@ def register_terminal_websocket(app) -> None:
                 except Exception as e:
                     logger.debug("WS reader error: %s", e)
                     break
-
-        # Run both tasks concurrently — when either finishes, cancel the other
-        reader_task = asyncio.create_task(pty_reader())
-        writer_task = asyncio.create_task(ws_reader())
-
-        try:
-            done, pending = await asyncio.wait(
-                {reader_task, writer_task},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for t in pending:
-                t.cancel()
-        except Exception:
-            reader_task.cancel()
-            writer_task.cancel()
         finally:
-            logger.info("Terminal WS disconnected: %s", terminal_id)
+            session.remove_client(websocket)
+            logger.info(
+                "Terminal WS disconnected: %s (%d client%s remaining)",
+                terminal_id, len(session._clients),
+                "s" if len(session._clients) != 1 else "",
+            )
