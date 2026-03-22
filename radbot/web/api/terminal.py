@@ -210,13 +210,17 @@ class TerminalManager:
 
             token, kind = _get_auth_token()
             if token:
-                # Always use ANTHROPIC_API_KEY for PTY sessions — the interactive
-                # CLI ignores CLAUDE_CODE_OAUTH_TOKEN during onboarding, but
-                # detects ANTHROPIC_API_KEY and auto-configures auth.
-                env["ANTHROPIC_API_KEY"] = token
-                _write_auth_token_files(token)
+                if kind == "api_key":
+                    # Standard Anthropic API key (sk-ant-api*)
+                    env["ANTHROPIC_API_KEY"] = token
+                else:
+                    # OAuth token — use CLAUDE_CODE_OAUTH_TOKEN.
+                    # ANTHROPIC_API_KEY must NOT be set — it disables OAuth mode.
+                    env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+                    env.pop("ANTHROPIC_API_KEY", None)
+                    _write_auth_token_files(token)
                 token_injected = True
-                logger.info("Terminal: injected Claude Code %s token as ANTHROPIC_API_KEY", kind)
+                logger.info("Terminal: injected Claude Code %s token", kind)
         except Exception as e:
             logger.warning("Terminal: failed to get auth token: %s", e)
 
