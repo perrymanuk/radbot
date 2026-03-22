@@ -71,6 +71,23 @@ def main():
     )
 
 
+def _init_schemas():
+    """Initialize DB schemas needed by the agent tools."""
+    inits = [
+        ("todo", "radbot.tools.todo", "init_database"),
+        ("scheduler", "radbot.tools.scheduler", "init_scheduler_schema"),
+        ("webhooks", "radbot.tools.webhooks", "init_webhook_schema"),
+        ("reminders", "radbot.tools.reminders", "init_reminder_schema"),
+    ]
+    for name, module, func in inits:
+        try:
+            mod = __import__(module, fromlist=[func])
+            getattr(mod, func)()
+            logger.debug("Initialized %s schema", name)
+        except Exception as e:
+            logger.warning("Failed to initialize %s schema: %s", name, e)
+
+
 def _start_worker(
     workspace_id: str | None,
     session_id: str | None,
@@ -98,10 +115,10 @@ def _start_worker(
     # Import the root agent (triggers agent creation)
     from radbot.agent.agent_core import root_agent
 
-    # Initialize DB schemas needed by the agent
-    from radbot.agent.agent_tools_setup import setup_before_agent_call
-
-    setup_before_agent_call()
+    # Initialize DB schemas needed by the agent (call init functions
+    # directly — setup_before_agent_call is an ADK callback that
+    # requires CallbackContext which we don't have in the worker)
+    _init_schemas()
 
     # Build the ADK Runner
     app_name = root_agent.name if hasattr(root_agent, "name") else "beto"
