@@ -110,16 +110,22 @@ async def create_terminal_session(request: Request):
     if _is_remote_mode():
         return await _create_remote_session(workspace_id, resume_session_id)
 
-    return _create_local_session(workspace_id, resume_session_id)
+    return await _create_local_session(workspace_id, resume_session_id)
 
 
-def _create_local_session(
+async def _create_local_session(
     workspace_id: str, resume_session_id: Optional[str] = None
 ) -> dict:
-    """Create a terminal session in the local process."""
+    """Create a terminal session in the local process.
+
+    Runs the sync PTY creation in a thread to avoid blocking the event loop
+    (the DB query + pty.fork are blocking operations).
+    """
     mgr = _get_local_manager()
     try:
-        session = mgr.create_session(workspace_id, resume_session_id)
+        session = await asyncio.get_event_loop().run_in_executor(
+            None, mgr.create_session, workspace_id, resume_session_id
+        )
     except RuntimeError as e:
         raise HTTPException(429, str(e))
     except ValueError as e:

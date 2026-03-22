@@ -50,6 +50,13 @@ def _is_remote_mode(admin_headers: dict, base_url: str) -> bool:
 class TestWorkspaceWorkerDB:
     """Tests for workspace_workers table CRUD operations."""
 
+    @pytest.fixture(autouse=True)
+    def _ensure_schema(self):
+        """Ensure the workspace_workers table exists in the local DB."""
+        from radbot.worker.db import init_workspace_workers_schema
+
+        init_workspace_workers_schema()
+
     async def test_upsert_and_get_workspace_worker(self):
         """Can create and retrieve a workspace worker record."""
         from radbot.worker.db import (
