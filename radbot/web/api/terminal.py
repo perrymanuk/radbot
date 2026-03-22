@@ -57,6 +57,36 @@ def _is_remote_mode() -> bool:
 _terminal_worker_map: Dict[str, str] = {}
 
 
+async def _maybe_spawn_worker(workspace_id: str) -> None:
+    """Spawn a Nomad worker for this workspace if in remote mode.
+
+    Called at workspace creation time (clone/scratch) so the worker is
+    already booting by the time the user opens a terminal.  Runs in the
+    background — does not block the response.
+    """
+    if not _is_remote_mode():
+        return
+    try:
+        from radbot.web.api.terminal_proxy import get_workspace_proxy
+
+        proxy = get_workspace_proxy(workspace_id)
+
+        async def _spawn():
+            try:
+                url = await proxy.ensure_worker()
+                if url:
+                    logger.info("Pre-spawned worker for workspace %s at %s", workspace_id, url)
+                else:
+                    logger.warning("Failed to pre-spawn worker for workspace %s", workspace_id)
+            except Exception as e:
+                logger.warning("Background worker spawn failed: %s", e)
+
+        # Fire and forget — don't block the workspace creation response
+        asyncio.create_task(_spawn())
+    except Exception as e:
+        logger.warning("Could not initiate worker spawn: %s", e)
+
+
 # ------------------------------------------------------------------
 # REST endpoints
 # ------------------------------------------------------------------
@@ -296,9 +326,14 @@ async def clone_repository_endpoint(request: Request):
             description=description,
         )
 
+        workspace_id = str(ws.get("workspace_id", ""))
+
+        # Pre-spawn worker so it's ready when user opens a terminal
+        await _maybe_spawn_worker(workspace_id)
+
         return {
             "status": "success",
-            "workspace_id": str(ws.get("workspace_id", "")),
+            "workspace_id": workspace_id,
             "work_folder": local_path,
             "action": result.get("action", "clone"),
             "message": f"Repository {owner}/{repo} ({branch}) available at {local_path}",
@@ -387,6 +422,10 @@ async def create_scratch_workspace_endpoint(request: Request):
                 ws[k] = v.isoformat()
             elif hasattr(v, "hex"):
                 ws[k] = str(v)
+
+        # Pre-spawn worker so it's ready when user opens a terminal
+        await _maybe_spawn_worker(ws.get("workspace_id", ""))
+
         return {"status": "success", "workspace": ws}
     except Exception as e:
         logger.error("Error creating scratch workspace: %s", e, exc_info=True)
