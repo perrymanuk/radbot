@@ -49,6 +49,10 @@ _COALESCE_SECS = 0.002  # 2 ms
 # ------------------------------------------------------------------
 # Terminal session data
 # ------------------------------------------------------------------
+# Max bytes to keep in the scrollback replay buffer per session
+_SCROLLBACK_BUFFER_SIZE = 128 * 1024  # 128 KB
+
+
 class _TerminalSession:
     """Tracks a single PTY-backed terminal session."""
 
@@ -60,6 +64,7 @@ class _TerminalSession:
         "fd",
         "created_at",
         "closed",
+        "_scrollback",
     )
 
     def __init__(
@@ -77,6 +82,18 @@ class _TerminalSession:
         self.fd = fd
         self.created_at = __import__("time").time()
         self.closed = False
+        self._scrollback = bytearray()
+
+    def append_output(self, data: bytes) -> None:
+        """Append PTY output to the scrollback buffer (ring buffer)."""
+        self._scrollback.extend(data)
+        if len(self._scrollback) > _SCROLLBACK_BUFFER_SIZE:
+            excess = len(self._scrollback) - _SCROLLBACK_BUFFER_SIZE
+            del self._scrollback[:excess]
+
+    def get_scrollback(self) -> bytes:
+        """Return the scrollback buffer contents for replay on reconnect."""
+        return bytes(self._scrollback)
 
 
 # ------------------------------------------------------------------
@@ -506,6 +523,19 @@ def register_terminal_websocket(app) -> None:
         await websocket.accept()
         logger.info("Terminal WS connected: %s", terminal_id)
 
+        # Replay scrollback buffer so reconnecting clients see prior output
+        scrollback = session.get_scrollback()
+        if scrollback:
+            try:
+                await websocket.send_bytes(bytes([_MSG_DATA]) + scrollback)
+                logger.info(
+                    "Terminal WS replayed %d bytes of scrollback for %s",
+                    len(scrollback),
+                    terminal_id,
+                )
+            except Exception as e:
+                logger.debug("Failed to replay scrollback: %s", e)
+
         loop = asyncio.get_event_loop()
 
         def _pty_read_coalesced(fd: int) -> bytes:
@@ -537,6 +567,8 @@ def register_terminal_websocket(app) -> None:
                     )
                     if not data:
                         break
+                    # Record in scrollback for reconnect replay
+                    session.append_output(data)
                     # Binary frame: 0x01 prefix + raw PTY bytes
                     await websocket.send_bytes(bytes([_MSG_DATA]) + data)
                 except OSError:
