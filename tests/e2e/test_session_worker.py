@@ -1,8 +1,9 @@
-"""E2e tests for session worker proxy flow.
+"""E2e tests for session workers and Nomad job management.
 
-Tests the full lifecycle: main app → SessionProxy → Nomad worker job → A2A
-communication → response. Requires a running Docker stack (RADBOT_TEST_URL)
-and Nomad connectivity.
+Chat sessions always run locally (SessionRunner).  Remote Nomad workers
+are only used for terminal/workspace sessions.  This file tests Nomad
+connectivity, job template generation, worker DB tracking, and verifies
+that chat sessions always use local mode.
 
 Marks:
     - @pytest.mark.e2e — requires RADBOT_TEST_URL
@@ -13,7 +14,6 @@ Marks:
 import asyncio
 import uuid
 
-import httpx
 import pytest
 import pytest_asyncio
 
@@ -31,36 +31,6 @@ pytestmark = [
 async def worker_session_id():
     """A unique session ID for worker tests."""
     return str(uuid.uuid4())
-
-
-@pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def worker_enabled_config(client, admin_headers):
-    """Temporarily enable remote session mode in the config.
-
-    Saves the original config and restores it after all worker tests.
-    """
-    # Read current agent config
-    resp = await client.get("/admin/api/config/agent", headers=admin_headers)
-    original_config = resp.json() if resp.status_code == 200 else {}
-
-    # Enable remote mode
-    new_config = {**original_config, "session_mode": "remote"}
-    await client.put(
-        "/admin/api/config/agent",
-        json=new_config,
-        headers=admin_headers,
-    )
-
-    yield new_config
-
-    # Restore original config
-    restore = {**original_config}
-    restore.pop("session_mode", None)
-    await client.put(
-        "/admin/api/config/agent",
-        json=restore,
-        headers=admin_headers,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -139,129 +109,13 @@ class TestNomadJobSubmission:
 
 
 # ---------------------------------------------------------------------------
-# Full proxy flow (requires Gemini for the agent to respond)
+# Chat sessions always use local mode
 # ---------------------------------------------------------------------------
-@pytest.mark.requires_gemini
-class TestSessionProxyFlow:
-    """End-to-end tests for the SessionProxy → Nomad worker → A2A flow.
+class TestChatSessionsAlwaysLocal:
+    """Verify chat sessions always run locally, regardless of session_mode config."""
 
-    These tests exercise the complete path:
-    1. Main app creates a SessionProxy (remote mode)
-    2. SessionProxy spawns a Nomad batch job
-    3. Worker starts, registers in Consul/Nomad service discovery
-    4. SessionProxy discovers the worker and sends an A2A message
-    5. Worker processes the message through the full agent stack
-    6. Response is returned through A2A → SessionProxy → WebSocket → client
-    """
-
-    @pytest_asyncio.fixture(loop_scope="session")
-    async def remote_session(self, client, cleanup, worker_enabled_config):
-        """Create a session that will use remote mode."""
-        resp = await client.post(
-            "/api/sessions/create",
-            json={"name": "e2e_worker_test"},
-        )
-        assert resp.status_code in (200, 201)
-        sid = resp.json()["id"]
-        cleanup.track("session", sid)
-        return sid
-
-    async def test_websocket_message_via_proxy(
-        self, live_server, remote_session, cleanup
-    ):
-        """Send a message via WebSocket and get a response through the worker proxy.
-
-        This is the core e2e test: browser → WS → main app → proxy → worker → response.
-        """
-        from tests.e2e.helpers.ws_client import WSTestClient
-
-        ws = await WSTestClient.connect(
-            live_server, remote_session, timeout=30.0
-        )
-
-        try:
-            # Send a simple message — the proxy should spawn a worker,
-            # wait for it to be healthy, then forward via A2A
-            result = await ws.send_and_wait_response(
-                "Say hello in exactly three words.",
-                timeout=180.0,  # Worker startup can take a while
-            )
-
-            assert result["error"] == "", f"Server error: {result['error']}"
-            assert len(result["response_text"]) > 0, "Expected non-empty response"
-        finally:
-            await ws.close()
-
-    @pytest.mark.xfail(reason="Worker session re-use has intermittent transfer_to_agent race", strict=False)
-    async def test_subsequent_message_reuses_worker(
-        self, live_server, remote_session
-    ):
-        """A second message to the same session should reuse the existing worker.
-
-        The worker is already running from the previous test, so this should
-        be faster (no spawn wait).
-        """
-        from tests.e2e.helpers.ws_client import WSTestClient
-
-        ws = await WSTestClient.connect(
-            live_server, remote_session, timeout=15.0
-        )
-
-        try:
-            result = await ws.send_and_wait_response(
-                "What is 2 + 2?",
-                timeout=60.0,  # Should be faster — worker already running
-            )
-
-            assert result["error"] == ""
-            assert len(result["response_text"]) > 0
-        finally:
-            await ws.close()
-
-    async def test_worker_health_endpoint(self, client, remote_session):
-        """After the proxy flow test, the worker should have a healthy endpoint.
-
-        We discover the worker URL from the session_workers DB table
-        via the admin API.
-        """
-        # Give the worker a moment to register
-        await asyncio.sleep(2)
-
-        # Try to find the worker via the main app
-        # The session_workers table tracks worker URLs
-        try:
-            from radbot.worker.db import get_worker
-
-            record = get_worker(remote_session)
-            if record and record.get("worker_url"):
-                async with httpx.AsyncClient(timeout=5.0) as direct_client:
-                    resp = await direct_client.get(
-                        f"{record['worker_url']}/health"
-                    )
-                    assert resp.status_code == 200
-                    health = resp.json()
-                    assert health["status"] == "healthy"
-                    assert health["session_id"] == remote_session
-        except Exception:
-            pytest.skip("Cannot directly access worker (expected in Docker network)")
-
-
-# ---------------------------------------------------------------------------
-# Fallback behavior tests (no Nomad required)
-# ---------------------------------------------------------------------------
-class TestSessionProxyFallback:
-    """Tests that the proxy falls back to local mode gracefully."""
-
-    async def test_local_mode_default(self, client, admin_headers):
-        """Session mode config should be readable and have a valid value."""
-        resp = await client.get("/admin/api/config/agent", headers=admin_headers)
-        if resp.status_code == 200:
-            config = resp.json()
-            mode = config.get("session_mode", "local")
-            assert mode in ("local", "remote"), f"Invalid session_mode: {mode}"
-
-    async def test_local_session_works(self, client, live_server, cleanup):
-        """A standard local session should work regardless of worker config."""
+    async def test_chat_session_works(self, client, live_server, cleanup):
+        """A chat session should always use local SessionRunner."""
         from tests.e2e.helpers.ws_client import WSTestClient
 
         # Create a session

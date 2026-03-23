@@ -448,32 +448,7 @@ class TestHistoryLoader:
 # Session Manager Mode
 # ---------------------------------------------------------------------------
 class TestSessionManagerMode:
-    """Tests for local/remote mode switching in SessionManager."""
-
-    def test_default_mode_is_local(self):
-        with patch(
-            "radbot.web.api.session.session_manager._get_session_mode",
-            return_value="local",
-        ):
-            from radbot.web.api.session.session_manager import SessionManager
-
-            mgr = SessionManager()
-            assert mgr.mode == "local"
-
-    def test_remote_mode_from_config(self):
-        with patch(
-            "radbot.web.api.session.session_manager._get_session_mode",
-            return_value="remote",
-        ):
-            from radbot.web.api.session.session_manager import SessionManager
-
-            mgr = SessionManager()
-            mgr._mode = None  # Reset cached mode
-            with patch(
-                "radbot.web.api.session.session_manager._get_session_mode",
-                return_value="remote",
-            ):
-                assert mgr.mode == "remote"
+    """Tests for SessionManager (always local for chat sessions)."""
 
     @pytest.mark.asyncio
     async def test_set_and_get_runner(self):
