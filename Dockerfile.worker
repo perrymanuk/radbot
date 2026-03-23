@@ -3,9 +3,12 @@
 
 FROM python:3.12-slim
 
-# System deps: psycopg2, git, Node.js 20 + Claude Code CLI
+ARG GIT_DELTA_VERSION=0.18.2
+
+# System deps: psycopg2, git, Node.js 20 + Claude Code CLI, shell tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc git curl ca-certificates gnupg \
+    zsh fzf jq tree bat fd-find less \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -15,6 +18,50 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y --no-install-recommends nodejs \
     && npm install -g @anthropic-ai/claude-code \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Debian names bat/fd differently — symlink to standard names
+RUN ln -s /usr/bin/batcat /usr/local/bin/bat \
+    && ln -s /usr/bin/fdfind /usr/local/bin/fd
+
+# Install git-delta for better diffs
+RUN curl -fsSL "https://github.com/dandavison/delta/releases/download/${GIT_DELTA_VERSION}/git-delta_${GIT_DELTA_VERSION}_amd64.deb" \
+       -o /tmp/git-delta.deb \
+    && dpkg -i /tmp/git-delta.deb \
+    && rm /tmp/git-delta.deb
+
+# Configure zsh as default shell with fzf and git-delta
+RUN chsh -s /usr/bin/zsh root \
+    && mkdir -p /root/.zsh \
+    && git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions /root/.zsh/zsh-autosuggestions \
+    && git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting /root/.zsh/zsh-syntax-highlighting
+
+COPY <<'ZSHRC' /root/.zshrc
+# Prompt
+PROMPT='%F{cyan}%~%f %F{green}❯%f '
+
+# History
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY HIST_IGNORE_DUPS HIST_IGNORE_SPACE
+
+# Plugins
+source /root/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /root/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# fzf keybindings (Ctrl-R history, Ctrl-T files)
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+ZSHRC
+
+# Configure git to use delta as pager
+RUN git config --global core.pager delta \
+    && git config --global interactive.diffFilter 'delta --color-only' \
+    && git config --global delta.navigate true \
+    && git config --global delta.line-numbers true \
+    && git config --global delta.syntax-theme "Dracula" \
+    && git config --global merge.conflictstyle diff3 \
+    && git config --global diff.colorMoved default
 
 # Seed Claude Code onboarding to skip interactive wizard on first run
 RUN ANTHROPIC_API_KEY=sk-ant-dummy claude -p "hi" --max-turns 1 2>/dev/null || true \
@@ -67,7 +114,8 @@ COPY radbot/tools/github/github_app_client.py radbot/tools/github/
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    SHELL=/usr/bin/zsh
 
 EXPOSE 8000
 
