@@ -1,5 +1,5 @@
 .git
-__pycache__
+**/__pycache__
 *.pyc
 .env
 .env.*
@@ -15,5 +15,5 @@ docs/
 .mypy_cache
 .pytest_cache
 .ruff_cache
-node_modules
+**/node_modules
 docker/

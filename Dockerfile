@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 # Stage 1: Build React frontend
 FROM node:20-slim AS frontend-build
 
@@ -7,21 +9,10 @@ RUN npm ci
 COPY radbot/web/frontend/ .
 RUN npx tsc -b && npx vite build --outDir dist
 
-# Stage 2: Python application
-FROM python:3.12-slim AS base
+# Stage 2: Install Claude Code CLI (isolated from runtime)
+FROM node:20-slim AS claude-code-build
 
-# Install system dependencies, Node.js 20 (for Claude Code CLI), and git
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev gcc git curl ca-certificates gnupg \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-       | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
-       > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g @anthropic-ai/claude-code \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN npm install -g @anthropic-ai/claude-code
 
 # Seed Claude Code config to skip interactive onboarding wizard.
 # The onboarding runs on first interactive launch regardless of auth;
@@ -31,26 +22,54 @@ RUN ANTHROPIC_API_KEY=sk-ant-dummy claude -p "hi" --max-turns 1 2>/dev/null || t
     && echo '{"theme":"dark"}' > /root/.claude/settings.json \
     && echo '{}' > /root/.claude/settings.local.json
 
+# Stage 3: Install Python dependencies (build tools available here only)
+FROM python:3.12-slim AS python-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev gcc git \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Install Python dependencies (layer caching: only reruns when pyproject.toml changes)
+COPY pyproject.toml README.md ./
+RUN mkdir -p radbot && touch radbot/__init__.py
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -e ".[web]"
+
+# Stage 4: Runtime image (no build tools)
+FROM python:3.12-slim
+
+# Runtime-only system deps: libpq5 (psycopg2 runtime), git (workspace clones),
+# curl + ca-certificates (health checks, API calls)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 git curl ca-certificates \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy Node.js binary + Claude Code CLI (no npm/nodesource needed at runtime)
+COPY --from=claude-code-build /usr/local/bin/node /usr/local/bin/node
+COPY --from=claude-code-build /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/@anthropic-ai/claude-code/cli.js /usr/local/bin/claude
+
+# Copy Claude Code onboarding state
+COPY --from=claude-code-build /root/.claude /root/.claude
+
 # Create workspaces directory for cloned repos
 RUN mkdir -p /app/workspaces
 
 WORKDIR /app
 
-# Copy and install Python dependencies first (layer caching)
-COPY pyproject.toml README.md ./
-# Create a minimal package dir so hatchling can resolve metadata for dep install
-RUN mkdir -p radbot && touch radbot/__init__.py \
-    && pip install --no-cache-dir -e ".[web]"
+# Copy Python packages from builder (no gcc/libpq-dev carried over)
+COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
-# Copy application code (overwrites the stub radbot/ from above)
+# Copy application code
 COPY radbot/ radbot/
 COPY agent.py .
 
 # Copy built frontend assets into the static directory
 COPY --from=frontend-build /frontend/dist radbot/web/static/dist/
-
-# Re-run install so the editable package picks up all source files
-RUN pip install --no-cache-dir -e ".[web]"
 
 # Environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
