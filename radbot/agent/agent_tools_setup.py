@@ -6,6 +6,7 @@ Beto is a pure orchestrator with only memory tools — all domain tools
 are on specialized sub-agents created by specialized_agent_factory.py.
 """
 
+import importlib
 import logging
 from typing import Any, List
 
@@ -22,6 +23,14 @@ logger = logging.getLogger(__name__)
 # new connection (~293 times in a typical E2E run).
 _process_initialized = False
 
+# Registry of DB schema initializers: (state_key, module_path, function_name)
+_SCHEMA_INITS = [
+    ("todo_init", "radbot.tools.todo", "init_database"),
+    ("scheduler_init", "radbot.tools.scheduler", "init_scheduler_schema"),
+    ("webhook_init", "radbot.tools.webhooks", "init_webhook_schema"),
+    ("reminder_init", "radbot.tools.reminders", "init_reminder_schema"),
+]
+
 
 def setup_before_agent_call(callback_context: CallbackContext):
     """Setup agent before each call.
@@ -33,53 +42,17 @@ def setup_before_agent_call(callback_context: CallbackContext):
     if _process_initialized:
         return
 
-    # Initialize Todo database schema if needed
-    if "todo_init" not in callback_context.state:
-        try:
-            from radbot.tools.todo import init_database
-
-            init_database()
-            callback_context.state["todo_init"] = True
-            logger.info("Todo database schema initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Todo database: {str(e)}")
-            callback_context.state["todo_init"] = False
-
-    # Initialize Scheduler database schema if needed
-    if "scheduler_init" not in callback_context.state:
-        try:
-            from radbot.tools.scheduler import init_scheduler_schema
-
-            init_scheduler_schema()
-            callback_context.state["scheduler_init"] = True
-            logger.info("Scheduler database schema initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Scheduler database: {str(e)}")
-            callback_context.state["scheduler_init"] = False
-
-    # Initialize Webhook database schema if needed
-    if "webhook_init" not in callback_context.state:
-        try:
-            from radbot.tools.webhooks import init_webhook_schema
-
-            init_webhook_schema()
-            callback_context.state["webhook_init"] = True
-            logger.info("Webhook database schema initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Webhook database: {str(e)}")
-            callback_context.state["webhook_init"] = False
-
-    # Initialize Reminder database schema if needed
-    if "reminder_init" not in callback_context.state:
-        try:
-            from radbot.tools.reminders import init_reminder_schema
-
-            init_reminder_schema()
-            callback_context.state["reminder_init"] = True
-            logger.info("Reminder database schema initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Reminder database: {str(e)}")
-            callback_context.state["reminder_init"] = False
+    for key, module_path, func_name in _SCHEMA_INITS:
+        if key not in callback_context.state:
+            try:
+                mod = importlib.import_module(module_path)
+                getattr(mod, func_name)()
+                callback_context.state[key] = True
+                label = key.replace("_init", "").replace("_", " ").title()
+                logger.info(f"{label} database schema initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize {key}: {e}")
+                callback_context.state[key] = False
 
     # Initialize Home Assistant client if not already done
     if "ha_client_init" not in callback_context.state:

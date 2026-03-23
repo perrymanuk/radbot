@@ -47,6 +47,9 @@ config.*.yaml
 # Generated reports
 reports/
 
+# Root-level debug/test scripts (not part of radbot package or tests/)
+/tools/
+
 # React frontend build output
 radbot/web/static/dist/
 radbot/web/frontend/node_modules/

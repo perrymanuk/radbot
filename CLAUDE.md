@@ -171,7 +171,6 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/ollama/` | `ollama_client.py` | `OllamaClient` class (admin model management) | Ollama local LLM server |
 | `tools/tts/` | `tts_service.py` | `TTSService` class (REST only, no FunctionTool) | Google Cloud TTS |
 | `tools/stt/` | `stt_service.py` | `STTService` class (REST only, no FunctionTool) | Google Cloud STT |
-| `tools/specialized/` | `base_toolset.py`, 11 toolset files | `create_specialized_toolset()` | Domain toolsets for sub-agents |
 | `tools/github/` | `github_app_client.py` | `GitHubAppClient` class (JWT auth, clone, push) | GitHub App integration |
 | `tools/claude_code/` | `claude_code_client.py`, `claude_code_tools.py`, `db.py` | `clone_repository`, `claude_code_plan`, `claude_code_continue`, `claude_code_execute`, `commit_and_push`, `list_workspaces` | Claude Code CLI + GitHub workflow |
 | `tools/nomad/` | `nomad_client.py`, `nomad_tools.py` | `list_nomad_jobs`, `get_nomad_job_status`, `get_nomad_allocation_logs`, `restart_nomad_allocation`, `plan_nomad_job_update`, `submit_nomad_job_update`, `check_nomad_service_health` | Nomad HTTP API |
