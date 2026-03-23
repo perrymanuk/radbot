@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // Panel imports
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
-import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel } from "@/components/admin/panels/ConnectionPanels";
+import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, LidarrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel } from "@/components/admin/panels/ConnectionPanels";
 import { PostgresqlPanel, QdrantPanel } from "@/components/admin/panels/InfrastructurePanels";
 import { NomadPanel, AlertmanagerPanel } from "@/components/admin/panels/AlertmanagerPanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
@@ -37,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "calendar", label: "Calendar", group: "Connections", statusKey: "calendar" },
   { id: "jira", label: "Jira", group: "Connections", statusKey: "jira" },
   { id: "overseerr", label: "Overseerr", group: "Connections", statusKey: "overseerr" },
+  { id: "lidarr", label: "Lidarr", group: "Connections", statusKey: "lidarr" },
   { id: "home_assistant", label: "Home Assistant", group: "Connections", statusKey: "home_assistant" },
   { id: "picnic", label: "Picnic", group: "Connections", statusKey: "picnic" },
   { id: "filesystem", label: "Filesystem", group: "Connections" },
@@ -75,6 +76,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   calendar: CalendarPanel,
   jira: JiraPanel,
   overseerr: OverseerrPanel,
+  lidarr: LidarrPanel,
   home_assistant: HomeAssistantPanel,
   picnic: PicnicPanel,
   filesystem: FilesystemPanel,

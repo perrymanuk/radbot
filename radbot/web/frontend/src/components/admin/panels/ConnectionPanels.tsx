@@ -561,6 +561,95 @@ export function OverseerrPanel() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// LidarrPanel
+// ═══════════════════════════════════════════════════════════
+export function LidarrPanel() {
+  const { loadLiveConfig, mergeConfigSection, saveCredential, testConnection, toast, loadStatus, status } =
+    useAdminStore();
+
+  const [enabled, setEnabled] = useState(false);
+  const [lidarrUrl, setLidarrUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testResult, setTestResult] = useState<{ status: string; message: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    loadLiveConfig().then((cfg) => {
+      const lidarr = dig(cfg, "integrations.lidarr", {});
+      setEnabled(!!lidarr.enabled);
+      setLidarrUrl(lidarr.url || "");
+      if (lidarr.api_key) setApiKey(MASKED);
+    });
+  }, [loadLiveConfig]);
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const body: Record<string, string> = { url: lidarrUrl };
+      if (apiKey && apiKey !== MASKED) body.api_key = apiKey;
+      const result = await testConnection("lidarr", body);
+      setTestResult(result);
+    } catch (e: any) {
+      setTestResult({ status: "error", message: e.message });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (apiKey && apiKey !== MASKED) {
+        await saveCredential("lidarr_api_key", apiKey, "api_key", "Lidarr API key");
+      }
+      await mergeConfigSection("integrations", {
+        lidarr: {
+          enabled,
+          url: lidarrUrl || undefined,
+        },
+      });
+      toast("Lidarr settings saved", "success");
+      loadStatus();
+    } catch (e: any) {
+      toast("Save failed: " + e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const lidarrStatus = status?.lidarr?.status || "unconfigured";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5 mb-4">
+        <h2 className="text-lg font-semibold text-[#eee]">Lidarr</h2>
+        <StatusBadge status={lidarrStatus} />
+      </div>
+
+      <Card title="Configuration">
+        <FormToggle label="Enabled" checked={enabled} onChange={setEnabled} />
+        <FormInput
+          label="Lidarr URL"
+          value={lidarrUrl}
+          onChange={setLidarrUrl}
+          placeholder="http://lidarr:8686"
+        />
+        <FormInput
+          label="API Key"
+          value={apiKey}
+          onChange={setApiKey}
+          type="password"
+        />
+      </Card>
+
+      <ActionBar onSave={handleSave} onTest={handleTest} testResult={testResult} testing={testing} saving={saving} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // HomeAssistantPanel
 // ═══════════════════════════════════════════════════════════
 
