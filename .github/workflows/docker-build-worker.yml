@@ -80,6 +80,9 @@ jobs:
             type=raw,value=worker-v${{ steps.version.outputs.major }}
             type=sha,prefix=sha-
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Worker image
         uses: docker/build-push-action@v5
         with:
@@ -88,6 +91,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Trigger homelab deployment
         uses: peter-evans/repository-dispatch@v3
