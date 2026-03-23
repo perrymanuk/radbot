@@ -5,6 +5,7 @@ type STTState = "idle" | "recording" | "processing";
 
 export function useSTT(onTranscript: (text: string) => void) {
   const [state, setState] = useState<STTState>("idle");
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -30,6 +31,7 @@ export function useSTT(onTranscript: (text: string) => void) {
       recorder.onstop = async () => {
         // Stop all tracks
         stream.getTracks().forEach((t) => t.stop());
+        setRecordingStartTime(null);
 
         if (chunksRef.current.length === 0) {
           setState("idle");
@@ -54,6 +56,7 @@ export function useSTT(onTranscript: (text: string) => void) {
       mediaRecorderRef.current = recorder;
       recorder.start();
       setState("recording");
+      setRecordingStartTime(Date.now());
     } catch (err) {
       console.error("[STT] Failed to access microphone:", err);
       setState("idle");
@@ -78,5 +81,5 @@ export function useSTT(onTranscript: (text: string) => void) {
     // Don't toggle during processing
   }, [state, start, stop]);
 
-  return { state, start, stop, toggle };
+  return { state, start, stop, toggle, recordingStartTime };
 }

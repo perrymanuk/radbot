@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useSTT } from "@/hooks/use-stt";
 import TerminalEmulator from "@/components/terminal/TerminalEmulator";
 import WorkspaceSelector from "@/components/terminal/WorkspaceSelector";
+import type { ConnectionState } from "@/hooks/use-terminal-ws";
 
 function StatusIndicator({ ok }: { ok: boolean }) {
   return (
@@ -18,6 +19,38 @@ function StatusIndicator({ ok }: { ok: boolean }) {
   );
 }
 
+function RecordingTimer({ startTime }: { startTime: number }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+  const mins = Math.floor(elapsed / 60);
+  const secs = elapsed % 60;
+  return (
+    <span className="text-terminal-red font-mono text-[0.65rem] tabular-nums">
+      {mins}:{secs.toString().padStart(2, "0")}
+    </span>
+  );
+}
+
+function SessionUptime({ createdAt }: { createdAt: number }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+  const diff = Math.floor((Date.now() - createdAt) / 1000);
+  if (diff < 60) return <span>{diff}s</span>;
+  const mins = Math.floor(diff / 60);
+  if (mins < 60) return <span>{mins}m</span>;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return <span>{hours}h {remMins}m</span>;
+}
+
 export default function TerminalPage() {
   const activeTerminalId = useTerminalStore((s) => s.activeTerminalId);
   const setActiveTerminalId = useTerminalStore((s) => s.setActiveTerminalId);
@@ -28,7 +61,12 @@ export default function TerminalPage() {
   const status = useTerminalStore((s) => s.status);
   const loadStatus = useTerminalStore((s) => s.loadStatus);
   const killTerminal = useTerminalStore((s) => s.killTerminal);
+  const createScratchWorkspace = useTerminalStore((s) => s.createScratchWorkspace);
   const [terminalClosed, setTerminalClosed] = useState(false);
+  const [showKillConfirm, setShowKillConfirm] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  const [sessionCreatedAt] = useState<number>(Date.now());
+  const killConfirmTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // STT: ref to sendInput from TerminalEmulator
   const sendInputRef = useRef<((data: string) => void) | null>(null);
@@ -41,7 +79,7 @@ export default function TerminalPage() {
     sendInputRef.current?.(text);
   }, []);
 
-  const { state: sttState, toggle: sttToggle } = useSTT(handleTranscript);
+  const { state: sttState, toggle: sttToggle, recordingStartTime } = useSTT(handleTranscript);
 
   useEffect(() => {
     loadStatus();
@@ -56,18 +94,105 @@ export default function TerminalPage() {
   const handleBack = useCallback(() => {
     setActiveTerminalId(null);
     setTerminalClosed(false);
+    setShowKillConfirm(false);
   }, [setActiveTerminalId]);
 
-  const handleKill = useCallback(async () => {
+  const handleKillRequest = useCallback(() => {
+    setShowKillConfirm(true);
+    // Auto-dismiss after 5 seconds
+    clearTimeout(killConfirmTimerRef.current);
+    killConfirmTimerRef.current = setTimeout(() => {
+      setShowKillConfirm(false);
+    }, 5000);
+  }, []);
+
+  const handleKillConfirm = useCallback(async () => {
+    clearTimeout(killConfirmTimerRef.current);
+    setShowKillConfirm(false);
     if (activeTerminalId) {
       await killTerminal(activeTerminalId);
       setTerminalClosed(false);
     }
   }, [activeTerminalId, killTerminal]);
 
+  const handleKillCancel = useCallback(() => {
+    clearTimeout(killConfirmTimerRef.current);
+    setShowKillConfirm(false);
+  }, []);
+
+  const handleConnectionStateChange = useCallback((state: ConnectionState) => {
+    setConnectionState(state);
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(killConfirmTimerRef.current);
+  }, []);
+
   const activeSession = sessions.find(
     (s) => s.terminal_id === activeTerminalId,
   );
+
+  // Keyboard shortcuts (page-level)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if terminal has focus (let TerminalEmulator handle its own shortcuts)
+      const target = e.target as HTMLElement;
+      const isTerminalFocused = target.closest(".xterm");
+
+      // Ctrl+Shift+T: new scratch workspace + open terminal
+      if (e.ctrlKey && e.shiftKey && e.key === "T" && !isTerminalFocused) {
+        e.preventDefault();
+        createScratchWorkspace().then(() => {
+          const ws = useTerminalStore.getState().workspaces[0];
+          if (ws) openTerminal(String(ws.workspace_id));
+        });
+        return;
+      }
+      // Ctrl+Shift+W: kill active terminal (with confirmation)
+      if (e.ctrlKey && e.shiftKey && e.key === "W") {
+        e.preventDefault();
+        if (activeTerminalId && !showKillConfirm) {
+          handleKillRequest();
+        }
+        return;
+      }
+      // Ctrl+Shift+[ / ]: switch workspace tabs
+      if (e.ctrlKey && e.shiftKey && (e.key === "[" || e.key === "{")) {
+        e.preventDefault();
+        switchWorkspaceTab(-1);
+        return;
+      }
+      if (e.ctrlKey && e.shiftKey && (e.key === "]" || e.key === "}")) {
+        e.preventDefault();
+        switchWorkspaceTab(1);
+        return;
+      }
+    };
+
+    const switchWorkspaceTab = (direction: number) => {
+      const sorted = [...workspaces].sort(
+        (a, b) => new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime()
+      );
+      if (sorted.length === 0) return;
+      const currentIdx = activeSession
+        ? sorted.findIndex((ws) => String(ws.workspace_id) === activeSession.workspace_id)
+        : -1;
+      const nextIdx = (currentIdx + direction + sorted.length) % sorted.length;
+      const nextWs = sorted[nextIdx];
+      const running = sessions.find(
+        (s) => s.workspace_id === String(nextWs.workspace_id) && !s.closed,
+      );
+      if (running) {
+        setActiveTerminalId(running.terminal_id);
+      } else {
+        openTerminal(String(nextWs.workspace_id), nextWs.last_session_id ?? undefined);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTerminalId, activeSession, workspaces, sessions, showKillConfirm, handleKillRequest, createScratchWorkspace, openTerminal, setActiveTerminalId]);
 
   return (
     <div className="flex flex-col h-full bg-bg-primary">
@@ -86,9 +211,15 @@ export default function TerminalPage() {
             Terminal
           </h1>
           {status && <StatusIndicator ok={status.status === "ok"} />}
+          {/* Connection state indicator */}
+          {activeTerminalId && connectionState !== "connected" && connectionState !== "disconnected" && (
+            <span className="text-[0.65rem] font-mono text-terminal-amber">
+              {connectionState === "connecting" ? "connecting..." : "reconnecting..."}
+            </span>
+          )}
         </div>
 
-        {/* Center: workspace tabs — horizontally scrollable */}
+        {/* Center: workspace tabs -- horizontally scrollable */}
         {workspaces.length > 0 && (
           <div
             className="flex-1 min-w-0 overflow-x-auto flex items-center gap-1 scrollbar-hide"
@@ -139,6 +270,13 @@ export default function TerminalPage() {
                   </button>
                 );
               })}
+
+            {/* Session uptime */}
+            {activeTerminalId && (
+              <span className="text-[0.65rem] font-mono text-txt-secondary flex-shrink-0 ml-1">
+                <SessionUptime createdAt={sessionCreatedAt} />
+              </span>
+            )}
           </div>
         )}
 
@@ -146,20 +284,26 @@ export default function TerminalPage() {
         <div className="flex gap-1.5 flex-shrink-0">
           {activeTerminalId && (
             <>
+              {/* MIC button */}
               <button
                 onClick={sttToggle}
                 disabled={sttState === "processing"}
                 className={cn(
                   "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-                  "flex items-center min-h-[40px] sm:min-h-0",
+                  "flex items-center gap-1 min-h-[40px] sm:min-h-0",
                   sttState === "recording"
-                    ? "bg-bg-tertiary text-terminal-red border-terminal-red animate-pulse"
+                    ? "bg-bg-tertiary text-terminal-red border-terminal-red"
                     : sttState === "processing"
                       ? "bg-bg-tertiary text-terminal-amber border-terminal-amber opacity-70 cursor-not-allowed"
                       : "bg-bg-tertiary text-txt-primary border-border hover:bg-accent-blue hover:text-bg-primary",
                 )}
               >
-                {sttState === "recording" ? "Rec" : sttState === "processing" ? "..." : "Mic"}
+                {sttState === "recording" ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-terminal-red animate-pulse" />
+                    {recordingStartTime && <RecordingTimer startTime={recordingStartTime} />}
+                  </>
+                ) : sttState === "processing" ? "..." : "Mic"}
               </button>
               <button
                 onClick={handleBack}
@@ -171,16 +315,44 @@ export default function TerminalPage() {
               >
                 Back
               </button>
-              <button
-                onClick={handleKill}
-                className={cn(
-                  "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-                  "flex items-center min-h-[40px] sm:min-h-0",
-                  "bg-bg-tertiary text-terminal-red border-terminal-red hover:bg-terminal-red hover:text-bg-primary",
-                )}
-              >
-                Kill
-              </button>
+
+              {/* Kill button with confirmation */}
+              {showKillConfirm ? (
+                <>
+                  <span className="text-terminal-amber text-[0.7rem] font-mono flex items-center">Kill?</span>
+                  <button
+                    onClick={handleKillConfirm}
+                    className={cn(
+                      "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                      "flex items-center min-h-[40px] sm:min-h-0",
+                      "bg-terminal-red text-bg-primary border-terminal-red hover:bg-terminal-red/80",
+                    )}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    onClick={handleKillCancel}
+                    className={cn(
+                      "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                      "flex items-center min-h-[40px] sm:min-h-0",
+                      "bg-bg-tertiary text-txt-secondary border-border hover:text-txt-primary",
+                    )}
+                  >
+                    No
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleKillRequest}
+                  className={cn(
+                    "px-2 py-1.5 sm:py-0.5 border text-[0.72rem] sm:text-[0.75rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                    "flex items-center min-h-[40px] sm:min-h-0",
+                    "bg-bg-tertiary text-terminal-red border-terminal-red hover:bg-terminal-red hover:text-bg-primary",
+                  )}
+                >
+                  Kill
+                </button>
+              )}
             </>
           )}
           <a
@@ -216,6 +388,7 @@ export default function TerminalPage() {
                 terminalId={activeTerminalId}
                 onClosed={handleClosed}
                 onSendInputRef={handleSendInputRef}
+                onConnectionStateChange={handleConnectionStateChange}
               />
             </div>
           </div>

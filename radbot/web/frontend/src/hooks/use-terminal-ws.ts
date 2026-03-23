@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 
 /**
@@ -6,21 +6,25 @@ import type { Terminal } from "@xterm/xterm";
  *
  * Each frame is prefixed with a 1-byte type tag:
  *
- * Client → Server:
+ * Client -> Server:
  *   0x01 + raw UTF-8 bytes   (input)
  *   0x02 + uint16BE cols + uint16BE rows  (resize)
  *
- * Server → Client:
+ * Server -> Client:
  *   0x01 + raw PTY bytes     (output)
  *   0x03 + int32BE exit code  (closed)
+ *   0x04                      (end of scrollback replay)
  */
 
 const MSG_DATA = 0x01;
 const MSG_RESIZE = 0x02;
 const MSG_CLOSED = 0x03;
+const MSG_REPLAY_END = 0x04;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+export type ConnectionState = "connecting" | "connected" | "disconnected" | "reconnecting";
 
 interface UseTerminalWSOptions {
   terminalId: string | null;
@@ -37,6 +41,7 @@ export function useTerminalWS({
 }: UseTerminalWSOptions) {
   const wsRef = useRef<WebSocket | null>(null);
   const terminalIdRef = useRef(terminalId);
+  const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
 
   terminalIdRef.current = terminalId;
 
@@ -70,12 +75,15 @@ export function useTerminalWS({
     const host = window.location.host;
     const url = `${protocol}//${host}/ws/terminal/${terminalId}`;
 
+    setConnectionState("connecting");
+
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     wsRef.current = ws;
 
     ws.onopen = () => {
       console.log("[Terminal WS] Connected to", terminalId);
+      setConnectionState("connected");
       // Send initial size
       sendResize(terminal.cols, terminal.rows);
       onReady?.();
@@ -96,6 +104,9 @@ export function useTerminalWS({
           const view = new DataView(evt.data);
           const exitCode = buf.length >= 5 ? view.getInt32(1, false) : -1;
           onClosed?.(exitCode);
+        } else if (type === MSG_REPLAY_END) {
+          // Write a visual divider marking end of scrollback replay
+          terminal.write("\x1b[2m\x1b[36m──── reconnected ────\x1b[0m\r\n");
         }
       } else {
         // Fallback: handle text frames (legacy/transition)
@@ -114,10 +125,12 @@ export function useTerminalWS({
 
     ws.onclose = () => {
       console.log("[Terminal WS] Disconnected");
+      setConnectionState("disconnected");
     };
 
     ws.onerror = (err) => {
       console.error("[Terminal WS] Error:", err);
+      setConnectionState("disconnected");
     };
 
     // Wire terminal input to WebSocket
@@ -141,8 +154,9 @@ export function useTerminalWS({
         ws.close();
       }
       wsRef.current = null;
+      setConnectionState("disconnected");
     };
   }, [terminalId, terminal, onClosed, onReady, sendResize]);
 
-  return { sendInput, sendResize };
+  return { sendInput, sendResize, connectionState };
 }
