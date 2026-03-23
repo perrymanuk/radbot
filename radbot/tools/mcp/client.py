@@ -238,14 +238,14 @@ class MCPSSEClient:
             if self._session_context and self.session:
                 try:
                     await self._session_context.__aexit__(None, None, None)
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to close session context during cleanup")
 
             if self._streams_context:
                 try:
                     await self._streams_context.__aexit__(None, None, None)
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to close streams context during cleanup")
 
             return False
 
@@ -688,7 +688,7 @@ class MCPSSEClient:
                                 # Try to parse as JSON
                                 result = response.json()
                                 return result
-                            except:
+                            except Exception:
                                 # Return text content
                                 return {
                                     "status": "accepted",

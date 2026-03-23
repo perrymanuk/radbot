@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from radbot.tools.shared.config_helper import get_integration_config
+
 logger = logging.getLogger(__name__)
 
 _client: Optional["NomadClient"] = None
@@ -21,37 +23,20 @@ _initialized = False
 
 def _get_config() -> dict:
     """Pull Nomad settings from config manager, credential store, then env."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        cfg = config_loader.get_integrations_config().get("nomad", {})
-    except Exception:
-        cfg = {}
-
-    addr = cfg.get("addr") or os.environ.get("NOMAD_ADDR") or ""
-    token = cfg.get("token") or os.environ.get("NOMAD_TOKEN") or ""
-    namespace = cfg.get("namespace") or os.environ.get("NOMAD_NAMESPACE") or "default"
-    enabled = cfg.get("enabled", True)
-
-    # Try credential store for token if not found above
-    if not token:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                token = store.get("nomad_token") or ""
-                if token:
-                    logger.info("Nomad: Using token from credential store")
-        except Exception as e:
-            logger.debug(f"Nomad credential store lookup failed: {e}")
-
-    return {
-        "addr": addr,
-        "token": token,
-        "namespace": namespace,
-        "enabled": enabled,
-    }
+    cfg = get_integration_config(
+        "nomad",
+        fields={
+            "addr": "NOMAD_ADDR",
+            "token": "NOMAD_TOKEN",
+            "namespace": "NOMAD_NAMESPACE",
+        },
+        credential_keys={"token": "nomad_token"},
+    )
+    # Ensure non-None defaults for string fields
+    cfg["addr"] = cfg.get("addr") or ""
+    cfg["token"] = cfg.get("token") or ""
+    cfg["namespace"] = cfg.get("namespace") or "default"
+    return cfg
 
 
 class NomadClient:

@@ -69,9 +69,9 @@ psycopg2.extensions.register_adapter(
 )
 
 # Configure and initialize the connection pool
-# Adjust minconn and maxconn based on expected load
-MIN_CONN = 1
-MAX_CONN = 5  # Start conservatively
+# Adjust minconn and maxconn based on expected load (overridable via environment variables)
+MIN_CONN = int(os.environ.get("RADBOT_DB_POOL_MIN", "1"))
+MAX_CONN = int(os.environ.get("RADBOT_DB_POOL_MAX", "10"))
 
 # Global pool reference
 chat_pool = None

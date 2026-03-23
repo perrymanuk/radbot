@@ -9,6 +9,7 @@ from typing import Optional
 
 from google.adk.agents import Agent
 
+from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import load_agent_instruction, resolve_agent_model
 
 logger = logging.getLogger(__name__)
@@ -34,22 +35,10 @@ def create_tracker_agent() -> Optional[Agent]:
         tools = []
 
         # Todo tools
-        try:
-            from radbot.tools.todo import ALL_TOOLS
-
-            tools.extend(ALL_TOOLS)
-            logger.info(f"Added {len(ALL_TOOLS)} todo tools to Tracker")
-        except Exception as e:
-            logger.warning(f"Failed to add todo tools to Tracker: {e}")
+        tools.extend(load_tools("radbot.tools.todo", "ALL_TOOLS", "Tracker", "todo"))
 
         # Webhook tools
-        try:
-            from radbot.tools.webhooks import WEBHOOK_TOOLS
-
-            tools.extend(WEBHOOK_TOOLS)
-            logger.info(f"Added {len(WEBHOOK_TOOLS)} webhook tools to Tracker")
-        except Exception as e:
-            logger.warning(f"Failed to add webhook tools to Tracker: {e}")
+        tools.extend(load_tools("radbot.tools.webhooks", "WEBHOOK_TOOLS", "Tracker", "webhook"))
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools

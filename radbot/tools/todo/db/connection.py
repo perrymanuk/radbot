@@ -35,9 +35,9 @@ psycopg2.extensions.register_adapter(
 _pool = None
 _pool_lock = threading.Lock()
 
-# Configure pool size
-MIN_CONN = 1
-MAX_CONN = 5
+# Configure pool size (overridable via environment variables)
+MIN_CONN = int(os.environ.get("RADBOT_DB_POOL_MIN", "1"))
+MAX_CONN = int(os.environ.get("RADBOT_DB_POOL_MAX", "10"))
 
 
 def _close_pool() -> None:

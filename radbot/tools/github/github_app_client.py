@@ -19,6 +19,8 @@ from typing import Any, Dict, Optional
 import httpx
 import jwt
 
+from radbot.tools.shared.config_helper import get_integration_config
+
 logger = logging.getLogger(__name__)
 
 _client: Optional["GitHubAppClient"] = None
@@ -29,39 +31,15 @@ GITHUB_API_BASE = "https://api.github.com"
 
 def _get_config() -> dict:
     """Pull GitHub App settings from config manager, credential store, then env."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        cfg = config_loader.get_integrations_config().get("github", {})
-    except Exception:
-        cfg = {}
-
-    app_id = cfg.get("app_id") or os.environ.get("GITHUB_APP_ID")
-    installation_id = cfg.get("installation_id") or os.environ.get(
-        "GITHUB_INSTALLATION_ID"
+    return get_integration_config(
+        "github",
+        fields={
+            "app_id": "GITHUB_APP_ID",
+            "installation_id": "GITHUB_INSTALLATION_ID",
+            "private_key": "GITHUB_APP_PRIVATE_KEY",
+        },
+        credential_keys={"private_key": "github_app_private_key"},
     )
-    private_key = cfg.get("private_key") or os.environ.get("GITHUB_APP_PRIVATE_KEY")
-    enabled = cfg.get("enabled", True)
-
-    # Try credential store for private key if not found above
-    if not private_key:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                private_key = store.get("github_app_private_key")
-                if private_key:
-                    logger.debug("GitHub: Using private key from credential store")
-        except Exception as e:
-            logger.debug(f"GitHub credential store lookup failed: {e}")
-
-    return {
-        "app_id": app_id,
-        "installation_id": installation_id,
-        "private_key": private_key,
-        "enabled": enabled,
-    }
 
 
 class GitHubAppClient:

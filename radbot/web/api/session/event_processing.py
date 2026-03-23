@@ -331,8 +331,8 @@ def _get_event_details(event):
             return _safely_serialize(event.to_dict())
         elif hasattr(event, "__str__"):
             return str(event)
-    except:
-        pass
+    except Exception:
+        logger.debug("Failed to extract event details, falling back to str()")
 
     # Fallback to string representation
     return str(event)

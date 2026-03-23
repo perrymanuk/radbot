@@ -9,10 +9,11 @@ Returns None when unconfigured so callers can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, Optional
 
 import httpx
+
+from radbot.tools.shared.config_helper import get_integration_config
 
 logger = logging.getLogger(__name__)
 
@@ -22,43 +23,24 @@ _initialized = False
 
 def _get_config() -> dict:
     """Pull ntfy settings from config manager, credential store, then env."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        cfg = config_loader.get_integrations_config().get("ntfy", {})
-    except Exception:
-        cfg = {}
-
-    url = cfg.get("url") or os.environ.get("NTFY_URL") or "https://ntfy.sh"
-    topic = cfg.get("topic") or os.environ.get("NTFY_TOPIC") or ""
-    token = cfg.get("token") or os.environ.get("NTFY_TOKEN") or ""
-    enabled = cfg.get("enabled", True)
-    default_priority = cfg.get("default_priority", "default")
-    click_base_url = (
-        cfg.get("click_base_url") or os.environ.get("NTFY_CLICK_BASE_URL") or ""
+    cfg = get_integration_config(
+        "ntfy",
+        fields={
+            "url": "NTFY_URL",
+            "topic": "NTFY_TOPIC",
+            "token": "NTFY_TOKEN",
+            "default_priority": "",
+            "click_base_url": "NTFY_CLICK_BASE_URL",
+        },
+        credential_keys={"token": "ntfy_token"},
     )
-
-    # Try credential store for token if not found above
-    if not token:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                token = store.get("ntfy_token") or ""
-                if token:
-                    logger.info("ntfy: Using access token from credential store")
-        except Exception as e:
-            logger.debug(f"ntfy credential store lookup failed: {e}")
-
-    return {
-        "url": url,
-        "topic": topic,
-        "token": token,
-        "enabled": enabled,
-        "default_priority": default_priority,
-        "click_base_url": click_base_url,
-    }
+    # Ensure non-None defaults for string fields
+    cfg["url"] = cfg.get("url") or "https://ntfy.sh"
+    cfg["topic"] = cfg.get("topic") or ""
+    cfg["token"] = cfg.get("token") or ""
+    cfg["default_priority"] = cfg.get("default_priority") or "default"
+    cfg["click_base_url"] = cfg.get("click_base_url") or ""
+    return cfg
 
 
 class NtfyClient:

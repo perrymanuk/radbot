@@ -9,11 +9,12 @@ Returns None when unconfigured so tools can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import requests
+
+from radbot.tools.shared.config_helper import get_integration_config
 
 logger = logging.getLogger(__name__)
 
@@ -23,35 +24,11 @@ _initialized = False
 
 def _get_config() -> dict:
     """Pull Lidarr settings from config manager, credential store, then env."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        cfg = config_loader.get_integrations_config().get("lidarr", {})
-    except Exception:
-        cfg = {}
-
-    url = cfg.get("url") or os.environ.get("LIDARR_URL")
-    api_key = cfg.get("api_key") or os.environ.get("LIDARR_API_KEY")
-    enabled = cfg.get("enabled", True)
-
-    # Try credential store for API key if not found above
-    if not api_key:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                api_key = store.get("lidarr_api_key")
-                if api_key:
-                    logger.info("Lidarr: Using API key from credential store")
-        except Exception as e:
-            logger.debug(f"Lidarr credential store lookup failed: {e}")
-
-    return {
-        "url": url,
-        "api_key": api_key,
-        "enabled": enabled,
-    }
+    return get_integration_config(
+        "lidarr",
+        fields={"url": "LIDARR_URL", "api_key": "LIDARR_API_KEY"},
+        credential_keys={"api_key": "lidarr_api_key"},
+    )
 
 
 class LidarrClient:
@@ -137,6 +114,11 @@ class LidarrClient:
         """Add an album ``POST /api/v1/album``."""
         return self._post("/api/v1/album", album_data)
 
+    def close(self):
+        """Close the HTTP session."""
+        if self._session:
+            self._session.close()
+
 
 def get_lidarr_client() -> Optional[LidarrClient]:
     """Return the singleton Lidarr client, or None if unconfigured."""
@@ -181,6 +163,8 @@ def get_lidarr_client() -> Optional[LidarrClient]:
 def reset_lidarr_client() -> None:
     """Clear the singleton so the next call re-initializes with fresh config."""
     global _client, _initialized
+    if _client is not None:
+        _client.close()
     _client = None
     _initialized = False
     logger.info("Lidarr client singleton reset")

@@ -7,10 +7,12 @@ issues.  All tools return ``{"status": "success", ...}`` or
 """
 
 import logging
-import traceback
 from typing import Any, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
+
+from radbot.tools.shared.client_utils import client_or_error
+from radbot.tools.shared.tool_decorator import tool_error_handler
 
 from .jira_client import get_jira_client
 
@@ -54,25 +56,12 @@ def _format_issue(issue: Dict[str, Any], base_url: str = "") -> Dict[str, Any]:
     )
 
 
-def _client_or_error():
-    """Return (client, None) or (None, error_dict)."""
-    client = get_jira_client()
-    if client is None:
-        return None, {
-            "status": "error",
-            "message": (
-                "Jira is not configured. Set integrations.jira in config.yaml "
-                "or JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN environment variables."
-            ),
-        }
-    return client, None
-
-
 # ---------------------------------------------------------------------------
 # Tool functions
 # ---------------------------------------------------------------------------
 
 
+@tool_error_handler("list Jira issues")
 def list_my_jira_issues(
     project: Optional[str] = None,
     status: Optional[str] = None,
@@ -92,40 +81,35 @@ def list_my_jira_issues(
         On success: {"status": "success", "issues": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_jira_client, "Jira")
     if err:
         return err
 
-    try:
-        max_results = min(max(1, max_results), 50)
+    max_results = min(max(1, max_results), 50)
 
-        jql_parts = ["assignee = currentUser()"]
-        if project:
-            jql_parts.append(f'project = "{project}"')
-        if status:
-            jql_parts.append(f'status = "{status}"')
-        if priority:
-            jql_parts.append(f'priority = "{priority}"')
+    jql_parts = ["assignee = currentUser()"]
+    if project:
+        jql_parts.append(f'project = "{project}"')
+    if status:
+        jql_parts.append(f'status = "{status}"')
+    if priority:
+        jql_parts.append(f'priority = "{priority}"')
 
-        jql = " AND ".join(jql_parts) + " ORDER BY updated DESC"
-        logger.debug("list_my_jira_issues JQL: %s", jql)
+    jql = " AND ".join(jql_parts) + " ORDER BY updated DESC"
+    logger.debug("list_my_jira_issues JQL: %s", jql)
 
-        result = client.jql(jql, limit=max_results)
-        base_url = client.url
+    result = client.jql(jql, limit=max_results)
+    base_url = client.url
 
-        issues = [_format_issue(i, base_url) for i in result.get("issues", [])]
-        return {
-            "status": "success",
-            "issues": issues,
-            "total": result.get("total", len(issues)),
-        }
-    except Exception as e:
-        msg = f"Failed to list Jira issues: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    issues = [_format_issue(i, base_url) for i in result.get("issues", [])]
+    return {
+        "status": "success",
+        "issues": issues,
+        "total": result.get("total", len(issues)),
+    }
 
 
+@tool_error_handler("get Jira issue")
 def get_jira_issue(issue_key: str) -> Dict[str, Any]:
     """
     Get full details of a specific Jira issue.
@@ -137,35 +121,30 @@ def get_jira_issue(issue_key: str) -> Dict[str, Any]:
         On success: {"status": "success", "issue": {...}}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_jira_client, "Jira")
     if err:
         return err
 
-    try:
-        issue = client.issue(issue_key)
-        base_url = client.url
-        formatted = _format_issue(issue, base_url)
+    issue = client.issue(issue_key)
+    base_url = client.url
+    formatted = _format_issue(issue, base_url)
 
-        # Add extra detail fields
-        fields = issue.get("fields", {})
-        formatted["description"] = fields.get("description")
-        formatted["labels"] = fields.get("labels", [])
-        formatted["components"] = [
-            c.get("name") for c in (fields.get("components") or [])
-        ]
-        formatted["fix_versions"] = [
-            v.get("name") for v in (fields.get("fixVersions") or [])
-        ]
-        formatted["comment_count"] = fields.get("comment", {}).get("total", 0)
+    # Add extra detail fields
+    fields = issue.get("fields", {})
+    formatted["description"] = fields.get("description")
+    formatted["labels"] = fields.get("labels", [])
+    formatted["components"] = [
+        c.get("name") for c in (fields.get("components") or [])
+    ]
+    formatted["fix_versions"] = [
+        v.get("name") for v in (fields.get("fixVersions") or [])
+    ]
+    formatted["comment_count"] = fields.get("comment", {}).get("total", 0)
 
-        return {"status": "success", "issue": formatted}
-    except Exception as e:
-        msg = f"Failed to get Jira issue {issue_key}: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    return {"status": "success", "issue": formatted}
 
 
+@tool_error_handler("get Jira issue transitions")
 def get_issue_transitions(issue_key: str) -> Dict[str, Any]:
     """
     List available status transitions for a Jira issue.
@@ -180,29 +159,24 @@ def get_issue_transitions(issue_key: str) -> Dict[str, Any]:
         On success: {"status": "success", "issue_key": "...", "transitions": [{"id": "...", "name": "..."}]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_jira_client, "Jira")
     if err:
         return err
 
-    try:
-        transitions = client.get_issue_transitions(issue_key)
-        items = [
-            {"id": str(t["id"]), "name": t["name"]}
-            for t in transitions.get("transitions", transitions)
-            if isinstance(t, dict)
-        ]
-        return {
-            "status": "success",
-            "issue_key": issue_key,
-            "transitions": items,
-        }
-    except Exception as e:
-        msg = f"Failed to get transitions for {issue_key}: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    transitions = client.get_issue_transitions(issue_key)
+    items = [
+        {"id": str(t["id"]), "name": t["name"]}
+        for t in transitions.get("transitions", transitions)
+        if isinstance(t, dict)
+    ]
+    return {
+        "status": "success",
+        "issue_key": issue_key,
+        "transitions": items,
+    }
 
 
+@tool_error_handler("transition Jira issue")
 def transition_jira_issue(
     issue_key: str,
     status_name: str,
@@ -220,25 +194,20 @@ def transition_jira_issue(
         On success: {"status": "success", "issue_key": "...", "new_status": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_jira_client, "Jira")
     if err:
         return err
 
-    try:
-        result = client.set_issue_status(issue_key, status_name)
-        logger.info("Transitioned %s to '%s'", issue_key, status_name)
-        return {
-            "status": "success",
-            "issue_key": issue_key,
-            "new_status": status_name,
-        }
-    except Exception as e:
-        msg = f"Failed to transition {issue_key} to '{status_name}': {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    result = client.set_issue_status(issue_key, status_name)
+    logger.info("Transitioned %s to '%s'", issue_key, status_name)
+    return {
+        "status": "success",
+        "issue_key": issue_key,
+        "new_status": status_name,
+    }
 
 
+@tool_error_handler("add Jira comment")
 def add_jira_comment(
     issue_key: str,
     comment: str,
@@ -254,28 +223,23 @@ def add_jira_comment(
         On success: {"status": "success", "issue_key": "...", "comment_id": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_jira_client, "Jira")
     if err:
         return err
 
-    try:
-        result = client.issue_add_comment(issue_key, comment)
-        comment_id = (
-            result.get("id", "unknown") if isinstance(result, dict) else str(result)
-        )
-        logger.info("Added comment to %s", issue_key)
-        return {
-            "status": "success",
-            "issue_key": issue_key,
-            "comment_id": str(comment_id),
-        }
-    except Exception as e:
-        msg = f"Failed to add comment to {issue_key}: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    result = client.issue_add_comment(issue_key, comment)
+    comment_id = (
+        result.get("id", "unknown") if isinstance(result, dict) else str(result)
+    )
+    logger.info("Added comment to %s", issue_key)
+    return {
+        "status": "success",
+        "issue_key": issue_key,
+        "comment_id": str(comment_id),
+    }
 
 
+@tool_error_handler("search Jira issues")
 def search_jira_issues(
     jql: str,
     max_results: int = 20,
@@ -294,26 +258,20 @@ def search_jira_issues(
         On success: {"status": "success", "issues": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_jira_client, "Jira")
     if err:
         return err
 
-    try:
-        max_results = min(max(1, max_results), 50)
-        result = client.jql(jql, limit=max_results)
-        base_url = client.url
+    max_results = min(max(1, max_results), 50)
+    result = client.jql(jql, limit=max_results)
+    base_url = client.url
 
-        issues = [_format_issue(i, base_url) for i in result.get("issues", [])]
-        return {
-            "status": "success",
-            "issues": issues,
-            "total": result.get("total", len(issues)),
-        }
-    except Exception as e:
-        msg = f"Failed to search Jira issues: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    issues = [_format_issue(i, base_url) for i in result.get("issues", [])]
+    return {
+        "status": "success",
+        "issues": issues,
+        "total": result.get("total", len(issues)),
+    }
 
 
 # ---------------------------------------------------------------------------

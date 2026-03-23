@@ -118,7 +118,7 @@ def register_messages_router(app):
         request: BatchMessageCreateRequest = None,
     ):
         """
-        Create multiple messages at once.
+        Create multiple messages at once using a single batch INSERT.
 
         Args:
             session_id: Session identifier
@@ -134,30 +134,34 @@ def register_messages_router(app):
             f"Batch creating {len(request.messages)} messages for session {session_id}"
         )
 
+        # Validate all roles before inserting
+        for msg in request.messages:
+            if msg.role not in ("user", "assistant", "system"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Role must be 'user', 'assistant', or 'system' (got '{msg.role}')",
+                )
+
         # Create chat session if it doesn't exist
         chat_operations.create_or_update_session(session_id)
 
         try:
-            message_ids = []
-            for msg in request.messages:
-                # Validate role
-                if msg.role not in ("user", "assistant", "system"):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Role must be 'user', 'assistant', or 'system' (got '{msg.role}')",
-                    )
+            # Convert Pydantic models to dicts for batch insert
+            message_dicts = [
+                {
+                    "role": msg.role,
+                    "content": msg.content,
+                    "agent_name": msg.agent_name,
+                    "user_id": msg.user_id,
+                    "metadata": msg.metadata,
+                }
+                for msg in request.messages
+            ]
 
-                message_id = chat_operations.add_message(
-                    session_id=session_id,
-                    role=msg.role,
-                    content=msg.content,
-                    agent_name=msg.agent_name,
-                    user_id=msg.user_id,
-                    metadata=msg.metadata,
-                )
-
-                if message_id:
-                    message_ids.append(message_id)
+            message_ids = chat_operations.batch_add_messages(
+                session_id=session_id,
+                messages=message_dicts,
+            )
 
             if not message_ids:
                 raise HTTPException(

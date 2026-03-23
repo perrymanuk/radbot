@@ -24,6 +24,9 @@ router = APIRouter(
 # This would be replaced with a proper database in a production system
 session_events: Dict[str, List[Dict[str, Any]]] = {}
 
+# Maximum events to keep per session to prevent unbounded memory growth
+MAX_EVENTS_PER_SESSION = 500
+
 
 # Add event to storage
 def add_event(session_id: str, event: Dict[str, Any]) -> None:
@@ -55,6 +58,11 @@ def add_event(session_id: str, event: Dict[str, Any]) -> None:
     # Only add if not a duplicate
     if not is_duplicate:
         session_events[session_id].append(event)
+        # Trim to keep only the most recent events
+        if len(session_events[session_id]) > MAX_EVENTS_PER_SESSION:
+            session_events[session_id] = session_events[session_id][
+                -MAX_EVENTS_PER_SESSION:
+            ]
         logger.debug(
             f"Added event to session {session_id}: {event.get('type')} - {event.get('summary')}"
         )

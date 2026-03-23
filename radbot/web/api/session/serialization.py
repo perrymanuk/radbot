@@ -29,5 +29,5 @@ def _safely_serialize(obj):
                 return str(obj.to_dict())
             else:
                 return str(obj)
-        except:
+        except Exception:
             return f"<Unserializable object of type {type(obj).__name__}>"

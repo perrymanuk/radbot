@@ -9,6 +9,7 @@ from typing import Optional
 
 from google.adk.agents import Agent
 
+from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import load_agent_instruction, resolve_agent_model
 
 logger = logging.getLogger(__name__)
@@ -66,22 +67,10 @@ def create_planner_agent() -> Optional[Agent]:
             logger.warning(f"Failed to add calendar tools to Planner: {e}")
 
         # Scheduler tools
-        try:
-            from radbot.tools.scheduler import SCHEDULER_TOOLS
-
-            tools.extend(SCHEDULER_TOOLS)
-            logger.info(f"Added {len(SCHEDULER_TOOLS)} scheduler tools to Planner")
-        except Exception as e:
-            logger.warning(f"Failed to add scheduler tools to Planner: {e}")
+        tools.extend(load_tools("radbot.tools.scheduler", "SCHEDULER_TOOLS", "Planner", "scheduler"))
 
         # Reminder tools
-        try:
-            from radbot.tools.reminders import REMINDER_TOOLS
-
-            tools.extend(REMINDER_TOOLS)
-            logger.info(f"Added {len(REMINDER_TOOLS)} reminder tools to Planner")
-        except Exception as e:
-            logger.warning(f"Failed to add reminder tools to Planner: {e}")
+        tools.extend(load_tools("radbot.tools.reminders", "REMINDER_TOOLS", "Planner", "reminder"))
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools

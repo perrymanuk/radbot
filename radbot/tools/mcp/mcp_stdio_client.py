@@ -589,8 +589,8 @@ class MCPStdioClient:
                         and "content" in response.outputs
                     ):
                         content = response.outputs["content"]
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to extract content from MCP response outputs")
 
                 # If we have content, return it
                 if content:

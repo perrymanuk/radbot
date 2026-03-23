@@ -7,10 +7,12 @@ All tools return ``{"status": "success", ...}`` or
 """
 
 import logging
-import traceback
 from typing import Any, Dict, List
 
 from google.adk.tools import FunctionTool
+
+from radbot.tools.shared.client_utils import client_or_error
+from radbot.tools.shared.tool_decorator import tool_error_handler
 
 from .lidarr_client import get_lidarr_client
 
@@ -18,25 +20,6 @@ logger = logging.getLogger(__name__)
 
 # Max search results to return in chat (keeps responses readable)
 _MAX_SEARCH_RESULTS = 15
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _client_or_error():
-    """Return (client, None) or (None, error_dict)."""
-    client = get_lidarr_client()
-    if client is None:
-        return None, {
-            "status": "error",
-            "message": (
-                "Lidarr is not configured. Set integrations.lidarr in "
-                "the admin UI or LIDARR_URL/LIDARR_API_KEY env vars."
-            ),
-        }
-    return client, None
 
 
 def _format_artist(item: Dict[str, Any]) -> Dict[str, Any]:
@@ -72,6 +55,7 @@ def _format_album(item: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@tool_error_handler("search Lidarr artists")
 def search_lidarr_artist(query: str) -> Dict[str, Any]:
     """
     Search for music artists on Lidarr.
@@ -83,25 +67,20 @@ def search_lidarr_artist(query: str) -> Dict[str, Any]:
         On success: {"status": "success", "results": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_lidarr_client, "Lidarr")
     if err:
         return err
 
-    try:
-        raw = client.lookup_artist(query)
-        results = [_format_artist(a) for a in raw[:_MAX_SEARCH_RESULTS]]
-        return {
-            "status": "success",
-            "results": results,
-            "total": len(raw),
-        }
-    except Exception as e:
-        msg = f"Lidarr artist search failed: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    raw = client.lookup_artist(query)
+    results = [_format_artist(a) for a in raw[:_MAX_SEARCH_RESULTS]]
+    return {
+        "status": "success",
+        "results": results,
+        "total": len(raw),
+    }
 
 
+@tool_error_handler("search Lidarr albums")
 def search_lidarr_album(query: str) -> Dict[str, Any]:
     """
     Search for music albums on Lidarr.
@@ -113,25 +92,20 @@ def search_lidarr_album(query: str) -> Dict[str, Any]:
         On success: {"status": "success", "results": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_lidarr_client, "Lidarr")
     if err:
         return err
 
-    try:
-        raw = client.lookup_album(query)
-        results = [_format_album(a) for a in raw[:_MAX_SEARCH_RESULTS]]
-        return {
-            "status": "success",
-            "results": results,
-            "total": len(raw),
-        }
-    except Exception as e:
-        msg = f"Lidarr album search failed: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    raw = client.lookup_album(query)
+    results = [_format_album(a) for a in raw[:_MAX_SEARCH_RESULTS]]
+    return {
+        "status": "success",
+        "results": results,
+        "total": len(raw),
+    }
 
 
+@tool_error_handler("add Lidarr artist")
 def add_lidarr_artist(
     foreign_artist_id: str,
     artist_name: str,
@@ -153,56 +127,51 @@ def add_lidarr_artist(
         On success: {"status": "success", "artist_id": N, "artist_name": "...", "path": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_lidarr_client, "Lidarr")
     if err:
         return err
 
-    try:
-        # Fetch defaults for root folder, quality profile, metadata profile
-        root_folders = client.get_root_folders()
-        if not root_folders:
-            return {"status": "error", "message": "No root folders configured in Lidarr"}
+    # Fetch defaults for root folder, quality profile, metadata profile
+    root_folders = client.get_root_folders()
+    if not root_folders:
+        return {"status": "error", "message": "No root folders configured in Lidarr"}
 
-        quality_profiles = client.get_quality_profiles()
-        if not quality_profiles:
-            return {"status": "error", "message": "No quality profiles configured in Lidarr"}
+    quality_profiles = client.get_quality_profiles()
+    if not quality_profiles:
+        return {"status": "error", "message": "No quality profiles configured in Lidarr"}
 
-        metadata_profiles = client.get_metadata_profiles()
-        if not metadata_profiles:
-            return {"status": "error", "message": "No metadata profiles configured in Lidarr"}
+    metadata_profiles = client.get_metadata_profiles()
+    if not metadata_profiles:
+        return {"status": "error", "message": "No metadata profiles configured in Lidarr"}
 
-        artist_data = {
-            "artistName": artist_name,
-            "foreignArtistId": foreign_artist_id,
-            "qualityProfileId": quality_profiles[0]["id"],
-            "metadataProfileId": metadata_profiles[0]["id"],
-            "rootFolderPath": root_folders[0]["path"],
-            "monitored": monitored,
-            "addOptions": {
-                "monitor": "all" if monitored else "none",
-                "searchForMissingAlbums": monitored,
-            },
-        }
+    artist_data = {
+        "artistName": artist_name,
+        "foreignArtistId": foreign_artist_id,
+        "qualityProfileId": quality_profiles[0]["id"],
+        "metadataProfileId": metadata_profiles[0]["id"],
+        "rootFolderPath": root_folders[0]["path"],
+        "monitored": monitored,
+        "addOptions": {
+            "monitor": "all" if monitored else "none",
+            "searchForMissingAlbums": monitored,
+        },
+    }
 
-        result = client.add_artist(artist_data)
-        logger.info(
-            "Lidarr artist added: %s (id=%s)",
-            artist_name,
-            result.get("id"),
-        )
-        return {
-            "status": "success",
-            "artist_id": result.get("id"),
-            "artist_name": result.get("artistName", artist_name),
-            "path": result.get("path", ""),
-        }
-    except Exception as e:
-        msg = f"Failed to add artist '{artist_name}': {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    result = client.add_artist(artist_data)
+    logger.info(
+        "Lidarr artist added: %s (id=%s)",
+        artist_name,
+        result.get("id"),
+    )
+    return {
+        "status": "success",
+        "artist_id": result.get("id"),
+        "artist_name": result.get("artistName", artist_name),
+        "path": result.get("path", ""),
+    }
 
 
+@tool_error_handler("add Lidarr album")
 def add_lidarr_album(
     foreign_album_id: str,
     album_title: str,
@@ -228,60 +197,55 @@ def add_lidarr_album(
         On success: {"status": "success", "album_title": "...", "artist_name": "...", "artist_id": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_lidarr_client, "Lidarr")
     if err:
         return err
 
-    try:
-        # Fetch defaults
-        root_folders = client.get_root_folders()
-        if not root_folders:
-            return {"status": "error", "message": "No root folders configured in Lidarr"}
+    # Fetch defaults
+    root_folders = client.get_root_folders()
+    if not root_folders:
+        return {"status": "error", "message": "No root folders configured in Lidarr"}
 
-        quality_profiles = client.get_quality_profiles()
-        if not quality_profiles:
-            return {"status": "error", "message": "No quality profiles configured in Lidarr"}
+    quality_profiles = client.get_quality_profiles()
+    if not quality_profiles:
+        return {"status": "error", "message": "No quality profiles configured in Lidarr"}
 
-        metadata_profiles = client.get_metadata_profiles()
-        if not metadata_profiles:
-            return {"status": "error", "message": "No metadata profiles configured in Lidarr"}
+    metadata_profiles = client.get_metadata_profiles()
+    if not metadata_profiles:
+        return {"status": "error", "message": "No metadata profiles configured in Lidarr"}
 
-        # Adding an album in Lidarr requires adding the artist with the
-        # specific album selected for monitoring.
-        artist_data = {
-            "artistName": artist_name,
-            "foreignArtistId": foreign_artist_id,
-            "qualityProfileId": quality_profiles[0]["id"],
-            "metadataProfileId": metadata_profiles[0]["id"],
-            "rootFolderPath": root_folders[0]["path"],
-            "monitored": True,
-            "addOptions": {
-                "monitor": "none",
-                "searchForMissingAlbums": False,
-                "albumsToMonitor": [foreign_album_id],
-            },
-        }
+    # Adding an album in Lidarr requires adding the artist with the
+    # specific album selected for monitoring.
+    artist_data = {
+        "artistName": artist_name,
+        "foreignArtistId": foreign_artist_id,
+        "qualityProfileId": quality_profiles[0]["id"],
+        "metadataProfileId": metadata_profiles[0]["id"],
+        "rootFolderPath": root_folders[0]["path"],
+        "monitored": True,
+        "addOptions": {
+            "monitor": "none",
+            "searchForMissingAlbums": False,
+            "albumsToMonitor": [foreign_album_id],
+        },
+    }
 
-        result = client.add_artist(artist_data)
-        logger.info(
-            "Lidarr album added: '%s' by %s (artist_id=%s)",
-            album_title,
-            artist_name,
-            result.get("id"),
-        )
-        return {
-            "status": "success",
-            "album_title": album_title,
-            "artist_name": result.get("artistName", artist_name),
-            "artist_id": result.get("id"),
-        }
-    except Exception as e:
-        msg = f"Failed to add album '{album_title}' by {artist_name}: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    result = client.add_artist(artist_data)
+    logger.info(
+        "Lidarr album added: '%s' by %s (artist_id=%s)",
+        album_title,
+        artist_name,
+        result.get("id"),
+    )
+    return {
+        "status": "success",
+        "album_title": album_title,
+        "artist_name": result.get("artistName", artist_name),
+        "artist_id": result.get("id"),
+    }
 
 
+@tool_error_handler("list Lidarr quality profiles")
 def list_lidarr_quality_profiles() -> Dict[str, Any]:
     """
     List available quality profiles in Lidarr.
@@ -290,28 +254,22 @@ def list_lidarr_quality_profiles() -> Dict[str, Any]:
         On success: {"status": "success", "profiles": [...]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_lidarr_client, "Lidarr")
     if err:
         return err
 
-    try:
-        raw = client.get_quality_profiles()
-        profiles = [
-            {
-                "id": p.get("id"),
-                "name": p.get("name", ""),
-            }
-            for p in raw
-        ]
-        return {
-            "status": "success",
-            "profiles": profiles,
+    raw = client.get_quality_profiles()
+    profiles = [
+        {
+            "id": p.get("id"),
+            "name": p.get("name", ""),
         }
-    except Exception as e:
-        msg = f"Failed to list Lidarr quality profiles: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+        for p in raw
+    ]
+    return {
+        "status": "success",
+        "profiles": profiles,
+    }
 
 
 # ---------------------------------------------------------------------------

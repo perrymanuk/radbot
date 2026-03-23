@@ -20,6 +20,51 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 _ADMIN_TOKEN_ENV = "RADBOT_ADMIN_TOKEN"
+
+# Client reset functions to call when integration config changes.
+# Each entry is (module_path, function_name).
+_INTEGRATION_RESET_REGISTRY: list[tuple[str, str]] = [
+    ("radbot.tools.homeassistant.ha_client_singleton", "reset_ha_client"),
+    ("radbot.tools.homeassistant.ha_ws_singleton", "reset_ha_ws_client"),
+    ("radbot.tools.overseerr.overseerr_client", "reset_overseerr_client"),
+    ("radbot.tools.ntfy.ntfy_client", "reset_ntfy_client"),
+    ("radbot.tools.picnic.picnic_client", "reset_picnic_client"),
+    ("radbot.tools.lidarr.lidarr_client", "reset_lidarr_client"),
+    ("radbot.tools.github.github_app_client", "reset_github_client"),
+    ("radbot.tools.nomad.nomad_client", "reset_nomad_client"),
+]
+
+# Post-reset hooks that require special handling (e.g. async restart).
+# Each entry is (module_path, function_name, is_async).
+_INTEGRATION_POST_RESET_HOOKS: list[tuple[str, str, bool]] = [
+    ("radbot.tools.ntfy.ntfy_subscriber", "start_ntfy_subscriber", True),
+    ("radbot.filesystem.adapter", "reload_filesystem_config", False),
+]
+
+
+def _reset_integration_clients() -> None:
+    """Reset all integration client singletons for hot-reload."""
+    import asyncio
+    import importlib
+
+    for module_path, func_name in _INTEGRATION_RESET_REGISTRY:
+        try:
+            module = importlib.import_module(module_path)
+            getattr(module, func_name)()
+        except Exception:
+            pass  # Module may not be installed/configured
+
+    for module_path, func_name, is_async in _INTEGRATION_POST_RESET_HOOKS:
+        try:
+            module = importlib.import_module(module_path)
+            func = getattr(module, func_name)
+            if is_async:
+                asyncio.create_task(func())
+            else:
+                func()
+        except Exception:
+            pass  # Module may not be installed/configured
+
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -101,18 +146,16 @@ async def store_credential(request: Request, _: None = Depends(_verify_admin)):
     store.set(name, value, credential_type=cred_type, description=description)
     # Reset HA client singletons when the HA token is updated
     if name == "ha_token":
-        try:
-            from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
+        import importlib
 
-            reset_ha_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.homeassistant.ha_ws_singleton import reset_ha_ws_client
-
-            reset_ha_ws_client()
-        except Exception:
-            pass
+        for mod_path, fn_name in _INTEGRATION_RESET_REGISTRY:
+            if "homeassistant" not in mod_path:
+                continue
+            try:
+                module = importlib.import_module(mod_path)
+                getattr(module, fn_name)()
+            except Exception:
+                pass
     return {"status": "ok", "name": name}
 
 
@@ -226,69 +269,7 @@ async def save_config_section(
             logger.warning(f"Memory service hot-reload failed: {e}")
     # Reset client singletons so next call picks up new config
     if section == "integrations":
-        try:
-            from radbot.tools.homeassistant.ha_client_singleton import reset_ha_client
-
-            reset_ha_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.homeassistant.ha_ws_singleton import reset_ha_ws_client
-
-            reset_ha_ws_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.overseerr.overseerr_client import reset_overseerr_client
-
-            reset_overseerr_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.ntfy.ntfy_client import reset_ntfy_client
-
-            reset_ntfy_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.picnic.picnic_client import reset_picnic_client
-
-            reset_picnic_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.lidarr.lidarr_client import reset_lidarr_client
-
-            reset_lidarr_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.github.github_app_client import reset_github_client
-
-            reset_github_client()
-        except Exception:
-            pass
-        try:
-            from radbot.tools.nomad.nomad_client import reset_nomad_client
-
-            reset_nomad_client()
-        except Exception:
-            pass
-        # Restart ntfy subscriber with updated config (subscribe_topics may have changed)
-        try:
-            import asyncio
-
-            from radbot.tools.ntfy.ntfy_subscriber import start_ntfy_subscriber
-
-            asyncio.create_task(start_ntfy_subscriber())
-        except Exception:
-            pass
-        try:
-            from radbot.filesystem.adapter import reload_filesystem_config
-
-            reload_filesystem_config()
-        except Exception:
-            pass
+        _reset_integration_clients()
     return {"status": "ok", "section": section}
 
 

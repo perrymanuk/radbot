@@ -8,8 +8,9 @@ Returns None when unconfigured so tools can handle gracefully.
 """
 
 import logging
-import os
 from typing import Optional
+
+from radbot.tools.shared.config_helper import get_integration_config
 
 logger = logging.getLogger(__name__)
 
@@ -20,37 +21,15 @@ _initialized = False
 
 def _get_config() -> dict:
     """Pull Jira settings from config manager, falling back to credential store then env vars."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        jira_cfg = config_loader.get_integrations_config().get("jira", {})
-    except Exception:
-        jira_cfg = {}
-
-    url = jira_cfg.get("url") or os.environ.get("JIRA_URL")
-    email = jira_cfg.get("email") or os.environ.get("JIRA_EMAIL")
-    api_token = jira_cfg.get("api_token") or os.environ.get("JIRA_API_TOKEN")
-    enabled = jira_cfg.get("enabled", True)
-
-    # Try credential store for API token if not found in config/env
-    if not api_token:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                api_token = store.get("jira_api_token")
-                if api_token:
-                    logger.info("Jira: Using API token from credential store")
-        except Exception as e:
-            logger.debug(f"Jira credential store lookup failed: {e}")
-
-    return {
-        "url": url,
-        "email": email,
-        "api_token": api_token,
-        "enabled": enabled,
-    }
+    return get_integration_config(
+        "jira",
+        fields={
+            "url": "JIRA_URL",
+            "email": "JIRA_EMAIL",
+            "api_token": "JIRA_API_TOKEN",
+        },
+        credential_keys={"api_token": "jira_api_token"},
+    )
 
 
 def get_jira_client():
@@ -101,6 +80,11 @@ def get_jira_client():
 def reset_jira_client() -> None:
     """Clear the singleton so the next call re-initializes with fresh config."""
     global _jira_client, _jira_email, _initialized
+    if _jira_client is not None:
+        try:
+            _jira_client.close()
+        except Exception:
+            pass
     _jira_client = None
     _jira_email = None
     _initialized = False

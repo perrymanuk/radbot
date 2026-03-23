@@ -1083,8 +1083,8 @@ class SessionRunner:
                 return self._safely_serialize(event.to_dict())
             elif hasattr(event, "__str__"):
                 return str(event)
-        except:
-            pass
+        except Exception:
+            logger.debug("Failed to extract event details, falling back to str()")
 
         # Fallback to string representation
         return str(event)
@@ -1199,8 +1199,8 @@ class SessionRunner:
                                         )
                                         if hasattr(declaration, "name"):
                                             tool_name = declaration.name
-                                    except:
-                                        pass
+                                    except Exception:
+                                        logger.debug("Failed to get declaration name for MCP tool")
                                 # Fallback to string representation
                                 if not tool_name:
                                     tool_name = str(claude_prompt_tool)
@@ -1254,7 +1254,7 @@ class SessionRunner:
                     return str(obj.to_dict())
                 else:
                     return str(obj)
-            except:
+            except Exception:
                 return f"<Unserializable object of type {type(obj).__name__}>"
 
     async def _load_history_into_session(self, session):

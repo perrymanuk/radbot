@@ -41,25 +41,20 @@ admin_token:       # Admin API bearer token
 
 ### Integration client pattern (follow this for new integrations)
 
-See `radbot/tools/overseerr/overseerr_client.py:30-58` — the canonical example:
+Use `get_integration_config()` from `radbot/tools/shared/config_helper.py`:
 
 ```python
+from radbot.tools.shared.config_helper import get_integration_config
+
 def _get_config() -> dict:
-    # 1. Try config_loader (merged file+DB config)
-    from radbot.config.config_loader import config_loader
-    cfg = config_loader.get_integrations_config().get("overseerr", {})
-
-    url = cfg.get("url") or os.environ.get("OVERSEERR_URL")
-    api_key = cfg.get("api_key") or os.environ.get("OVERSEERR_API_KEY")
-
-    # 2. Fall back to credential store for secrets
-    if not api_key:
-        from radbot.credentials.store import get_credential_store
-        store = get_credential_store()
-        api_key = store.get("overseerr_api_key")
-
-    return {"url": url, "api_key": api_key, "enabled": cfg.get("enabled", True)}
+    return get_integration_config(
+        "overseerr",
+        fields={"url": "OVERSEERR_URL", "api_key": "OVERSEERR_API_KEY"},
+        credential_keys={"api_key": "overseerr_api_key"},
+    )
 ```
+
+This resolves config → env vars → credential store automatically.
 
 ### Hot-reload flow
 
@@ -175,7 +170,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/claude_code/` | `claude_code_client.py`, `claude_code_tools.py`, `db.py` | `clone_repository`, `claude_code_plan`, `claude_code_continue`, `claude_code_execute`, `commit_and_push`, `list_workspaces` | Claude Code CLI + GitHub workflow |
 | `tools/nomad/` | `nomad_client.py`, `nomad_tools.py` | `list_nomad_jobs`, `get_nomad_job_status`, `get_nomad_allocation_logs`, `restart_nomad_allocation`, `plan_nomad_job_update`, `submit_nomad_job_update`, `check_nomad_service_health` | Nomad HTTP API |
 | `tools/alertmanager/` | `db.py`, `processor.py`, `ntfy_handler.py` | (pipeline, not FunctionTools) | Alert ingestion + autonomous remediation |
-| `tools/shared/` | `db_schema.py`, `errors.py`, `validation.py` | Utilities (no FunctionTools) | Shared helpers |
+| `tools/shared/` | `config_helper.py`, `client_utils.py`, `tool_decorator.py`, `retry.py`, `db_schema.py`, `errors.py`, `validation.py` | `get_integration_config()`, `client_or_error()`, `@tool_error_handler`, `@retry_on_error` | Shared helpers |
 
 ---
 
@@ -262,8 +257,8 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 2. Add status check in `get_integration_status()` in `admin.py`
 3. Add panel in `radbot/web/frontend/src/components/admin/panels/ConnectionPanels.tsx`
 4. Register panel in `AdminPage.tsx` (NAV_ITEMS + PANEL_MAP)
-5. Add client reset hook in `save_config_section()` for hot-reload
-6. Follow the integration client pattern from `overseerr_client.py` (see above)
+5. Add entry to `_INTEGRATION_RESET_REGISTRY` in `admin.py` for hot-reload
+6. Follow the integration client pattern using `get_integration_config()` (see above)
 7. **Config goes to DB** — the admin UI `PUT /api/config/{section}` stores it there
 
 ---
@@ -273,10 +268,12 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **Lazy imports**: Use inside functions to avoid circular deps and import-time crashes
 - **DB connections**: Reuse pool from `radbot.tools.todo.db.connection` (call `get_db_pool()`)
 - **Schema init**: Idempotent `init_*_schema()` with `CREATE TABLE IF NOT EXISTS`
-- **Singleton clients**: `_client` module-level + `get_client()`/`reset_client()` (see `overseerr_client.py`)
+- **Singleton clients**: `_client` module-level + `get_client()`/`reset_client()` with `close()` for HTTP sessions
 - **Agent tools**: Wrap plain functions as `FunctionTool` from `google.adk.tools`
-- **Error returns**: Agent tools return `{"status": "success/error", ...}` dicts
-- **Config access**: `config_loader.get_integrations_config().get("<service>", {})`
+- **Error returns**: Agent tools return `{"status": "success/error", ...}` dicts — use `@tool_error_handler` decorator
+- **Config access**: Use `get_integration_config()` from `tools/shared/config_helper.py`
+- **Client-or-error**: Use `client_or_error(get_fn, name)` from `tools/shared/client_utils.py`
+- **Agent factory tools**: Use `load_tools(module, attr, agent, label)` from `agent/factory_utils.py`
 - **Credential access**: `get_credential_store().get("<key_name>")`
 - **Model resolution**: Always use `config_manager.resolve_model(model_string)` in agent factories — wraps Ollama models (`ollama_chat/...`) in `LiteLlm`, passes Gemini strings through unchanged
 

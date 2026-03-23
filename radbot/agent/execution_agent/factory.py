@@ -11,6 +11,7 @@ from typing import Any, List, Optional, Union
 from google.adk.agents import Agent
 
 from radbot.agent.execution_agent.agent import AxelExecutionAgent, ExecutionAgent
+from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
 
@@ -100,22 +101,10 @@ def create_execution_agent(
         logger.warning(f"Failed to add dynamic MCP tools to Axel: {e}")
 
     # Add Claude Code + GitHub tools
-    try:
-        from radbot.tools.claude_code.claude_code_tools import CLAUDE_CODE_TOOLS
-
-        agent_tools.extend(CLAUDE_CODE_TOOLS)
-        logger.info(f"Added {len(CLAUDE_CODE_TOOLS)} Claude Code tools to Axel")
-    except Exception as e:
-        logger.warning(f"Failed to add Claude Code tools to Axel: {e}")
+    agent_tools.extend(load_tools("radbot.tools.claude_code.claude_code_tools", "CLAUDE_CODE_TOOLS", "Axel", "Claude Code"))
 
     # Add Nomad infrastructure tools
-    try:
-        from radbot.tools.nomad import NOMAD_TOOLS
-
-        agent_tools.extend(NOMAD_TOOLS)
-        logger.info(f"Added {len(NOMAD_TOOLS)} Nomad tools to Axel")
-    except Exception as e:
-        logger.warning(f"Failed to add Nomad tools to Axel: {e}")
+    agent_tools.extend(load_tools("radbot.tools.nomad", "NOMAD_TOOLS", "Axel", "Nomad"))
 
     # Add artifacts loading tool
     try:

@@ -74,6 +74,15 @@ def create_schema_if_not_exists() -> bool:
                             CREATE INDEX idx_chat_messages_timestamp
                             ON {CHAT_SCHEMA}.chat_messages(timestamp);
                         END IF;
+
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_indexes
+                            WHERE schemaname = '{CHAT_SCHEMA}'
+                            AND indexname = 'idx_chat_messages_session_timestamp'
+                        ) THEN
+                            CREATE INDEX idx_chat_messages_session_timestamp
+                            ON {CHAT_SCHEMA}.chat_messages(session_id, timestamp);
+                        END IF;
                     END
                     $$;
                 """)
@@ -162,6 +171,80 @@ def add_message(
     except Exception as e:
         logger.error(f"Error adding message: {e}")
         return None
+
+
+def batch_add_messages(
+    session_id: str,
+    messages: List[Dict[str, Any]],
+) -> List[str]:
+    """
+    Insert multiple messages into the database in a single transaction.
+
+    Each message dict should have keys: role, content, and optionally
+    agent_name, user_id, metadata.
+
+    Args:
+        session_id: Session identifier
+        messages: List of message dicts with role, content, and optional fields
+
+    Returns:
+        List of message_id strings for successfully inserted messages
+    """
+    if not messages:
+        return []
+
+    # Convert session_id to UUID if string
+    if isinstance(session_id, str):
+        try:
+            session_id = uuid.UUID(session_id)
+        except ValueError:
+            logger.error(f"Invalid session_id format: {session_id}")
+            return []
+
+    # Build values list for multi-row INSERT
+    values_list = []
+    params = []
+    for msg in messages:
+        metadata = msg.get("metadata")
+        if metadata is not None:
+            metadata = json.dumps(metadata)
+        values_list.append("(%s, %s, %s, %s, %s, %s::jsonb)")
+        params.extend([
+            session_id,
+            msg["role"],
+            msg["content"],
+            msg.get("agent_name"),
+            msg.get("user_id"),
+            metadata,
+        ])
+
+    values_clause = ", ".join(values_list)
+    sql = f"""
+        INSERT INTO {CHAT_SCHEMA}.chat_messages
+        (session_id, role, content, agent_name, user_id, metadata)
+        VALUES {values_clause}
+        RETURNING message_id;
+    """
+
+    try:
+        with get_chat_db_connection() as conn:
+            with get_chat_db_cursor(conn, commit=True) as cursor:
+                cursor.execute(sql, params)
+                rows = cursor.fetchall()
+                message_ids = [str(row[0]) for row in rows]
+
+                # Update session preview with the last user/assistant message
+                for msg in reversed(messages):
+                    if msg["role"] in ("user", "assistant"):
+                        update_session_last_message(
+                            conn, session_id, msg["content"], msg["role"]
+                        )
+                        break
+
+                return message_ids
+    except Exception as e:
+        logger.error(f"Error batch adding messages: {e}")
+        return []
 
 
 def get_messages_by_session_id(

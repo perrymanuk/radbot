@@ -9,6 +9,7 @@ from typing import Optional
 
 from google.adk.agents import Agent
 
+from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import load_agent_instruction, resolve_agent_model
 
 logger = logging.getLogger(__name__)
@@ -55,13 +56,7 @@ def create_comms_agent() -> Optional[Agent]:
             logger.warning(f"Failed to add Gmail tools to Comms: {e}")
 
         # Jira tools
-        try:
-            from radbot.tools.jira import JIRA_TOOLS
-
-            tools.extend(JIRA_TOOLS)
-            logger.info(f"Added {len(JIRA_TOOLS)} Jira tools to Comms")
-        except Exception as e:
-            logger.warning(f"Failed to add Jira tools to Comms: {e}")
+        tools.extend(load_tools("radbot.tools.jira", "JIRA_TOOLS", "Comms", "Jira"))
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools

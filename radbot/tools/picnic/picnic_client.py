@@ -9,8 +9,9 @@ Returns None when unconfigured so tools can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
+
+from radbot.tools.shared.config_helper import get_integration_config
 
 logger = logging.getLogger(__name__)
 
@@ -20,42 +21,23 @@ _initialized = False
 
 def _get_config() -> dict:
     """Pull Picnic settings from config manager, credential store, then env."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        cfg = config_loader.get_integrations_config().get("picnic", {})
-    except Exception:
-        cfg = {}
-
-    username = cfg.get("username") or os.environ.get("PICNIC_USERNAME")
-    password = cfg.get("password") or os.environ.get("PICNIC_PASSWORD")
-    country_code = cfg.get("country_code") or os.environ.get("PICNIC_COUNTRY_CODE", "DE")
-    enabled = cfg.get("enabled", True)
-    default_list_project = cfg.get("default_list_project", "Groceries")
-
-    # Try credential store for username/password if not found above
-    if not username or not password:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                if not username:
-                    username = store.get("picnic_username")
-                if not password:
-                    password = store.get("picnic_password")
-                if username and password:
-                    logger.info("Picnic: Using credentials from credential store")
-        except Exception as e:
-            logger.debug(f"Picnic credential store lookup failed: {e}")
-
-    return {
-        "username": username,
-        "password": password,
-        "country_code": country_code,
-        "enabled": enabled,
-        "default_list_project": default_list_project,
-    }
+    cfg = get_integration_config(
+        "picnic",
+        fields={
+            "username": "PICNIC_USERNAME",
+            "password": "PICNIC_PASSWORD",
+            "country_code": "PICNIC_COUNTRY_CODE",
+            "default_list_project": "",
+        },
+        credential_keys={
+            "username": "picnic_username",
+            "password": "picnic_password",
+        },
+    )
+    # Ensure non-None defaults
+    cfg["country_code"] = cfg.get("country_code") or "DE"
+    cfg["default_list_project"] = cfg.get("default_list_project") or "Groceries"
+    return cfg
 
 
 def _get_cached_auth_token() -> Optional[str]:
@@ -185,6 +167,11 @@ class PicnicClientWrapper:
         """
         return self._api._post("/cart/set_delivery_slot", {"slot_id": slot_id})
 
+    def close(self):
+        """Close the underlying HTTP session if available."""
+        if hasattr(self._api, "session") and hasattr(self._api.session, "close"):
+            self._api.session.close()
+
 
 def get_picnic_client() -> Optional[PicnicClientWrapper]:
     """Return the singleton Picnic client, or None if unconfigured."""
@@ -230,6 +217,8 @@ def get_picnic_client() -> Optional[PicnicClientWrapper]:
 def reset_picnic_client() -> None:
     """Clear the singleton so the next call re-initializes with fresh config."""
     global _client, _initialized
+    if _client is not None:
+        _client.close()
     _client = None
     _initialized = False
     logger.info("Picnic client singleton reset")

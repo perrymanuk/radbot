@@ -100,8 +100,8 @@ async def _create_home_assistant_toolset_async() -> (
             # Try to clean up resources if exit_stack was used
             try:
                 await exit_stack.aclose()
-            except:
-                pass
+            except Exception:
+                logger.debug("Failed to close exit_stack during cleanup")
             return [], None
 
     except ImportError as ie:

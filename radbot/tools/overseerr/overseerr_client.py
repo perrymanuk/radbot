@@ -9,11 +9,12 @@ Returns None when unconfigured so tools can degrade gracefully.
 """
 
 import logging
-import os
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import requests
+
+from radbot.tools.shared.config_helper import get_integration_config
 
 logger = logging.getLogger(__name__)
 
@@ -29,35 +30,11 @@ _initialized = False
 
 def _get_config() -> dict:
     """Pull Overseerr settings from config manager, credential store, then env."""
-    try:
-        from radbot.config.config_loader import config_loader
-
-        cfg = config_loader.get_integrations_config().get("overseerr", {})
-    except Exception:
-        cfg = {}
-
-    url = cfg.get("url") or os.environ.get("OVERSEERR_URL")
-    api_key = cfg.get("api_key") or os.environ.get("OVERSEERR_API_KEY")
-    enabled = cfg.get("enabled", True)
-
-    # Try credential store for API key if not found above
-    if not api_key:
-        try:
-            from radbot.credentials.store import get_credential_store
-
-            store = get_credential_store()
-            if store.available:
-                api_key = store.get("overseerr_api_key")
-                if api_key:
-                    logger.info("Overseerr: Using API key from credential store")
-        except Exception as e:
-            logger.debug(f"Overseerr credential store lookup failed: {e}")
-
-    return {
-        "url": url,
-        "api_key": api_key,
-        "enabled": enabled,
-    }
+    return get_integration_config(
+        "overseerr",
+        fields={"url": "OVERSEERR_URL", "api_key": "OVERSEERR_API_KEY"},
+        credential_keys={"api_key": "overseerr_api_key"},
+    )
 
 
 class OverseerrClient:
@@ -147,6 +124,11 @@ class OverseerrClient:
             body["seasons"] = seasons
         return self._post("/api/v1/request", body)
 
+    def close(self):
+        """Close the HTTP session."""
+        if self._session:
+            self._session.close()
+
     def list_requests(
         self,
         take: int = 20,
@@ -205,6 +187,8 @@ def get_overseerr_client() -> Optional[OverseerrClient]:
 def reset_overseerr_client() -> None:
     """Clear the singleton so the next call re-initializes with fresh config."""
     global _client, _initialized
+    if _client is not None:
+        _client.close()
     _client = None
     _initialized = False
     logger.info("Overseerr client singleton reset")

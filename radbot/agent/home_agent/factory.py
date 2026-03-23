@@ -9,6 +9,7 @@ from typing import Optional
 
 from google.adk.agents import Agent
 
+from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import load_agent_instruction, resolve_agent_model
 
 logger = logging.getLogger(__name__)
@@ -59,40 +60,16 @@ def create_home_agent() -> Optional[Agent]:
             logger.warning(f"Failed to add HA tools to Casa: {e}")
 
         # Dashboard tools (WebSocket-based)
-        try:
-            from radbot.tools.homeassistant import HA_DASHBOARD_TOOLS
-
-            tools.extend(HA_DASHBOARD_TOOLS)
-            logger.info(f"Added {len(HA_DASHBOARD_TOOLS)} HA dashboard tools to Casa")
-        except Exception as e:
-            logger.warning(f"Failed to add HA dashboard tools to Casa: {e}")
+        tools.extend(load_tools("radbot.tools.homeassistant", "HA_DASHBOARD_TOOLS", "Casa", "HA dashboard"))
 
         # Overseerr tools
-        try:
-            from radbot.tools.overseerr import OVERSEERR_TOOLS
-
-            tools.extend(OVERSEERR_TOOLS)
-            logger.info(f"Added {len(OVERSEERR_TOOLS)} Overseerr tools to Casa")
-        except Exception as e:
-            logger.warning(f"Failed to add Overseerr tools to Casa: {e}")
+        tools.extend(load_tools("radbot.tools.overseerr", "OVERSEERR_TOOLS", "Casa", "Overseerr"))
 
         # Lidarr music tools
-        try:
-            from radbot.tools.lidarr import LIDARR_TOOLS
-
-            tools.extend(LIDARR_TOOLS)
-            logger.info(f"Added {len(LIDARR_TOOLS)} Lidarr tools to Casa")
-        except Exception as e:
-            logger.warning(f"Failed to add Lidarr tools to Casa: {e}")
+        tools.extend(load_tools("radbot.tools.lidarr", "LIDARR_TOOLS", "Casa", "Lidarr"))
 
         # Picnic grocery tools
-        try:
-            from radbot.tools.picnic import PICNIC_TOOLS
-
-            tools.extend(PICNIC_TOOLS)
-            logger.info(f"Added {len(PICNIC_TOOLS)} Picnic tools to Casa")
-        except Exception as e:
-            logger.warning(f"Failed to add Picnic tools to Casa: {e}")
+        tools.extend(load_tools("radbot.tools.picnic", "PICNIC_TOOLS", "Casa", "Picnic"))
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools

@@ -8,35 +8,18 @@ the Picnic cart.  All tools return ``{"status": "success", ...}`` or
 """
 
 import logging
-import traceback
 from typing import Any, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
+
+from radbot.tools.shared.client_utils import client_or_error
+from radbot.tools.shared.tool_decorator import tool_error_handler
 
 from .picnic_client import get_picnic_client
 
 logger = logging.getLogger(__name__)
 
 _MAX_SEARCH_RESULTS = 10
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _client_or_error():
-    """Return (client, None) or (None, error_dict)."""
-    client = get_picnic_client()
-    if client is None:
-        return None, {
-            "status": "error",
-            "message": (
-                "Picnic is not configured. Set picnic_username and picnic_password "
-                "in the admin UI or PICNIC_USERNAME/PICNIC_PASSWORD env vars."
-            ),
-        }
-    return client, None
 
 
 def _unwrap_search_results(raw_results: list) -> List[Dict[str, Any]]:
@@ -89,6 +72,7 @@ def _format_cart_item(item: Dict[str, Any]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+@tool_error_handler("search Picnic products")
 def search_picnic_product(
     query: str,
 ) -> Dict[str, Any]:
@@ -102,30 +86,25 @@ def search_picnic_product(
         On success: {"status": "success", "results": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        raw_results = client.search(query)
-        products = _unwrap_search_results(raw_results)
-        results = []
-        for item in products[:_MAX_SEARCH_RESULTS]:
-            formatted = _format_product(item)
-            if formatted.get("product_id"):
-                results.append(formatted)
-        return {
-            "status": "success",
-            "results": results,
-            "count": len(results),
-        }
-    except Exception as e:
-        msg = f"Picnic search failed: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    raw_results = client.search(query)
+    products = _unwrap_search_results(raw_results)
+    results = []
+    for item in products[:_MAX_SEARCH_RESULTS]:
+        formatted = _format_product(item)
+        if formatted.get("product_id"):
+            results.append(formatted)
+    return {
+        "status": "success",
+        "results": results,
+        "count": len(results),
+    }
 
 
+@tool_error_handler("get Picnic cart")
 def get_picnic_cart() -> Dict[str, Any]:
     """
     View the current Picnic shopping cart contents and total.
@@ -134,34 +113,29 @@ def get_picnic_cart() -> Dict[str, Any]:
         On success: {"status": "success", "items": [...], "total_price": N, "item_count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        cart = client.get_cart()
-        items = []
-        total_price = cart.get("total_price", 0)
-        order_items = cart.get("items", [])
+    cart = client.get_cart()
+    items = []
+    total_price = cart.get("total_price", 0)
+    order_items = cart.get("items", [])
 
-        for group in order_items:
-            formatted = _format_cart_item(group)
-            if formatted.get("products"):
-                items.extend(formatted["products"])
+    for group in order_items:
+        formatted = _format_cart_item(group)
+        if formatted.get("products"):
+            items.extend(formatted["products"])
 
-        return {
-            "status": "success",
-            "items": items,
-            "total_price": total_price,
-            "item_count": len(items),
-        }
-    except Exception as e:
-        msg = f"Failed to get Picnic cart: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    return {
+        "status": "success",
+        "items": items,
+        "total_price": total_price,
+        "item_count": len(items),
+    }
 
 
+@tool_error_handler("add product to Picnic cart")
 def add_to_picnic_cart(
     product_id: str,
     count: int = 1,
@@ -177,27 +151,22 @@ def add_to_picnic_cart(
         On success: {"status": "success", "message": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
     if not product_id or not product_id.strip():
         return {"status": "error", "message": "product_id is required"}
 
-    try:
-        result = client.add_product(product_id, count=max(1, count))
-        logger.debug("Picnic add_product response: %s", result)
-        return {
-            "status": "success",
-            "message": f"Added {count}x product {product_id} to cart",
-        }
-    except Exception as e:
-        msg = f"Failed to add product to cart: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    result = client.add_product(product_id, count=max(1, count))
+    logger.debug("Picnic add_product response: %s", result)
+    return {
+        "status": "success",
+        "message": f"Added {count}x product {product_id} to cart",
+    }
 
 
+@tool_error_handler("remove product from Picnic cart")
 def remove_from_picnic_cart(
     product_id: str,
     count: int = 1,
@@ -213,23 +182,18 @@ def remove_from_picnic_cart(
         On success: {"status": "success", "message": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        client.remove_product(product_id, count=max(1, count))
-        return {
-            "status": "success",
-            "message": f"Removed {count}x product {product_id} from cart",
-        }
-    except Exception as e:
-        msg = f"Failed to remove product from cart: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    client.remove_product(product_id, count=max(1, count))
+    return {
+        "status": "success",
+        "message": f"Removed {count}x product {product_id} from cart",
+    }
 
 
+@tool_error_handler("clear Picnic cart")
 def clear_picnic_cart() -> Dict[str, Any]:
     """
     Clear all items from the Picnic cart.
@@ -238,20 +202,15 @@ def clear_picnic_cart() -> Dict[str, Any]:
         On success: {"status": "success", "message": "Cart cleared"}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        client.clear_cart()
-        return {"status": "success", "message": "Cart cleared"}
-    except Exception as e:
-        msg = f"Failed to clear Picnic cart: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    client.clear_cart()
+    return {"status": "success", "message": "Cart cleared"}
 
 
+@tool_error_handler("get Picnic delivery slots")
 def get_picnic_delivery_slots() -> Dict[str, Any]:
     """
     List available Picnic delivery time slots.
@@ -260,38 +219,33 @@ def get_picnic_delivery_slots() -> Dict[str, Any]:
         On success: {"status": "success", "slots": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        raw_slots = client.get_delivery_slots()
-        if isinstance(raw_slots, str):
-            return {"status": "error", "message": f"Unexpected API response: {raw_slots[:200]}"}
-        slots = []
-        for day in raw_slots:
-            if not isinstance(day, dict):
-                continue
-            for slot in day.get("slot_list", []):
-                slots.append({
-                    "slot_id": slot.get("slot_id", ""),
-                    "window_start": slot.get("window_start", ""),
-                    "window_end": slot.get("window_end", ""),
-                    "is_available": slot.get("is_available", False),
-                    "minimum_order_value": slot.get("minimum_order_value", 0),
-                })
-        return {
-            "status": "success",
-            "slots": slots,
-            "count": len(slots),
-        }
-    except Exception as e:
-        msg = f"Failed to get Picnic delivery slots: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    raw_slots = client.get_delivery_slots()
+    if isinstance(raw_slots, str):
+        return {"status": "error", "message": f"Unexpected API response: {raw_slots[:200]}"}
+    slots = []
+    for day in raw_slots:
+        if not isinstance(day, dict):
+            continue
+        for slot in day.get("slot_list", []):
+            slots.append({
+                "slot_id": slot.get("slot_id", ""),
+                "window_start": slot.get("window_start", ""),
+                "window_end": slot.get("window_end", ""),
+                "is_available": slot.get("is_available", False),
+                "minimum_order_value": slot.get("minimum_order_value", 0),
+            })
+    return {
+        "status": "success",
+        "slots": slots,
+        "count": len(slots),
+    }
 
 
+@tool_error_handler("set Picnic delivery slot")
 def set_picnic_delivery_slot(
     slot_id: str,
 ) -> Dict[str, Any]:
@@ -308,23 +262,17 @@ def set_picnic_delivery_slot(
         On success: {"status": "success", "message": "Order placed for slot ..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        result = client.set_delivery_slot(slot_id)
-        logger.info("Picnic order placed with slot_id=%s", slot_id)
-        return {
-            "status": "success",
-            "message": f"Order placed with delivery slot {slot_id}",
-            "details": result,
-        }
-    except Exception as e:
-        msg = f"Failed to set delivery slot: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    result = client.set_delivery_slot(slot_id)
+    logger.info("Picnic order placed with slot_id=%s", slot_id)
+    return {
+        "status": "success",
+        "message": f"Order placed with delivery slot {slot_id}",
+        "details": result,
+    }
 
 
 def _extract_picnic_id_from_description(description: str) -> Optional[str]:
@@ -352,6 +300,7 @@ def _extract_usual_qty_from_description(description: str) -> int:
     return int(match.group(1)) if match else 1
 
 
+@tool_error_handler("submit shopping list to Picnic")
 def submit_shopping_list_to_picnic(
     project_name: str = "Groceries",
 ) -> Dict[str, Any]:
@@ -375,7 +324,7 @@ def submit_shopping_list_to_picnic(
         On success: {"status": "success", "matched": [...], "unmatched": [...], "cart_total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
@@ -474,6 +423,7 @@ def submit_shopping_list_to_picnic(
     }
 
 
+@tool_error_handler("get Picnic lists")
 def get_picnic_lists() -> Dict[str, Any]:
     """
     Get all Picnic user lists (favorites, last ordered, etc.).
@@ -485,43 +435,38 @@ def get_picnic_lists() -> Dict[str, Any]:
         On success: {"status": "success", "lists": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        raw_lists = client.get_lists()
-        logger.debug("Picnic /lists raw response type=%s: %s", type(raw_lists).__name__, repr(raw_lists)[:2000])
+    raw_lists = client.get_lists()
+    logger.debug("Picnic /lists raw response type=%s: %s", type(raw_lists).__name__, repr(raw_lists)[:2000])
 
-        # Handle API error responses
-        if isinstance(raw_lists, dict) and "error" in raw_lists:
-            err_code = raw_lists["error"].get("code", "")
-            if err_code == "NOT_FOUND":
-                return {
-                    "status": "success",
-                    "lists": [],
-                    "count": 0,
-                    "note": "The Picnic lists feature is not available for this account or region.",
-                }
+    # Handle API error responses
+    if isinstance(raw_lists, dict) and "error" in raw_lists:
+        err_code = raw_lists["error"].get("code", "")
+        if err_code == "NOT_FOUND":
             return {
-                "status": "error",
-                "message": f"Picnic API error: {raw_lists['error'].get('message', err_code)}",
+                "status": "success",
+                "lists": [],
+                "count": 0,
+                "note": "The Picnic lists feature is not available for this account or region.",
             }
-
-        # Normalise into a consistent shape
-        lists = _flatten_lists_response(raw_lists)
         return {
-            "status": "success",
-            "lists": lists,
-            "count": len(lists),
+            "status": "error",
+            "message": f"Picnic API error: {raw_lists['error'].get('message', err_code)}",
         }
-    except Exception as e:
-        msg = f"Failed to get Picnic lists: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+
+    # Normalise into a consistent shape
+    lists = _flatten_lists_response(raw_lists)
+    return {
+        "status": "success",
+        "lists": lists,
+        "count": len(lists),
+    }
 
 
+@tool_error_handler("get Picnic list details")
 def get_picnic_list_details(
     list_id: str,
 ) -> Dict[str, Any]:
@@ -535,30 +480,25 @@ def get_picnic_list_details(
         On success: {"status": "success", "list": {...}, "items": [...]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
     if not list_id or not list_id.strip():
         return {"status": "error", "message": "list_id is required"}
 
-    try:
-        raw_list = client.get_list(list_id)
-        logger.debug("Picnic /lists/%s raw response type=%s: %s", list_id, type(raw_list).__name__, repr(raw_list)[:2000])
-        items = _extract_list_items(raw_list)
-        return {
-            "status": "success",
-            "list": _format_list_summary(raw_list),
-            "items": items,
-            "item_count": len(items),
-        }
-    except Exception as e:
-        msg = f"Failed to get Picnic list details: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    raw_list = client.get_list(list_id)
+    logger.debug("Picnic /lists/%s raw response type=%s: %s", list_id, type(raw_list).__name__, repr(raw_list)[:2000])
+    items = _extract_list_items(raw_list)
+    return {
+        "status": "success",
+        "list": _format_list_summary(raw_list),
+        "items": items,
+        "item_count": len(items),
+    }
 
 
+@tool_error_handler("get Picnic order history")
 def get_picnic_order_history() -> Dict[str, Any]:
     """
     Get recent Picnic delivery/order history summaries.
@@ -570,30 +510,25 @@ def get_picnic_order_history() -> Dict[str, Any]:
         On success: {"status": "success", "deliveries": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
-    try:
-        raw = client.get_deliveries()
-        logger.debug("Picnic /deliveries/summary raw response type=%s: %s", type(raw).__name__, repr(raw)[:3000])
-        deliveries = []
-        if isinstance(raw, list):
-            for d in raw[:20]:  # Limit to last 20
-                deliveries.append(_format_delivery_summary(d))
-        return {
-            "status": "success",
-            "deliveries": deliveries,
-            "count": len(deliveries),
-            "hint": "Use get_picnic_delivery_details(delivery_id) to see items in a specific order.",
-        }
-    except Exception as e:
-        msg = f"Failed to get Picnic order history: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    raw = client.get_deliveries()
+    logger.debug("Picnic /deliveries/summary raw response type=%s: %s", type(raw).__name__, repr(raw)[:3000])
+    deliveries = []
+    if isinstance(raw, list):
+        for d in raw[:20]:  # Limit to last 20
+            deliveries.append(_format_delivery_summary(d))
+    return {
+        "status": "success",
+        "deliveries": deliveries,
+        "count": len(deliveries),
+        "hint": "Use get_picnic_delivery_details(delivery_id) to see items in a specific order.",
+    }
 
 
+@tool_error_handler("get Picnic delivery details")
 def get_picnic_delivery_details(
     delivery_id: str,
 ) -> Dict[str, Any]:
@@ -607,34 +542,28 @@ def get_picnic_delivery_details(
         On success: {"status": "success", "delivery": {...}, "items": [...]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = _client_or_error()
+    client, err = client_or_error(get_picnic_client, "Picnic")
     if err:
         return err
 
     if not delivery_id or not delivery_id.strip():
         return {"status": "error", "message": "delivery_id is required"}
 
-    try:
-        raw = client.get_delivery(delivery_id)
-        logger.debug("Picnic /deliveries/%s raw response type=%s keys=%s: %s",
-                       delivery_id, type(raw).__name__,
-                       list(raw.keys()) if isinstance(raw, dict) else "N/A",
-                       repr(raw)[:3000])
+    raw = client.get_delivery(delivery_id)
+    logger.debug("Picnic /deliveries/%s raw response type=%s keys=%s: %s",
+                   delivery_id, type(raw).__name__,
+                   list(raw.keys()) if isinstance(raw, dict) else "N/A",
+                   repr(raw)[:3000])
 
-        summary = _format_delivery_summary(raw)
-        items = _extract_delivery_items(raw)
+    summary = _format_delivery_summary(raw)
+    items = _extract_delivery_items(raw)
 
-        return {
-            "status": "success",
-            "delivery": summary,
-            "items": items,
-            "item_count": len(items),
-        }
-    except Exception as e:
-        msg = f"Failed to get Picnic delivery details: {e}"
-        logger.error(msg)
-        logger.debug(traceback.format_exc())
-        return {"status": "error", "message": msg[:300]}
+    return {
+        "status": "success",
+        "delivery": summary,
+        "items": items,
+        "item_count": len(items),
+    }
 
 
 def _flatten_lists_response(raw: Any) -> List[Dict[str, Any]]:
