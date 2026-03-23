@@ -110,7 +110,7 @@ async def terminal_page(request: Request):
 
 @router.get("/workspaces/")
 async def list_workspaces():
-    """List active Claude Code workspaces."""
+    """List active Claude Code workspaces with worker health data."""
     try:
         from radbot.tools.claude_code.db import list_active_workspaces
 
@@ -121,10 +121,88 @@ async def list_workspaces():
                     ws[k] = v.isoformat()
                 elif hasattr(v, "hex"):
                     ws[k] = str(v)
+            # Default health fields
+            ws["worker_status"] = None
+            ws["worker_uptime_seconds"] = None
+            ws["worker_idle_seconds"] = None
+            ws["worker_sessions"] = None
+
+        # Enrich with worker health data if in remote mode
+        if _is_remote_mode():
+            await _enrich_workspaces_with_health(workspaces)
+
         return {"workspaces": workspaces}
     except Exception as e:
         logger.error("Error listing workspaces: %s", e, exc_info=True)
         raise HTTPException(500, f"Error listing workspaces: {e}")
+
+
+async def _enrich_workspaces_with_health(workspaces: list) -> None:
+    """Add worker health info to each workspace dict (best-effort)."""
+    try:
+        from radbot.worker.db import get_workspace_worker
+    except ImportError:
+        return
+
+    async with httpx.AsyncClient(timeout=2) as client:
+        for ws in workspaces:
+            ws_id = str(ws.get("workspace_id", ""))
+            try:
+                worker = get_workspace_worker(ws_id)
+                if not worker:
+                    continue
+                db_status = worker.get("status", "stopped")
+                worker_url = worker.get("worker_url")
+
+                if db_status == "starting":
+                    ws["worker_status"] = "starting"
+                    continue
+
+                if not worker_url or db_status == "stopped":
+                    continue
+
+                # Hit the worker health endpoint
+                resp = await client.get(f"{worker_url}/health")
+                if resp.status_code == 200:
+                    health = resp.json()
+                    ws["worker_status"] = "running"
+                    ws["worker_uptime_seconds"] = health.get("uptime_seconds")
+                    ws["worker_idle_seconds"] = health.get("idle_seconds")
+                    ws["worker_sessions"] = health.get("terminal_sessions")
+                else:
+                    ws["worker_status"] = "unhealthy"
+            except Exception:
+                if ws.get("worker_status") is None:
+                    ws["worker_status"] = "unhealthy"
+
+
+@router.get("/workspaces/{workspace_id}/health")
+async def workspace_health(workspace_id: str):
+    """Get detailed worker health for a single workspace."""
+    try:
+        from radbot.worker.db import get_workspace_worker
+
+        worker = get_workspace_worker(workspace_id)
+        if not worker or not worker.get("worker_url"):
+            return {"worker_status": None}
+
+        if worker.get("status") == "starting":
+            return {"worker_status": "starting"}
+
+        async with httpx.AsyncClient(timeout=2) as client:
+            resp = await client.get(f"{worker['worker_url']}/health")
+            if resp.status_code == 200:
+                health = resp.json()
+                return {
+                    "worker_status": "running",
+                    "worker_uptime_seconds": health.get("uptime_seconds"),
+                    "worker_idle_seconds": health.get("idle_seconds"),
+                    "worker_sessions": health.get("terminal_sessions"),
+                }
+            return {"worker_status": "unhealthy"}
+    except Exception as e:
+        logger.debug("Workspace health check failed: %s", e)
+        return {"worker_status": "unhealthy", "error": str(e)}
 
 
 @router.post("/sessions/")

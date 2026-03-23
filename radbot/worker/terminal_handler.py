@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 MSG_DATA = 0x01  # terminal I/O data
 MSG_RESIZE = 0x02  # client→server resize (uint16 cols + uint16 rows)
 MSG_CLOSED = 0x03  # server→client session closed (int32 exit code)
+MSG_REPLAY_END = 0x04  # marks end of scrollback replay
 
 # Configuration
 MAX_CONCURRENT_SESSIONS = 3
@@ -499,6 +500,12 @@ async def handle_terminal_websocket(
             )
         except Exception as e:
             logger.debug("Failed to replay scrollback: %s", e)
+
+    # Send replay-end marker so the frontend knows where history ends
+    try:
+        await websocket.send_bytes(bytes([MSG_REPLAY_END]))
+    except Exception:
+        pass
 
     # Start the shared PTY reader if this is the first client
     await ensure_pty_reader(session)

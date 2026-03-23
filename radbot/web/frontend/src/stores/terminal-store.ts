@@ -31,6 +31,11 @@ interface TerminalState {
   updateWorkspace: (workspaceId: string, data: { name?: string; description?: string }) => Promise<void>;
   createScratchWorkspace: (name?: string, description?: string) => Promise<void>;
 
+  // Health polling
+  _healthInterval: ReturnType<typeof setInterval> | null;
+  startHealthPolling: () => void;
+  stopHealthPolling: () => void;
+
   // Error
   error: string | null;
   clearError: () => void;
@@ -43,6 +48,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   status: null,
   showCloneForm: false,
   error: null,
+  _healthInterval: null,
 
   loadWorkspaces: async () => {
     try {
@@ -160,6 +166,24 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       }));
     } catch (e) {
       set({ error: `Failed to create scratch workspace: ${e}` });
+    }
+  },
+
+  startHealthPolling: () => {
+    const existing = get()._healthInterval;
+    if (existing) return;
+    const interval = setInterval(() => {
+      get().loadWorkspaces();
+      get().loadSessions();
+    }, 10000);
+    set({ _healthInterval: interval });
+  },
+
+  stopHealthPolling: () => {
+    const interval = get()._healthInterval;
+    if (interval) {
+      clearInterval(interval);
+      set({ _healthInterval: null });
     }
   },
 

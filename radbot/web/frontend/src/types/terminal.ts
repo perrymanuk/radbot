@@ -10,6 +10,10 @@ export interface Workspace {
   last_used_at: string;
   name: string | null;
   description: string | null;
+  worker_status?: "running" | "starting" | "stopped" | "unhealthy" | null;
+  worker_uptime_seconds?: number | null;
+  worker_idle_seconds?: number | null;
+  worker_sessions?: number | null;
 }
 
 export interface TerminalSession {
