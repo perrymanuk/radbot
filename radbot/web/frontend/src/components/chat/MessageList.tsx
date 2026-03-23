@@ -3,17 +3,34 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useAppStore } from "@/stores/app-store";
 import ChatMessage from "./ChatMessage";
 
+function TypingIndicator() {
+  return (
+    <div className="w-full px-2 mb-2 py-1">
+      <div className="flex items-center gap-2">
+        <span className="text-terminal-amber text-[0.8125rem] sm:text-[0.85rem] font-mono tracking-[0.5px]">
+          beto@radbox:~$
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-terminal-amber animate-bounce [animation-delay:0ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-terminal-amber animate-bounce [animation-delay:150ms]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-terminal-amber animate-bounce [animation-delay:300ms]" />
+        </div>
+        <span className="text-txt-secondary/60 text-[0.7rem] font-mono ml-1">thinking</span>
+      </div>
+    </div>
+  );
+}
+
 export default function MessageList() {
   const messages = useAppStore((s) => s.messages);
+  const connectionStatus = useAppStore((s) => s.connectionStatus);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const scrollerRef = useRef<HTMLElement | null>(null);
   const isAtBottomRef = useRef(true);
+  const isThinking = connectionStatus === "thinking";
 
   const scrollToBottom = useCallback(() => {
     if (scrollerRef.current) {
-      // Set scrollTop directly on the DOM element — the browser clamps
-      // to (scrollHeight − clientHeight), which is the true bottom
-      // regardless of Virtuoso's internal height estimates.
       scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
     }
   }, []);
@@ -21,8 +38,6 @@ export default function MessageList() {
   // Scroll to bottom when new messages arrive (if user is at bottom)
   useEffect(() => {
     if (messages.length > 0 && isAtBottomRef.current) {
-      // Double-rAF: first lets React commit, second lets Virtuoso
-      // render + measure the new item so scrollHeight is accurate.
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollToBottom();
@@ -30,6 +45,17 @@ export default function MessageList() {
       });
     }
   }, [messages.length, scrollToBottom]);
+
+  // Also scroll when thinking state changes
+  useEffect(() => {
+    if (isThinking && isAtBottomRef.current) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      });
+    }
+  }, [isThinking, scrollToBottom]);
 
   const handleScrollerRef = useCallback(
     (ref: HTMLElement | Window | null) => {
@@ -62,6 +88,10 @@ export default function MessageList() {
       }}
       computeItemKey={(_index, msg) => msg.id}
       itemContent={(_index, msg) => <ChatMessage message={msg} />}
+      followOutput="smooth"
+      components={{
+        Footer: () => (isThinking ? <TypingIndicator /> : null),
+      }}
       style={{
         scrollbarWidth: "thin",
         scrollbarColor: "#3584e4 #0e1419",

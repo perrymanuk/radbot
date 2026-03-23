@@ -18,7 +18,7 @@ const config: Config = {
           "blue-dark": "#2a6bbd",
         },
         txt: {
-          primary: "#e2e2e2",
+          primary: "#f0f0f0",
           secondary: "#9eacb9",
         },
         border: "#304050",

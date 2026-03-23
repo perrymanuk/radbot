@@ -12,9 +12,9 @@
   body {
     font-family: "Source Code Pro", monospace;
     background-color: #0e1419;
-    color: #e2e2e2;
+    color: #f0f0f0;
     min-height: 100vh;
-    line-height: 1.1;
+    line-height: 1.4;
     overflow: hidden;
   }
 

@@ -47,7 +47,7 @@ export default function ChatInput() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+    el.style.height = Math.min(el.scrollHeight, 150) + "px";
   }, []);
 
   useEffect(() => {
@@ -215,8 +215,11 @@ export default function ChatInput() {
       {isMobile && <FloatingMicButton state={stt.state} toggle={stt.toggle} />}
 
       <div className="flex gap-1.5 relative items-stretch">
-        {/* $ prompt prefix */}
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-accent-blue font-bold text-base z-10 pointer-events-none">
+        {/* $ prompt prefix — inside the input area */}
+        <span className={cn(
+          "absolute left-2 top-1/2 -translate-y-1/2 font-bold text-base z-10 pointer-events-none font-mono",
+          memoryMode ? "text-terminal-green" : "text-accent-blue",
+        )}>
           {memoryMode ? "#" : "$"}
         </span>
 
@@ -253,12 +256,12 @@ export default function ChatInput() {
           rows={1}
           className={cn(
             "flex-1 pl-6 pr-2 py-1.5 border border-border resize-none outline-none",
-            "text-base sm:text-[0.85rem] min-h-[44px] sm:min-h-[30px] max-h-[120px] overflow-y-auto",
+            "text-base sm:text-[0.85rem] min-h-[44px] sm:min-h-[30px] max-h-[150px] overflow-y-auto",
             "bg-bg-secondary text-txt-primary font-mono",
             "caret-accent-blue transition-all",
             "focus:border-accent-blue focus:shadow-[0_0_5px_rgba(53,132,228,0.3)]",
             "placeholder:text-txt-secondary/50",
-            memoryMode && "border-terminal-green caret-terminal-green",
+            memoryMode && "border-terminal-green caret-terminal-green focus:border-terminal-green focus:shadow-[0_0_5px_rgba(51,255,51,0.3)]",
           )}
         />
 
@@ -266,11 +269,13 @@ export default function ChatInput() {
         <button
           onClick={stt.toggle}
           disabled={stt.state === "processing"}
+          aria-label={stt.state === "recording" ? "Stop recording" : "Start voice input"}
           className={cn(
             "px-2 border border-border bg-bg-tertiary text-txt-primary",
             "cursor-pointer hidden sm:flex items-center justify-center transition-all",
             "uppercase tracking-wider text-[0.7rem] font-mono",
             "hover:bg-accent-blue hover:text-bg-primary",
+            "focus:outline-none focus:ring-1 focus:ring-accent-blue",
             stt.state === "recording" &&
               "bg-terminal-red/20 border-terminal-red text-terminal-red animate-pulse",
             stt.state === "processing" &&
@@ -284,12 +289,14 @@ export default function ChatInput() {
         <button
           onClick={send}
           disabled={isDisabled || !text.trim()}
+          aria-label="Send message"
           className={cn(
             "px-3 border border-border bg-bg-tertiary text-txt-primary",
             "cursor-pointer flex items-center justify-center transition-all",
             "uppercase tracking-wider text-[0.7rem] font-mono",
             "min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0",
             "hover:bg-accent-blue hover:text-bg-primary",
+            "focus:outline-none focus:ring-1 focus:ring-accent-blue",
             "disabled:border-accent-blue/30 disabled:text-accent-blue/30 disabled:bg-bg-tertiary disabled:cursor-not-allowed",
           )}
         >
