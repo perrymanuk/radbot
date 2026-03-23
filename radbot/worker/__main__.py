@@ -176,6 +176,16 @@ def _start_server(workspace_id: str | None, host: str, port: int):
     ]
 
     async def lifespan(app):
+        # Load integration configs (GitHub, etc.) from the credential store DB
+        # before attempting workspace operations that need them.
+        try:
+            from radbot.config.config_loader import config_loader
+
+            config_loader.load_db_config()
+            logger.info("Loaded DB config overrides")
+        except Exception as e:
+            logger.warning("Failed to load DB config: %s", e)
+
         if workspace_id:
             _ensure_workspace_ready(workspace_id)
         logger.info("Terminal worker ready on %s:%d", host, port)
