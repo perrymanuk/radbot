@@ -99,7 +99,25 @@ class RadbotRunner(Runner):
 
             # Run the coordinator's full Workflow (call_llm → execute_tools)
             # This properly executes tools including RequestTaskTool.
+            event_count = 0
             async for event in coordinator.run_async(parent_context=ic):
+                event_count += 1
+                # Log every event for debugging
+                fc_names = []
+                if hasattr(event, "content") and event.content and hasattr(event.content, "parts") and event.content.parts:
+                    for p in event.content.parts:
+                        if hasattr(p, "function_call") and p.function_call:
+                            fc_names.append(getattr(p.function_call, "name", "?"))
+                        if hasattr(p, "function_response") and p.function_response:
+                            fc_names.append(f"resp:{getattr(p.function_response, 'name', '?')}")
+                        if hasattr(p, "text") and p.text:
+                            fc_names.append(f"text:{p.text[:50]}")
+                transfer = getattr(event.actions, "transfer_to_agent", None) if hasattr(event, "actions") else None
+                req_task = getattr(event.actions, "request_task", None) if hasattr(event, "actions") else None
+                logger.info(
+                    "RadbotRunner event #%d: author=%s parts=%s transfer=%s req_task=%s",
+                    event_count, getattr(event, "author", "?"), fc_names or None, transfer, bool(req_task),
+                )
                 yield event
 
                 # Check if the coordinator delegated to a task agent
