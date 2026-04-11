@@ -42,11 +42,15 @@ class RadbotRunner(Runner):
 
         # When V1 is disabled, LlmAgent is a _Mesh (BaseNode subclass).
         # Route it through the BaseNode path instead of wrapping it.
-        if (
-            isinstance(self.agent, LlmAgent)
-            and not is_feature_enabled(FeatureName.V1_LLM_AGENT)
-            and isinstance(self.agent, BaseNode)
-        ):
+        v1_enabled = is_feature_enabled(FeatureName.V1_LLM_AGENT)
+        is_llm = isinstance(self.agent, LlmAgent)
+        is_node = isinstance(self.agent, BaseNode)
+
+        if is_llm and not v1_enabled and is_node:
+            logger.info(
+                "RadbotRunner: V1 disabled, routing %s (_Mesh) through BaseNode path",
+                self.agent.name,
+            )
             run_config = run_config or RunConfig()
             if new_message and not new_message.role:
                 new_message.role = "user"
@@ -65,6 +69,10 @@ class RadbotRunner(Runner):
                 yield event
             return
 
+        logger.info(
+            "RadbotRunner: using standard path (V1=%s, LlmAgent=%s, BaseNode=%s)",
+            v1_enabled, is_llm, is_node,
+        )
         # Fall through to standard Runner.run_async for all other cases
         async for event in super().run_async(
             user_id=user_id,
