@@ -284,8 +284,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ## Known Gotchas
 
-- **google-adk 2.0.0a3** with `ADK_DISABLE_V1_LLM_AGENT=true` — uses V2 workflow-based LlmAgent with `_Mesh` routing and Task API.
-- **ADK 2.0 Task API**: Domain sub-agents use `mode='task'` — beto calls them via auto-injected `RequestTaskTool` (e.g., `casa(goal="...")`), sub-agents complete via `finish_task(result="...")`. `search_agent` and `code_execution_agent` stay `mode='chat'` (use `transfer_to_agent`).
+- **google-adk 2.0.0a3** with V1 LlmAgent mode (default). V2 `_Mesh` has an async generator bug where `execute_tools` never fires — the `_Mesh` breaks out of the coordinator's event loop before the inner Workflow can schedule tool execution. Code is V2-ready: `mode='task'` set on domain agents, instructions are V1/V2 adaptive. Re-enable V2 by adding `ADK_DISABLE_V1_LLM_AGENT=true` to Dockerfile once ADK fixes the _Mesh bug.
 - **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API)
 - **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the `_Mesh` routing graph is built in `model_post_init`. See `agent_core.py`.
 - **ADK 2.0 app_name validation**: App names must be valid Python identifiers (letters, digits, underscores). No hyphens.
