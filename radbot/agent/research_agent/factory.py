@@ -14,7 +14,7 @@ from google.adk.tools import FunctionTool
 
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent
-from radbot.agent.shared import TRANSFER_INSTRUCTIONS
+from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS
 from radbot.config import config_manager
 
 
@@ -91,9 +91,9 @@ def create_research_agent(
     # No sub-agents needed here — search_agent, code_execution_agent, and axel
     # are siblings under beto, and ADK's transfer_to_agent can find them by name.
 
-    # Append mandatory transfer-back instructions
+    # Append mandatory task completion instructions
     if hasattr(adk_agent, "instruction") and adk_agent.instruction:
-        adk_agent.instruction += TRANSFER_INSTRUCTIONS
+        adk_agent.instruction += TASK_FINISH_INSTRUCTIONS
 
     # Return either the ResearchAgent wrapper or the underlying ADK agent
     if as_subagent:

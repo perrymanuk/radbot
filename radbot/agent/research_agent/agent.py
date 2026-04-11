@@ -93,12 +93,13 @@ class ResearchAgent:
 
         # Create the LlmAgent instance
         self.agent = LlmAgent(
-            name=name,  # CRITICAL: Must match exactly what's expected in transfer_to_agent calls
+            name=name,
             model=model,
             instruction=instruction,
             description=description,
             tools=tools,
             output_key=output_key,
+            mode="task",
         )
 
         # Store app_name for reference (not used by LlmAgent but needed for Runner)

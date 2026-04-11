@@ -31,6 +31,6 @@ You have agent-scoped memory tools to build context across sessions:
 Use memory to track ongoing research threads and avoid re-doing previous analysis.
 
 ## Web Search
-For web searches, use `transfer_to_agent(agent_name="search_agent")` to delegate to the search agent, or use any web search tools available in your tool set.
+Use any web search tools available in your tool set for web research.
 
 

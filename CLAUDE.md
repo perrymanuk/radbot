@@ -284,12 +284,12 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ## Known Gotchas
 
-- **google-adk 2.0.0a3** with `ADK_DISABLE_V1_LLM_AGENT=true` — uses new workflow-based LlmAgent internals (_Mesh routing). All agents default to `mode='chat'`.
+- **google-adk 2.0.0a3** with `ADK_DISABLE_V1_LLM_AGENT=true` — uses V2 workflow-based LlmAgent with `_Mesh` routing and Task API.
+- **ADK 2.0 Task API**: Domain sub-agents use `mode='task'` — beto calls them via auto-injected `RequestTaskTool` (e.g., `casa(goal="...")`), sub-agents complete via `finish_task(result="...")`. `search_agent` and `code_execution_agent` stay `mode='chat'` (use `transfer_to_agent`).
 - **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API)
 - **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the `_Mesh` routing graph is built in `model_post_init`. See `agent_core.py`.
 - **ADK 2.0 app_name validation**: App names must be valid Python identifiers (letters, digits, underscores). No hyphens.
 - **ADK `@tool` decorator removed**: `google.adk.tools.decorators.tool` no longer exists in 2.0. Use `FunctionTool` wrapper instead. Existing code has try/except fallbacks.
-- **ADK 2.0 Runner bug**: `Runner.run_async()` wraps LlmAgent in `_V1LlmAgentWrapper` even with V1 disabled, breaking `_Mesh` transfer routing. Fixed via `RadbotRunner` subclass in `radbot/agent/runner.py`. All Runner imports use `from radbot.agent.runner import RadbotRunner as Runner`. Remove this once ADK fixes upstream.
 - **BuiltInCodeExecutor**: Use `code_executor=BuiltInCodeExecutor()` on Agent, not as a tool
 - **ADK async**: `InMemorySessionService.get_session/create_session` are async — must be awaited
 - **Runner.run_async()** for async contexts; `Runner.run()` blocks the event loop
