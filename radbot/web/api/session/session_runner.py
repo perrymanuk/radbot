@@ -294,19 +294,9 @@ class SessionRunner:
                 if has_text or attempt == MAX_RETRIES - 1:
                     break
 
-                # Log event details before retry
-                for ei, ev in enumerate(events):
-                    fc_names = []
-                    if hasattr(ev, "content") and ev.content and hasattr(ev.content, "parts") and ev.content.parts:
-                        for p in ev.content.parts:
-                            if hasattr(p, "function_call") and p.function_call:
-                                fc_names.append(getattr(p.function_call, "name", "?"))
-                    transfer = getattr(ev.actions, "transfer_to_agent", None) if hasattr(ev, "actions") else None
-                    req_task = getattr(ev.actions, "request_task", None) if hasattr(ev, "actions") else None
-                    logger.warning(
-                        "  Event[%d]: author=%s fc=%s transfer=%s request_task=%s",
-                        ei, getattr(ev, "author", "?"), fc_names or None, transfer, bool(req_task),
-                    )
+                # Empty text response — the model returned function calls (e.g. transfer_to_agent)
+                # but the target agent produced no text.  Reset the session to avoid poisoning
+                # and retry with a fresh session.
                 logger.warning(
                     "No text in model response on attempt %d/%d (got %d events with function calls only) "
                     "— resetting session and retrying",
