@@ -189,6 +189,7 @@ class SchedulerEngine:
                 message=message,
                 tags=tags,
                 session_id=session_id,
+                skip_notification=True,
             )
         except Exception as e:
             logger.warning(f"ntfy notification failed (non-fatal): {e}")
@@ -313,7 +314,31 @@ class SchedulerEngine:
                 session_id=session_id,
             )
 
-            # 10. If no WS connections were active, queue result for reconnect delivery
+            # 10. Persist to notifications table
+            try:
+                from radbot.tools.notifications.db import create_notification
+
+                notif = create_notification(
+                    type="scheduled_task",
+                    title=f"Scheduled: {name}",
+                    message=response[:4000] if response else "(no response)",
+                    source_id=task_id,
+                    session_id=session_id,
+                    metadata={"task_name": name, "prompt": prompt[:500]},
+                )
+                # Broadcast notification event for real-time badge updates
+                await self._broadcast_to_all({
+                    "type": "notification",
+                    "content": {
+                        "notification_id": str(notif.get("notification_id", "")),
+                        "notification_type": "scheduled_task",
+                        "title": f"Scheduled: {name}",
+                    },
+                })
+            except Exception as n_err:
+                logger.warning(f"Failed to create notification for task '{name}': {n_err}")
+
+            # 11. If no WS connections were active, queue result for reconnect delivery
             if not has_connections and response:
                 try:
                     from radbot.tools.scheduler.db import queue_pending_result
@@ -417,6 +442,28 @@ class SchedulerEngine:
             message=message,
             tags="bell",
         )
+
+        # 2.5. Persist to notifications table
+        try:
+            from radbot.tools.notifications.db import create_notification
+
+            notif = create_notification(
+                type="reminder",
+                title="Reminder",
+                message=message,
+                source_id=reminder_id,
+                metadata={"reminder_id": reminder_id},
+            )
+            await self._broadcast_to_all({
+                "type": "notification",
+                "content": {
+                    "notification_id": str(notif.get("notification_id", "")),
+                    "notification_type": "reminder",
+                    "title": "Reminder",
+                },
+            })
+        except Exception as n_err:
+            logger.warning(f"Failed to create notification for reminder: {n_err}")
 
         # 3. Check if we can deliver via WS now
         if (

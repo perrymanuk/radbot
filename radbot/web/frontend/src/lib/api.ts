@@ -5,6 +5,7 @@ import type {
   AgentEvent,
   AgentInfo,
   Message,
+  Notification,
 } from "@/types";
 
 const BASE = "";
@@ -139,6 +140,42 @@ export async function transcribeAudio(
     method: "POST",
     body: formData,
   });
+}
+
+// ── Notifications ────────────────────────────────────────
+export async function fetchNotifications(params?: {
+  type?: string;
+  read?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ notifications: Notification[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params?.type) q.set("type", params.type);
+  if (params?.read) q.set("read", params.read);
+  if (params?.limit) q.set("limit", String(params.limit));
+  if (params?.offset) q.set("offset", String(params.offset));
+  const qs = q.toString();
+  return json(`/api/notifications/${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchUnreadCount(): Promise<{ count: number }> {
+  return json("/api/notifications/unread-count");
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await fetch(`${BASE}/api/notifications/${id}/read`, { method: "POST" });
+}
+
+export async function markAllNotificationsRead(type?: string): Promise<void> {
+  await fetch(`${BASE}/api/notifications/read-all`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(type ? { type } : {}),
+  });
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  await fetch(`${BASE}/api/notifications/${id}`, { method: "DELETE" });
 }
 
 // ── Health ────────────────────────────────────────────────

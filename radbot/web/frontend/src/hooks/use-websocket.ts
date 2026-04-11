@@ -188,6 +188,10 @@ export function useWebSocket(sessionId: string | null) {
                 }
               }
               break;
+
+            case "notification":
+              useAppStore.getState().incrementUnreadNotifications();
+              break;
           }
         } catch (err) {
           console.error("[WS] Message parse error:", err);

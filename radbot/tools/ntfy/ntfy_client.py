@@ -78,6 +78,7 @@ class NtfyClient:
         priority: Optional[str] = None,
         tags: Optional[str] = None,
         session_id: Optional[str] = None,
+        skip_notification: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Publish a notification to the configured ntfy topic.
 
@@ -117,6 +118,20 @@ class NtfyClient:
                 resp = await client.post(url, json=payload, headers=headers)
                 if resp.status_code == 200:
                     logger.info(f"ntfy notification sent: {title[:60]}")
+                    if not skip_notification:
+                        try:
+                            from radbot.tools.notifications.db import create_notification
+
+                            create_notification(
+                                type="ntfy_outbound",
+                                title=title[:256],
+                                message=message[:2000] if message else "(no content)",
+                                session_id=session_id,
+                                priority=prio,
+                                metadata={"tags": tags},
+                            )
+                        except Exception:
+                            pass  # non-critical
                     return resp.json()
                 else:
                     logger.warning(

@@ -29,7 +29,10 @@ async def _notify(
 
         client = get_ntfy_client()
         if client:
-            await client.publish(title=title, message=message, priority=priority, tags=tags)
+            await client.publish(
+                title=title, message=message, priority=priority, tags=tags,
+                skip_notification=True,
+            )
     except Exception as e:
         logger.warning(f"ntfy notification failed: {e}")
 
@@ -188,6 +191,26 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
         priority=_severity_to_priority(severity),
         tags="warning,robot",
     )
+
+    # Persist to notifications table
+    try:
+        from radbot.tools.notifications.db import create_notification
+
+        create_notification(
+            type="alert",
+            title=f"Alert: {alertname}",
+            message=f"Severity: {severity}\nInstance: {instance}\n{summary}",
+            source_id=str(alert_id),
+            priority=_severity_to_priority(severity),
+            metadata={
+                "alertname": alertname,
+                "severity": severity,
+                "status": alert_status,
+                "instance": instance,
+            },
+        )
+    except Exception as n_err:
+        logger.warning(f"Failed to create notification for alert {alertname}: {n_err}")
 
     # ── Policy lookup ─────────────────────────────────────────
     policy = get_matching_policy(alertname, severity)

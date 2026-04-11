@@ -72,6 +72,11 @@ interface AppState {
   // ── Memory mode ─────────────────────────────────────────
   memoryMode: boolean;
   setMemoryMode: (on: boolean) => void;
+
+  // ── Unread notifications ────────────────────────────────
+  unreadNotificationCount: number;
+  setUnreadNotificationCount: (n: number) => void;
+  incrementUnreadNotifications: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -92,6 +97,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ sessionId: uuid() });
     }
     get().loadAgentInfo();
+    // Load unread notification count for badge
+    api.fetchUnreadCount().then(({ count }) => set({ unreadNotificationCount: count })).catch(() => {});
   },
 
   setSessionId: (id) => set({ sessionId: id }),
@@ -266,4 +273,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ── Memory mode ─────────────────────────────────────────
   memoryMode: false,
   setMemoryMode: (on) => set({ memoryMode: on }),
+
+  // ── Unread notifications ────────────────────────────────
+  unreadNotificationCount: 0,
+  setUnreadNotificationCount: (n) => set({ unreadNotificationCount: n }),
+  incrementUnreadNotifications: () =>
+    set((s) => ({ unreadNotificationCount: s.unreadNotificationCount + 1 })),
 }));

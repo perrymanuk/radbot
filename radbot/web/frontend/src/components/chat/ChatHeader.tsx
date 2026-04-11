@@ -29,6 +29,7 @@ export default function ChatHeader() {
   const togglePanel = useAppStore((s) => s.togglePanel);
   const activePanel = useAppStore((s) => s.activePanel);
   const createNewSession = useAppStore((s) => s.createNewSession);
+  const unreadNotifCount = useAppStore((s) => s.unreadNotificationCount);
   const [ttsAutoPlay, setTtsAutoPlay] = useState(
     () => localStorage.getItem("radbot_tts_autoplay") === "true",
   );
@@ -117,6 +118,24 @@ export default function ChatHeader() {
             active={activePanel === "events"}
             onClick={() => togglePanel("events")}
           />
+          <a
+            href="/notifications"
+            aria-label="Notifications"
+            className={cn(
+              "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline relative",
+              "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+              "text-accent-blue hover:bg-accent-blue/15 hover:text-accent-blue",
+              "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+            )}
+          >
+            <span className="hidden sm:inline">NOTIF</span>
+            <span className="sm:hidden">N</span>
+            {unreadNotifCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-terminal-red text-bg-primary text-[0.5rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                {unreadNotifCount > 99 ? "99+" : unreadNotifCount}
+              </span>
+            )}
+          </a>
           <a
             href="/terminal"
             aria-label="Open terminal"

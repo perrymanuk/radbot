@@ -51,6 +51,7 @@ from radbot.web.api.terminal import (
 from radbot.web.api.webhooks import router as webhooks_router
 from radbot.web.api.health import router as health_router
 from radbot.web.api.alerts import router as alerts_router
+from radbot.web.api.notifications import router as notifications_router
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ def create_app():
     app.include_router(admin_router)
     app.include_router(reminders_router)
     app.include_router(terminal_router)
+    app.include_router(notifications_router)
     register_terminal_websocket(app)
     logger.debug("API routers registered during app initialization")
 
@@ -192,6 +194,18 @@ async def initialize_app_startup():
         except Exception as coder_err:
             logger.error(
                 f"Error initializing coder workspaces database: {str(coder_err)}",
+                exc_info=True,
+            )
+
+        logger.debug("Initializing notification database schema...")
+        try:
+            from radbot.tools.notifications.db import init_notification_schema
+
+            init_notification_schema()
+            logger.debug("Notification database schema initialized")
+        except Exception as notif_err:
+            logger.error(
+                f"Error initializing notification database: {str(notif_err)}",
                 exc_info=True,
             )
 
@@ -708,6 +722,24 @@ async def index(request: Request):
         content="<h1>RadBot</h1><p>React frontend not built. Run <code>make build-frontend</code> first.</p>",
         status_code=503,
     )
+
+
+@app.get("/notifications")
+async def notifications_page(request: Request):
+    """Serve React SPA for the notifications page."""
+    return await index(request)
+
+
+@app.get("/admin")
+async def admin_page(request: Request):
+    """Serve React SPA for the admin page."""
+    return await index(request)
+
+
+@app.get("/terminal")
+async def terminal_page(request: Request):
+    """Serve React SPA for the terminal page."""
+    return await index(request)
 
 
 @app.get("/healthz")

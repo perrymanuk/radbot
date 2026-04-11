@@ -169,6 +169,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/github/` | `github_app_client.py` | `GitHubAppClient` class (JWT auth, clone, push) | GitHub App integration |
 | `tools/claude_code/` | `claude_code_client.py`, `claude_code_tools.py`, `db.py` | `clone_repository`, `claude_code_plan`, `claude_code_continue`, `claude_code_execute`, `commit_and_push`, `list_workspaces` | Claude Code CLI + GitHub workflow |
 | `tools/nomad/` | `nomad_client.py`, `nomad_tools.py` | `list_nomad_jobs`, `get_nomad_job_status`, `get_nomad_allocation_logs`, `restart_nomad_allocation`, `plan_nomad_job_update`, `submit_nomad_job_update`, `check_nomad_service_health` | Nomad HTTP API |
+| `tools/notifications/` | `db.py` | `create_notification`, `list_notifications`, `mark_read`, `mark_all_read` | Unified notification store (scheduled tasks, reminders, alerts, ntfy) |
 | `tools/alertmanager/` | `db.py`, `processor.py`, `ntfy_handler.py` | (pipeline, not FunctionTools) | Alert ingestion + autonomous remediation |
 | `tools/shared/` | `config_helper.py`, `client_utils.py`, `tool_decorator.py`, `retry.py`, `db_schema.py`, `errors.py`, `validation.py` | `get_integration_config()`, `client_or_error()`, `@tool_error_handler`, `@retry_on_error` | Shared helpers |
 
@@ -193,6 +194,7 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |
 | `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
+| `notifications` | `tools/notifications/db.py` | `notification_id` (UUID), `type` (scheduled_task/reminder/alert/ntfy_outbound), `title`, `message`, `read`, `priority`, `metadata` (JSONB) |
 | `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
 Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own pool in `web/db/connection.py`.

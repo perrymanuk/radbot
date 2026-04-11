@@ -76,9 +76,25 @@ export type ConnectionStatus =
   | "error";
 
 export interface WSMessage {
-  type: "message" | "status" | "events" | "heartbeat" | "history" | "sync_response";
+  type: "message" | "status" | "events" | "heartbeat" | "history" | "sync_response" | "notification";
   content?: string | Message[] | AgentEvent[];
   messages?: Message[];
+}
+
+// ── Notifications ────────────────────────────────────────
+export type NotificationType = "scheduled_task" | "reminder" | "alert" | "ntfy_outbound";
+
+export interface Notification {
+  notification_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  source_id?: string;
+  session_id?: string;
+  priority: string;
+  read: boolean;
+  metadata?: Record<string, unknown>;
+  created_at: string;
 }
 
 // ── Panels ────────────────────────────────────────────────
