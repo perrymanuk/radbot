@@ -205,7 +205,7 @@ class TestQdrantMemoryService:
                     os.environ["QDRANT_COLLECTION"] = old_val
 
             results = service.search_memory(
-                app_name="test-app", user_id="user123", query="test query", limit=5
+                app_name="test_app", user_id="user123", query="test query", limit=5
             )
 
             # Verify query_points was called

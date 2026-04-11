@@ -23,7 +23,7 @@ RUN ANTHROPIC_API_KEY=sk-ant-dummy claude -p "hi" --max-turns 1 2>/dev/null || t
     && echo '{}' > /root/.claude/settings.local.json
 
 # Stage 3: Install Python dependencies (build tools available here only)
-FROM python:3.12-slim AS python-builder
+FROM python:3.14-slim AS python-builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc git \
@@ -40,7 +40,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -e ".[web]"
 
 # Stage 4: Runtime image (no build tools)
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 # Runtime-only system deps: libpq5 (psycopg2 runtime), git (workspace clones),
 # curl + ca-certificates (health checks, API calls)
@@ -62,7 +62,7 @@ RUN mkdir -p /app/workspaces
 WORKDIR /app
 
 # Copy Python packages from builder (no gcc/libpq-dev carried over)
-COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=python-builder /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
 
 # Copy application code
 COPY radbot/ radbot/
@@ -74,7 +74,8 @@ COPY --from=frontend-build /frontend/dist radbot/web/static/dist/
 # Environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    ADK_DISABLE_V1_LLM_AGENT=true
 
 EXPOSE 8000
 

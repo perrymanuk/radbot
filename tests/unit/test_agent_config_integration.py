@@ -216,16 +216,18 @@ class TestAgentConfigIntegration:
     def test_create_runner(self):
         """Test create_runner with custom session service."""
         # Create mock agent and session service
-        mock_agent = MagicMock()
+        # ADK 2.0 validates root_agent is a BaseAgent instance
+        from google.adk.agents import BaseAgent
+        mock_agent = MagicMock(spec=BaseAgent)
         mock_session_service = MagicMock(spec=InMemorySessionService)
 
         # Create runner
         runner = create_runner(
-            agent=mock_agent, app_name="test-app", session_service=mock_session_service
+            agent=mock_agent, app_name="test_app", session_service=mock_session_service
         )
 
         # Verify runner configuration
         assert isinstance(runner, Runner)
         assert runner.agent == mock_agent
-        assert runner.app_name == "test-app"
+        assert runner.app_name == "test_app"
         assert runner.session_service == mock_session_service

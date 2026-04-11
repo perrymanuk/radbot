@@ -86,32 +86,3 @@ def setup_before_agent_call(callback_context: CallbackContext):
     # Mark process as initialized so subsequent sessions skip all the above
     _process_initialized = True
     logger.info("Process-level agent setup complete (schema init + HA check)")
-
-
-from radbot.agent.research_agent.factory import create_research_agent
-from radbot.tools.adk_builtin.code_execution_tool import create_code_execution_agent
-
-# Create sub-agents that live directly under beto (not domain agents — those
-# are created by specialized_agent_factory.py)
-from radbot.tools.adk_builtin.search_tool import create_search_agent
-
-search_agent = create_search_agent(name="search_agent")
-code_execution_agent = create_code_execution_agent(name="code_execution_agent")
-scout_agent = create_research_agent(name="scout", as_subagent=False)
-
-# Attach empty content defense + telemetry callbacks to builtin sub-agents
-try:
-    from radbot.callbacks.empty_content_callback import (
-        handle_empty_response_after_model,
-        scrub_empty_content_before_model,
-    )
-    from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
-
-    _after_cbs = [handle_empty_response_after_model, telemetry_after_model_callback]
-    for _sa in (search_agent, code_execution_agent, scout_agent):
-        if _sa and not _sa.after_model_callback:
-            _sa.after_model_callback = _after_cbs
-        if _sa and not _sa.before_model_callback:
-            _sa.before_model_callback = scrub_empty_content_before_model
-except Exception:
-    pass

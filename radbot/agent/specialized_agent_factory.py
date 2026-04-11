@@ -2,7 +2,13 @@
 Factory for creating specialized agents in the RadBot system.
 
 Creates all domain-specific sub-agents (casa, planner, tracker, comms, axel)
-and registers them with the root agent.
+and returns them for inclusion in the root agent's sub_agents list at
+construction time.
+
+NOTE: ADK 2.0 builds the internal routing mesh in model_post_init, so all
+sub-agents MUST be passed to the root Agent constructor. Do NOT add agents
+to sub_agents after construction — they won't be part of the mesh and
+transfer_to_agent won't find them.
 """
 
 import logging
@@ -56,14 +62,11 @@ def _create_axel_agent() -> Optional[Agent]:
         return None
 
 
-def create_specialized_agents(root_agent: Agent) -> List[Agent]:
-    """Create all specialized agents and register them with the root agent.
-
-    Args:
-        root_agent: The root agent to attach specialized agents to.
+def create_specialized_agents() -> List[Agent]:
+    """Create all specialized agents and return them.
 
     Returns:
-        List of created specialized agents.
+        List of created specialized agents (None results filtered out).
     """
     specialized_agents = []
 
@@ -82,35 +85,10 @@ def create_specialized_agents(root_agent: Agent) -> List[Agent]:
         ("axel", _create_axel_agent),
     ]
 
-    # Import callbacks for sub-agents
-    try:
-        from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
-    except Exception:
-        telemetry_after_model_callback = None
-    try:
-        from radbot.callbacks.empty_content_callback import (
-            handle_empty_response_after_model,
-            scrub_empty_content_before_model,
-        )
-    except Exception:
-        handle_empty_response_after_model = None
-        scrub_empty_content_before_model = None
-
     for agent_name, factory in factories:
         try:
             agent = factory()
             if agent:
-                # Attach empty content + telemetry callbacks to each sub-agent
-                after_callbacks = [
-                    cb for cb in [handle_empty_response_after_model, telemetry_after_model_callback]
-                    if cb is not None
-                ]
-                if after_callbacks and not agent.after_model_callback:
-                    agent.after_model_callback = after_callbacks
-
-                # Attach history scrubbing before_model callback
-                if scrub_empty_content_before_model and not agent.before_model_callback:
-                    agent.before_model_callback = scrub_empty_content_before_model
                 specialized_agents.append(agent)
                 logger.debug(f"Created {agent_name} agent")
             else:
@@ -118,23 +96,6 @@ def create_specialized_agents(root_agent: Agent) -> List[Agent]:
         except Exception as e:
             logger.error(f"Failed to create {agent_name} agent: {e}")
 
-    # Add all specialized agents to root agent's sub_agents list
-    current_sub_agents = list(root_agent.sub_agents) if root_agent.sub_agents else []
-    current_sub_agents.extend(specialized_agents)
-    root_agent.sub_agents = current_sub_agents
-
-    # Manually set parent_agent on each new agent.
-    # ADK only sets parent_agent during model_post_init (at construction time),
-    # so agents added to sub_agents after construction need this set explicitly.
-    # Without it, transfer_to_agent("beto") fails on these agents.
-    for agent in specialized_agents:
-        if agent.parent_agent is None:
-            agent.parent_agent = root_agent
-            logger.debug(f"Set parent_agent on {agent.name} -> {root_agent.name}")
-
-    logger.info(
-        f"Registered {len(specialized_agents)} specialized agents. "
-        f"Total sub-agents on beto: {len(root_agent.sub_agents)}"
-    )
+    logger.info(f"Created {len(specialized_agents)} specialized agents")
 
     return specialized_agents

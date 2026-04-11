@@ -267,7 +267,7 @@ Set `RADBOT_TEST_URL` to point tests at any running RadBot instance. Integration
 
 ## Tech Stack
 
-- **Agent framework**: Google ADK 1.27.2
+- **Agent framework**: Google ADK 2.0.0a3
 - **LLM**: Google Gemini (configurable per agent)
 - **Backend**: FastAPI, WebSockets, APScheduler
 - **Frontend**: React 18, Vite 6, TypeScript, Tailwind CSS, Zustand

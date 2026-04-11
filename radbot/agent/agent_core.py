@@ -2,7 +2,11 @@
 Core agent creation and configuration for RadBot.
 
 Beto is a pure orchestrator with only memory tools. All domain tools
-live on specialized sub-agents created by specialized_agent_factory.py.
+live on specialized sub-agents.
+
+ADK 2.0 NOTE: All sub-agents MUST be passed to the root Agent constructor.
+The new workflow-based LlmAgent builds its internal routing mesh in
+model_post_init — agents added after construction won't be routable.
 """
 
 import logging
@@ -17,26 +21,14 @@ from radbot.agent.agent_initializer import (
     logger,
     types,
 )
-from radbot.agent.agent_tools_setup import (
-    code_execution_agent,
-    scout_agent,
-    search_agent,
-    setup_before_agent_call,
-)
+from radbot.agent.agent_tools_setup import setup_before_agent_call
 
-# Import specialized agents factory
-from radbot.agent.specialized_agent_factory import create_specialized_agents
-
-# Import sanitization callback
+# Import callbacks
 from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
-
-# Import empty content defense callbacks
 from radbot.callbacks.empty_content_callback import (
     handle_empty_response_after_model,
     scrub_empty_content_before_model,
 )
-
-# Import telemetry callback
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.config.config_loader import config_loader
 
@@ -123,23 +115,51 @@ today = date.today()
 # Beto's tools: only agent-scoped memory tools (orchestrator pattern)
 beto_tools = create_agent_memory_tools("beto")
 
-# Create the root agent — no domain tools, only memory tools
+# ---------------------------------------------------------------------------
+# Create ALL sub-agents BEFORE the root Agent constructor.
+# ADK 2.0's _Mesh builds the routing graph in model_post_init.
+# ---------------------------------------------------------------------------
+
+# Builtin sub-agents (search, code execution, scout)
+from radbot.agent.research_agent.factory import create_research_agent
+from radbot.tools.adk_builtin.code_execution_tool import create_code_execution_agent
+from radbot.tools.adk_builtin.search_tool import create_search_agent
+
+search_agent = create_search_agent(name="search_agent")
+code_execution_agent = create_code_execution_agent(name="code_execution_agent")
+scout_agent = create_research_agent(name="scout", as_subagent=False)
+
+# Domain sub-agents (casa, planner, tracker, comms, axel)
+from radbot.agent.specialized_agent_factory import create_specialized_agents
+
+specialized_agents = create_specialized_agents()
+logger.debug(f"Created {len(specialized_agents)} specialized agents")
+
+# Assemble the complete sub-agents list
+all_sub_agents = [a for a in [search_agent, code_execution_agent, scout_agent] if a is not None]
+all_sub_agents.extend(specialized_agents)
+
+# Attach callbacks to all sub-agents before construction
+_after_cbs = [handle_empty_response_after_model, telemetry_after_model_callback]
+for sa in all_sub_agents:
+    if not sa.after_model_callback:
+        sa.after_model_callback = _after_cbs
+    if not sa.before_model_callback:
+        sa.before_model_callback = scrub_empty_content_before_model
+
+# Create the root agent with ALL sub-agents in the constructor
 root_agent = Agent(
     model=model_name,
     name="beto",
     instruction=instruction,
     global_instruction=f"""Today's date: {today}""",
-    sub_agents=[search_agent, code_execution_agent, scout_agent],
+    sub_agents=all_sub_agents,
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
     before_model_callback=[scrub_empty_content_before_model, sanitize_before_model_callback],
     after_model_callback=[handle_empty_response_after_model, telemetry_after_model_callback],
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
-
-# Create specialized agents (casa, planner, tracker, comms, axel)
-specialized_agents = create_specialized_agents(root_agent)
-logger.debug(f"Created {len(specialized_agents)} specialized agents")
 
 # Store memory_service as an attribute of the agent after creation
 # This attribute will be used by the Runner in web/api/session.py

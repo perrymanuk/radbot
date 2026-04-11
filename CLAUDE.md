@@ -1,6 +1,6 @@
 # RadBot - Claude Code Instructions
 
-RadBot is an AI agent framework built on Google ADK 1.27.2, PostgreSQL, Qdrant,
+RadBot is an AI agent framework built on Google ADK 2.0.0a3, PostgreSQL, Qdrant,
 and MCP. The main agent "beto" has a 90s SoCal personality. Multi-agent architecture
 with specialized sub-agents (casa, planner, tracker, comms, scout, axel, search, code execution).
 
@@ -250,8 +250,9 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 2. Follow pattern from `radbot/agent/home_agent/factory.py`
 3. Add `create_agent_memory_tools("<domain>")` for scoped memory
 4. Create instruction file: `radbot/config/default_configs/instructions/<domain>.md`
-5. Import and add factory call in `radbot/agent/specialized_agent_factory.py`
-6. Add agent to routing table in `instructions/main_agent.md`
+5. Add factory call in `radbot/agent/specialized_agent_factory.py` (returns agents, does NOT mutate root)
+6. The new agent is automatically included in `agent_core.py`'s pre-construction assembly
+7. Add agent to routing table in `instructions/main_agent.md`
 
 ### New Admin UI integration
 
@@ -283,7 +284,11 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ## Known Gotchas
 
-- **google-genai 1.62.0** is installed — NOT `google-generativeai` (different package/API)
+- **google-adk 2.0.0a3** with `ADK_DISABLE_V1_LLM_AGENT=true` — uses new workflow-based LlmAgent internals (_Mesh routing). All agents default to `mode='chat'`.
+- **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API)
+- **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the `_Mesh` routing graph is built in `model_post_init`. See `agent_core.py`.
+- **ADK 2.0 app_name validation**: App names must be valid Python identifiers (letters, digits, underscores). No hyphens.
+- **ADK `@tool` decorator removed**: `google.adk.tools.decorators.tool` no longer exists in 2.0. Use `FunctionTool` wrapper instead. Existing code has try/except fallbacks.
 - **BuiltInCodeExecutor**: Use `code_executor=BuiltInCodeExecutor()` on Agent, not as a tool
 - **ADK async**: `InMemorySessionService.get_session/create_session` are async — must be awaited
 - **Runner.run_async()** for async contexts; `Runner.run()` blocks the event loop
@@ -291,6 +296,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **Embedding model**: `gemini-embedding-001` with `output_dimensionality=768`
 - **User ID**: Single-user system, all sessions use `user_id="web_user"`
 - **transfer_to_agent duplication**: ADK auto-injects it; adding manually causes "Duplicate function" error
+- **Docker images**: Python 3.14-slim base image for both main app and worker
 - **Config schema drift**: Specialized agent schemas use `additionalProperties: true` to avoid breakage
 - **Makefile**: Must use `uv run python` — bare `python3` won't use the venv
 - **`RADBOT_ENV`**: Set to `dev` to load `config.dev.yaml` instead of `config.yaml`. Each search directory tries `config.{env}.yaml` first. See `docs/implementation/dev_environment_setup.md`.
