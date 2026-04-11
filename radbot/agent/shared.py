@@ -43,12 +43,14 @@ def resolve_agent_model(agent_name: str) -> str:
 def load_agent_instruction(agent_name: str, fallback: str, *, use_task_mode: bool = False) -> str:
     """Load agent instructions from config, falling back to a default string.
 
-    Automatically appends completion instructions (task or transfer).
+    Automatically appends completion instructions (task or transfer) based
+    on the active ADK mode.
 
     Args:
         agent_name: The instruction file name (e.g. "casa", "planner").
         fallback: Default instruction text if no file is found.
-        use_task_mode: If True, append TASK_FINISH_INSTRUCTIONS instead of TRANSFER_INSTRUCTIONS.
+        use_task_mode: If True AND V1_LLM_AGENT is disabled, append
+            TASK_FINISH_INSTRUCTIONS. Otherwise append TRANSFER_INSTRUCTIONS.
 
     Returns:
         The full instruction string with completion instructions appended.
@@ -57,5 +59,15 @@ def load_agent_instruction(agent_name: str, fallback: str, *, use_task_mode: boo
         instruction = config_manager.get_instruction(agent_name)
     except FileNotFoundError:
         instruction = fallback
-    instruction += TASK_FINISH_INSTRUCTIONS if use_task_mode else TRANSFER_INSTRUCTIONS
+
+    # Only use task instructions when V2 is active
+    if use_task_mode:
+        try:
+            from google.adk.features import FeatureName, is_feature_enabled
+            if not is_feature_enabled(FeatureName.V1_LLM_AGENT):
+                instruction += TASK_FINISH_INSTRUCTIONS
+                return instruction
+        except Exception:
+            pass
+    instruction += TRANSFER_INSTRUCTIONS
     return instruction
