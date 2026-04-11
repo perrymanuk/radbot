@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 
 # Import ADK components
 from google.adk.agents import Agent
-from google.adk.runners import Runner
+from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 from google.protobuf.json_format import MessageToDict

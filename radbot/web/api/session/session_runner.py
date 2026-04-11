@@ -23,7 +23,7 @@ if project_root not in sys.path:
 from google.adk.artifacts import InMemoryArtifactService
 
 # Import needed ADK components
-from google.adk.runners import Runner
+from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 

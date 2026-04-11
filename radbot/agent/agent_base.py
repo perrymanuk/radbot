@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
-from google.adk.runners import Runner
+from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 

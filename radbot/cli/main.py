@@ -321,7 +321,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
             try:
                 # Create a memory-enabled agent directly without using the factory function
                 from google.adk.agents import Agent
-                from google.adk.runners import Runner
+                from radbot.agent.runner import RadbotRunner as Runner
                 from google.adk.sessions import InMemorySessionService
 
                 from radbot.memory.qdrant_memory import QdrantMemoryService
@@ -348,7 +348,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
 
                 # Create the base agent with all components directly, bypassing the factory functions
                 from google.adk.agents import Agent
-                from google.adk.runners import Runner
+                from radbot.agent.runner import RadbotRunner as Runner
                 from google.adk.sessions import InMemorySessionService
 
                 from radbot.agent.agent import RadBotAgent
@@ -394,7 +394,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
 
                 # Create a super basic agent directly as a last resort
                 from google.adk.agents import Agent
-                from google.adk.runners import Runner
+                from radbot.agent.runner import RadbotRunner as Runner
                 from google.adk.sessions import InMemorySessionService
 
                 from radbot.agent.agent import RadBotAgent
