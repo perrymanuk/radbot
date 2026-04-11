@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // Panel imports
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
-import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, LidarrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel } from "@/components/admin/panels/ConnectionPanels";
+import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, LidarrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel, YouTubePanel, KideoPanel } from "@/components/admin/panels/ConnectionPanels";
 import { PostgresqlPanel, QdrantPanel } from "@/components/admin/panels/InfrastructurePanels";
 import { NomadPanel, AlertmanagerPanel } from "@/components/admin/panels/AlertmanagerPanels";
 import { TTSPanel, STTPanel } from "@/components/admin/panels/MediaPanels";
@@ -40,6 +40,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: "lidarr", label: "Lidarr", group: "Connections", statusKey: "lidarr" },
   { id: "home_assistant", label: "Home Assistant", group: "Connections", statusKey: "home_assistant" },
   { id: "picnic", label: "Picnic", group: "Connections", statusKey: "picnic" },
+  { id: "youtube", label: "YouTube", group: "Connections", statusKey: "youtube" },
+  { id: "kideo", label: "Kideo", group: "Connections", statusKey: "kideo" },
   { id: "filesystem", label: "Filesystem", group: "Connections" },
   // Infrastructure
   { id: "postgresql", label: "PostgreSQL", group: "Infrastructure", statusKey: "postgresql" },
@@ -79,6 +81,8 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   lidarr: LidarrPanel,
   home_assistant: HomeAssistantPanel,
   picnic: PicnicPanel,
+  youtube: YouTubePanel,
+  kideo: KideoPanel,
   filesystem: FilesystemPanel,
   postgresql: PostgresqlPanel,
   qdrant: QdrantPanel,

@@ -937,3 +937,208 @@ export function FilesystemPanel() {
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════
+// YouTubePanel
+// ═══════════════════════════════════════════════════════════
+
+export function YouTubePanel() {
+  const { loadLiveConfig, mergeConfigSection, saveCredential, toast, loadStatus, status, token } =
+    useAdminStore();
+
+  const [apiKey, setApiKey] = useState("");
+  const [enabled, setEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    loadLiveConfig().then((cfg) => {
+      const yt = dig(cfg, "integrations.youtube", {});
+      setEnabled(yt.enabled ?? false);
+      if (yt.api_key) setApiKey(MASKED);
+    });
+    // Also check credential store presence via status
+    loadStatus();
+  }, [loadLiveConfig, loadStatus]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (apiKey && apiKey !== MASKED) {
+        await saveCredential("youtube_api_key", apiKey, "api_key", "YouTube Data API v3 key");
+      }
+      // Merge config section to trigger integration client reset (hot-reload)
+      await mergeConfigSection("integrations", {
+        youtube: { enabled },
+      });
+      toast("YouTube settings saved", "success");
+      loadStatus();
+    } catch (e: any) {
+      toast("Save failed: " + e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const body: Record<string, string> = {};
+      if (apiKey && apiKey !== MASKED) body.api_key = apiKey;
+      const resp = await fetch("/admin/api/test/youtube", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+      if (data.status === "ok") {
+        toast(data.message, "success");
+      } else {
+        toast(data.message, "error");
+      }
+    } catch (e: any) {
+      toast("Test failed: " + e.message, "error");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const integrationStatus = status?.youtube?.status || "unconfigured";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5 mb-4">
+        <h2 className="text-lg font-semibold text-[#eee]">YouTube</h2>
+        <StatusBadge status={integrationStatus} />
+      </div>
+
+      <Card title="YouTube Data API v3">
+        <Note>
+          Used by the KidsVid agent to search YouTube for safe, educational videos for children.
+          Get an API key from the{" "}
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-[#e94560] hover:underline">
+            Google Cloud Console
+          </a>{" "}
+          with the YouTube Data API v3 enabled.
+        </Note>
+        <FormToggle label="Enabled" checked={enabled} onChange={setEnabled} />
+        <FormInput
+          label="API Key"
+          value={apiKey}
+          onChange={setApiKey}
+          type="password"
+          placeholder="AIzaSy..."
+        />
+      </Card>
+
+      <ActionBar onSave={handleSave} saving={saving} onTest={handleTest} testing={testing} />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+// KideoPanel
+// ═══════════════════════════════════════════════════════════
+
+export function KideoPanel() {
+  const { loadLiveConfig, mergeConfigSection, saveCredential, toast, loadStatus, status, token } =
+    useAdminStore();
+
+  const [enabled, setEnabled] = useState(false);
+  const [url, setUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    loadLiveConfig().then((cfg) => {
+      const kideo = dig(cfg, "integrations.kideo", {});
+      setEnabled(kideo.enabled ?? false);
+      setUrl(kideo.url ?? "");
+      if (kideo.api_key) setApiKey(MASKED);
+    });
+    loadStatus();
+  }, [loadLiveConfig, loadStatus]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (apiKey && apiKey !== MASKED) {
+        await saveCredential("kideo_api_key", apiKey, "api_key", "Kideo API key");
+      }
+      await mergeConfigSection("integrations", {
+        kideo: { enabled, url: url || undefined },
+      });
+      toast("Kideo settings saved", "success");
+      loadStatus();
+    } catch (e: any) {
+      toast("Save failed: " + e.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    try {
+      const body: Record<string, string> = {};
+      if (url) body.url = url;
+      const resp = await fetch("/admin/api/test/kideo", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await resp.json();
+      if (data.status === "ok") {
+        toast(data.message, "success");
+      } else {
+        toast(data.message, "error");
+      }
+    } catch (e: any) {
+      toast("Test failed: " + e.message, "error");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const integrationStatus = status?.kideo?.status || "unconfigured";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2.5 mb-4">
+        <h2 className="text-lg font-semibold text-[#eee]">Kideo</h2>
+        <StatusBadge status={integrationStatus} />
+      </div>
+
+      <Card title="Kideo Video Library">
+        <Note>
+          Kideo is a safe, ad-free video player for children. KidsVid can add approved
+          YouTube videos to Kideo for offline viewing — no YouTube interface, no
+          recommendations, no comments.
+        </Note>
+        <FormToggle label="Enabled" checked={enabled} onChange={setEnabled} />
+        <FormInput
+          label="URL"
+          value={url}
+          onChange={setUrl}
+          placeholder="https://kideo.demonsafe.com"
+        />
+        <FormInput
+          label="API Key (optional)"
+          value={apiKey}
+          onChange={setApiKey}
+          type="password"
+          placeholder="(leave empty if no auth required)"
+        />
+      </Card>
+
+      <ActionBar onSave={handleSave} saving={saving} onTest={handleTest} testing={testing} />
+    </div>
+  );
+}

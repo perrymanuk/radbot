@@ -1,9 +1,9 @@
 """
 Factory for creating specialized agents in the RadBot system.
 
-Creates all domain-specific sub-agents (casa, planner, tracker, comms, axel)
-and returns them for inclusion in the root agent's sub_agents list at
-construction time.
+Creates all domain-specific sub-agents (casa, planner, tracker, comms, axel,
+kidsvid) and returns them for inclusion in the root agent's sub_agents list
+at construction time.
 
 NOTE: ADK 2.0 builds the internal routing mesh in model_post_init, so all
 sub-agents MUST be passed to the root Agent constructor. Do NOT add agents
@@ -75,6 +75,7 @@ def create_specialized_agents() -> List[Agent]:
     from radbot.agent.home_agent.factory import create_home_agent
     from radbot.agent.planner_agent.factory import create_planner_agent
     from radbot.agent.tracker_agent.factory import create_tracker_agent
+    from radbot.agent.youtube_agent.factory import create_youtube_agent
 
     # Create all domain agents
     factories = [
@@ -83,6 +84,7 @@ def create_specialized_agents() -> List[Agent]:
         ("tracker", create_tracker_agent),
         ("comms", create_comms_agent),
         ("axel", _create_axel_agent),
+        ("kidsvid", create_youtube_agent),
     ]
 
     for agent_name, factory in factories:

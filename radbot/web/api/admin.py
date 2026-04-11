@@ -32,6 +32,8 @@ _INTEGRATION_RESET_REGISTRY: list[tuple[str, str]] = [
     ("radbot.tools.lidarr.lidarr_client", "reset_lidarr_client"),
     ("radbot.tools.github.github_app_client", "reset_github_client"),
     ("radbot.tools.nomad.nomad_client", "reset_nomad_client"),
+    ("radbot.tools.youtube.youtube_client", "reset_youtube_client"),
+    ("radbot.tools.youtube.kideo_client", "reset_kideo_client"),
 ]
 
 # Post-reset hooks that require special handling (e.g. async restart).
@@ -1216,6 +1218,105 @@ async def test_lidarr(request: Request, _: None = Depends(_verify_admin)):
         return _err(f"Lidarr connection failed: {e}")
 
 
+@router.post("/api/test/youtube")
+async def test_youtube(request: Request, _: None = Depends(_verify_admin)):
+    """Test YouTube Data API v3 connectivity with provided or stored API key."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    api_key = body.get("api_key", "")
+
+    # Fall back to stored credentials
+    if not api_key or api_key == "***":
+        store = get_credential_store()
+        if store.available:
+            api_key = store.get("youtube_api_key") or ""
+        if not api_key:
+            try:
+                from radbot.config.config_loader import config_loader
+
+                api_key = (
+                    config_loader.get_config()
+                    .get("integrations", {})
+                    .get("youtube", {})
+                    .get("api_key", "")
+                )
+            except Exception:
+                pass
+        if not api_key:
+            api_key = os.environ.get("YOUTUBE_API_KEY", "")
+
+    if not api_key:
+        return _err("YouTube API key is required")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://www.googleapis.com/youtube/v3/search",
+                params={
+                    "part": "snippet",
+                    "q": "test",
+                    "maxResults": 1,
+                    "type": "video",
+                    "key": api_key,
+                },
+            )
+            if resp.status_code == 200:
+                return _ok("YouTube Data API v3 connected successfully")
+            data = resp.json()
+            err_msg = (
+                data.get("error", {}).get("message", resp.text[:200])
+            )
+            return _err(f"YouTube API error: {err_msg}")
+    except Exception as e:
+        return _err(f"YouTube connection failed: {e}")
+
+
+@router.post("/api/test/kideo")
+async def test_kideo(request: Request, _: None = Depends(_verify_admin)):
+    """Test Kideo connectivity."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("url", "")
+
+    if not url:
+        try:
+            from radbot.config.config_loader import config_loader
+
+            kideo_cfg = (
+                config_loader.get_config()
+                .get("integrations", {})
+                .get("kideo", {})
+            )
+            url = kideo_cfg.get("url", "")
+        except Exception:
+            pass
+    if not url:
+        url = os.environ.get("KIDEO_URL", "")
+
+    if not url:
+        return _err("Kideo URL is required")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"{url.rstrip('/')}/api/collections")
+            if resp.status_code == 200:
+                data = resp.json()
+                return _ok(
+                    f"Connected to Kideo — {len(data)} collection(s)"
+                )
+            return _err(
+                f"Kideo returned HTTP {resp.status_code}: {resp.text[:200]}"
+            )
+    except Exception as e:
+        return _err(f"Kideo connection failed: {e}")
+
+
 # ------------------------------------------------------------------
 # Telemetry endpoints
 # ------------------------------------------------------------------
@@ -1509,6 +1610,22 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
         status["alertmanager"] = {"status": "ok", "message": f"Subscribed to: {', '.join(subscribe_topics)}"}
     else:
         status["alertmanager"] = {"status": "unconfigured"}
+
+    # YouTube
+    yt_cfg = cfg.get("integrations", {}).get("youtube", {})
+    yt_key = _store_get("youtube_api_key") or yt_cfg.get("api_key", "") or os.environ.get("YOUTUBE_API_KEY", "")
+    if yt_key:
+        status["youtube"] = {"status": "ok"}
+    else:
+        status["youtube"] = {"status": "unconfigured"}
+
+    # Kideo
+    kideo_cfg = cfg.get("integrations", {}).get("kideo", {})
+    kideo_url = kideo_cfg.get("url", "") or os.environ.get("KIDEO_URL", "")
+    if kideo_url:
+        status["kideo"] = {"status": "ok"}
+    else:
+        status["kideo"] = {"status": "unconfigured"}
 
     # PostgreSQL — always ok if we got this far (admin page loaded)
     status["postgresql"] = {"status": "ok"}
