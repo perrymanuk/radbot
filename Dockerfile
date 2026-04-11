@@ -74,7 +74,8 @@ COPY --from=frontend-build /frontend/dist radbot/web/static/dist/
 # Environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    ADK_DISABLE_V1_LLM_AGENT=true
 
 EXPOSE 8000
 
