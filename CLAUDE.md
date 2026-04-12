@@ -131,7 +131,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
 | **scout** | `agent/research_agent/factory.py` | 2 memory | Technical research, design collab |
-| **kidsvid** | `agent/youtube_agent/factory.py` | 3 YouTube + 6 Kideo + 2 memory | Children's video curation (YouTube search + Kideo library + AI tagging) |
+| **kidsvid** | `agent/youtube_agent/factory.py` | 3 YouTube + 10 Kideo + 2 memory | Children's video curation (YouTube search + Kideo library + AI tagging + analytics) |
 | **axel** | `agent/execution_agent/factory.py` | 11 exec + 4 fs + MCP + shell + 6 claude_code + 7 nomad + 2 memory | Implementation, shell, files, Claude Code, GitHub, Nomad, alert remediation |
 | **search_agent** | `tools/adk_builtin/search_tool.py` | 1 google_search | Google Search grounding |
 | **code_execution_agent** | `tools/adk_builtin/code_execution_tool.py` | BuiltInCodeExecutor | Python code execution |

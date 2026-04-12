@@ -203,6 +203,162 @@ def set_kideo_video_tags(
     }
 
 
+@tool_error_handler("get popular videos from Kideo")
+def get_kideo_popular_videos(
+    collection_id: str,
+    limit: int = 20,
+    days: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Get the most-played videos in a Kideo collection.
+
+    Use this to understand what content the children are enjoying most.
+    Results are ranked by play count and include tags.
+
+    Args:
+        collection_id: The Kideo collection UUID.
+        limit: Maximum number of results (default 20).
+        days: Optional time window — only count plays from the last N days.
+
+    Returns:
+        On success: {"status": "success", "videos": [...]} with id, title, url, play_count, tags.
+        On failure: {"status": "error", "message": "..."}
+    """
+    from radbot.tools.youtube.kideo_client import get_popular_videos
+
+    videos = get_popular_videos(
+        collection_id=collection_id, limit=limit, days=days
+    )
+    return {
+        "status": "success",
+        "videos": videos,
+        "count": len(videos),
+    }
+
+
+@tool_error_handler("get popular tags from Kideo")
+def get_kideo_tag_stats(
+    collection_id: str,
+    days: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Get the most popular tags in a Kideo collection ranked by play count.
+
+    Use this to discover what topics and categories children enjoy most,
+    then search YouTube for more content matching those popular tags.
+
+    Args:
+        collection_id: The Kideo collection UUID.
+        days: Optional time window — only count plays from the last N days.
+
+    Returns:
+        On success: {"status": "success", "tag_stats": [...]} with tag, play_count, video_count.
+        On failure: {"status": "error", "message": "..."}
+    """
+    from radbot.tools.youtube.kideo_client import get_tag_stats
+
+    stats = get_tag_stats(collection_id=collection_id, days=days)
+    return {
+        "status": "success",
+        "tag_stats": stats,
+        "count": len(stats),
+    }
+
+
+@tool_error_handler("get popular channels from Kideo")
+def get_kideo_channel_stats(
+    collection_id: str,
+    days: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Get the most popular YouTube channels in a Kideo collection ranked by play count.
+
+    Use this to discover which channels produce content the children enjoy,
+    then search those channels for new videos to add.
+
+    Args:
+        collection_id: The Kideo collection UUID.
+        days: Optional time window — only count plays from the last N days.
+
+    Returns:
+        On success: {"status": "success", "channel_stats": [...]} with channel_name, play_count, video_count.
+        On failure: {"status": "error", "message": "..."}
+    """
+    from radbot.tools.youtube.kideo_client import get_channel_stats
+
+    stats = get_channel_stats(collection_id=collection_id, days=days)
+    return {
+        "status": "success",
+        "channel_stats": stats,
+        "count": len(stats),
+    }
+
+
+@tool_error_handler("retag untagged Kideo videos")
+def retag_untagged_kideo_videos() -> Dict[str, Any]:
+    """Find all videos in Kideo that have no tags and generate tags for them.
+
+    Fetches all ready videos, filters to those with empty tags, then uses
+    AI to generate tags from each video's title and channel name.
+    Automatically applies the generated tags.
+
+    Returns:
+        On success: {"status": "success", "tagged_count": N, "results": [...]}
+        On failure: {"status": "error", "message": "..."}
+    """
+    from radbot.tools.youtube.kideo_client import list_videos, set_video_tags
+    from radbot.tools.youtube.tag_generator import generate_tags
+
+    videos = list_videos(status="ready")
+    untagged = [v for v in videos if not v.get("tags")]
+
+    if not untagged:
+        return {
+            "status": "success",
+            "tagged_count": 0,
+            "message": "All videos already have tags",
+        }
+
+    results = []
+    for video in untagged:
+        title = video.get("title", "")
+        # Extract YouTube video ID from URL for transcript fetching
+        url = video.get("url", "")
+        yt_video_id = ""
+        if "v=" in url:
+            yt_video_id = url.split("v=")[1].split("&")[0]
+
+        # Generate tags using title, channel, and optionally transcript
+        from radbot.tools.youtube.tag_generator import (
+            fetch_transcript,
+            generate_tags as _generate_tags,
+        )
+
+        transcript = fetch_transcript(yt_video_id) if yt_video_id else None
+        tags = _generate_tags(
+            title=title,
+            description=video.get("description", ""),
+            transcript=transcript,
+            channel_title=video.get("channel_name", ""),
+        )
+
+        if tags:
+            set_video_tags(video_id=str(video["id"]), tags=tags)
+            results.append(
+                {
+                    "video_id": str(video["id"]),
+                    "title": title,
+                    "tags": tags,
+                }
+            )
+            logger.info(f"Tagged '{title}' with: {tags}")
+
+    return {
+        "status": "success",
+        "tagged_count": len(results),
+        "total_untagged": len(untagged),
+        "results": results,
+        "message": f"Tagged {len(results)} of {len(untagged)} untagged videos",
+    }
+
+
 # Wrap as FunctionTools
 add_video_to_kideo_tool = FunctionTool(add_video_to_kideo)
 add_videos_to_kideo_batch_tool = FunctionTool(add_videos_to_kideo_batch)
@@ -210,6 +366,10 @@ list_kideo_collections_tool = FunctionTool(list_kideo_collections)
 create_kideo_collection_tool = FunctionTool(create_kideo_collection)
 generate_video_tags_tool = FunctionTool(generate_video_tags)
 set_kideo_video_tags_tool = FunctionTool(set_kideo_video_tags)
+get_kideo_popular_videos_tool = FunctionTool(get_kideo_popular_videos)
+get_kideo_tag_stats_tool = FunctionTool(get_kideo_tag_stats)
+get_kideo_channel_stats_tool = FunctionTool(get_kideo_channel_stats)
+retag_untagged_kideo_videos_tool = FunctionTool(retag_untagged_kideo_videos)
 
 KIDEO_TOOLS = [
     add_video_to_kideo_tool,
@@ -218,4 +378,8 @@ KIDEO_TOOLS = [
     create_kideo_collection_tool,
     generate_video_tags_tool,
     set_kideo_video_tags_tool,
+    get_kideo_popular_videos_tool,
+    get_kideo_tag_stats_tool,
+    get_kideo_channel_stats_tool,
+    retag_untagged_kideo_videos_tool,
 ]

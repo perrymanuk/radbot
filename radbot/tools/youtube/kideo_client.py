@@ -182,3 +182,91 @@ def get_collection(collection_id: str) -> Dict[str, Any]:
     resp = client.get(f"/api/collections/{collection_id}")
     resp.raise_for_status()
     return resp.json()
+
+
+def list_videos(status: Optional[str] = None) -> List[Dict[str, Any]]:
+    """List all videos, optionally filtered by status.
+
+    Args:
+        status: Optional filter — "pending", "downloading", "transcoding", "ready", "error".
+
+    Returns:
+        List of video response dicts (includes tags, channel_name, etc.).
+    """
+    client = _get_client()
+    params = {}
+    if status:
+        params["status"] = status
+    resp = client.get("/api/videos", params=params)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_popular_videos(
+    collection_id: str, limit: int = 20, days: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Get most-played videos in a collection.
+
+    Args:
+        collection_id: Collection UUID.
+        limit: Max results (default 20).
+        days: Optional time window in days.
+
+    Returns:
+        List of PopularVideo dicts (id, title, url, play_count, tags).
+    """
+    client = _get_client()
+    params: Dict[str, Any] = {"limit": limit}
+    if days is not None:
+        params["days"] = days
+    resp = client.get(
+        f"/api/collections/{collection_id}/popular", params=params
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_tag_stats(
+    collection_id: str, days: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Get most popular tags in a collection ranked by play count.
+
+    Args:
+        collection_id: Collection UUID.
+        days: Optional time window in days.
+
+    Returns:
+        List of TagStats dicts (tag, play_count, video_count).
+    """
+    client = _get_client()
+    params: Dict[str, Any] = {}
+    if days is not None:
+        params["days"] = days
+    resp = client.get(
+        f"/api/collections/{collection_id}/tag-stats", params=params
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_channel_stats(
+    collection_id: str, days: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Get most popular channels in a collection ranked by play count.
+
+    Args:
+        collection_id: Collection UUID.
+        days: Optional time window in days.
+
+    Returns:
+        List of ChannelStats dicts (channel_name, channel_url, platform, play_count, video_count).
+    """
+    client = _get_client()
+    params: Dict[str, Any] = {}
+    if days is not None:
+        params["days"] = days
+    resp = client.get(
+        f"/api/collections/{collection_id}/channel-stats", params=params
+    )
+    resp.raise_for_status()
+    return resp.json()

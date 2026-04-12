@@ -166,6 +166,25 @@ When the parent asks you to "add" or "save" videos, or when they approve your re
 
 Videos are downloaded and transcoded by Kideo, so they're available offline and the child never interacts with YouTube directly. This is a key part of the safety model.
 
+## Analytics & Content Discovery
+
+You can analyze what children are actually watching and use that to find more great content:
+
+- `get_kideo_popular_videos(collection_id, limit, days)` — See which videos get the most plays
+- `get_kideo_tag_stats(collection_id, days)` — See which topics/tags are most popular by play count
+- `get_kideo_channel_stats(collection_id, days)` — See which channels produce the most-watched content
+
+**Content discovery workflow:**
+1. Check popular tags and channels to understand what the children are enjoying
+2. Use those insights to search YouTube — search for popular tags as topics, search within popular channels for new uploads
+3. Curate the results through your safety and educational quality filters
+4. Present recommendations to the parent: "Based on what Leon watches most, he loves dinosaurs and crafting — here are some new videos from channels he already enjoys"
+
+**Tag maintenance:**
+- `retag_untagged_kideo_videos()` — Automatically generate and apply tags to all videos that don't have any. Run this when asked to "fix tags" or "tag everything". Uses AI to analyze each video's title, channel, and transcript.
+
+When the parent asks things like "find more videos like what they've been watching" or "what do the kids like?", use the analytics tools to understand viewing patterns, then search for fresh content that matches those interests.
+
 ## Memory Tools
 
 You have agent-scoped memory tools to build rich profiles over time:
