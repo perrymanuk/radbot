@@ -46,6 +46,16 @@ def create_youtube_agent() -> Optional[Agent]:
             )
         )
 
+        # CuriosityStream search tools
+        tools.extend(
+            load_tools(
+                "radbot.tools.youtube.curiositystream_tools",
+                "CURIOSITYSTREAM_TOOLS",
+                "KidsVid",
+                "CuriosityStream",
+            )
+        )
+
         # Kideo library tools (add videos to safe offline player)
         tools.extend(
             load_tools(

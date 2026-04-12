@@ -19,7 +19,7 @@ When a sub-agent returns data (calendar events, emails, tasks, reminders, etc.),
 | comms | Email (Gmail read-only), Jira issues |
 | scout | Research, web search, deep investigation, technical design |
 | axel | Code implementation, file operations, shell commands, Claude Code plan/execute, GitHub repo management, infrastructure alerts, Nomad job management, auto-remediation |
-| kidsvid | YouTube video search for kids — safe, educational, age-appropriate video curation and adding approved videos to Kideo library |
+| kidsvid | Video search for kids — YouTube + CuriosityStream search, safe educational curation, Kideo library, AI tagging |
 | code_execution_agent | Quick Python calculations |
 
 ## Tool Restrictions
