@@ -19,19 +19,21 @@ def search_youtube_videos(
     query: str,
     max_results: int = 10,
     safe_search: str = "strict",
-    video_duration: Optional[str] = None,
+    video_duration: str = "medium",
     order: str = "relevance",
     channel_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Search YouTube for videos with safety filtering.
+
+    YouTube Shorts are excluded by default (video_duration defaults to "medium").
 
     Args:
         query: Search terms (e.g. "dinosaur facts for kids").
         max_results: Number of results to return (1-50, default 10).
         safe_search: Safety filter level — always use "strict" for children's content.
             Options: "strict", "moderate", "none".
-        video_duration: Filter by length — "short" (<4min), "medium" (4-20min), "long" (>20min).
-            Leave empty for any duration.
+        video_duration: Filter by length — "medium" (4-20min, default), "long" (>20min).
+            NEVER use "short" — this returns Shorts which are not allowed.
         order: Sort order — "relevance" (default), "date", "rating", "viewCount".
         channel_id: Optional YouTube channel ID to restrict search to a specific channel.
 

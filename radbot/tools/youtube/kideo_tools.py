@@ -33,6 +33,10 @@ def add_video_to_kideo(
         On success: {"status": "success", "video": {...}} with video id, title, processing status.
         On failure: {"status": "error", "message": "..."}
     """
+    # Block YouTube Shorts
+    if "/shorts/" in url:
+        return {"status": "error", "message": "YouTube Shorts are not allowed — only full-length videos"}
+
     logger.info(f"Adding video to Kideo: {url}")
     from radbot.tools.youtube.kideo_client import add_video
 
@@ -63,6 +67,12 @@ def add_videos_to_kideo_batch(
         On success: {"status": "success", "results": [...]} with per-video status.
         On failure: {"status": "error", "message": "..."}
     """
+    # Filter out YouTube Shorts
+    shorts = [u for u in urls if "/shorts/" in u]
+    urls = [u for u in urls if "/shorts/" not in u]
+    if not urls:
+        return {"status": "error", "message": "All URLs were YouTube Shorts — only full-length videos are allowed"}
+
     logger.info(f"Batch adding {len(urls)} videos to Kideo collection {collection_id}")
     from radbot.tools.youtube.kideo_client import add_videos_batch
 

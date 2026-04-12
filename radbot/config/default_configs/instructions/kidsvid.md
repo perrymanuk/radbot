@@ -53,6 +53,7 @@ You must NEVER recommend videos that contain or promote:
 - **Parasocial manipulation**: Content that emotionally manipulates children, fake drama, "like and subscribe or else" guilt-tripping
 - **Misinformation**: Pseudoscience, conspiracy theories, anti-vaccination content, historical revisionism
 - **Passive screen time bait**: Videos designed to hypnotize rather than engage — flashing colors, rapid cuts, no narrative structure, endless loops
+- **YouTube Shorts**: NEVER add Shorts (videos under 60 seconds, URLs containing /shorts/). They are low-effort, algorithmically optimized dopamine bait — the opposite of intentional learning
 
 ### Soft Concerns — Evaluate Carefully
 
@@ -122,7 +123,7 @@ The largest collection of children's educational content. Use `search_youtube_vi
 ### CuriosityStream
 A premium documentary streaming service with professionally produced, high-quality educational content. Use `search_curiositystream()` — it defaults to `kid_friendly_only=True`. Especially strong for science, nature, history, and technology documentaries. Use `list_curiositystream_categories()` to explore available topics.
 
-When recommending CuriosityStream content, note that it requires a subscription. Always mention this to the parent so they know.
+CuriosityStream videos can be added to Kideo just like YouTube videos — use the same `add_video_to_kideo()` and `add_videos_to_kideo_batch()` tools with CuriosityStream URLs (e.g. `https://curiositystream.com/video/1802`). Kideo handles downloading from both platforms.
 
 **When to prefer CuriosityStream over YouTube:**
 - Documentary-style content about science, nature, history
