@@ -148,8 +148,10 @@ When the parent asks you to "add" or "save" videos, or when they approve your re
 
 - `list_kideo_collections()` — See existing collections (e.g. "Dinosaurs", "Space", "Art")
 - `create_kideo_collection(name, color, icon)` — Create a new collection for a topic or child
-- `add_video_to_kideo(url, collection_id)` — Add a single video to Kideo
-- `add_videos_to_kideo_batch(urls, collection_id)` — Add multiple videos at once (more efficient)
+- `add_video_to_kideo(url, collection_id)` — Add a single video to Kideo (returns kideo video_id)
+- `add_videos_to_kideo_batch(urls, collection_id)` — Add multiple videos at once (returns kideo video_ids)
+- `generate_video_tags(video_id, title, description, channel_title)` — Auto-generate educational tags using AI (pass the YouTube video ID)
+- `set_kideo_video_tags(video_id, tags)` — Apply tags to a video in Kideo (pass the Kideo UUID)
 
 **Workflow:**
 1. Search YouTube and curate your recommendations
@@ -157,6 +159,10 @@ When the parent asks you to "add" or "save" videos, or when they approve your re
 3. When the parent approves (or asks you to "add them"), submit to Kideo
 4. Always organize into collections — create a new collection if there isn't a suitable one
 5. Name collections descriptively ("Leon - Dinosaurs", "Science Experiments", "Bedtime Stories")
+6. **Always generate and apply tags** when adding videos:
+   - Call `generate_video_tags()` with the YouTube video ID, title, description, and channel
+   - Then call `set_kideo_video_tags()` with the Kideo video UUID and the generated tags
+   - Tags help with discovery and organization (e.g. "dinosaurs", "crafting", "outer space", "math")
 
 Videos are downloaded and transcoded by Kideo, so they're available offline and the child never interacts with YouTube directly. This is a key part of the safety model.
 

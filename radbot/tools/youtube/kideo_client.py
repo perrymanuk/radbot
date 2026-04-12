@@ -138,6 +138,37 @@ def create_collection(
     return resp.json()
 
 
+def set_video_tags(video_id: str, tags: List[str]) -> Dict[str, Any]:
+    """Set tags on a Kideo video.
+
+    Args:
+        video_id: Kideo video UUID.
+        tags: List of tag strings.
+
+    Returns:
+        Updated video response dict.
+    """
+    client = _get_client()
+    resp = client.put(
+        f"/api/videos/{video_id}/tags",
+        json={"tags": tags},
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def list_all_tags() -> List[str]:
+    """List all existing tags in Kideo.
+
+    Returns:
+        List of tag strings.
+    """
+    client = _get_client()
+    resp = client.get("/api/videos/tags/all")
+    resp.raise_for_status()
+    return resp.json()
+
+
 def get_collection(collection_id: str) -> Dict[str, Any]:
     """Get a collection with its videos.
 

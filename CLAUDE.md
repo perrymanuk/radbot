@@ -131,7 +131,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
 | **scout** | `agent/research_agent/factory.py` | 2 memory | Technical research, design collab |
-| **kidsvid** | `agent/youtube_agent/factory.py` | 3 YouTube + 4 Kideo + 2 memory | Children's video curation (YouTube search + Kideo library) |
+| **kidsvid** | `agent/youtube_agent/factory.py` | 3 YouTube + 6 Kideo + 2 memory | Children's video curation (YouTube search + Kideo library + AI tagging) |
 | **axel** | `agent/execution_agent/factory.py` | 11 exec + 4 fs + MCP + shell + 6 claude_code + 7 nomad + 2 memory | Implementation, shell, files, Claude Code, GitHub, Nomad, alert remediation |
 | **search_agent** | `tools/adk_builtin/search_tool.py` | 1 google_search | Google Search grounding |
 | **code_execution_agent** | `tools/adk_builtin/code_execution_tool.py` | BuiltInCodeExecutor | Python code execution |
@@ -160,7 +160,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/lidarr/` | `lidarr_tools.py`, `lidarr_client.py` | `search_lidarr_artist_tool`, `add_lidarr_artist_tool`, +3 more | Music collection (Lidarr) |
 | `tools/picnic/` | `picnic_tools.py`, `picnic_client.py` | `search_picnic_product_tool`, `add_to_picnic_cart_tool`, `submit_shopping_list_to_picnic_tool`, +5 more | Grocery delivery (Picnic) |
 | `tools/jira/` | `jira_tools.py`, `jira_client.py` | `list_my_jira_issues_tool`, `get_jira_issue_tool`, `transition_jira_issue_tool`, +3 more | Jira Cloud |
-| `tools/youtube/` | `youtube_tools.py`, `youtube_client.py`, `kideo_tools.py`, `kideo_client.py` | `search_youtube_videos_tool`, `get_youtube_video_details_tool`, `get_youtube_channel_info_tool`, `add_video_to_kideo_tool`, `add_videos_to_kideo_batch_tool`, `list_kideo_collections_tool`, `create_kideo_collection_tool` | YouTube search + Kideo video library |
+| `tools/youtube/` | `youtube_tools.py`, `youtube_client.py`, `kideo_tools.py`, `kideo_client.py`, `tag_generator.py` | `search_youtube_videos_tool`, `get_youtube_video_details_tool`, `get_youtube_channel_info_tool`, `add_video_to_kideo_tool`, `add_videos_to_kideo_batch_tool`, `list_kideo_collections_tool`, `create_kideo_collection_tool`, `generate_video_tags_tool`, `set_kideo_video_tags_tool` | YouTube search + Kideo library + AI tag generation |
 | `tools/shell/` | `shell_tool.py`, `shell_command.py` | `shell_command_tool` (via `get_shell_tool()`) | Shell execution |
 | `tools/adk_builtin/` | `search_tool.py`, `code_execution_tool.py` | Agent factories (not direct tools) | ADK search + code exec agents |
 | `tools/mcp/` | `mcp_tools.py`, `dynamic_tools_loader.py` | `create_fileserver_toolset()`, `load_dynamic_mcp_tools()` | MCP server integration |

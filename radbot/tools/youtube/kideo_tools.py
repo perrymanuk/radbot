@@ -128,15 +128,94 @@ def create_kideo_collection(
     }
 
 
+@tool_error_handler("generate tags for video")
+def generate_video_tags(
+    video_id: str,
+    title: str,
+    description: str = "",
+    channel_title: str = "",
+) -> Dict[str, Any]:
+    """Generate educational tags for a YouTube video using AI.
+
+    Analyzes the video's title, description, and transcript (fetched automatically)
+    to produce relevant categorization tags like "dinosaurs", "crafting",
+    "outer space", "math", etc. Uses a small fast model for efficiency.
+
+    Call this BEFORE or AFTER adding a video to Kideo. The generated tags
+    can then be applied with set_kideo_video_tags.
+
+    Args:
+        video_id: The YouTube video ID (the part after "v=" in the URL).
+        title: The video title.
+        description: The video description (from YouTube search or details).
+        channel_title: The channel name.
+
+    Returns:
+        On success: {"status": "success", "tags": ["tag1", "tag2", ...]}
+        On failure: {"status": "error", "message": "..."}
+    """
+    logger.info(f"Generating tags for video '{title}' ({video_id})")
+    from radbot.tools.youtube.tag_generator import generate_tags_for_video
+
+    tags = generate_tags_for_video(
+        {
+            "video_id": video_id,
+            "title": title,
+            "description": description,
+            "channel_title": channel_title,
+        }
+    )
+    return {
+        "status": "success",
+        "tags": tags,
+        "count": len(tags),
+        "message": f"Generated {len(tags)} tags: {', '.join(tags)}" if tags else "No tags generated",
+    }
+
+
+@tool_error_handler("set tags on Kideo video")
+def set_kideo_video_tags(
+    video_id: str,
+    tags: List[str],
+) -> Dict[str, Any]:
+    """Set tags on a video in Kideo.
+
+    Use this after adding a video to Kideo and generating tags.
+    The video_id here is the Kideo video UUID (returned when adding),
+    NOT the YouTube video ID.
+
+    Args:
+        video_id: The Kideo video UUID (from add_video_to_kideo response).
+        tags: List of tag strings to apply (e.g. ["dinosaurs", "science", "paleontology"]).
+
+    Returns:
+        On success: {"status": "success", "video": {...}} with updated video.
+        On failure: {"status": "error", "message": "..."}
+    """
+    logger.info(f"Setting {len(tags)} tags on Kideo video {video_id}")
+    from radbot.tools.youtube.kideo_client import set_video_tags
+
+    result = set_video_tags(video_id=video_id, tags=tags)
+    return {
+        "status": "success",
+        "video": result,
+        "message": f"Applied {len(tags)} tags to video",
+    }
+
+
 # Wrap as FunctionTools
 add_video_to_kideo_tool = FunctionTool(add_video_to_kideo)
 add_videos_to_kideo_batch_tool = FunctionTool(add_videos_to_kideo_batch)
 list_kideo_collections_tool = FunctionTool(list_kideo_collections)
 create_kideo_collection_tool = FunctionTool(create_kideo_collection)
+generate_video_tags_tool = FunctionTool(generate_video_tags)
+set_kideo_video_tags_tool = FunctionTool(set_kideo_video_tags)
 
 KIDEO_TOOLS = [
     add_video_to_kideo_tool,
     add_videos_to_kideo_batch_tool,
     list_kideo_collections_tool,
     create_kideo_collection_tool,
+    generate_video_tags_tool,
+    set_kideo_video_tags_tool,
 ]

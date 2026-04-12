@@ -46,6 +46,7 @@ dependencies = [
     "PyJWT[crypto]>=2.8.0",                   # Required for GitHub App JWT generation (RS256)
     "a2a-sdk>=0.2.0",                     # Required for A2A (Agent-to-Agent) protocol support
     # Removed gcsa due to dependency conflict with ADK (tzlocal version conflict)
+    "youtube-transcript-api>=1.2.4",
 ]
 
 [project.optional-dependencies]
