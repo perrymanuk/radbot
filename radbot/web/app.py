@@ -189,6 +189,17 @@ async def initialize_app_startup():
                 f"Error initializing reminder database: {str(rem_err)}", exc_info=True
             )
 
+        logger.debug("Initializing telos database schema...")
+        try:
+            from radbot.tools.telos.db import init_telos_schema
+
+            init_telos_schema()
+            logger.debug("Telos database schema initialized")
+        except Exception as telos_err:
+            logger.error(
+                f"Error initializing telos database: {str(telos_err)}", exc_info=True
+            )
+
         logger.debug("Initializing coder workspaces database schema...")
         try:
             from radbot.tools.claude_code.db import init_coder_schema

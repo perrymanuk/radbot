@@ -38,6 +38,7 @@ from radbot.config.config_loader import config_loader
 # Import memory tools and services
 from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+from radbot.tools.telos import TELOS_TOOLS, inject_telos_context
 
 # Get the instruction from the config manager
 instruction = config_manager.get_instruction("main_agent")
@@ -115,8 +116,9 @@ logger.debug(f"Using model: {model_name}")
 # Get today's date for the global instruction
 today = date.today()
 
-# Beto's tools: only agent-scoped memory tools (orchestrator pattern)
-beto_tools = create_agent_memory_tools("beto")
+# Beto's tools: agent-scoped memory + Telos (persistent user persona / context store).
+# Sub-agents do NOT get Telos tools — they're tool executors, not persona-aware.
+beto_tools = create_agent_memory_tools("beto") + list(TELOS_TOOLS)
 
 # ---------------------------------------------------------------------------
 # Create ALL sub-agents BEFORE the root Agent constructor.
@@ -164,7 +166,14 @@ root_agent = Agent(
     sub_agents=all_sub_agents,
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
-    before_model_callback=[scrub_empty_content_before_model, sanitize_before_model_callback],
+    before_model_callback=[
+        scrub_empty_content_before_model,
+        sanitize_before_model_callback,
+        # Telos: inject user persona/context into beto's system_instruction.
+        # Anchor every turn, full block session-start only (state-gated).
+        # Attached to beto ONLY — sub-agents don't need user persona context.
+        inject_telos_context,
+    ],
     after_model_callback=[handle_empty_response_after_model, telemetry_after_model_callback],
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
