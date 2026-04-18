@@ -16,7 +16,7 @@ Canonical example: `radbot/tools/overseerr/overseerr_client.py`. Prefer `get_int
 
 | Service | Client Class | Connection | Config Keys | Admin Panel | Test Endpoint |
 |---------|-------------|------------|-------------|-------------|---------------|
-| Home Assistant | `HomeAssistantRESTClient` + WS client | HTTP REST + WebSocket | `integrations.home_assistant.url`, credential: `ha_token` | `HomeAssistantPanel` | `/admin/api/test/home-assistant` |
+| Home Assistant | `HAMcpClient` (primary) + `HomeAssistantRESTClient` (fallback) + WS client | MCP streamable-HTTP + HTTP REST + WebSocket | `integrations.home_assistant.url`, `integrations.home_assistant.use_mcp` (default true), credential: `ha_token` | `HomeAssistantPanel` | `/admin/api/test/home-assistant` (probes REST + MCP) |
 | Overseerr | `OverseerrClient` | HTTP REST | `integrations.overseerr.url`, credential: `overseerr_api_key` | `OverseerrPanel` | `/admin/api/test/overseerr` |
 | Lidarr | `LidarrClient` | HTTP REST | `integrations.lidarr.url`, credential: `lidarr_api_key` | `LidarrPanel` | `/admin/api/test/lidarr` |
 | Picnic | `PicnicClientWrapper` | HTTP REST (python_picnic_api2) | credentials: `picnic_username`, `picnic_password`, `picnic_country_code`, `picnic_auth_token` (cached) | `PicnicPanel` | `/admin/api/test/picnic` |
@@ -43,14 +43,16 @@ Canonical example: `radbot/tools/overseerr/overseerr_client.py`. Prefer `get_int
 
 ### Home Assistant
 
-- **Client**: `tools/homeassistant/ha_rest_client.py` — `HomeAssistantRESTClient`
-- **WebSocket**: `tools/homeassistant/ha_websocket_client.py` — async WS at `wss://host/api/websocket`
-- **State cache**: `tools/homeassistant/ha_state_cache.py` — in-memory snapshot for `search_ha_entities`
-- **Auth**: Long-lived access token in `Authorization: Bearer` header
-- **Singletons**: Separate for REST (`ha_client_singleton.py`) and WS (`ha_ws_singleton.py`)
-- **Health check**: `GET /api/` → expects "API running." message
-- **Dashboard CRUD**: WebSocket only (Lovelace API not available via REST)
-- **Direct REST endpoints**: `web/api/ha.py` exposes `GET /api/ha/state/{entity_id}` + `POST /api/ha/service` for frontend device buttons (bypasses agent)
+- **MCP client (primary tool surface)**: `tools/homeassistant/ha_mcp_client.py` — `HAMcpClient`, stateless streamable-HTTP against `POST <ha_url>/api/mcp`. Discovery via `list_tools_sync()` at factory time; invocation via async `call_tool(name, arguments)`. Singleton via `get_ha_mcp_client()` / `reset_ha_mcp_client()`. FunctionTool adapter: `tools/homeassistant/ha_mcp_tools.py` → `build_ha_mcp_function_tools(client)` wraps each MCP tool as an ADK FunctionTool, sanitizes names to valid identifiers, and unwraps HA's `{"success": bool, "result": ...}` envelope before returning to the LLM. Tool set includes ~19 built-in Assist intents (`HassTurnOn`, `HassTurnOff`, `HassLightSet`, `HassClimateSetTemperature`, `HassMediaSearchAndPlay`, `HassSetVolume`, `HassVacuumStart`, `HassFanSetSpeed`, `HassBroadcast`, `HassStartTimer`, `GetLiveContext`, `GetDateTime`, ...) plus every user-exposed HA script.
+- **REST client (fallback + direct web endpoints)**: `tools/homeassistant/ha_rest_client.py` — `HomeAssistantRESTClient`. Used by `web/api/ha.py` for frontend device buttons; loaded onto casa only when `integrations.home_assistant.use_mcp = false` or MCP discovery fails at startup.
+- **WebSocket**: `tools/homeassistant/ha_websocket_client.py` — async WS at `wss://host/api/websocket`. Used for dashboard (Lovelace) CRUD and — planned — entity/area/floor registry alias management (see `docs/plans/ha_alias_learning.md`).
+- **State cache**: `tools/homeassistant/ha_state_cache.py` — legacy in-memory snapshot for the REST-based `search_ha_entities`. Unused when MCP path is active (MCP's `GetLiveContext` returns only Assist-exposed entities on demand).
+- **Auth**: Long-lived access token in `Authorization: Bearer` header for all three transports (REST, MCP streamable-HTTP, WS).
+- **Singletons**: Separate for REST (`ha_client_singleton.py`), WS (`ha_ws_singleton.py`), and MCP (`ha_mcp_client.py`). All three reset together on admin config change via `_INTEGRATION_RESET_REGISTRY`.
+- **Health check**: `GET /api/` → expects "API running." message. The `/admin/api/test/home-assistant` endpoint probes REST + MCP `tools/list` and reports tool count.
+- **Dashboard CRUD**: WebSocket only (Lovelace API not available via REST or MCP).
+- **Direct REST endpoints**: `web/api/ha.py` exposes `GET /api/ha/state/{entity_id}` + `POST /api/ha/service` for frontend device buttons (bypasses agent).
+- **HA-side prerequisite**: the `mcp_server` core integration must be enabled in HA (2025.2+). Tool availability is gated by Assist entity exposure (Settings → Voice assistants → Expose).
 
 ### Overseerr
 

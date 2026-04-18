@@ -15,7 +15,8 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/todo/` | 8 | tracker | `add_task`, `complete_task`, `remove_task`, `list_projects`, `list_project_tasks`, `list_all_tasks`, `update_task`, `update_project` |
 | `tools/calendar/` | 5 | planner | `list_calendar_events`, `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `check_calendar_availability` |
 | `tools/gmail/` | 4 | comms | `list_emails`, `search_emails`, `get_email`, `list_gmail_accounts` |
-| `tools/homeassistant/` (REST) | 6 | casa | `list_ha_entities`, `get_ha_entity_state`, `turn_on_ha_entity`, `turn_off_ha_entity`, `toggle_ha_entity`, `search_ha_entities` |
+| `tools/homeassistant/` (MCP, primary) | dynamic (~19 built-in + user-exposed scripts) | casa | `HassTurnOn`, `HassTurnOff`, `HassLightSet`, `HassClimateSetTemperature`, `HassMediaSearchAndPlay`, `HassSetVolume`, `HassVacuumStart`, `HassFanSetSpeed`, `HassBroadcast`, `HassStartTimer`, `GetLiveContext`, `GetDateTime`, … (schemas discovered at factory time from `<ha_url>/api/mcp` via `HAMcpClient.list_tools_sync()`, wrapped by `ha_mcp_tools.build_ha_mcp_function_tools`). Disable by setting `integrations.home_assistant.use_mcp = false` to fall back to the REST row below. |
+| `tools/homeassistant/` (REST, fallback) | 6 | casa (only when MCP disabled/unavailable) | `list_ha_entities`, `get_ha_entity_state`, `turn_on_ha_entity`, `turn_off_ha_entity`, `toggle_ha_entity`, `search_ha_entities` |
 | `tools/homeassistant/` (Dashboard WS) | 6 | casa | `list_ha_dashboards`, `get_ha_dashboard_config`, `create_ha_dashboard`, `update_ha_dashboard`, `delete_ha_dashboard`, `save_ha_dashboard_config` |
 | `tools/scheduler/` | 3 | planner | `create_scheduled_task`, `list_scheduled_tasks`, `delete_scheduled_task` |
 | `tools/reminders/` | 3 | planner | `create_reminder`, `list_reminders`, `delete_reminder` |
@@ -88,7 +89,30 @@ Global variants (`search_past_conversations`, `store_important_information`) exi
 | `get_email` | `message_id`, `account` |
 | `list_gmail_accounts` | — |
 
-### homeassistant (REST) — `tools/homeassistant/ha_tools_impl.py`
+### homeassistant (MCP, primary) — `tools/homeassistant/ha_mcp_client.py` + `ha_mcp_tools.py`
+
+Casa's default HA tool surface. Discovered dynamically from HA's `mcp_server` integration (HA 2025.2+) at agent-construction time via `HAMcpClient.list_tools_sync()`; each tool wrapped as an ADK FunctionTool whose implementation forwards to `HAMcpClient.call_tool(name, arguments)` via streamable-HTTP JSON-RPC. Tool set depends on Assist exposure in HA — typical shape:
+
+| Tool | Parameters | Notes |
+|------|-----------|-------|
+| `HassTurnOn` / `HassTurnOff` | `name?`, `area?`, `floor?`, `domain[]?`, `device_class[]?` | HA's `MatchTargets` resolves — no `entity_id` required. `domain` as array (e.g. `["light","switch"]`) spans multiple domains in one call. |
+| `HassLightSet` | `name?`, `area?`, `floor?`, `domain[]?`, `color?`, `temperature?`, `brightness?` | Brightness 0-100, color as CSS color name, temperature Kelvin. |
+| `HassClimateSetTemperature` / `HassClimateGetTemperature` | `name?`, `area?`, `temperature?` | (exposed only if HA has climate entities on the Assist allowlist) |
+| `HassMediaSearchAndPlay` | `search_query`, `media_class?`, `name?`, `area?`, `floor?` | `media_class` enum: album, app, artist, channel, ... |
+| `HassMediaPause` / `HassMediaUnpause` / `HassMediaNext` / `HassMediaPrevious` / `HassSetVolume` / `HassSetVolumeRelative` / `HassMediaPlayerMute` / `HassMediaPlayerUnmute` | `name?`, `area?` (+ `volume_level` for `HassSetVolume`) | |
+| `HassVacuumStart` / `HassVacuumReturnToBase` / `HassVacuumCleanArea` | `name?`, `area?` | |
+| `HassFanSetSpeed` | `name?`, `area?`, `speed` (0-100) | |
+| `HassBroadcast` | `message` | TTS broadcast through whole home. |
+| `HassCancelAllTimers` / `HassStartTimer` | timer-specific | (exposure-dependent) |
+| `GetLiveContext` | — | Returns YAML-formatted snapshot of all Assist-exposed entities. Replaces the legacy `list_ha_entities` / `search_ha_entities`. |
+| `GetDateTime` | — | HA's system date/time. |
+| `<user_script_name>` | user-defined | Every HA script the user has exposed to Assist appears as its own tool. Names are sanitized to valid Python identifiers on the radbot side. |
+
+HA wraps each response in `{"success": bool, "result": ...}`; `ha_mcp_tools._unwrap_ha_envelope` unwraps before returning to the LLM.
+
+### homeassistant (REST, fallback) — `tools/homeassistant/ha_tools_impl.py`
+
+Loaded only when `integrations.home_assistant.use_mcp = false` or MCP tool discovery fails at startup. Kept as an escape hatch for non-exposed entities and for `web/api/ha.py`'s frontend device buttons.
 
 | Tool | Parameters |
 |------|-----------|
