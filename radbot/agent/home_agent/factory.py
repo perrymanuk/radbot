@@ -72,6 +72,9 @@ def create_home_agent() -> Optional[Agent]:
         # Picnic grocery tools
         tools.extend(load_tools("radbot.tools.picnic", "PICNIC_TOOLS", "Casa", "Picnic"))
 
+        # Card-rendering tools (media, ha-device, season breakdown)
+        tools.extend(load_tools("radbot.tools.shared.card_protocol", "CARD_TOOLS", "Casa", "cards"))
+
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
 

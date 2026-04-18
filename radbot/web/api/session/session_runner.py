@@ -413,6 +413,7 @@ class SessionRunner:
             last_text_response = None  # Track last non-empty text from any model event
             processed_events = []
             raw_response = None
+            handoffs: list[dict] = []  # collected agent transfers for inline chips
 
             for event in events:
                 # Extract event type and create a base event object
@@ -424,6 +425,15 @@ class SessionRunner:
                     event_data.update(_process_tool_call_event(event))
                 elif event_type == "agent_transfer":
                     event_data.update(_process_agent_transfer_event(event))
+                    # Capture {from, to} for inline handoff chip injection.
+                    to_agent = event_data.get("to_agent")
+                    if to_agent:
+                        handoffs.append(
+                            {
+                                "from": (event_data.get("from_agent") or "BETO").upper(),
+                                "to": str(to_agent).upper(),
+                            }
+                        )
                 elif event_type == "planner":
                     event_data.update(_process_planner_event(event))
                 elif event_type == "model_response":
@@ -552,6 +562,23 @@ class SessionRunner:
                     "\n".join(event_summary) if event_summary else "  (no events)",
                 )
                 final_response = "I apologize, but I couldn't generate a response."
+
+            # Prepend handoff chips so the frontend can render inline "BETO → PLANNER"
+            # markers. Deduplicate consecutive identical handoffs (ADK can emit the
+            # same transfer twice on retry) and skip reflexive beto→beto entries.
+            if handoffs and final_response:
+                seen: set[tuple[str, str]] = set()
+                chips: list[str] = []
+                for h in handoffs:
+                    key = (h["from"], h["to"])
+                    if key in seen or h["from"] == h["to"]:
+                        continue
+                    seen.add(key)
+                    chips.append(
+                        f"```radbot:handoff\n{json.dumps(h)}\n```"
+                    )
+                if chips:
+                    final_response = "\n".join(chips) + "\n\n" + final_response
 
             # Filter events: keep non-model events (tool_call, agent_transfer, etc.)
             # but only include the FINAL model_response to avoid duplicate chat messages
