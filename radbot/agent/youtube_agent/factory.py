@@ -72,6 +72,12 @@ def create_youtube_agent() -> Optional[Agent]:
         memory_tools = create_agent_memory_tools("kidsvid")
         tools.extend(memory_tools)
 
+        # Card-rendering tool — emits a fenced ```radbot:video block the
+        # frontend renders as <VideoCard /> with an ADD TO KIDEO button.
+        from radbot.tools.shared.card_protocol import show_video_card_tool
+
+        tools.append(show_video_card_tool)
+
         agent = Agent(
             name="kidsvid",
             model=model,
