@@ -117,6 +117,24 @@ export async function fetchAgentInfo(): Promise<AgentInfo> {
   return json("/api/agent-info");
 }
 
+// ── Session stats ─────────────────────────────────────────
+export interface SessionStatsResponse {
+  inputTokens: number;
+  outputTokens: number;
+  contextTokens: number;
+  contextWindow: number;
+  model: string;
+  costUsd: number;
+  costTodayUsd: number;
+  costMonthUsd: number;
+}
+
+export async function fetchSessionStats(
+  sessionId: string,
+): Promise<SessionStatsResponse> {
+  return json(`/api/sessions/${sessionId}/stats`);
+}
+
 // ── TTS ───────────────────────────────────────────────────
 export async function synthesizeSpeech(
   text: string,

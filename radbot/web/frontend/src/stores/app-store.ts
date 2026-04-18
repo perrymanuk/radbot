@@ -77,6 +77,26 @@ interface AppState {
   unreadNotificationCount: number;
   setUnreadNotificationCount: (n: number) => void;
   incrementUnreadNotifications: () => void;
+
+  // ── Session stats (tokens + cost) ──────────────────────
+  sessionStats: SessionStats | null;
+  setSessionStats: (stats: SessionStats | null) => void;
+  refreshSessionStats: () => Promise<void>;
+
+  // ── Split mode (chat + panel side-by-side toggle) ──────
+  splitMode: boolean;
+  toggleSplitMode: () => void;
+}
+
+export interface SessionStats {
+  inputTokens: number;
+  outputTokens: number;
+  contextTokens: number;
+  contextWindow: number;
+  costUsd: number;
+  costTodayUsd: number;
+  costMonthUsd: number;
+  model?: string;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -99,6 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().loadAgentInfo();
     // Load unread notification count for badge
     api.fetchUnreadCount().then(({ count }) => set({ unreadNotificationCount: count })).catch(() => {});
+    get().refreshSessionStats();
   },
 
   setSessionId: (id) => set({ sessionId: id }),
@@ -119,7 +140,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       messages: [],
       events: [],
       connectionStatus: "connecting",
+      sessionStats: null,
     });
+    get().refreshSessionStats();
   },
 
   createNewSession: async (name, description) => {
@@ -279,4 +302,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   setUnreadNotificationCount: (n) => set({ unreadNotificationCount: n }),
   incrementUnreadNotifications: () =>
     set((s) => ({ unreadNotificationCount: s.unreadNotificationCount + 1 })),
+
+  // ── Session stats ──────────────────────────────────────
+  sessionStats: null,
+  setSessionStats: (stats) => set({ sessionStats: stats }),
+  refreshSessionStats: async () => {
+    const id = get().sessionId;
+    if (!id) return;
+    try {
+      const stats = await api.fetchSessionStats(id);
+      set({ sessionStats: stats });
+    } catch {
+      // API may be unavailable; keep prior state.
+    }
+  },
+
+  // ── Split mode ─────────────────────────────────────────
+  splitMode: false,
+  toggleSplitMode: () => set((s) => ({ splitMode: !s.splitMode })),
 }));

@@ -25,12 +25,12 @@ function monthLabel(ym: string): string {
 }
 
 function pctChange(current: number, previous: number): { text: string; color: string } {
-  if (previous === 0) return current > 0 ? { text: "new", color: "text-[#e94560]" } : { text: "--", color: "text-[#666]" };
+  if (previous === 0) return current > 0 ? { text: "new", color: "text-radbot-sunset" } : { text: "--", color: "text-txt-secondary/60" };
   const pct = ((current - previous) / previous) * 100;
   const sign = pct >= 0 ? "+" : "";
   return {
     text: `${sign}${pct.toFixed(0)}%`,
-    color: pct > 0 ? "text-[#e94560]" : "text-[#4caf50]",
+    color: pct > 0 ? "text-radbot-sunset" : "text-terminal-green",
   };
 }
 
@@ -38,10 +38,10 @@ function pctChange(current: number, previous: number): { text: string; color: st
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: { text: string; color?: string } }) {
   return (
-    <div className="bg-[#16213e] border border-[#2a3a5c] rounded-lg p-4 flex-1 min-w-[140px]">
-      <div className="text-[#666] text-xs uppercase tracking-wide mb-1">{label}</div>
-      <div className="text-xl font-semibold text-[#eee]">{value}</div>
-      {sub && <div className={cn("text-xs mt-1", sub.color || "text-[#666]")}>{sub.text}</div>}
+    <div className="bg-bg-secondary border border-border rounded-lg p-4 flex-1 min-w-[140px]">
+      <div className="text-txt-secondary/60 text-xs uppercase tracking-wide mb-1">{label}</div>
+      <div className="text-xl font-semibold text-txt-primary">{value}</div>
+      {sub && <div className={cn("text-xs mt-1", sub.color || "text-txt-secondary/60")}>{sub.text}</div>}
     </div>
   );
 }
@@ -50,11 +50,11 @@ function BarRow({ label, value, maxValue, cost }: { label: string; value: number
   const pct = maxValue > 0 ? Math.max(2, (value / maxValue) * 100) : 0;
   return (
     <div className="flex items-center gap-3 py-1.5">
-      <div className="w-[80px] text-xs text-[#999] text-right shrink-0 truncate" title={label}>{label}</div>
-      <div className="flex-1 bg-[#1a1a2e] rounded h-5 overflow-hidden">
-        <div className="bg-[#e94560] h-full rounded transition-all" style={{ width: `${pct}%` }} />
+      <div className="w-[80px] text-xs text-txt-secondary text-right shrink-0 truncate" title={label}>{label}</div>
+      <div className="flex-1 bg-bg-primary rounded h-5 overflow-hidden">
+        <div className="bg-radbot-sunset h-full rounded transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <div className="w-[70px] text-xs text-[#eee] text-right shrink-0">{cost}</div>
+      <div className="w-[70px] text-xs text-txt-primary text-right shrink-0">{cost}</div>
     </div>
   );
 }
@@ -64,17 +64,17 @@ function DataTable({ columns, rows }: { columns: string[]; rows: (string | numbe
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-[#2a3a5c]">
+          <tr className="border-b border-border">
             {columns.map((col) => (
-              <th key={col} className="text-left text-[#666] font-medium py-2 px-2 uppercase tracking-wide">{col}</th>
+              <th key={col} className="text-left text-txt-secondary/60 font-medium py-2 px-2 uppercase tracking-wide">{col}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b border-[#2a3a5c]/50 hover:bg-[#0f3460]/30">
+            <tr key={i} className="border-b border-border/50 hover:bg-bg-tertiary/30">
               {row.map((cell, j) => (
-                <td key={j} className="py-1.5 px-2 text-[#ccc]">{cell}</td>
+                <td key={j} className="py-1.5 px-2 text-txt-primary/90">{cell}</td>
               ))}
             </tr>
           ))}
@@ -145,7 +145,7 @@ export function CostTrackingPanel() {
     return (
       <div>
         <h2 className="text-lg font-semibold mb-4">Cost Tracking</h2>
-        <div className="text-[#999] text-sm">Loading cost data...</div>
+        <div className="text-txt-secondary text-sm">Loading cost data...</div>
       </div>
     );
   }
@@ -163,7 +163,7 @@ export function CostTrackingPanel() {
       {/* Controls row */}
       <div className="flex items-center gap-4 mb-5 flex-wrap">
         {/* Label filter */}
-        <div className="flex items-center gap-1 bg-[#16213e] border border-[#2a3a5c] rounded-md p-0.5">
+        <div className="flex items-center gap-1 bg-bg-secondary border border-border rounded-md p-0.5">
           {LABELS.map((l) => (
             <button
               key={l.value}
@@ -171,8 +171,8 @@ export function CostTrackingPanel() {
               className={cn(
                 "px-3 py-1 text-xs rounded transition-colors cursor-pointer",
                 selectedLabel === l.value
-                  ? "bg-[#e94560] text-white"
-                  : "text-[#999] hover:text-[#eee]",
+                  ? "bg-radbot-sunset text-bg-primary"
+                  : "text-txt-secondary hover:text-txt-primary",
               )}
             >
               {l.label}
@@ -185,7 +185,7 @@ export function CostTrackingPanel() {
           <select
             value={selectedMonth}
             onChange={(e) => handleMonthChange(e.target.value)}
-            className="bg-[#16213e] border border-[#2a3a5c] rounded-md px-3 py-1.5 text-sm text-[#eee] outline-none"
+            className="bg-bg-secondary border border-border rounded-md px-3 py-1.5 text-sm text-txt-primary outline-none"
           >
             {d.available_months.map((m) => (
               <option key={m.month} value={m.month}>
@@ -195,7 +195,7 @@ export function CostTrackingPanel() {
           </select>
         )}
 
-        {loading && <span className="text-[#666] text-xs">Refreshing...</span>}
+        {loading && <span className="text-txt-secondary/60 text-xs">Refreshing...</span>}
       </div>
 
       {/* Summary cards */}
@@ -274,7 +274,7 @@ export function CostTrackingPanel() {
       {/* Real-time session stats */}
       {sessionStats && sessionStats.total_requests > 0 && (
         <Section title="Current Session (In-Memory)">
-          <div className="text-xs text-[#666] mb-2">
+          <div className="text-xs text-txt-secondary/60 mb-2">
             Uptime: {Math.round(sessionStats.uptime_seconds / 60)} min — resets on server restart
           </div>
           <div className="flex gap-3 flex-wrap mb-3">
@@ -306,7 +306,7 @@ export function CostTrackingPanel() {
 
       {/* Empty state */}
       {d && d.daily.length === 0 && summary?.total_requests === 0 && (
-        <div className="text-[#666] text-sm mt-4">No cost data for this month.</div>
+        <div className="text-txt-secondary/60 text-sm mt-4">No cost data for this month.</div>
       )}
     </div>
   );
@@ -315,8 +315,8 @@ export function CostTrackingPanel() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-semibold text-[#999] uppercase tracking-wide mb-3">{title}</h3>
-      <div className="bg-[#16213e] border border-[#2a3a5c] rounded-lg p-4">{children}</div>
+      <h3 className="text-sm font-semibold text-txt-secondary uppercase tracking-wide mb-3">{title}</h3>
+      <div className="bg-bg-secondary border border-border rounded-lg p-4">{children}</div>
     </div>
   );
 }

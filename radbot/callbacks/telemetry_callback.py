@@ -55,6 +55,17 @@ def telemetry_after_model_callback(
         except Exception:
             pass
 
+        # Determine session id (populates llm_usage_log.session_id for
+        # per-session cost aggregation).
+        session_id = None
+        try:
+            inv = getattr(callback_context, "_invocation_context", None)
+            sess = getattr(inv, "session", None) if inv else None
+            if sess is not None:
+                session_id = getattr(sess, "id", None)
+        except Exception:
+            pass
+
         from radbot.telemetry.usage_tracker import compute_cost, usage_tracker
 
         usage_tracker.record(
@@ -80,6 +91,7 @@ def telemetry_after_model_callback(
                 output_tokens=output_tokens,
                 cost_usd=cost_usd,
                 cost_without_cache_usd=cost_without_cache_usd,
+                session_id=session_id,
             )
         except Exception as persist_err:
             logger.debug("Usage persistence error (non-fatal): %s", persist_err)

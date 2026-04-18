@@ -52,6 +52,8 @@ from radbot.web.api.webhooks import router as webhooks_router
 from radbot.web.api.health import router as health_router
 from radbot.web.api.alerts import router as alerts_router
 from radbot.web.api.notifications import router as notifications_router
+from radbot.web.api.media import router as media_router
+from radbot.web.api.ha import router as ha_router
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,8 @@ def create_app():
     app.include_router(reminders_router)
     app.include_router(terminal_router)
     app.include_router(notifications_router)
+    app.include_router(media_router)
+    app.include_router(ha_router)
     register_terminal_websocket(app)
     logger.debug("API routers registered during app initialization")
 

@@ -30,6 +30,9 @@ from radbot.callbacks.empty_content_callback import (
     scrub_empty_content_before_model,
 )
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+from radbot.callbacks.scope_to_current_turn import (
+    scope_sub_agent_context_callback,
+)
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
@@ -139,13 +142,18 @@ logger.debug(f"Created {len(specialized_agents)} specialized agents")
 all_sub_agents = [a for a in [search_agent, code_execution_agent, scout_agent] if a is not None]
 all_sub_agents.extend(specialized_agents)
 
-# Attach callbacks to all sub-agents before construction
+# Attach callbacks to all sub-agents before construction.
+# scope_sub_agent_context_callback scopes each sub-agent's LLM prompt to the
+# current user turn (prevents cross-turn context bleed). Root Beto keeps
+# full history — only sub-agents are scoped.
 _after_cbs = [handle_empty_response_after_model, telemetry_after_model_callback]
+_before_cbs = [scope_sub_agent_context_callback, scrub_empty_content_before_model]
 for sa in all_sub_agents:
     if not sa.after_model_callback:
         sa.after_model_callback = _after_cbs
-    if not sa.before_model_callback:
-        sa.before_model_callback = scrub_empty_content_before_model
+    # Replace any existing before_model_callback (typically just scrub...) with
+    # our combined list so the scope-to-turn filter runs first.
+    sa.before_model_callback = _before_cbs
 
 # Create the root agent with ALL sub-agents in the constructor
 root_agent = Agent(

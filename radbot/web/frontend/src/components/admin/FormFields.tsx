@@ -2,7 +2,7 @@
 import { cn } from "@/lib/utils";
 
 const fieldBase =
-  "w-full p-2 border border-[#2a3a5c] rounded-md bg-[#1a1a2e] text-[#eee] text-sm outline-none focus:border-[#e94560] transition-colors";
+  "w-full p-2 border border-border rounded-md bg-bg-primary text-txt-primary text-sm outline-none focus:border-radbot-sunset transition-colors";
 
 // ── Text / Password / Number ─────────────────────────────
 interface InputProps {
@@ -23,7 +23,7 @@ export function FormInput({
   const listId = datalist ? `dl-${label.replace(/\s/g, "-").toLowerCase()}` : undefined;
   return (
     <div className={cn("mb-3", className)}>
-      <label className="block text-xs text-[#999] mb-1 font-medium">{label}</label>
+      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
       <input
         type={type}
         value={value}
@@ -38,7 +38,7 @@ export function FormInput({
           {datalist.map((v) => <option key={v} value={v} />)}
         </datalist>
       )}
-      {hint && <div className="text-[0.72rem] text-[#666] mt-0.5">{hint}</div>}
+      {hint && <div className="text-[0.72rem] text-txt-secondary/60 mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -58,17 +58,17 @@ export function FormToggle({ label, checked, onChange }: ToggleProps) {
         onClick={() => onChange(!checked)}
         className={cn(
           "relative w-[38px] h-5 rounded-[10px] transition-colors flex-shrink-0 cursor-pointer border-none p-0",
-          checked ? "bg-[#2ecc71]" : "bg-[#e94560]",
+          checked ? "bg-terminal-green" : "bg-radbot-sunset",
         )}
       >
         <span
           className={cn(
             "absolute left-0 w-3.5 h-3.5 rounded-full transition-transform top-[3px]",
-            checked ? "translate-x-[21px] bg-white" : "translate-x-[3px] bg-[#999]",
+            checked ? "translate-x-[21px] bg-white" : "translate-x-[3px] bg-txt-secondary",
           )}
         />
       </button>
-      <span className="text-sm text-[#999] cursor-pointer" onClick={() => onChange(!checked)}>
+      <span className="text-sm text-txt-secondary cursor-pointer" onClick={() => onChange(!checked)}>
         {label}
       </span>
     </div>
@@ -87,7 +87,7 @@ interface DropdownProps {
 export function FormDropdown({ label, value, onChange, options, className }: DropdownProps) {
   return (
     <div className={cn("mb-3", className)}>
-      <label className="block text-xs text-[#999] mb-1 font-medium">{label}</label>
+      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={cn(fieldBase, "cursor-pointer")}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -109,7 +109,7 @@ interface TextareaProps {
 export function FormTextarea({ label, value, onChange, placeholder, large }: TextareaProps) {
   return (
     <div className="mb-3">
-      <label className="block text-xs text-[#999] mb-1 font-medium">{label}</label>
+      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -133,7 +133,7 @@ interface SliderProps {
 export function FormSlider({ label, value, onChange, min, max, step }: SliderProps) {
   return (
     <div className="mb-3">
-      <label className="block text-xs text-[#999] mb-1 font-medium">{label}</label>
+      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
       <div className="flex items-center gap-3">
         <input
           type="range"
@@ -142,9 +142,9 @@ export function FormSlider({ label, value, onChange, min, max, step }: SliderPro
           min={min}
           max={max}
           step={step}
-          className="flex-1 accent-[#e94560]"
+          className="flex-1 accent-radbot-sunset"
         />
-        <span className="min-w-[3em] text-right text-sm text-[#999] font-mono">{value}</span>
+        <span className="min-w-[3em] text-right text-sm text-txt-secondary font-mono">{value}</span>
       </div>
     </div>
   );
@@ -162,8 +162,8 @@ export function FormRow({ children, cols = 2 }: { children: React.ReactNode; col
 // ── Card ─────────────────────────────────────────────────
 export function Card({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-[#16213e] border border-[#2a3a5c] rounded-lg p-4 mb-4">
-      {title && <h3 className="text-sm mb-3 text-[#e94560]">{title}</h3>}
+    <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
+      {title && <h3 className="text-sm mb-3 text-radbot-sunset">{title}</h3>}
       {children}
     </div>
   );
@@ -172,7 +172,7 @@ export function Card({ title, children }: { title?: string; children: React.Reac
 // ── Note ─────────────────────────────────────────────────
 export function Note({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-[#0f3460] border border-[#2a3a5c] rounded-md px-3 py-2.5 text-[0.8rem] text-[#999] mb-4">
+    <div className="bg-bg-tertiary border border-border rounded-md px-3 py-2.5 text-[0.8rem] text-txt-secondary mb-4">
       {children}
     </div>
   );
@@ -189,18 +189,18 @@ interface ActionBarProps {
 
 export function ActionBar({ onSave, onTest, testResult, testing, saving }: ActionBarProps) {
   return (
-    <div className="flex items-center gap-2.5 mt-5 pt-3.5 border-t border-[#2a3a5c]">
+    <div className="flex items-center gap-2.5 mt-5 pt-3.5 border-t border-border">
       {onTest && (
         <button
           onClick={onTest}
           disabled={testing}
-          className="px-3 py-2 bg-[#0f3460] text-[#eee] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] transition-colors cursor-pointer disabled:opacity-50"
+          className="px-3 py-2 bg-bg-tertiary text-txt-primary border border-border rounded-md text-sm font-medium hover:border-radbot-sunset transition-colors cursor-pointer disabled:opacity-50"
         >
           {testing ? "Testing..." : "Test Connection"}
         </button>
       )}
       {testResult && (
-        <span className={cn("text-sm", testResult.status === "ok" ? "text-[#4caf50]" : "text-[#c0392b]")}>
+        <span className={cn("text-sm", testResult.status === "ok" ? "text-terminal-green" : "text-terminal-red")}>
           {testResult.message}
         </span>
       )}
@@ -209,7 +209,7 @@ export function ActionBar({ onSave, onTest, testResult, testing, saving }: Actio
         <button
           onClick={onSave}
           disabled={saving}
-          className="px-4 py-2 bg-[#e94560] text-white rounded-md text-sm font-medium hover:bg-[#b83350] transition-colors cursor-pointer disabled:opacity-50"
+          className="px-4 py-2 bg-radbot-sunset text-bg-primary rounded-md text-sm font-medium hover:bg-radbot-sunset/80 transition-colors cursor-pointer disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -221,9 +221,9 @@ export function ActionBar({ onSave, onTest, testResult, testing, saving }: Actio
 // ── Badge ────────────────────────────────────────────────
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    ok: "bg-[#1b3a1b] text-[#4caf50]",
-    error: "bg-[#3a1b1b] text-[#c0392b]",
-    unconfigured: "bg-[#2a2a2a] text-[#666]",
+    ok: "bg-terminal-green/15 text-terminal-green",
+    error: "bg-terminal-red/15 text-terminal-red",
+    unconfigured: "bg-bg-tertiary text-txt-secondary/60",
   };
   const labels: Record<string, string> = {
     ok: "Connected",

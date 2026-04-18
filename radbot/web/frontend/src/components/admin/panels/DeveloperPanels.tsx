@@ -115,7 +115,7 @@ export function GitHubAppPanel() {
         />
       </Card>
 
-      <div className="mt-4 text-xs text-[#666]">
+      <div className="mt-4 text-xs text-txt-secondary/60">
         <p className="mb-1"><strong>Setup:</strong></p>
         <ol className="list-decimal ml-4 space-y-0.5">
           <li>Create a GitHub App at github.com/settings/apps/new</li>
@@ -244,7 +244,7 @@ export function ClaudeCodePanel() {
         />
       </Card>
 
-      <div className="mt-4 text-xs text-[#666]">
+      <div className="mt-4 text-xs text-txt-secondary/60">
         <p className="mb-1"><strong>Setup:</strong></p>
         <ol className="list-decimal ml-4 space-y-0.5">
           <li>Ensure <code>claude</code> CLI is installed (included in Docker image)</li>

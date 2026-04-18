@@ -6,9 +6,9 @@ as well as Claude templates from the configuration.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from radbot.config import config_manager, get_claude_templates
 
@@ -26,65 +26,106 @@ claude_router = APIRouter(
 )
 
 
+# Sub-agents that require Gemini (cannot use Ollama/LiteLLM routes):
+#   - search_agent uses google_search grounding
+#   - code_execution_agent uses BuiltInCodeExecutor
+# See CLAUDE.md "Known Gotchas".
+_GEMINI_ONLY = {"search_agent", "code_execution_agent"}
+
+
+def _agent_config_key(name: str) -> str:
+    """Normalise a runtime agent name → canonical config key.
+
+    Runtime agents from ``root_agent.sub_agents`` use names like ``casa`` or
+    ``scout``. Config keys in ``config:agent.agent_models`` use ``<name>_agent``
+    (e.g. ``casa_agent``). Agents already named ``*_agent`` (``search_agent``,
+    ``code_execution_agent``) are kept as-is.
+    """
+    lower = name.lower()
+    if lower.endswith("_agent"):
+        return lower
+    return f"{lower}_agent"
+
+
+def _enumerate_sub_agents() -> List[Dict[str, Any]]:
+    """Return the list of runtime sub-agents, each with its resolved model.
+
+    Sources the roster from ``root_agent.sub_agents`` so new agents show up
+    automatically without frontend edits.
+    """
+    try:
+        from agent import root_agent  # root-level re-export
+    except Exception as e:
+        logger.warning("Could not import root_agent for sub-agent enumeration: %s", e)
+        return []
+
+    sub_agents = getattr(root_agent, "sub_agents", None) or []
+    out: List[Dict[str, Any]] = []
+    for sa in sub_agents:
+        name = getattr(sa, "name", None)
+        if not name:
+            continue
+        key = _agent_config_key(name)
+        try:
+            resolved = config_manager.get_agent_model(key)
+        except Exception:
+            resolved = ""
+        out.append(
+            {
+                "name": name,
+                "config_key": key,
+                "resolved_model": resolved,
+                "gemini_only": key in _GEMINI_ONLY,
+            }
+        )
+    return out
+
+
 @router.get("")
 async def get_agent_info() -> Dict[str, Any]:
     """Get information about the current agent and models.
 
     Returns:
-        Dict containing agent information.
+        Dict containing:
+          - ``agent_name``: main agent display name
+          - ``model``: main agent's resolved model
+          - ``sub_agents``: list of sub-agent names (backwards-compat)
+          - ``sub_agents_detail``: [{name, config_key, resolved_model, gemini_only}]
+          - ``agent_models``: resolved model per sub-agent (canonical config keys)
     """
-    # Get the main agent and model information
     main_model = config_manager.get_main_model()
-    scout_model = config_manager.get_agent_model("scout_agent")
-    search_model = config_manager.get_agent_model("search_agent")
-    code_model = config_manager.get_agent_model("code_execution_agent")
-    todo_model = config_manager.get_agent_model("todo_agent")
+    sub_agents_detail = _enumerate_sub_agents()
 
-    # Log all the models for debugging
-    logger.debug(f"Main model: {main_model}")
-    logger.debug(f"Scout agent model: {scout_model}")
-    logger.debug(f"Search agent model: {search_model}")
-    logger.debug(f"Code execution agent model: {code_model}")
-    logger.debug(f"Todo agent model: {todo_model}")
+    # Build agent_models dynamically from runtime roster.
+    agent_models: Dict[str, str] = {"beto": main_model}
+    for sa in sub_agents_detail:
+        agent_models[sa["config_key"]] = sa["resolved_model"]
+
+    sub_agent_names = [sa["name"] for sa in sub_agents_detail]
 
     info = {
-        "agent_name": "BETO",  # Default main agent name
+        "name": "BETO",
+        "agent_name": "BETO",  # legacy key
         "model": main_model,
-        "agent_models": {
-            "beto": main_model,
-            "scout_agent": scout_model,
-            "scout": scout_model,  # Add lowercase version for easier lookup
-            "search_agent": search_model,
-            "code_execution_agent": code_model,
-            "todo_agent": todo_model,
-        },
+        "sub_agents": sub_agent_names,
+        "sub_agents_detail": sub_agents_detail,
+        "agent_models": agent_models,
     }
 
-    logger.debug(f"Providing agent info: {info}")
+    logger.debug("Providing agent info: %s", info)
     return info
 
 
 @claude_router.get("")
-async def get_claude_templates() -> Dict[str, Any]:
-    """Get Claude templates from configuration.
-
-    Returns:
-        Dict containing available Claude templates.
-    """
-    # Get the Claude templates from configuration
+async def get_claude_templates_route() -> Dict[str, Any]:
+    """Get Claude templates from configuration."""
     claude_templates = get_claude_templates()
-
-    logger.debug(f"Providing Claude templates: {list(claude_templates.keys())}")
+    logger.debug("Providing Claude templates: %s", list(claude_templates.keys()))
     return {"templates": claude_templates}
 
 
-# Register routers in the main FastAPI app
 def register_agent_info_router(app):
-    """Register agent_info and claude_templates routers with the FastAPI app.
-
-    Args:
-        app: FastAPI application
-    """
+    """Register agent_info and claude_templates routers with the FastAPI app."""
     app.include_router(router)
     app.include_router(claude_router)
     logger.debug("Registered agent_info and claude_templates routers")

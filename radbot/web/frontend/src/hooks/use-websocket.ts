@@ -121,6 +121,8 @@ export function useWebSocket(sessionId: string | null) {
                 data.content === "reset"
               ) {
                 setConnectionStatus("active");
+                // Turn finished — pull updated token/cost stats.
+                useAppStore.getState().refreshSessionStats();
               } else if (
                 typeof data.content === "string" &&
                 data.content.startsWith("error")

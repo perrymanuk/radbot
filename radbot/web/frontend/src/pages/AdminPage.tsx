@@ -118,8 +118,8 @@ export default function AdminPage() {
 
   if (checking) {
     return (
-      <div className="fixed inset-0 bg-[#1a1a2e] z-[1000] flex items-center justify-center">
-        <div className="text-[#999] text-sm">Authenticating…</div>
+      <div className="fixed inset-0 bg-bg-primary z-[1000] flex items-center justify-center">
+        <div className="text-txt-secondary text-sm">Authenticating…</div>
       </div>
     );
   }
@@ -127,7 +127,7 @@ export default function AdminPage() {
   if (!authenticated) return <AuthOverlay />;
 
   return (
-    <div className="h-screen flex flex-col bg-[#1a1a2e] text-[#eee]" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+    <div className="h-screen flex flex-col bg-bg-primary text-txt-primary font-sans">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
@@ -152,11 +152,11 @@ function AuthOverlay() {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#1a1a2e] z-[1000] flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="bg-[#16213e] border border-[#2a3a5c] rounded-xl p-8 w-[380px]">
+    <div className="fixed inset-0 bg-bg-primary z-[1000] flex items-center justify-center">
+      <form onSubmit={handleSubmit} className="bg-bg-secondary border border-border rounded-xl p-8 w-[380px]">
         <h2 className="text-xl font-semibold mb-1">Admin Access</h2>
-        <p className="text-[#999] text-sm mb-6">Enter your admin token</p>
-        {error && <div className="text-[#c0392b] text-sm mb-3">{error}</div>}
+        <p className="text-txt-secondary text-sm mb-6">Enter your admin token</p>
+        {error && <div className="text-terminal-red text-sm mb-3">{error}</div>}
         <input
           type="text"
           name="username"
@@ -173,12 +173,12 @@ function AuthOverlay() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Token"
-          className="w-full p-2.5 border border-[#2a3a5c] rounded-md bg-[#1a1a2e] text-[#eee] text-sm mb-4 outline-none focus:border-[#e94560]"
+          className="w-full p-2.5 border border-border rounded-md bg-bg-primary text-txt-primary text-sm mb-4 outline-none focus:border-radbot-sunset"
           autoFocus
         />
         <button
           type="submit"
-          className="w-full py-2.5 bg-[#e94560] text-white rounded-md font-medium text-sm hover:bg-[#b83350] transition-colors cursor-pointer"
+          className="w-full py-2.5 bg-radbot-sunset text-bg-primary rounded-md font-medium text-sm hover:bg-radbot-sunset/80 transition-colors cursor-pointer"
         >
           Authenticate
         </button>
@@ -192,20 +192,34 @@ function Header() {
   const logout = useAdminStore((s) => s.logout);
 
   return (
-    <div className="h-[50px] bg-[#16213e] border-b border-[#2a3a5c] flex items-center justify-between px-5 flex-shrink-0">
-      <h1 className="text-base font-semibold">
-        RadBot <span className="text-[#e94560]">Admin</span>
-      </h1>
-      <div className="flex items-center gap-3">
+    <div className="scanlines h-[50px] bg-bg-secondary border-b border-border flex items-center justify-between px-4 flex-shrink-0 relative z-10">
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          aria-hidden
+          className="mascot-sticker hidden sm:block w-[34px] h-[34px] flex-none rounded-md border-2 border-[#ff9966] bg-cover"
+          style={{
+            backgroundImage: "url(/static/dist/radbot.png)",
+            backgroundSize: "260%",
+            backgroundPosition: "60% 30%",
+          }}
+        />
+        <div className="flex items-baseline gap-2">
+          <h1 className="pixel-font text-[18px] text-txt-primary m-0 leading-none">RADBOT</h1>
+          <span className="inline-flex text-[9px] font-mono font-semibold tracking-[0.15em] text-radbot-sunset px-1.5 py-0.5 rounded-sm border border-radbot-sunset/40 bg-radbot-sunset/10">
+            ADMIN
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
         <a
           href="/"
-          className="text-[#999] text-xs border border-[#2a3a5c] px-3 py-1 rounded hover:border-[#e94560] hover:text-[#eee] no-underline transition-colors"
+          className="font-mono text-[0.7rem] uppercase tracking-wider text-txt-secondary border border-border px-2.5 py-1 rounded-sm hover:border-radbot-sunset hover:text-txt-primary no-underline transition-colors"
         >
           Chat UI
         </a>
         <button
           onClick={logout}
-          className="text-[#999] text-xs border border-[#2a3a5c] px-3 py-1 rounded hover:border-[#e94560] hover:text-[#eee] cursor-pointer transition-colors bg-transparent"
+          className="font-mono text-[0.7rem] uppercase tracking-wider text-txt-secondary border border-border px-2.5 py-1 rounded-sm hover:border-radbot-sunset hover:text-txt-primary cursor-pointer transition-colors bg-transparent"
         >
           Logout
         </button>
@@ -237,10 +251,10 @@ function Sidebar() {
   });
 
   return (
-    <div className="w-[220px] min-w-[220px] bg-[#16213e] border-r border-[#2a3a5c] overflow-y-auto py-2 flex-shrink-0">
+    <div className="w-[220px] min-w-[220px] bg-bg-secondary border-r border-border overflow-y-auto py-2 flex-shrink-0">
       {Array.from(groups.entries()).map(([group, items]) => (
         <div key={group}>
-          <div className="text-[0.65rem] font-bold tracking-wider uppercase text-[#666] px-4 pt-3 pb-1">
+          <div className="text-[0.65rem] font-bold tracking-wider uppercase text-txt-secondary/60 px-4 pt-3 pb-1">
             {group}
           </div>
           {items.map((item) => {
@@ -250,9 +264,9 @@ function Sidebar() {
                 key={item.id}
                 onClick={() => setActivePanel(item.id)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-1.5 cursor-pointer text-sm text-[#999] transition-all border-l-[3px] border-transparent",
-                  "hover:bg-[#0f3460] hover:text-[#eee]",
-                  activePanel === item.id && "bg-[#0f3460] text-[#eee] border-l-[#e94560]",
+                  "flex items-center gap-2 px-4 py-1.5 cursor-pointer text-sm text-txt-secondary transition-all border-l-[3px] border-transparent",
+                  "hover:bg-bg-tertiary hover:text-txt-primary",
+                  activePanel === item.id && "bg-bg-tertiary text-txt-primary border-l-radbot-sunset",
                 )}
               >
                 {/* Status dot */}
@@ -260,9 +274,9 @@ function Sidebar() {
                   <span
                     className={cn(
                       "w-2 h-2 rounded-full flex-shrink-0",
-                      s?.status === "ok" ? "bg-[#4caf50]" :
-                      s?.status === "error" ? "bg-[#c0392b]" :
-                      "bg-[#555]",
+                      s?.status === "ok" ? "bg-terminal-green" :
+                      s?.status === "error" ? "bg-terminal-red" :
+                      "bg-txt-secondary/40",
                     )}
                     title={s?.message || s?.status || "unknown"}
                   />
@@ -292,7 +306,7 @@ function Content() {
             <h2 className="text-lg font-semibold mb-4">
               {NAV_ITEMS.find((i) => i.id === activePanel)?.label ?? activePanel}
             </h2>
-            <p className="text-[#999] text-sm">Panel not found.</p>
+            <p className="text-txt-secondary text-sm">Panel not found.</p>
           </div>
         )}
       </div>
@@ -317,8 +331,8 @@ function ToastContainer() {
             "px-4 py-3 rounded-lg shadow-lg text-sm font-medium cursor-pointer transition-all animate-[slideIn_0.3s_ease-out]",
             "max-w-[400px] break-words",
             t.type === "success"
-              ? "bg-[#1b3a1b] border border-[#4caf50]/30 text-[#4caf50]"
-              : "bg-[#3a1b1b] border border-[#c0392b]/30 text-[#c0392b]",
+              ? "bg-terminal-green/15 border border-terminal-green/30 text-terminal-green"
+              : "bg-terminal-red/15 border border-terminal-red/30 text-terminal-red",
           )}
         >
           {t.message}
