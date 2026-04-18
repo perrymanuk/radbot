@@ -1,6 +1,6 @@
 # RadBot - Claude Code Instructions
 
-RadBot is an AI agent framework built on Google ADK 1.31.0, PostgreSQL, Qdrant,
+RadBot is an AI agent framework built on Google ADK 2.0.0a3, PostgreSQL, Qdrant,
 and MCP. The main agent "beto" has a 90s SoCal personality. Multi-agent architecture
 with specialized sub-agents (casa, planner, tracker, comms, scout, axel, search, code execution).
 
@@ -87,8 +87,7 @@ radbot/
 │   ├── tracker_agent/            # Tracker agent (Todo + Webhooks)
 │   ├── comms_agent/              # Comms agent (Gmail + Jira)
 │   ├── execution_agent/          # Axel agent (shell + filesystem + MCP)
-│   ├── research_agent/           # Scout agent (research + sequential thinking)
-│   └── youtube_agent/            # Kidsvid agent (YouTube + CuriosityStream + Kideo)
+│   └── research_agent/           # Scout agent (research + sequential thinking)
 ├── tools/                        # All tool modules (see inventory below)
 ├── web/
 │   ├── app.py                    # FastAPI app, startup, route registration
@@ -126,8 +125,8 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 
 | Agent | Factory location | Tools | Purpose |
 |---|---|---|---|
-| **beto** (root) | `agent/agent_core.py` | 2 memory + 18 telos | Orchestrator, routes to specialists; owns persistent user context (Telos) |
-| **casa** | `agent/home_agent/factory.py` | HA MCP (~19 built-in + user scripts, dynamic) + 6 HA Dashboard + 4 Overseerr + 5 Lidarr + 8 Picnic + 2 memory | Smart home (native HA Assist intent tools via `mcp_server`), media requests, music, grocery. Set `integrations.home_assistant.use_mcp=false` to fall back to the 6 REST tools. |
+| **beto** (root) | `agent/agent_core.py` | 2 memory | Orchestrator, routes to specialists |
+| **casa** | `agent/home_agent/factory.py` | 6 HA + 4 Overseerr + 5 Lidarr + 8 Picnic + 2 memory | Smart home, media requests, music collection, grocery ordering |
 | **planner** | `agent/planner_agent/factory.py` | 1 time + 5 calendar + 3 scheduler + 3 reminder + 2 memory | Calendar, scheduling, reminders |
 | **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
@@ -156,7 +155,6 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/homeassistant/` | `ha_tools_impl.py`, `ha_rest_client.py` | `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`, `search_ha_entities` | Home Assistant REST |
 | `tools/scheduler/` | `schedule_tools.py`, `db.py`, `engine.py` | `create_scheduled_task_tool`, `list_scheduled_tasks_tool`, `delete_scheduled_task_tool` | APScheduler cron tasks |
 | `tools/reminders/` | `reminder_tools.py`, `db.py` | `create_reminder_tool`, `list_reminders_tool`, `delete_reminder_tool` | One-shot reminders |
-| `tools/telos/` | `telos_tools.py`, `db.py`, `loader.py`, `callback.py`, `markdown_io.py`, `cli.py` | 18 telos tools (read + silent-update + confirm-required) | Persistent user context store (identity, mission, goals, problems, projects, challenges, wisdom, predictions, journal, etc.). Beto-only. Injected into beto's `system_instruction` via `inject_telos_context` (anchor every turn, full block session-start). Onboarding: `uv run python -m radbot.tools.telos.cli onboard`. See `docs/implementation/telos.md` |
 | `tools/webhooks/` | `webhook_tools.py`, `db.py`, `template_renderer.py` | `create_webhook_tool`, `list_webhooks_tool`, `delete_webhook_tool` | External POST webhooks |
 | `tools/overseerr/` | `overseerr_tools.py`, `overseerr_client.py` | `search_overseerr_media_tool`, `request_overseerr_media_tool`, +2 more | Media requests |
 | `tools/lidarr/` | `lidarr_tools.py`, `lidarr_client.py` | `search_lidarr_artist_tool`, `add_lidarr_artist_tool`, +3 more | Music collection (Lidarr) |
@@ -189,7 +187,6 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE) |
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
-| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section`, `ref_code`, `content`, `metadata` (JSONB), `status`, `sort_order`, UNIQUE (section, ref_code) |
 | `webhook_definitions` | `tools/webhooks/db.py` | `webhook_id` (UUID), `name` (UNIQUE), `path_suffix` (UNIQUE), `prompt_template`, `secret` |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |
@@ -289,11 +286,11 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ## Known Gotchas
 
-- **google-adk 1.31.0** — the currently supported line. We previously ran 2.0.0a3 but reverted after the upstream team committed to unwinding V2 (see [google/adk-python#5283](https://github.com/google/adk-python/issues/5283), closed 2026-04-16: "we are removing v2_Mesh in our latest version of workflow. And will by default use the v1 llm agent."). The `mode='task'` kwarg, `TASK_FINISH_INSTRUCTIONS`, and `FeatureName.V1_LLM_AGENT` branches that anticipated a V2 flip are gone.
-- **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API). ADK 1.31 requires `>=1.72.0`.
-- **Sub-agent assembly**: pass every sub-agent to the root Agent constructor. Adding to `sub_agents` after construction leaves `parent_agent` unset on the child, breaking `transfer_to_agent` lookups. See `agent_core.py`.
-- **App names** must be valid Python identifiers (letters, digits, underscores). No hyphens.
-- **`@tool` decorator unavailable**: use the `FunctionTool` wrapper. Some older code has try/except fallbacks left over from the upgrade-transition period.
+- **google-adk 2.0.0a3** with V1 LlmAgent mode (default, permanently). We previously kept `mode='task'` on domain agents and adaptive V1/V2 instructions anticipating a flip to V2, but ADK is **removing** V2 `_Mesh` (see [google/adk-python#5283](https://github.com/google/adk-python/issues/5283), closed 2026-04-16: "we are removing v2_Mesh in our latest version of workflow. And will by default use the v1 llm agent."). Do NOT set `ADK_DISABLE_V1_LLM_AGENT=true` — it breaks `transfer_to_agent` because V2 `_Mesh.run_node_impl` exits the coordinator generator before `execute_tools` can fire. `mode='task'` on sub-agents is a no-op under V1 and kept only to avoid churn.
+- **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API)
+- **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the routing graph is built in `model_post_init`. See `agent_core.py`.
+- **ADK 2.0 app_name validation**: App names must be valid Python identifiers (letters, digits, underscores). No hyphens.
+- **ADK `@tool` decorator removed**: `google.adk.tools.decorators.tool` no longer exists in 2.0. Use `FunctionTool` wrapper instead. Existing code has try/except fallbacks.
 - **BuiltInCodeExecutor**: Use `code_executor=BuiltInCodeExecutor()` on Agent, not as a tool
 - **ADK async**: `InMemorySessionService.get_session/create_session` are async — must be awaited
 - **Runner.run_async()** for async contexts; `Runner.run()` blocks the event loop

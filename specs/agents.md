@@ -24,19 +24,19 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 - `scope_sub_agent_context_callback` (before-model callback on every sub-agent) trims LLM input to the *current user turn only*. Prevents context bleed (e.g. Casa volunteering movie cards because an earlier turn mentioned movies) and keeps sub-agent prompts from growing linearly with session length. Root Beto keeps full history for conversational coherence. See `radbot/callbacks/scope_to_current_turn.py`.
 - `/api/agents/agent-info` walks `root_agent.sub_agents` at runtime to return the live roster (name, config key, resolved model, gemini_only flag) — the frontend admin palette reads this instead of a hard-coded list.
-- Agents emit **structured UI cards** via fenced code blocks (`` ```radbot:<kind> ``). Casa ships `show_media_card`, `show_season_breakdown`, `show_ha_device_card`; kidsvid ships `show_video_card` (kid-video cards with ADD TO KIDEO button). Every `agent_transfer` event is also auto-wrapped as a `radbot:handoff` block by `session_runner.py` — no LLM call needed. See `radbot/tools/shared/card_protocol.py`.
+- Agents emit **structured UI cards** via fenced code blocks (`` ```radbot:<kind> ``). Casa ships `CARD_TOOLS` (`show_media_card`, `show_season_breakdown`, `show_ha_device_card`). Every `agent_transfer` event is also auto-wrapped as a `radbot:handoff` block by `session_runner.py` — no LLM call needed. See `radbot/tools/shared/card_protocol.py`.
 
 ## Agent Summary
 
 | Agent | Factory | Model | Tool Count | Purpose |
 |-------|---------|-------|------------|---------|
-| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 20 | Orchestrator, routes to specialists; owns Telos (persistent user context) |
+| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 2 | Orchestrator, routes to specialists |
 | **casa** | `agent/home_agent/factory.py` | `resolve_agent_model("casa_agent")` | ~38 | Smart home, media, music, grocery, card emission |
 | **planner** | `agent/planner_agent/factory.py` | `resolve_agent_model("planner_agent")` | 14 | Calendar, scheduling, reminders |
 | **tracker** | `agent/tracker_agent/factory.py` | `resolve_agent_model("tracker_agent")` | 13 | Tasks, projects, webhooks |
 | **comms** | `agent/comms_agent/factory.py` | `resolve_agent_model("comms_agent")` | 12 | Email (Gmail), Jira |
 | **axel** | `agent/execution_agent/factory.py` | `config_manager.get_agent_model("axel_agent_model")` | 17+ MCP | Shell, files, code exec, Claude Code, Nomad, MCP |
-| **kidsvid** | `agent/youtube_agent/factory.py` | `resolve_agent_model("kidsvid_agent")` | 18 | Children's video curation (YouTube + CuriosityStream + Kideo + video card) |
+| **kidsvid** | `agent/youtube_agent/factory.py` | `resolve_agent_model("kidsvid_agent")` | 17 | Children's video curation (YouTube + CuriosityStream + Kideo) |
 | **scout** | `agent/research_agent/factory.py` | `config_manager.get_agent_model("scout_agent")` | 2 | Research, design collaboration (sequential thinking) |
 | **search_agent** | `tools/adk_builtin/search_tool.py` | Gemini 2+ (hardcoded) | 1 | Google Search grounding |
 | **code_execution_agent** | `tools/adk_builtin/code_execution_tool.py` | Gemini 2+ (hardcoded) | 0* | Python code execution |
@@ -47,13 +47,12 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 - **Temperature**: 0.2
 - **Global instruction**: injects today's date
-- **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`) + 18 Telos tools (`TELOS_TOOLS`, see `specs/tools.md`)
-- **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, telos, notifications, alerts, telemetry), HA client check
-- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback, sanitize_tool_schemas_before_model, inject_telos_context]`
+- **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`)
+- **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, notifications, alerts, telemetry), HA client check
+- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback]`
 - **After-model callbacks**: `[handle_empty_response_after_model, telemetry_after_model_callback]`
 - **Instruction file**: `config/default_configs/instructions/main_agent.md`
-- **Telos persona injection** (beto only): `inject_telos_context` appends an anchor (~300B: identity + mission + counts + tool pointer) to `llm_request.config.system_instruction` on every turn. On the first turn of each session it also appends the full block (~2KB: mission, problems, goals, active projects, challenges, wisdom, last 5 journal entries), gated by `callback_context.state["telos_bootstrapped"]`. Sub-agents are tool executors and do **not** receive Telos context. See `docs/implementation/telos.md`.
-- **Full conversation history**: root keeps all prior turns, including sub-agent tool_call and function_response events that flow through the shared session. This means beto's prompt-cache hit rate is low (~1-3% measured in April) because the cacheable prefix churns with sub-agent tool-response blobs; we previously tried `filter_tool_events_from_prompt` as a surgical fix but it was removed after it emptied `llm_request.contents` when beto was re-invoked post-transfer. If cache-hit becomes a cost problem again, the right long-term fix is to let casa's HA MCP migration (PR #9) shrink the blobs at the source rather than filtering them out client-side.
+- **Full conversation history**: root keeps all prior turns (unlike sub-agents, which are scoped to the current turn)
 
 ## Domain Agents
 
@@ -61,16 +60,15 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 | Tool Group | Count | Source |
 |------------|-------|--------|
-| Home Assistant (MCP, primary) | dynamic (~19 built-in + user-exposed scripts) | `radbot.tools.homeassistant.ha_mcp_tools.build_ha_mcp_function_tools` — discovered at factory time from HA's `mcp_server` (HA 2025.2+). Falls back to the REST row below if `use_mcp=false` or discovery fails. |
-| Home Assistant REST (fallback) | 6 | `radbot.tools.homeassistant` (`search_ha_entities`, `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`) — used when MCP disabled/unavailable |
+| Home Assistant REST | 6 | `radbot.tools.homeassistant` (`search_ha_entities`, `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`) |
 | HA Dashboard (WS) | 6 | `radbot.tools.homeassistant.ha_dashboard_tools.HA_DASHBOARD_TOOLS` |
 | Overseerr | 4 | `radbot.tools.overseerr.OVERSEERR_TOOLS` |
 | Lidarr | 5 | `radbot.tools.lidarr.LIDARR_TOOLS` (`search_lidarr_artist`, `search_lidarr_album`, `add_lidarr_artist`, `add_lidarr_album`, `list_lidarr_quality_profiles`) |
 | Picnic | 12 | `radbot.tools.picnic.PICNIC_TOOLS` |
-| Card protocol | 3 | `radbot.tools.shared.card_protocol` (`show_media_card`, `show_season_breakdown`, `show_ha_device_card`) |
+| Card protocol | 3 | `radbot.tools.shared.card_protocol.CARD_TOOLS` (`show_media_card`, `show_season_breakdown`, `show_ha_device_card`) |
 | Memory | 2 | `create_agent_memory_tools("casa")` |
 
-Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsvid ships `show_video_card` for kid-video cards.
+Emits UI cards inline with replies. Casa is the only agent that currently ships `CARD_TOOLS`.
 
 ### planner — Calendar, Scheduling, Reminders
 
@@ -121,7 +119,6 @@ Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsv
 | CuriosityStream | 2 | `CURIOSITYSTREAM_TOOLS`: `search_curiositystream`, `list_curiositystream_categories` |
 | Kideo library | 10 | `KIDEO_TOOLS`: `add_video_to_kideo`, `add_videos_to_kideo_batch`, `list_kideo_collections`, `create_kideo_collection`, `generate_video_tags`, `set_kideo_video_tags`, `get_kideo_popular_videos`, `get_kideo_tag_stats`, `get_kideo_channel_stats`, `retag_untagged_kideo_videos` |
 | Memory | 2 | `create_agent_memory_tools("kidsvid")` |
-| Card protocol | 1 | `show_video_card` (from `radbot.tools.shared.card_protocol`) — emits `radbot:video` block rendered as `<VideoCard />` with ADD TO KIDEO button |
 
 YouTube Shorts are filtered out at ingest time in `kideo_tools.py` (both search and Kideo submission paths).
 
@@ -156,11 +153,11 @@ All assembly happens in `radbot/agent/agent_core.py` at module import time:
 3. `create_specialized_agents()` builds the domain agents in order: casa → planner → tracker → comms → axel → kidsvid. None-returning factories are filtered out.
 4. `all_sub_agents` = builtin sub-agents + specialized — passed to the root `Agent(...)` constructor
 5. **Before construction**, callbacks are attached to each sub-agent:
-   - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model, sanitize_tool_schemas_before_model]`
+   - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model]`
    - `after_model_callback = [handle_empty_response_after_model, telemetry_after_model_callback]`
-6. Root `Agent(...)` is constructed — ADK sets `parent_agent` on every sub-agent at construction, which `transfer_to_agent` relies on for routing lookup
+6. Root `Agent(...)` is constructed — ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting `parent_agent` on every sub-agent
 
-**Critical**: agents added to `sub_agents` after construction leave `parent_agent` unset on the child — `transfer_to_agent` will not find them. See `docs/implementation/session_id_tracking.md` for history.
+**Critical**: agents added to `sub_agents` after construction are NOT part of the mesh — `transfer_to_agent` will not find them. See `docs/implementation/session_id_tracking.md` for history.
 
 ## Per-Turn Context Scoping
 
@@ -199,8 +196,6 @@ From `config/default_configs/instructions/main_agent.md`:
 | `sanitize_before_model_callback` | `callbacks/sanitize_callback.py` | beto (before_model) | Strip PII / sensitive tokens |
 | `scrub_empty_content_before_model` | `callbacks/empty_content_callback.py` | all (before_model) | Drop Content entries with empty text parts (Gemini API errors) |
 | `scope_sub_agent_context_callback` | `callbacks/scope_to_current_turn.py` | sub-agents only (before_model) | Trim to current turn |
-| `sanitize_tool_schemas_before_model` | `callbacks/sanitize_tool_schemas.py` | all (before_model) | Strip the non-standard `additional_properties` key from every tool's parameters schema before it hits Gemini. Works around the Pydantic→Schema-proto snake-case leak introduced by google-genai 1.72.0. |
-| `inject_telos_context` | `tools/telos/callback.py` | beto only (before_model) | Inject Telos anchor every turn + full block on first turn of session into `system_instruction` |
 | `handle_empty_response_after_model` | `callbacks/empty_content_callback.py` | all (after_model) | Replace empty model responses with a "still thinking" marker |
 | `telemetry_after_model_callback` | `callbacks/telemetry_callback.py` | all (after_model) | Record token usage + cost in `llm_usage_log` with `session_id` |
 | `tool_call_repair_callback` | `callbacks/tool_call_repair_callback.py` | (available, not wired by default) | Repair malformed function calls |
@@ -218,6 +213,4 @@ From `config/default_configs/instructions/main_agent.md`:
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |
-| `callbacks/sanitize_tool_schemas.py` | Strip the non-standard `additional_properties` key from tool parameter schemas before Gemini rejects them (google-genai 1.72.0 leak) |
-| `tools/telos/callback.py` | Inject Telos user-context into beto's `system_instruction` (anchor every turn, full block session-start) |
 | `tools/shared/card_protocol.py` | `radbot:<kind>` fenced-block card emission |

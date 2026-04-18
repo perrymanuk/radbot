@@ -8,7 +8,6 @@ This directory contains documentation for RadBot's integrations with external se
 ## Contents
 
 - [Google Calendar](google_calendar.md) - Google Calendar API integration
-- [Home Assistant MCP migration](ha_mcp_migration.md) - Casa's HA tool surface via HA's `mcp_server` (HA 2025.2+), replacing the hand-rolled REST FunctionTools
 
 ## Overview
 

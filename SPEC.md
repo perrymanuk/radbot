@@ -1,8 +1,8 @@
 # RadBot Spec
 
 ## Quick Ref
-- Stack: Google ADK 1.31.0 | FastAPI | React 18 | PostgreSQL | Qdrant | MCP | A2A
-- Runtime: Python 3.14-slim, `google-adk>=1.31.0,<2.0.0`, `google-genai>=1.72.0`
+- Stack: Google ADK 2.0.0a3 (V1 LlmAgent mode) | FastAPI | React 18 | PostgreSQL | Qdrant | MCP | A2A
+- Runtime: Python 3.14-slim, `google-adk>=2.0.0a3,<3.0.0`, `google-genai>=1.68.0`
 - Entry: `python -m radbot.web` (web) | `python -m radbot` (CLI) | `python -m radbot.worker --workspace-id <UUID>` (terminal worker)
 - Pkg: uv — always `uv run`
 - Main agent: beto (90s SoCal personality, pure orchestrator)
@@ -29,7 +29,6 @@
 - **Direct-action endpoints**: `/api/media/*` and `/api/ha/*` let the frontend trigger Overseerr + HA actions directly from cards — no LLM roundtrip.
 - **Token + cost telemetry**: `telemetry_after_model_callback` writes to `llm_usage_log` with `session_id` threaded through. `GET /api/sessions/{id}/stats` exposes per-session totals + rolling today/month cost.
 - **Unified notifications**: `notifications` table aggregates scheduled-task results, reminders, alerts, ntfy inbound. `/api/notifications/*` and `pages/NotificationsPage.tsx` drive the feed + drawer.
-- **Telos (persistent user context)**: beto owns a structured persona / context store (mission, problems, goals, projects, challenges, wisdom, predictions, taste, journal) in `telos_entries`. `inject_telos_context` (on beto only — sub-agents don't get it) appends a ~300B anchor to `system_instruction` every turn and a ~2KB full block on the first turn of each session. One-time onboarding via `uv run python -m radbot.tools.telos.cli onboard`. Beto keeps the file alive via silent tools (journal, predictions, wisdom, taste) and confirm-required tools (goals, mission, problems). See `docs/implementation/telos.md`.
 - **Config priority**: DB config > file config > credential store > env vars. See `specs/config.md`.
 - **Error pattern**: Agent tools return `{"status": "success/error", ...}` dicts.
 - **Logging**: Structured JSON via `radbot/logging_config.py`. One INFO per operation, DEBUG for hot loops.

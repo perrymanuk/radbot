@@ -36,8 +36,6 @@ env/
 Thumbs.db
 
 **/.claude/settings.local.json
-# Claude Code session worktrees (created by EnterWorktree; ephemeral)
-.claude/worktrees/
 .env*
 !.env.example
 !.env.docker

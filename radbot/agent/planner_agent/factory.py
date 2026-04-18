@@ -29,6 +29,7 @@ def create_planner_agent() -> Optional[Agent]:
             "planner",
             "You are Planner, a time and scheduling specialist. "
             "Manage calendar events, scheduled tasks, and reminders.",
+            use_task_mode=True,
         )
 
         # Build tools list
@@ -84,6 +85,7 @@ def create_planner_agent() -> Optional[Agent]:
             description="Calendar events, scheduled recurring tasks, one-shot reminders, and time queries.",
             instruction=instruction,
             tools=tools,
+            mode="task",
         )
 
         logger.info(f"Created Planner agent with {len(tools)} tools")

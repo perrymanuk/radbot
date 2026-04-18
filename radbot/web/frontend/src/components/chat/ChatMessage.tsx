@@ -8,11 +8,9 @@ import {
   MediaCard,
   SeasonBreakdownCard,
   HaDeviceCard,
-  VideoCard,
   type MediaCardData,
   type SeasonBreakdownData,
   type HaDevice,
-  type VideoCardData,
 } from "@/components/chat/AgentCards";
 import HandoffLine, { type HandoffInfo } from "@/components/chat/HandoffLine";
 import InboxSummary, {
@@ -236,8 +234,6 @@ export default function ChatMessage({ message }: Props) {
                           return <SeasonBreakdownCard data={data as SeasonBreakdownData} />;
                         case "ha-device":
                           return <HaDeviceCard d={data as HaDevice} />;
-                        case "video":
-                          return <VideoCard v={data as VideoCardData} />;
                         case "handoff":
                           return <HandoffLine handoff={data as HandoffInfo} />;
                         case "inbox":
