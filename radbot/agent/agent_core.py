@@ -34,7 +34,6 @@ from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
-from radbot.callbacks.filter_tool_events import filter_tool_events_from_prompt
 from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
 from radbot.config.config_loader import config_loader
 
@@ -175,7 +174,6 @@ root_agent = Agent(
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
     before_model_callback=[
-        filter_tool_events_from_prompt,
         scrub_empty_content_before_model,
         sanitize_before_model_callback,
         sanitize_tool_schemas_before_model,

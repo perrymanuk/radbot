@@ -49,11 +49,11 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 - **Global instruction**: injects today's date
 - **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`) + 18 Telos tools (`TELOS_TOOLS`, see `specs/tools.md`)
 - **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, telos, notifications, alerts, telemetry), HA client check
-- **Before-model callbacks**: `[filter_tool_events_from_prompt, scrub_empty_content_before_model, sanitize_before_model_callback, sanitize_tool_schemas_before_model, inject_telos_context]`
+- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback, sanitize_tool_schemas_before_model, inject_telos_context]`
 - **After-model callbacks**: `[handle_empty_response_after_model, telemetry_after_model_callback]`
 - **Instruction file**: `config/default_configs/instructions/main_agent.md`
 - **Telos persona injection** (beto only): `inject_telos_context` appends an anchor (~300B: identity + mission + counts + tool pointer) to `llm_request.config.system_instruction` on every turn. On the first turn of each session it also appends the full block (~2KB: mission, problems, goals, active projects, challenges, wisdom, last 5 journal entries), gated by `callback_context.state["telos_bootstrapped"]`. Sub-agents are tool executors and do **not** receive Telos context. See `docs/implementation/telos.md`.
-- **Full conversation history**: root keeps all prior user/assistant text turns. Sub-agent tool_call and function_response events are dropped from the LLM prompt by `filter_tool_events_from_prompt` (session state is retained) to keep the cacheable prefix stable — without this, churning tool-response blobs pushed beto's prompt-cache hit rate to ~1%.
+- **Full conversation history**: root keeps all prior turns, including sub-agent tool_call and function_response events that flow through the shared session. This means beto's prompt-cache hit rate is low (~1-3% measured in April) because the cacheable prefix churns with sub-agent tool-response blobs; we previously tried `filter_tool_events_from_prompt` as a surgical fix but it was removed after it emptied `llm_request.contents` when beto was re-invoked post-transfer. If cache-hit becomes a cost problem again, the right long-term fix is to let casa's HA MCP migration (PR #9) shrink the blobs at the source rather than filtering them out client-side.
 
 ## Domain Agents
 
@@ -199,7 +199,6 @@ From `config/default_configs/instructions/main_agent.md`:
 | `sanitize_before_model_callback` | `callbacks/sanitize_callback.py` | beto (before_model) | Strip PII / sensitive tokens |
 | `scrub_empty_content_before_model` | `callbacks/empty_content_callback.py` | all (before_model) | Drop Content entries with empty text parts (Gemini API errors) |
 | `scope_sub_agent_context_callback` | `callbacks/scope_to_current_turn.py` | sub-agents only (before_model) | Trim to current turn |
-| `filter_tool_events_from_prompt` | `callbacks/filter_tool_events.py` | beto only (before_model) | Drop tool-only Content (function_call / function_response) from the LLM prompt so beto's cacheable prefix stays stable across turns |
 | `sanitize_tool_schemas_before_model` | `callbacks/sanitize_tool_schemas.py` | all (before_model) | Strip the non-standard `additional_properties` key from every tool's parameters schema before it hits Gemini. Works around the Pydantic→Schema-proto snake-case leak that gemini-2.5/3.1-flash validators reject with HTTP 400 INVALID_ARGUMENT. |
 | `inject_telos_context` | `tools/telos/callback.py` | beto only (before_model) | Inject Telos anchor every turn + full block on first turn of session into `system_instruction` |
 | `handle_empty_response_after_model` | `callbacks/empty_content_callback.py` | all (after_model) | Replace empty model responses with a "still thinking" marker |
@@ -219,7 +218,6 @@ From `config/default_configs/instructions/main_agent.md`:
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |
-| `callbacks/filter_tool_events.py` | Strip tool-only Content from beto's LLM prompt to keep cacheable prefix stable |
 | `callbacks/sanitize_tool_schemas.py` | Strip the non-standard `additional_properties` key from tool parameter schemas before Gemini rejects them |
 | `tools/telos/callback.py` | Inject Telos user-context into beto's `system_instruction` (anchor every turn, full block session-start) |
 | `tools/shared/card_protocol.py` | `radbot:<kind>` fenced-block card emission |
