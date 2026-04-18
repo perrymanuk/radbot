@@ -1,8 +1,8 @@
 # RadBot Spec
 
 ## Quick Ref
-- Stack: Google ADK 2.0.0a3 (V1 LlmAgent mode) | FastAPI | React 18 | PostgreSQL | Qdrant | MCP | A2A
-- Runtime: Python 3.14-slim, `google-adk>=2.0.0a3,<3.0.0`, `google-genai>=1.68.0`
+- Stack: Google ADK 1.31.0 | FastAPI | React 18 | PostgreSQL | Qdrant | MCP | A2A
+- Runtime: Python 3.14-slim, `google-adk>=1.31.0,<2.0.0`, `google-genai>=1.72.0`
 - Entry: `python -m radbot.web` (web) | `python -m radbot` (CLI) | `python -m radbot.worker --workspace-id <UUID>` (terminal worker)
 - Pkg: uv — always `uv run`
 - Main agent: beto (90s SoCal personality, pure orchestrator)

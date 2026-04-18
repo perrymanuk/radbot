@@ -29,7 +29,6 @@ def create_comms_agent() -> Optional[Agent]:
             "comms",
             "You are Comms, a communications specialist. "
             "Read emails via Gmail and manage Jira issues.",
-            use_task_mode=True,
         )
 
         # Build tools list
@@ -71,7 +70,6 @@ def create_comms_agent() -> Optional[Agent]:
             description="Email (Gmail read-only) and Jira issue management (list, view, transition, comment, search).",
             instruction=instruction,
             tools=tools,
-            mode="task",
         )
 
         logger.info(f"Created Comms agent with {len(tools)} tools")

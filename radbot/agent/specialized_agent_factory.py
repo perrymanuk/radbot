@@ -5,10 +5,9 @@ Creates all domain-specific sub-agents (casa, planner, tracker, comms, axel,
 kidsvid) and returns them for inclusion in the root agent's sub_agents list
 at construction time.
 
-NOTE: ADK 2.0 builds the internal routing mesh in model_post_init, so all
-sub-agents MUST be passed to the root Agent constructor. Do NOT add agents
-to sub_agents after construction — they won't be part of the mesh and
-transfer_to_agent won't find them.
+NOTE: pass every sub-agent to the root Agent constructor. Adding to
+``sub_agents`` after construction leaves ``parent_agent`` unset on the
+child, which breaks ``transfer_to_agent`` lookups.
 """
 
 import logging

@@ -158,9 +158,9 @@ All assembly happens in `radbot/agent/agent_core.py` at module import time:
 5. **Before construction**, callbacks are attached to each sub-agent:
    - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model, sanitize_tool_schemas_before_model]`
    - `after_model_callback = [handle_empty_response_after_model, telemetry_after_model_callback]`
-6. Root `Agent(...)` is constructed — ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting `parent_agent` on every sub-agent
+6. Root `Agent(...)` is constructed — ADK sets `parent_agent` on every sub-agent at construction, which `transfer_to_agent` relies on for routing lookup
 
-**Critical**: agents added to `sub_agents` after construction are NOT part of the mesh — `transfer_to_agent` will not find them. See `docs/implementation/session_id_tracking.md` for history.
+**Critical**: agents added to `sub_agents` after construction leave `parent_agent` unset on the child — `transfer_to_agent` will not find them. See `docs/implementation/session_id_tracking.md` for history.
 
 ## Per-Turn Context Scoping
 

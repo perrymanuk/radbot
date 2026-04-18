@@ -22,8 +22,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "google-adk>=2.0.0a3,<3.0.0",
-    "google-genai>=1.68.0",
+    "google-adk>=1.31.0,<2.0.0",
+    "google-genai>=1.72.0",
     "qdrant-client>=1.13.0",
     "modelcontextprotocol>=0.1.0",
     "tzdata",

@@ -12,7 +12,7 @@ from google.adk.agents import Agent
 
 from radbot.agent.execution_agent.agent import AxelExecutionAgent, ExecutionAgent
 from radbot.agent.factory_utils import load_tools
-from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
+from radbot.agent.shared import TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
 
 # Set up logging
@@ -127,13 +127,9 @@ def create_execution_agent(
             logger.warning(f"Failed to add shell tool to Axel: {e}")
         logger.info("Code execution capability enabled for Axel agent")
 
-    # Add completion instructions (task or transfer depending on V1/V2 mode)
-    try:
-        from google.adk.features import FeatureName, is_feature_enabled
-        v2_active = not is_feature_enabled(FeatureName.V1_LLM_AGENT)
-    except Exception:
-        v2_active = False
-    full_instruction = instruction + (TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS)
+    # Append transfer-back instructions so axel hands control to beto after
+    # completing its task.
+    full_instruction = instruction + TRANSFER_INSTRUCTIONS
 
     # Create the ExecutionAgent instance
     execution_agent = ExecutionAgent(
@@ -156,7 +152,6 @@ def create_execution_agent(
             description="A specialized agent for implementing code, executing tasks, and managing project files.",
             instruction=full_instruction,
             tools=agent_tools,
-            mode="task",
         )
 
         # Store the execution_agent reference on the ADK agent for later access
