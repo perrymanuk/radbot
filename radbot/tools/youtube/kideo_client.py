@@ -202,6 +202,35 @@ def list_videos(status: Optional[str] = None) -> List[Dict[str, Any]]:
     return resp.json()
 
 
+def find_video_by_url(url: str) -> Optional[Dict[str, Any]]:
+    """Look up a Kideo video by its source URL.
+
+    Tries a direct query first (``GET /api/videos?url=<encoded>``) and falls
+    back to scanning the full list if the server doesn't honor the filter.
+    Returns the matching video dict (id, title, status, ...) or None.
+
+    Used by :func:`radbot.tools.shared.card_protocol._lookup_kideo_status`
+    to set library status on rendered video cards.
+    """
+    if not url:
+        return None
+    client = _get_client()
+    try:
+        resp = client.get("/api/videos", params={"url": url})
+        resp.raise_for_status()
+    except httpx.HTTPError:
+        return None
+    body = resp.json()
+    if isinstance(body, dict):
+        body = body.get("videos") or body.get("items") or [body]
+    if not isinstance(body, list):
+        return None
+    for item in body:
+        if isinstance(item, dict) and item.get("url") == url:
+            return item
+    return None
+
+
 def get_popular_videos(
     collection_id: str, limit: int = 20, days: Optional[int] = None
 ) -> List[Dict[str, Any]]:
