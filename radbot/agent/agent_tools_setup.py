@@ -29,6 +29,7 @@ _SCHEMA_INITS = [
     ("scheduler_init", "radbot.tools.scheduler", "init_scheduler_schema"),
     ("webhook_init", "radbot.tools.webhooks", "init_webhook_schema"),
     ("reminder_init", "radbot.tools.reminders", "init_reminder_schema"),
+    ("telos_init", "radbot.tools.telos", "init_telos_schema"),
 ]
 
 

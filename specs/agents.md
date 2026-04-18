@@ -30,7 +30,7 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 | Agent | Factory | Model | Tool Count | Purpose |
 |-------|---------|-------|------------|---------|
-| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 2 | Orchestrator, routes to specialists |
+| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 20 | Orchestrator, routes to specialists; owns Telos (persistent user context) |
 | **casa** | `agent/home_agent/factory.py` | `resolve_agent_model("casa_agent")` | ~38 | Smart home, media, music, grocery, card emission |
 | **planner** | `agent/planner_agent/factory.py` | `resolve_agent_model("planner_agent")` | 14 | Calendar, scheduling, reminders |
 | **tracker** | `agent/tracker_agent/factory.py` | `resolve_agent_model("tracker_agent")` | 13 | Tasks, projects, webhooks |
@@ -47,11 +47,12 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 - **Temperature**: 0.2
 - **Global instruction**: injects today's date
-- **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`)
-- **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, notifications, alerts, telemetry), HA client check
-- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback]`
+- **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`) + 18 Telos tools (`TELOS_TOOLS`, see `specs/tools.md`)
+- **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, telos, notifications, alerts, telemetry), HA client check
+- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback, inject_telos_context]`
 - **After-model callbacks**: `[handle_empty_response_after_model, telemetry_after_model_callback]`
 - **Instruction file**: `config/default_configs/instructions/main_agent.md`
+- **Telos persona injection** (beto only): `inject_telos_context` appends an anchor (~300B: identity + mission + counts + tool pointer) to `llm_request.config.system_instruction` on every turn. On the first turn of each session it also appends the full block (~2KB: mission, problems, goals, active projects, challenges, wisdom, last 5 journal entries), gated by `callback_context.state["telos_bootstrapped"]`. Sub-agents are tool executors and do **not** receive Telos context. See `docs/implementation/telos.md`.
 - **Full conversation history**: root keeps all prior turns (unlike sub-agents, which are scoped to the current turn)
 
 ## Domain Agents
@@ -196,6 +197,7 @@ From `config/default_configs/instructions/main_agent.md`:
 | `sanitize_before_model_callback` | `callbacks/sanitize_callback.py` | beto (before_model) | Strip PII / sensitive tokens |
 | `scrub_empty_content_before_model` | `callbacks/empty_content_callback.py` | all (before_model) | Drop Content entries with empty text parts (Gemini API errors) |
 | `scope_sub_agent_context_callback` | `callbacks/scope_to_current_turn.py` | sub-agents only (before_model) | Trim to current turn |
+| `inject_telos_context` | `tools/telos/callback.py` | beto only (before_model) | Inject Telos anchor every turn + full block on first turn of session into `system_instruction` |
 | `handle_empty_response_after_model` | `callbacks/empty_content_callback.py` | all (after_model) | Replace empty model responses with a "still thinking" marker |
 | `telemetry_after_model_callback` | `callbacks/telemetry_callback.py` | all (after_model) | Record token usage + cost in `llm_usage_log` with `session_id` |
 | `tool_call_repair_callback` | `callbacks/tool_call_repair_callback.py` | (available, not wired by default) | Repair malformed function calls |
@@ -213,4 +215,5 @@ From `config/default_configs/instructions/main_agent.md`:
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |
+| `tools/telos/callback.py` | Inject Telos user-context into beto's `system_instruction` (anchor every turn, full block session-start) |
 | `tools/shared/card_protocol.py` | `radbot:<kind>` fenced-block card emission |
