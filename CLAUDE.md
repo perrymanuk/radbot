@@ -87,7 +87,8 @@ radbot/
 │   ├── tracker_agent/            # Tracker agent (Todo + Webhooks)
 │   ├── comms_agent/              # Comms agent (Gmail + Jira)
 │   ├── execution_agent/          # Axel agent (shell + filesystem + MCP)
-│   └── research_agent/           # Scout agent (research + sequential thinking)
+│   ├── research_agent/           # Scout agent (research + sequential thinking)
+│   └── youtube_agent/            # Kidsvid agent (YouTube + CuriosityStream + Kideo)
 ├── tools/                        # All tool modules (see inventory below)
 ├── web/
 │   ├── app.py                    # FastAPI app, startup, route registration
@@ -125,7 +126,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 
 | Agent | Factory location | Tools | Purpose |
 |---|---|---|---|
-| **beto** (root) | `agent/agent_core.py` | 2 memory | Orchestrator, routes to specialists |
+| **beto** (root) | `agent/agent_core.py` | 2 memory + 18 telos | Orchestrator, routes to specialists; owns persistent user context (Telos) |
 | **casa** | `agent/home_agent/factory.py` | HA MCP (~19 built-in + user scripts, dynamic) + 6 HA Dashboard + 4 Overseerr + 5 Lidarr + 8 Picnic + 2 memory | Smart home (native HA Assist intent tools via `mcp_server`), media requests, music, grocery. Set `integrations.home_assistant.use_mcp=false` to fall back to the 6 REST tools. |
 | **planner** | `agent/planner_agent/factory.py` | 1 time + 5 calendar + 3 scheduler + 3 reminder + 2 memory | Calendar, scheduling, reminders |
 | **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
@@ -155,6 +156,7 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 | `tools/homeassistant/` | `ha_tools_impl.py`, `ha_rest_client.py` | `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`, `search_ha_entities` | Home Assistant REST |
 | `tools/scheduler/` | `schedule_tools.py`, `db.py`, `engine.py` | `create_scheduled_task_tool`, `list_scheduled_tasks_tool`, `delete_scheduled_task_tool` | APScheduler cron tasks |
 | `tools/reminders/` | `reminder_tools.py`, `db.py` | `create_reminder_tool`, `list_reminders_tool`, `delete_reminder_tool` | One-shot reminders |
+| `tools/telos/` | `telos_tools.py`, `db.py`, `loader.py`, `callback.py`, `markdown_io.py`, `cli.py` | 18 telos tools (read + silent-update + confirm-required) | Persistent user context store (identity, mission, goals, problems, projects, challenges, wisdom, predictions, journal, etc.). Beto-only. Injected into beto's `system_instruction` via `inject_telos_context` (anchor every turn, full block session-start). Onboarding: `uv run python -m radbot.tools.telos.cli onboard`. See `docs/implementation/telos.md` |
 | `tools/webhooks/` | `webhook_tools.py`, `db.py`, `template_renderer.py` | `create_webhook_tool`, `list_webhooks_tool`, `delete_webhook_tool` | External POST webhooks |
 | `tools/overseerr/` | `overseerr_tools.py`, `overseerr_client.py` | `search_overseerr_media_tool`, `request_overseerr_media_tool`, +2 more | Media requests |
 | `tools/lidarr/` | `lidarr_tools.py`, `lidarr_client.py` | `search_lidarr_artist_tool`, `add_lidarr_artist_tool`, +3 more | Music collection (Lidarr) |
@@ -187,6 +189,7 @@ All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless 
 | `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE) |
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
+| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section`, `ref_code`, `content`, `metadata` (JSONB), `status`, `sort_order`, UNIQUE (section, ref_code) |
 | `webhook_definitions` | `tools/webhooks/db.py` | `webhook_id` (UUID), `name` (UNIQUE), `path_suffix` (UNIQUE), `prompt_template`, `secret` |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |

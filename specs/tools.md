@@ -20,6 +20,7 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/homeassistant/` (Dashboard WS) | 6 | casa | `list_ha_dashboards`, `get_ha_dashboard_config`, `create_ha_dashboard`, `update_ha_dashboard`, `delete_ha_dashboard`, `save_ha_dashboard_config` |
 | `tools/scheduler/` | 3 | planner | `create_scheduled_task`, `list_scheduled_tasks`, `delete_scheduled_task` |
 | `tools/reminders/` | 3 | planner | `create_reminder`, `list_reminders`, `delete_reminder` |
+| `tools/telos/` | 18 | beto | `telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_add_journal`, `telos_add_prediction`, `telos_resolve_prediction`, `telos_note_wrong`, `telos_note_taste`, `telos_add_wisdom`, `telos_add_idea`, `telos_upsert_identity`, `telos_add_entry`, `telos_update_entry`, `telos_add_goal`, `telos_complete_goal`, `telos_archive`, `telos_import_markdown` |
 | `tools/webhooks/` | 3 | tracker | `create_webhook`, `list_webhooks`, `delete_webhook` |
 | `tools/overseerr/` | 4 | casa | `search_overseerr_media`, `get_overseerr_media_details`, `request_overseerr_media`, `list_overseerr_requests` |
 | `tools/lidarr/` | 5 | casa | `search_lidarr_artist`, `search_lidarr_album`, `add_lidarr_artist`, `add_lidarr_album`, `list_lidarr_quality_profiles` |
@@ -150,6 +151,45 @@ Uses WebSocket client (`ha_websocket_client.py`) for Lovelace CRUD.
 | `create_reminder` | `message`, `remind_at`, `delay_minutes`, `timezone_name` |
 | `list_reminders` | `status` (pending/completed/cancelled/all) |
 | `delete_reminder` | `reminder_id` |
+
+### telos — `tools/telos/telos_tools.py`
+
+Persistent user-context store (mission, goals, problems, projects, challenges, wisdom, predictions, taste, journal, etc.). Beto-only. An anchor (~300B) is injected into `system_instruction` every turn via `inject_telos_context`; the full block (~2KB) is injected on the first turn of each session (gated by `callback_context.state['telos_bootstrapped']`). One-time onboarding via `uv run python -m radbot.tools.telos.cli onboard`.
+
+See `docs/implementation/telos.md` for the design and update policy (silent vs. confirm-required tools).
+
+**Read tools**
+
+| Tool | Parameters |
+|------|-----------|
+| `telos_get_section` | `section`, `include_inactive` |
+| `telos_get_entry` | `section`, `ref_code` |
+| `telos_get_full` | — |
+| `telos_search_journal` | `query`, `limit` |
+
+**Silent-update tools** (agent calls without asking)
+
+| Tool | Parameters |
+|------|-----------|
+| `telos_add_journal` | `entry`, `event_type`, `related_refs` |
+| `telos_add_prediction` | `claim`, `probability`, `deadline` |
+| `telos_resolve_prediction` | `ref_code`, `outcome`, `actual_value` (auto-adds `wrong_about` on miscalibration) |
+| `telos_note_wrong` | `thing`, `why` |
+| `telos_note_taste` | `category`, `item`, `sentiment`, `note` |
+| `telos_add_wisdom` | `principle`, `origin` |
+| `telos_add_idea` | `idea` |
+
+**Confirm-required tools** (agent proposes, user approves)
+
+| Tool | Parameters |
+|------|-----------|
+| `telos_upsert_identity` | `content`, `name`, `location`, `role`, `pronouns` |
+| `telos_add_entry` | `section`, `content`, `metadata`, `ref_code` |
+| `telos_update_entry` | `section`, `ref_code`, `content`, `metadata_merge`, `status` |
+| `telos_add_goal` | `title`, `deadline`, `kpi`, `parent_problem` |
+| `telos_complete_goal` | `ref_code`, `resolution` (also writes a journal entry) |
+| `telos_archive` | `section`, `ref_code`, `reason` |
+| `telos_import_markdown` | `markdown_text`, `replace` |
 
 ### webhooks — `tools/webhooks/webhook_tools.py`
 
