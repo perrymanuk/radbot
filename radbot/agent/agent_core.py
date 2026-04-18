@@ -4,9 +4,10 @@ Core agent creation and configuration for RadBot.
 Beto is a pure orchestrator with only memory tools. All domain tools
 live on specialized sub-agents.
 
-ADK 2.0 NOTE: All sub-agents MUST be passed to the root Agent constructor.
-The new workflow-based LlmAgent builds its internal routing mesh in
-model_post_init — agents added after construction won't be routable.
+Sub-agent assembly order: pass every sub-agent to the root Agent
+constructor rather than mutating ``sub_agents`` after the fact — ADK
+sets ``parent_agent`` on each child at construction, which the tree
+relies on for routing lookup.
 """
 
 import logging
@@ -123,8 +124,9 @@ today = date.today()
 beto_tools = create_agent_memory_tools("beto") + list(TELOS_TOOLS)
 
 # ---------------------------------------------------------------------------
-# Create ALL sub-agents BEFORE the root Agent constructor.
-# ADK 2.0's _Mesh builds the routing graph in model_post_init.
+# Create ALL sub-agents BEFORE the root Agent constructor so ADK sets
+# parent_agent on each child at construction time. Mutating sub_agents
+# later leaves that link unset, breaking routing lookups.
 # ---------------------------------------------------------------------------
 
 # Builtin sub-agents (search, code execution, scout)

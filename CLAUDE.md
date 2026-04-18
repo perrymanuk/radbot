@@ -1,6 +1,6 @@
 # RadBot - Claude Code Instructions
 
-RadBot is an AI agent framework built on Google ADK 2.0.0a3, PostgreSQL, Qdrant,
+RadBot is an AI agent framework built on Google ADK 1.31.0, PostgreSQL, Qdrant,
 and MCP. The main agent "beto" has a 90s SoCal personality. Multi-agent architecture
 with specialized sub-agents (casa, planner, tracker, comms, scout, axel, search, code execution).
 
@@ -289,11 +289,11 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ## Known Gotchas
 
-- **google-adk 2.0.0a3** with V1 LlmAgent mode (default, permanently). We previously kept `mode='task'` on domain agents and adaptive V1/V2 instructions anticipating a flip to V2, but ADK is **removing** V2 `_Mesh` (see [google/adk-python#5283](https://github.com/google/adk-python/issues/5283), closed 2026-04-16: "we are removing v2_Mesh in our latest version of workflow. And will by default use the v1 llm agent."). Do NOT set `ADK_DISABLE_V1_LLM_AGENT=true` — it breaks `transfer_to_agent` because V2 `_Mesh.run_node_impl` exits the coordinator generator before `execute_tools` can fire. `mode='task'` on sub-agents is a no-op under V1 and kept only to avoid churn.
-- **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API)
-- **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the routing graph is built in `model_post_init`. See `agent_core.py`.
-- **ADK 2.0 app_name validation**: App names must be valid Python identifiers (letters, digits, underscores). No hyphens.
-- **ADK `@tool` decorator removed**: `google.adk.tools.decorators.tool` no longer exists in 2.0. Use `FunctionTool` wrapper instead. Existing code has try/except fallbacks.
+- **google-adk 1.31.0** — the currently supported line. We previously ran 2.0.0a3 but reverted after the upstream team committed to unwinding V2 (see [google/adk-python#5283](https://github.com/google/adk-python/issues/5283), closed 2026-04-16: "we are removing v2_Mesh in our latest version of workflow. And will by default use the v1 llm agent."). The `mode='task'` kwarg, `TASK_FINISH_INSTRUCTIONS`, and `FeatureName.V1_LLM_AGENT` branches that anticipated a V2 flip are gone.
+- **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API). ADK 1.31 requires `>=1.72.0`.
+- **Sub-agent assembly**: pass every sub-agent to the root Agent constructor. Adding to `sub_agents` after construction leaves `parent_agent` unset on the child, breaking `transfer_to_agent` lookups. See `agent_core.py`.
+- **App names** must be valid Python identifiers (letters, digits, underscores). No hyphens.
+- **`@tool` decorator unavailable**: use the `FunctionTool` wrapper. Some older code has try/except fallbacks left over from the upgrade-transition period.
 - **BuiltInCodeExecutor**: Use `code_executor=BuiltInCodeExecutor()` on Agent, not as a tool
 - **ADK async**: `InMemorySessionService.get_session/create_session` are async — must be awaited
 - **Runner.run_async()** for async contexts; `Runner.run()` blocks the event loop
