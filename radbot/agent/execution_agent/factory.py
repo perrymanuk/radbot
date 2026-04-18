@@ -156,7 +156,6 @@ def create_execution_agent(
             description="A specialized agent for implementing code, executing tasks, and managing project files.",
             instruction=full_instruction,
             tools=agent_tools,
-            mode="task",
         )
 
         # Store the execution_agent reference on the ADK agent for later access
