@@ -41,6 +41,25 @@ MEDIA_STATUS = {
 }
 
 
+# TMDB CDN base for poster images (w342 ~= 342px wide).
+_TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
+
+
+def tmdb_poster_url(poster_path: Optional[str]) -> Optional[str]:
+    """Build a TMDB poster CDN URL from a posterPath like '/abc.jpg'.
+
+    Returns None if ``poster_path`` is falsy. Absolute URLs pass through
+    unchanged.
+    """
+    if not poster_path or not isinstance(poster_path, str):
+        return None
+    if poster_path.startswith("http"):
+        return poster_path
+    if not poster_path.startswith("/"):
+        poster_path = "/" + poster_path
+    return f"{_TMDB_IMAGE_BASE}{poster_path}"
+
+
 def _format_search_result(item: Dict[str, Any]) -> Dict[str, Any]:
     """Normalise an Overseerr search result into a compact dict."""
     media_type = item.get("mediaType", "unknown")
@@ -58,6 +77,10 @@ def _format_search_result(item: Dict[str, Any]) -> Dict[str, Any]:
         result["overview"] = (item.get("overview") or "")[:200]
     else:
         result["title"] = item.get("title") or item.get("name") or "?"
+
+    poster_url = tmdb_poster_url(item.get("posterPath"))
+    if poster_url:
+        result["poster_url"] = poster_url
 
     # Media status from Overseerr (if already requested/available)
     media_info = item.get("mediaInfo")
@@ -141,6 +164,7 @@ def get_overseerr_media_details(
             "runtime": raw.get("runtime"),
             "genres": [g.get("name", "") for g in raw.get("genres", [])],
             "vote_average": raw.get("voteAverage"),
+            "poster_url": tmdb_poster_url(raw.get("posterPath")),
         }
     else:
         raw = client.get_tv(tmdb_id)
@@ -164,6 +188,7 @@ def get_overseerr_media_details(
             "genres": [g.get("name", "") for g in raw.get("genres", [])],
             "vote_average": raw.get("voteAverage"),
             "seasons": seasons,
+            "poster_url": tmdb_poster_url(raw.get("posterPath")),
         }
 
     # Include Overseerr media status if present

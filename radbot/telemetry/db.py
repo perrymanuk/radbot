@@ -296,6 +296,128 @@ def get_model_breakdown(
         return []
 
 
+def get_session_stats(
+    session_id: str,
+    run_label: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return token/cost stats for a single chat session plus today/month
+    rolling totals across all sessions.
+
+    Shape matches the frontend ``SessionStats`` interface in
+    ``stores/app-store.ts``.  ``context_tokens`` is the prompt_tokens from the
+    most recent turn on this session (approximation of current context window
+    usage).  ``context_window`` is a best-effort lookup from the model name
+    seen on the most recent turn; defaults to 200000 for unknown models.
+    """
+    label_sql, label_params = _label_clause(run_label)
+    now = datetime.now(tz=timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = _month_start(now.year, now.month)
+
+    stats = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "context_tokens": 0,
+        "context_window": 200000,
+        "model": "",
+        "cost_usd": 0.0,
+        "cost_today_usd": 0.0,
+        "cost_month_usd": 0.0,
+    }
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                # Per-session totals
+                cur.execute(
+                    f"""
+                    SELECT
+                        COALESCE(SUM(prompt_tokens), 0),
+                        COALESCE(SUM(output_tokens), 0),
+                        COALESCE(SUM(cost_usd), 0)
+                    FROM llm_usage_log
+                    WHERE session_id = %s
+                    {label_sql}
+                    """,
+                    [session_id] + label_params,
+                )
+                row = cur.fetchone()
+                if row:
+                    stats["input_tokens"] = int(row[0] or 0)
+                    stats["output_tokens"] = int(row[1] or 0)
+                    stats["cost_usd"] = round(float(row[2] or 0.0), 6)
+
+                # Most recent turn on this session (for ctx + model)
+                cur.execute(
+                    f"""
+                    SELECT prompt_tokens, model
+                    FROM llm_usage_log
+                    WHERE session_id = %s
+                    {label_sql}
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    [session_id] + label_params,
+                )
+                last = cur.fetchone()
+                if last:
+                    stats["context_tokens"] = int(last[0] or 0)
+                    stats["model"] = last[1] or ""
+                    stats["context_window"] = _context_window_for(stats["model"])
+
+                # Rolling totals across all sessions
+                cur.execute(
+                    f"""
+                    SELECT COALESCE(SUM(cost_usd), 0)
+                    FROM llm_usage_log
+                    WHERE created_at >= %s
+                    {label_sql}
+                    """,
+                    [day_start] + label_params,
+                )
+                stats["cost_today_usd"] = round(float(cur.fetchone()[0] or 0.0), 6)
+
+                cur.execute(
+                    f"""
+                    SELECT COALESCE(SUM(cost_usd), 0)
+                    FROM llm_usage_log
+                    WHERE created_at >= %s
+                    {label_sql}
+                    """,
+                    [month_start] + label_params,
+                )
+                stats["cost_month_usd"] = round(float(cur.fetchone()[0] or 0.0), 6)
+    except Exception as e:
+        logger.error("Failed to get session stats for %s: %s", session_id, e)
+
+    return stats
+
+
+# Known model context windows (tokens). Conservative defaults for unknowns.
+_CONTEXT_WINDOWS = {
+    "gemini-2.5-pro": 1_048_576,
+    "gemini-2.5-flash": 1_048_576,
+    "gemini-2.0-flash": 1_048_576,
+    "gemini-3.1-pro": 1_048_576,
+    "gemini-3.1-flash": 1_048_576,
+    "claude-opus-4": 200_000,
+    "claude-sonnet-4": 200_000,
+    "claude-haiku-4": 200_000,
+    "gpt-4o": 128_000,
+    "gpt-4.1": 128_000,
+    "qwen": 128_000,
+    "ollama_chat": 32_768,
+}
+
+
+def _context_window_for(model: str) -> int:
+    m = (model or "").lower()
+    for prefix, window in _CONTEXT_WINDOWS.items():
+        if prefix in m:
+            return window
+    return 200_000
+
+
 def get_available_months(
     run_label: Optional[str] = None,
 ) -> List[Dict[str, Any]]:

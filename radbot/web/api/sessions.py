@@ -362,6 +362,28 @@ def register_sessions_router(app):
                 status_code=500, detail=f"Error resetting session: {str(e)}"
             )
 
+    @router.get("/{session_id}/stats")
+    async def get_session_stats_endpoint(session_id: str = Path(...)):
+        """Return token + cost stats for a session.
+
+        Shape matches the frontend ``SessionStats`` interface (camelCase).
+        Populated from ``llm_usage_log`` rows tagged with this ``session_id``.
+        ``costTodayUsd`` / ``costMonthUsd`` are rolling totals across all sessions.
+        """
+        from radbot.telemetry.db import get_session_stats
+
+        raw = get_session_stats(session_id)
+        return {
+            "inputTokens": raw["input_tokens"],
+            "outputTokens": raw["output_tokens"],
+            "contextTokens": raw["context_tokens"],
+            "contextWindow": raw["context_window"],
+            "model": raw["model"],
+            "costUsd": raw["cost_usd"],
+            "costTodayUsd": raw["cost_today_usd"],
+            "costMonthUsd": raw["cost_month_usd"],
+        }
+
     # Register the router with the app
     app.include_router(router)
     logger.debug("Sessions router registered")
