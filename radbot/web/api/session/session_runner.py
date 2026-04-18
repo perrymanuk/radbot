@@ -118,22 +118,25 @@ class SessionRunner:
             memory_service=memory_service,  # Pass memory service to Runner
         )
 
-        # Enable ADK context caching to reduce API costs.
-        # System instructions + tool schemas are identical across requests,
-        # so cached tokens (billed at 10% rate) approach 100% hit rate.
-        try:
-            from google.adk.agents.context_cache_config import ContextCacheConfig
-
-            self.runner.context_cache_config = ContextCacheConfig(
-                cache_intervals=20,
-                ttl_seconds=3600,
-                min_tokens=2048,
-            )
-            logger.debug(
-                "Enabled context caching on web Runner (intervals=20, ttl=3600s, min_tokens=2048)"
-            )
-        except Exception as e:
-            logger.warning(f"Could not enable context caching: {e}")
+        # ADK's ``GeminiContextCacheManager`` is flagged EXPERIMENTAL at
+        # startup and we've traced a turn-2 "contents are required" Gemini
+        # 400 to it: on the second turn of a session, when the cacheable
+        # prefix (system_instruction + tools + stable history) covers the
+        # whole request, the delta emitted as ``contents`` is empty, and
+        # google-genai's transformer raises ``ValueError('contents are
+        # required')`` before the request is sent. Sub-agent dispatch
+        # after ``transfer_to_agent`` is especially exposed because the
+        # sub-agent inherits the cached root-agent prefix.
+        #
+        # Leaving this disabled for now — re-enable (behind a feature
+        # flag) once ADK ships a stable cache manager. The token-cost
+        # story for beto without caching is: full prompt every call,
+        # no ~90% savings on the stable prefix. Acceptable trade-off
+        # versus broken production.
+        logger.info(
+            "Context caching is disabled — ADK GeminiContextCacheManager "
+            "produces empty contents on turn-2 sub-agent dispatch."
+        )
 
     def _log_agent_tree(self):
         """Log the agent tree structure for debugging."""
