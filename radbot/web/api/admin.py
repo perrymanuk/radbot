@@ -26,7 +26,6 @@ _ADMIN_TOKEN_ENV = "RADBOT_ADMIN_TOKEN"
 _INTEGRATION_RESET_REGISTRY: list[tuple[str, str]] = [
     ("radbot.tools.homeassistant.ha_client_singleton", "reset_ha_client"),
     ("radbot.tools.homeassistant.ha_ws_singleton", "reset_ha_ws_client"),
-    ("radbot.tools.homeassistant.ha_mcp_client", "reset_ha_mcp_client"),
     ("radbot.tools.overseerr.overseerr_client", "reset_overseerr_client"),
     ("radbot.tools.ntfy.ntfy_client", "reset_ntfy_client"),
     ("radbot.tools.picnic.picnic_client", "reset_picnic_client"),
@@ -868,23 +867,9 @@ async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)
                 f"{ha_url.rstrip('/')}/api/",
                 headers={"Authorization": f"Bearer {ha_token}"},
             )
-            if resp.status_code != 200:
-                return _err(f"Home Assistant returned HTTP {resp.status_code}")
-
-        # Also probe the MCP endpoint so the admin gets a single go/no-go
-        # signal. We don't fail the whole test if MCP is absent — some HA
-        # installs may not have the mcp_server integration enabled.
-        mcp_status: Optional[str] = None
-        try:
-            from radbot.tools.homeassistant.ha_mcp_client import HAMcpClient
-
-            mcp_client = HAMcpClient(ha_url, ha_token, timeout=8.0)
-            tools = mcp_client.list_tools_sync()
-            mcp_status = f"{len(tools)} MCP tools available"
-        except Exception as e:
-            mcp_status = f"MCP unavailable: {e}"
-
-        return _ok(f"Connected to Home Assistant. {mcp_status}")
+            if resp.status_code == 200:
+                return _ok("Connected to Home Assistant")
+            return _err(f"Home Assistant returned HTTP {resp.status_code}")
     except Exception as e:
         return _err(f"Home Assistant connection failed: {e}")
 

@@ -29,6 +29,7 @@ def create_tracker_agent() -> Optional[Agent]:
             "tracker",
             "You are Tracker, a task and project management specialist. "
             "Manage todo items, projects, and webhook integrations.",
+            use_task_mode=True,
         )
 
         # Build tools list
@@ -52,6 +53,7 @@ def create_tracker_agent() -> Optional[Agent]:
             description="Todo lists, project management, task tracking, and webhook configuration.",
             instruction=instruction,
             tools=tools,
+            mode="task",
         )
 
         logger.info(f"Created Tracker agent with {len(tools)} tools")

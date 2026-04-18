@@ -13,7 +13,6 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
-| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section` (identity/mission/problems/goals/projects/challenges/wisdom/predictions/journal/…), `ref_code` (e.g. `G1`, `P2`, `ME`), `content`, `metadata` (JSONB — section-specific fields), `status` (active/completed/archived/superseded), `sort_order`, UNIQUE (section, ref_code) |
 | `webhook_definitions` | `tools/webhooks/db.py` | `webhook_id` (UUID), `name` (UNIQUE), `path_suffix` (UNIQUE), `prompt_template`, `secret` |
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |
 | `coder_workspaces` | `tools/claude_code/db.py` | `workspace_id` (UUID), `owner`, `repo`, `branch`, `local_path`, `status`, `last_session_id`, `name`, `description` |
@@ -39,13 +38,12 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 |-------|-------|---------|
 | `notifications` | `idx_notifications_type`, `idx_notifications_unread` (partial on `read=FALSE`), `idx_notifications_created (DESC)` | Feed filtering |
 | `llm_usage_log` | `idx_llm_usage_log_created (created_at DESC)`, `idx_llm_usage_log_label` | Rolling cost queries + session filters |
-| `telos_entries` | `idx_telos_section_status`, `idx_telos_active` (partial on `status='active'`), `idx_telos_journal_recent (created_at DESC)` (partial on `section='journal'`) | Loader (always-loaded section queries) + journal recency |
 
 ### Schema Init
 
 All schemas idempotent via `init_*_schema()` with `CREATE TABLE IF NOT EXISTS` (or the `init_table_schema()` helper in `tools/shared/db_schema.py`). Called from:
 
-- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, notifications, llm_usage_log, alerts)
+- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, notifications, llm_usage_log, alerts)
 - `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history)
 - `worker/__main__.py` — worker-side schema init (calls directly, not via ADK callback)
 

@@ -30,6 +30,7 @@ def create_youtube_agent() -> Optional[Agent]:
             "kidsvid",
             "You are KidsVid, a children's video curator. "
             "Search YouTube for safe, educational, age-appropriate videos for children.",
+            use_task_mode=True,
         )
 
         # Build tools list
@@ -71,12 +72,6 @@ def create_youtube_agent() -> Optional[Agent]:
         memory_tools = create_agent_memory_tools("kidsvid")
         tools.extend(memory_tools)
 
-        # Card-rendering tool — emits a fenced ```radbot:video block the
-        # frontend renders as <VideoCard /> with an ADD TO KIDEO button.
-        from radbot.tools.shared.card_protocol import show_video_card_tool
-
-        tools.append(show_video_card_tool)
-
         agent = Agent(
             name="kidsvid",
             model=model,
@@ -87,6 +82,7 @@ def create_youtube_agent() -> Optional[Agent]:
             ),
             instruction=instruction,
             tools=tools,
+            mode="task",
         )
 
         logger.info(f"Created KidsVid agent with {len(tools)} tools")

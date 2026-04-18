@@ -660,7 +660,7 @@ export function HomeAssistantPanel() {
   const [enabled, setEnabled] = useState(false);
   const [haUrl, setHaUrl] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [useMcp, setUseMcp] = useState(true);
+  const [mcpSseUrl, setMcpSseUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<{ status: string; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
@@ -670,7 +670,7 @@ export function HomeAssistantPanel() {
       const ha = dig(cfg, "integrations.home_assistant", {});
       setEnabled(!!ha.enabled);
       setHaUrl(ha.url || "");
-      setUseMcp(ha.use_mcp !== false); // default true when unset
+      setMcpSseUrl(ha.mcp_sse_url || "");
       if (ha.token) setAccessToken(MASKED);
     });
   }, [loadLiveConfig]);
@@ -700,11 +700,7 @@ export function HomeAssistantPanel() {
         home_assistant: {
           enabled,
           url: haUrl || undefined,
-          use_mcp: useMcp,
-          // mcp_sse_url dropped — HA MCP endpoint is derived from `url`
-          // (POST <url>/api/mcp); SSE transport is superseded by
-          // streamable-HTTP on HA 2025.2+.
-          mcp_sse_url: null,
+          mcp_sse_url: mcpSseUrl || undefined,
         },
       });
       toast("Home Assistant settings saved", "success");
@@ -739,10 +735,10 @@ export function HomeAssistantPanel() {
           onChange={setAccessToken}
           type="password"
         />
-        <FormToggle
-          label="Use MCP (HA 2025.2+ native tool surface)"
-          checked={useMcp}
-          onChange={setUseMcp}
+        <FormInput
+          label="MCP SSE URL"
+          value={mcpSseUrl}
+          onChange={setMcpSseUrl}
         />
       </Card>
 

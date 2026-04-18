@@ -4,10 +4,9 @@ Core agent creation and configuration for RadBot.
 Beto is a pure orchestrator with only memory tools. All domain tools
 live on specialized sub-agents.
 
-Sub-agent assembly order: pass every sub-agent to the root Agent
-constructor rather than mutating ``sub_agents`` after the fact — ADK
-sets ``parent_agent`` on each child at construction, which the tree
-relies on for routing lookup.
+ADK 2.0 NOTE: All sub-agents MUST be passed to the root Agent constructor.
+The new workflow-based LlmAgent builds its internal routing mesh in
+model_post_init — agents added after construction won't be routable.
 """
 
 import logging
@@ -34,13 +33,11 @@ from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
-from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
 from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
-from radbot.tools.telos import TELOS_TOOLS, inject_telos_context
 
 # Get the instruction from the config manager
 instruction = config_manager.get_instruction("main_agent")
@@ -118,14 +115,12 @@ logger.debug(f"Using model: {model_name}")
 # Get today's date for the global instruction
 today = date.today()
 
-# Beto's tools: agent-scoped memory + Telos (persistent user persona / context store).
-# Sub-agents do NOT get Telos tools — they're tool executors, not persona-aware.
-beto_tools = create_agent_memory_tools("beto") + list(TELOS_TOOLS)
+# Beto's tools: only agent-scoped memory tools (orchestrator pattern)
+beto_tools = create_agent_memory_tools("beto")
 
 # ---------------------------------------------------------------------------
-# Create ALL sub-agents BEFORE the root Agent constructor so ADK sets
-# parent_agent on each child at construction time. Mutating sub_agents
-# later leaves that link unset, breaking routing lookups.
+# Create ALL sub-agents BEFORE the root Agent constructor.
+# ADK 2.0's _Mesh builds the routing graph in model_post_init.
 # ---------------------------------------------------------------------------
 
 # Builtin sub-agents (search, code execution, scout)
@@ -152,11 +147,7 @@ all_sub_agents.extend(specialized_agents)
 # current user turn (prevents cross-turn context bleed). Root Beto keeps
 # full history — only sub-agents are scoped.
 _after_cbs = [handle_empty_response_after_model, telemetry_after_model_callback]
-_before_cbs = [
-    scope_sub_agent_context_callback,
-    scrub_empty_content_before_model,
-    sanitize_tool_schemas_before_model,
-]
+_before_cbs = [scope_sub_agent_context_callback, scrub_empty_content_before_model]
 for sa in all_sub_agents:
     if not sa.after_model_callback:
         sa.after_model_callback = _after_cbs
@@ -173,15 +164,7 @@ root_agent = Agent(
     sub_agents=all_sub_agents,
     tools=beto_tools,
     before_agent_callback=setup_before_agent_call,
-    before_model_callback=[
-        scrub_empty_content_before_model,
-        sanitize_before_model_callback,
-        sanitize_tool_schemas_before_model,
-        # Telos: inject user persona/context into beto's system_instruction.
-        # Anchor every turn, full block session-start only (state-gated).
-        # Attached to beto ONLY — sub-agents don't need user persona context.
-        inject_telos_context,
-    ],
+    before_model_callback=[scrub_empty_content_before_model, sanitize_before_model_callback],
     after_model_callback=[handle_empty_response_after_model, telemetry_after_model_callback],
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )

@@ -13,8 +13,8 @@
 
 - **Python**: 3.14-slim base image for both main app and worker (upgraded in `85a258e`)
 - **Package manager**: `uv` — both containers use multi-stage builds with `uv` + GHA layer caching (`c20e8b2`, `c1cbdd8`)
-- **ADK**: `google-adk>=1.31.0,<2.0.0` — the currently supported line after upstream unwound the v2 alpha (see CLAUDE.md gotchas)
-- **genai**: `google-genai>=1.72.0` (ADK 1.31.0 floor; NOT the older `google-generativeai` package)
+- **ADK**: `google-adk>=2.0.0a3,<3.0.0` with V1 LlmAgent mode (V2 `_Mesh` is being removed upstream — see CLAUDE.md gotchas)
+- **genai**: `google-genai>=1.68.0` (NOT the older `google-generativeai` package)
 
 ## Bootstrap Config
 

@@ -29,7 +29,6 @@ _SCHEMA_INITS = [
     ("scheduler_init", "radbot.tools.scheduler", "init_scheduler_schema"),
     ("webhook_init", "radbot.tools.webhooks", "init_webhook_schema"),
     ("reminder_init", "radbot.tools.reminders", "init_reminder_schema"),
-    ("telos_init", "radbot.tools.telos", "init_telos_schema"),
 ]
 
 
@@ -55,22 +54,30 @@ def setup_before_agent_call(callback_context: CallbackContext):
                 logger.error(f"Failed to initialize {key}: {e}")
                 callback_context.state[key] = False
 
-    # Initialize Home Assistant client with a lightweight health check.
-    # We deliberately do NOT call list_entities() here — that was an
-    # unbounded dump (~500 entities, tens of KB) paid once per process
-    # for no tool-path benefit. The MCP migration made it redundant:
-    # GetLiveContext returns only exposed entities (~99) and is called
-    # on-demand by the LLM when it actually needs state.
+    # Initialize Home Assistant client if not already done
     if "ha_client_init" not in callback_context.state:
         try:
             from radbot.tools.homeassistant import get_ha_client
 
             ha_client = get_ha_client()
-            if ha_client and ha_client.get_api_status():
-                logger.info("Connected to Home Assistant REST API")
-                callback_context.state["ha_client_init"] = True
+            if ha_client:
+                try:
+                    entities = ha_client.list_entities()
+                    if entities:
+                        logger.info(
+                            f"Successfully connected to Home Assistant. Found {len(entities)} entities."
+                        )
+                        callback_context.state["ha_client_init"] = True
+                    else:
+                        logger.warning(
+                            "Connected to Home Assistant but no entities were returned"
+                        )
+                        callback_context.state["ha_client_init"] = False
+                except Exception as e:
+                    logger.error(f"Error testing Home Assistant connection: {e}")
+                    callback_context.state["ha_client_init"] = False
             else:
-                logger.warning("Home Assistant client not available or unhealthy")
+                logger.warning("Home Assistant client could not be initialized")
                 callback_context.state["ha_client_init"] = False
         except Exception as e:
             logger.error(f"Error initializing Home Assistant client: {e}")

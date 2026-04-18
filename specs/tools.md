@@ -15,12 +15,10 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/todo/` | 8 | tracker | `add_task`, `complete_task`, `remove_task`, `list_projects`, `list_project_tasks`, `list_all_tasks`, `update_task`, `update_project` |
 | `tools/calendar/` | 5 | planner | `list_calendar_events`, `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `check_calendar_availability` |
 | `tools/gmail/` | 4 | comms | `list_emails`, `search_emails`, `get_email`, `list_gmail_accounts` |
-| `tools/homeassistant/` (MCP, primary) | dynamic (~19 built-in + user-exposed scripts) | casa | `HassTurnOn`, `HassTurnOff`, `HassLightSet`, `HassClimateSetTemperature`, `HassMediaSearchAndPlay`, `HassSetVolume`, `HassVacuumStart`, `HassFanSetSpeed`, `HassBroadcast`, `HassStartTimer`, `GetLiveContext`, `GetDateTime`, … (schemas discovered at factory time from `<ha_url>/api/mcp` via `HAMcpClient.list_tools_sync()`, wrapped by `ha_mcp_tools.build_ha_mcp_function_tools`). Disable by setting `integrations.home_assistant.use_mcp = false` to fall back to the REST row below. |
-| `tools/homeassistant/` (REST, fallback) | 6 | casa (only when MCP disabled/unavailable) | `list_ha_entities`, `get_ha_entity_state`, `turn_on_ha_entity`, `turn_off_ha_entity`, `toggle_ha_entity`, `search_ha_entities` |
+| `tools/homeassistant/` (REST) | 6 | casa | `list_ha_entities`, `get_ha_entity_state`, `turn_on_ha_entity`, `turn_off_ha_entity`, `toggle_ha_entity`, `search_ha_entities` |
 | `tools/homeassistant/` (Dashboard WS) | 6 | casa | `list_ha_dashboards`, `get_ha_dashboard_config`, `create_ha_dashboard`, `update_ha_dashboard`, `delete_ha_dashboard`, `save_ha_dashboard_config` |
 | `tools/scheduler/` | 3 | planner | `create_scheduled_task`, `list_scheduled_tasks`, `delete_scheduled_task` |
 | `tools/reminders/` | 3 | planner | `create_reminder`, `list_reminders`, `delete_reminder` |
-| `tools/telos/` | 18 | beto | `telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_add_journal`, `telos_add_prediction`, `telos_resolve_prediction`, `telos_note_wrong`, `telos_note_taste`, `telos_add_wisdom`, `telos_add_idea`, `telos_upsert_identity`, `telos_add_entry`, `telos_update_entry`, `telos_add_goal`, `telos_complete_goal`, `telos_archive`, `telos_import_markdown` |
 | `tools/webhooks/` | 3 | tracker | `create_webhook`, `list_webhooks`, `delete_webhook` |
 | `tools/overseerr/` | 4 | casa | `search_overseerr_media`, `get_overseerr_media_details`, `request_overseerr_media`, `list_overseerr_requests` |
 | `tools/lidarr/` | 5 | casa | `search_lidarr_artist`, `search_lidarr_album`, `add_lidarr_artist`, `add_lidarr_album`, `list_lidarr_quality_profiles` |
@@ -32,7 +30,7 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/youtube/` (YouTube) | 3 | kidsvid | `search_youtube_videos`, `get_youtube_video_details`, `get_youtube_channel_info` |
 | `tools/youtube/` (CuriosityStream) | 2 | kidsvid | `search_curiositystream`, `list_curiositystream_categories` |
 | `tools/youtube/` (Kideo) | 10 | kidsvid | `add_video_to_kideo`, `add_videos_to_kideo_batch`, `list_kideo_collections`, `create_kideo_collection`, `generate_video_tags`, `set_kideo_video_tags`, `get_kideo_popular_videos`, `get_kideo_tag_stats`, `get_kideo_channel_stats`, `retag_untagged_kideo_videos` |
-| `tools/shared/card_protocol.py` (cards) | 4 | casa, kidsvid | `show_media_card`, `show_season_breakdown`, `show_ha_device_card`, `show_video_card` |
+| `tools/shared/card_protocol.py` (cards) | 3 | casa | `show_media_card`, `show_season_breakdown`, `show_ha_device_card` |
 | Axel execution tools | 4 | axel | `code_execution_tool`, `run_tests`, `validate_code`, `generate_documentation` |
 | `load_artifacts` (ADK) | 1 | axel | built-in |
 
@@ -89,30 +87,7 @@ Global variants (`search_past_conversations`, `store_important_information`) exi
 | `get_email` | `message_id`, `account` |
 | `list_gmail_accounts` | — |
 
-### homeassistant (MCP, primary) — `tools/homeassistant/ha_mcp_client.py` + `ha_mcp_tools.py`
-
-Casa's default HA tool surface. Discovered dynamically from HA's `mcp_server` integration (HA 2025.2+) at agent-construction time via `HAMcpClient.list_tools_sync()`; each tool wrapped as an ADK FunctionTool whose implementation forwards to `HAMcpClient.call_tool(name, arguments)` via streamable-HTTP JSON-RPC. Tool set depends on Assist exposure in HA — typical shape:
-
-| Tool | Parameters | Notes |
-|------|-----------|-------|
-| `HassTurnOn` / `HassTurnOff` | `name?`, `area?`, `floor?`, `domain[]?`, `device_class[]?` | HA's `MatchTargets` resolves — no `entity_id` required. `domain` as array (e.g. `["light","switch"]`) spans multiple domains in one call. |
-| `HassLightSet` | `name?`, `area?`, `floor?`, `domain[]?`, `color?`, `temperature?`, `brightness?` | Brightness 0-100, color as CSS color name, temperature Kelvin. |
-| `HassClimateSetTemperature` / `HassClimateGetTemperature` | `name?`, `area?`, `temperature?` | (exposed only if HA has climate entities on the Assist allowlist) |
-| `HassMediaSearchAndPlay` | `search_query`, `media_class?`, `name?`, `area?`, `floor?` | `media_class` enum: album, app, artist, channel, ... |
-| `HassMediaPause` / `HassMediaUnpause` / `HassMediaNext` / `HassMediaPrevious` / `HassSetVolume` / `HassSetVolumeRelative` / `HassMediaPlayerMute` / `HassMediaPlayerUnmute` | `name?`, `area?` (+ `volume_level` for `HassSetVolume`) | |
-| `HassVacuumStart` / `HassVacuumReturnToBase` / `HassVacuumCleanArea` | `name?`, `area?` | |
-| `HassFanSetSpeed` | `name?`, `area?`, `speed` (0-100) | |
-| `HassBroadcast` | `message` | TTS broadcast through whole home. |
-| `HassCancelAllTimers` / `HassStartTimer` | timer-specific | (exposure-dependent) |
-| `GetLiveContext` | — | Returns YAML-formatted snapshot of all Assist-exposed entities. Replaces the legacy `list_ha_entities` / `search_ha_entities`. |
-| `GetDateTime` | — | HA's system date/time. |
-| `<user_script_name>` | user-defined | Every HA script the user has exposed to Assist appears as its own tool. Names are sanitized to valid Python identifiers on the radbot side. |
-
-HA wraps each response in `{"success": bool, "result": ...}`; `ha_mcp_tools._unwrap_ha_envelope` unwraps before returning to the LLM.
-
-### homeassistant (REST, fallback) — `tools/homeassistant/ha_tools_impl.py`
-
-Loaded only when `integrations.home_assistant.use_mcp = false` or MCP tool discovery fails at startup. Kept as an escape hatch for non-exposed entities and for `web/api/ha.py`'s frontend device buttons.
+### homeassistant (REST) — `tools/homeassistant/ha_tools_impl.py`
 
 | Tool | Parameters |
 |------|-----------|
@@ -151,45 +126,6 @@ Uses WebSocket client (`ha_websocket_client.py`) for Lovelace CRUD.
 | `create_reminder` | `message`, `remind_at`, `delay_minutes`, `timezone_name` |
 | `list_reminders` | `status` (pending/completed/cancelled/all) |
 | `delete_reminder` | `reminder_id` |
-
-### telos — `tools/telos/telos_tools.py`
-
-Persistent user-context store (mission, goals, problems, projects, challenges, wisdom, predictions, taste, journal, etc.). Beto-only. An anchor (~300B) is injected into `system_instruction` every turn via `inject_telos_context`; the full block (~2KB) is injected on the first turn of each session (gated by `callback_context.state['telos_bootstrapped']`). One-time onboarding via `uv run python -m radbot.tools.telos.cli onboard`.
-
-See `docs/implementation/telos.md` for the design and update policy (silent vs. confirm-required tools).
-
-**Read tools**
-
-| Tool | Parameters |
-|------|-----------|
-| `telos_get_section` | `section`, `include_inactive` |
-| `telos_get_entry` | `section`, `ref_code` |
-| `telos_get_full` | — |
-| `telos_search_journal` | `query`, `limit` |
-
-**Silent-update tools** (agent calls without asking)
-
-| Tool | Parameters |
-|------|-----------|
-| `telos_add_journal` | `entry`, `event_type`, `related_refs` |
-| `telos_add_prediction` | `claim`, `probability`, `deadline` |
-| `telos_resolve_prediction` | `ref_code`, `outcome`, `actual_value` (auto-adds `wrong_about` on miscalibration) |
-| `telos_note_wrong` | `thing`, `why` |
-| `telos_note_taste` | `category`, `item`, `sentiment`, `note` |
-| `telos_add_wisdom` | `principle`, `origin` |
-| `telos_add_idea` | `idea` |
-
-**Confirm-required tools** (agent proposes, user approves)
-
-| Tool | Parameters |
-|------|-----------|
-| `telos_upsert_identity` | `content`, `name`, `location`, `role`, `pronouns` |
-| `telos_add_entry` | `section`, `content`, `metadata`, `ref_code` |
-| `telos_update_entry` | `section`, `ref_code`, `content`, `metadata_merge`, `status` |
-| `telos_add_goal` | `title`, `deadline`, `kpi`, `parent_problem` |
-| `telos_complete_goal` | `ref_code`, `resolution` (also writes a journal entry) |
-| `telos_archive` | `section`, `ref_code`, `reason` |
-| `telos_import_markdown` | `markdown_text`, `replace` |
 
 ### webhooks — `tools/webhooks/webhook_tools.py`
 
@@ -313,14 +249,13 @@ Three client modules wired onto the kidsvid agent.
 
 Emits ` ```radbot:<kind> ` fenced JSON blocks the agent includes verbatim in its reply. Frontend parses into UI components.
 
-Valid kinds: `media`, `seasons`, `ha-device`, `handoff`, `video`.
+Valid kinds: `media`, `seasons`, `ha-device`, `handoff`.
 
 | Tool | Parameters | Notes |
 |------|-----------|-------|
 | `show_media_card` | `tmdb_id`, `media_type`, `title`, `year`, ... | Best-effort Overseerr poster lookup when `tmdb_id` + `media_type` known |
 | `show_season_breakdown` | `tmdb_id`, `title`, `seasons` (list) | Per-season progress/status |
 | `show_ha_device_card` | `entity_id`, `state`, `brightness_pct`, ... | Domain-inferred icon |
-| `show_video_card` | `title`, `source`, `url`, `video_id`, `channel`, `duration_seconds`, `thumbnail_url`, `tags`, `note`, ... | Kidsvid card. Auto-resolves Kideo library status via `kideo_client.find_video_by_url`. Direct-action ADD TO KIDEO button hits `/api/videos/add-to-kideo` |
 
 `handoff` blocks are emitted server-side, not by agents — `session_runner.py` wraps every `agent_transfer` event as a `radbot:handoff` block (reflexive/duplicate transfers filtered).
 

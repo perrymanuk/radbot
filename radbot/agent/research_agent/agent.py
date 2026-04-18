@@ -99,6 +99,7 @@ class ResearchAgent:
             description=description,
             tools=tools,
             output_key=output_key,
+            mode="task",
         )
 
         # Store app_name for reference (not used by LlmAgent but needed for Runner)

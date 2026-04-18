@@ -53,7 +53,6 @@ from radbot.web.api.health import router as health_router
 from radbot.web.api.alerts import router as alerts_router
 from radbot.web.api.notifications import router as notifications_router
 from radbot.web.api.media import router as media_router
-from radbot.web.api.videos import router as videos_router
 from radbot.web.api.ha import router as ha_router
 
 logger = logging.getLogger(__name__)
@@ -89,7 +88,6 @@ def create_app():
     app.include_router(terminal_router)
     app.include_router(notifications_router)
     app.include_router(media_router)
-    app.include_router(videos_router)
     app.include_router(ha_router)
     register_terminal_websocket(app)
     logger.debug("API routers registered during app initialization")
@@ -189,17 +187,6 @@ async def initialize_app_startup():
         except Exception as rem_err:
             logger.error(
                 f"Error initializing reminder database: {str(rem_err)}", exc_info=True
-            )
-
-        logger.debug("Initializing telos database schema...")
-        try:
-            from radbot.tools.telos.db import init_telos_schema
-
-            init_telos_schema()
-            logger.debug("Telos database schema initialized")
-        except Exception as telos_err:
-            logger.error(
-                f"Error initializing telos database: {str(telos_err)}", exc_info=True
             )
 
         logger.debug("Initializing coder workspaces database schema...")
