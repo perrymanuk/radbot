@@ -166,7 +166,7 @@ export function MCPServersPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#eee] mb-4">MCP Servers</h2>
+      <h2 className="text-lg font-semibold text-txt-primary mb-4">MCP Servers</h2>
 
       <Note>
         Configure Model Context Protocol servers. Auth tokens are stored separately as encrypted
@@ -174,7 +174,7 @@ export function MCPServersPanel() {
       </Note>
 
       {servers.length === 0 && (
-        <p className="text-[#999] text-sm mb-4">
+        <p className="text-txt-secondary text-sm mb-4">
           No MCP servers configured. Click "Add Server" to get started.
         </p>
       )}
@@ -182,7 +182,7 @@ export function MCPServersPanel() {
       {servers.map((server, idx) => (
         <div
           key={server.id}
-          className="bg-[#16213e] border border-[#2a3a5c] rounded-lg mb-3 overflow-hidden"
+          className="bg-bg-secondary border border-border rounded-lg mb-3 overflow-hidden"
         >
           {/* Header */}
           <button
@@ -192,17 +192,17 @@ export function MCPServersPanel() {
           >
             <div className="flex items-center gap-2.5">
               <span
-                className="inline-block text-[#999] text-xs transition-transform"
+                className="inline-block text-txt-secondary text-xs transition-transform"
                 style={{
                   transform: expandedIdx === idx ? "rotate(90deg)" : "rotate(0deg)",
                 }}
               >
                 &#9654;
               </span>
-              <span className="text-sm font-medium text-[#eee]">{server.name || "Unnamed"}</span>
-              <span className="text-xs text-[#666]">({server.transport})</span>
+              <span className="text-sm font-medium text-txt-primary">{server.name || "Unnamed"}</span>
+              <span className="text-xs text-txt-secondary/60">({server.transport})</span>
               {!server.enabled && (
-                <span className="text-[0.65rem] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#666]">
+                <span className="text-[0.65rem] px-1.5 py-0.5 rounded bg-bg-tertiary text-txt-secondary/60">
                   disabled
                 </span>
               )}
@@ -211,7 +211,7 @@ export function MCPServersPanel() {
 
           {/* Body */}
           {expandedIdx === idx && (
-            <div className="px-4 pb-4 border-t border-[#2a3a5c]">
+            <div className="px-4 pb-4 border-t border-border">
               <div className="pt-3">
                 <FormRow>
                   <FormInput
@@ -307,11 +307,11 @@ export function MCPServersPanel() {
                   />
                 </FormRow>
 
-                <div className="mt-3 pt-3 border-t border-[#2a3a5c]">
+                <div className="mt-3 pt-3 border-t border-border">
                   <button
                     type="button"
                     onClick={() => deleteServer(idx)}
-                    className="text-xs text-[#c0392b] border border-[#c0392b]/30 px-3 py-1.5 rounded hover:bg-[#c0392b]/10 cursor-pointer transition-colors bg-transparent"
+                    className="text-xs text-terminal-red border border-terminal-red/30 px-3 py-1.5 rounded hover:bg-terminal-red/10 cursor-pointer transition-colors bg-transparent"
                   >
                     Delete Server
                   </button>
@@ -325,7 +325,7 @@ export function MCPServersPanel() {
       <button
         type="button"
         onClick={addServer}
-        className="w-full py-2.5 border border-dashed border-[#2a3a5c] rounded-lg text-sm text-[#999] hover:border-[#e94560] hover:text-[#eee] transition-colors cursor-pointer bg-transparent mb-4"
+        className="w-full py-2.5 border border-dashed border-border rounded-lg text-sm text-txt-secondary hover:border-radbot-sunset hover:text-txt-primary transition-colors cursor-pointer bg-transparent mb-4"
       >
         + Add Server
       </button>

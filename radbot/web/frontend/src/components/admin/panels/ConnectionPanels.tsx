@@ -147,7 +147,7 @@ export function GmailPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Gmail</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Gmail</h2>
         <StatusBadge status={gmailStatus} />
       </div>
 
@@ -163,14 +163,14 @@ export function GmailPanel() {
 
       <Card title="Accounts">
         {accountsLoading ? (
-          <div className="text-sm text-[#999]">Loading accounts...</div>
+          <div className="text-sm text-txt-secondary">Loading accounts...</div>
         ) : accounts.length === 0 ? (
-          <div className="text-sm text-[#999]">No accounts configured.</div>
+          <div className="text-sm text-txt-secondary">No accounts configured.</div>
         ) : (
           <div className="overflow-x-auto mb-3">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[#999] border-b border-[#2a3a5c]">
+                <tr className="text-left text-txt-secondary border-b border-border">
                   <th className="py-1.5 pr-3">Account</th>
                   <th className="py-1.5 pr-3">Email</th>
                   <th className="py-1.5 pr-3">Source</th>
@@ -179,21 +179,21 @@ export function GmailPanel() {
               </thead>
               <tbody>
                 {accounts.map((a) => (
-                  <tr key={a.account} className="border-b border-[#2a3a5c]/50">
-                    <td className="py-1.5 pr-3 text-[#eee]">{a.account}</td>
-                    <td className="py-1.5 pr-3 text-[#ccc]">{a.email}</td>
-                    <td className="py-1.5 pr-3 text-[#999]">{a.source}</td>
+                  <tr key={a.account} className="border-b border-border/50">
+                    <td className="py-1.5 pr-3 text-txt-primary">{a.account}</td>
+                    <td className="py-1.5 pr-3 text-txt-primary/90">{a.email}</td>
+                    <td className="py-1.5 pr-3 text-txt-secondary">{a.source}</td>
                     <td className="py-1.5 flex gap-1.5">
                       <button
                         onClick={() => handleTestAccount(a.account)}
                         disabled={testing}
-                        className="px-2 py-1 text-xs bg-[#0f3460] text-[#eee] border border-[#2a3a5c] rounded hover:border-[#e94560] transition-colors cursor-pointer disabled:opacity-50"
+                        className="px-2 py-1 text-xs bg-bg-tertiary text-txt-primary border border-border rounded hover:border-radbot-sunset transition-colors cursor-pointer disabled:opacity-50"
                       >
                         Test
                       </button>
                       <button
                         onClick={() => handleRemoveAccount(a.account)}
-                        className="px-2 py-1 text-xs bg-[#3a1b1b] text-[#c0392b] border border-[#2a3a5c] rounded hover:border-[#c0392b] transition-colors cursor-pointer"
+                        className="px-2 py-1 text-xs bg-terminal-red/15 text-terminal-red border border-border rounded hover:border-terminal-red transition-colors cursor-pointer"
                       >
                         Remove
                       </button>
@@ -205,25 +205,25 @@ export function GmailPanel() {
           </div>
         )}
 
-        <div className="mt-3 pt-3 border-t border-[#2a3a5c]">
-          <label className="block text-xs text-[#999] mb-1 font-medium">Add Account</label>
+        <div className="mt-3 pt-3 border-t border-border">
+          <label className="block text-xs text-txt-secondary mb-1 font-medium">Add Account</label>
           <div className="flex gap-2">
             <input
               type="text"
               value={newAccountLabel}
               onChange={(e) => setNewAccountLabel(e.target.value)}
               placeholder="Account Label"
-              className="flex-1 p-2 border border-[#2a3a5c] rounded-md bg-[#1a1a2e] text-[#eee] text-sm outline-none focus:border-[#e94560] transition-colors"
+              className="flex-1 p-2 border border-border rounded-md bg-bg-primary text-txt-primary text-sm outline-none focus:border-radbot-sunset transition-colors"
             />
             <button
               onClick={() => handleAddAccount()}
-              className="px-3 py-2 bg-[#0f3460] text-[#eee] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] transition-colors cursor-pointer"
+              className="px-3 py-2 bg-bg-tertiary text-txt-primary border border-border rounded-md text-sm font-medium hover:border-radbot-sunset transition-colors cursor-pointer"
             >
               Add Account
             </button>
             <button
               onClick={() => handleAddAccount("link")}
-              className="px-3 py-2 bg-[#1a1a2e] text-[#999] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] hover:text-[#eee] transition-colors cursor-pointer"
+              className="px-3 py-2 bg-bg-primary text-txt-secondary border border-border rounded-md text-sm font-medium hover:border-radbot-sunset hover:text-txt-primary transition-colors cursor-pointer"
               title="Get a copyable auth link for use in another browser"
             >
               Copy Link
@@ -318,7 +318,7 @@ export function CalendarPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Calendar</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Calendar</h2>
         <StatusBadge status={calendarStatus} />
       </div>
 
@@ -345,7 +345,7 @@ export function CalendarPanel() {
           <div className="mb-3">
             <button
               onClick={handleOAuthSetup}
-              className="px-3 py-2 bg-[#0f3460] text-[#eee] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] transition-colors cursor-pointer"
+              className="px-3 py-2 bg-bg-tertiary text-txt-primary border border-border rounded-md text-sm font-medium hover:border-radbot-sunset transition-colors cursor-pointer"
             >
               Set up OAuth Authentication
             </button>
@@ -444,7 +444,7 @@ export function JiraPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Jira</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Jira</h2>
         <StatusBadge status={jiraStatus} />
       </div>
 
@@ -535,7 +535,7 @@ export function OverseerrPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Overseerr</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Overseerr</h2>
         <StatusBadge status={overseerrStatus} />
       </div>
 
@@ -624,7 +624,7 @@ export function LidarrPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Lidarr</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Lidarr</h2>
         <StatusBadge status={lidarrStatus} />
       </div>
 
@@ -717,7 +717,7 @@ export function HomeAssistantPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Home Assistant</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Home Assistant</h2>
         <StatusBadge status={haStatus} />
       </div>
 
@@ -821,7 +821,7 @@ export function PicnicPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Picnic</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Picnic</h2>
         <StatusBadge status={picnicStatus} />
       </div>
 
@@ -913,7 +913,7 @@ export function FilesystemPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Filesystem</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Filesystem</h2>
       </div>
 
       <Card title="Configuration">
@@ -1011,7 +1011,7 @@ export function YouTubePanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">YouTube</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">YouTube</h2>
         <StatusBadge status={integrationStatus} />
       </div>
 
@@ -1019,7 +1019,7 @@ export function YouTubePanel() {
         <Note>
           Used by the KidsVid agent to search YouTube for safe, educational videos for children.
           Get an API key from the{" "}
-          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-[#e94560] hover:underline">
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-radbot-sunset hover:underline">
             Google Cloud Console
           </a>{" "}
           with the YouTube Data API v3 enabled.
@@ -1112,7 +1112,7 @@ export function KideoPanel() {
   return (
     <div>
       <div className="flex items-center gap-2.5 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Kideo</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Kideo</h2>
         <StatusBadge status={integrationStatus} />
       </div>
 

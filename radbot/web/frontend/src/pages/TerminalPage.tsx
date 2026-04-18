@@ -383,7 +383,7 @@ export default function TerminalPage() {
                 </button>
               </div>
             )}
-            <div className="flex-1 bg-[#1a1a2e]">
+            <div className="flex-1 bg-bg-primary">
               <TerminalEmulator
                 terminalId={activeTerminalId}
                 onClosed={handleClosed}

@@ -166,7 +166,7 @@ export function RawConfigPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#eee] mb-4">Raw Configuration</h2>
+      <h2 className="text-lg font-semibold text-txt-primary mb-4">Raw Configuration</h2>
 
       {/* Edit Config Section */}
       <Card title="Edit Config Section">
@@ -199,7 +199,7 @@ export function RawConfigPanel() {
             type="button"
             onClick={handleSaveSection}
             disabled={saving || !effectiveSection}
-            className="px-4 py-2 bg-[#e94560] text-white rounded-md text-sm font-medium hover:bg-[#b83350] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-radbot-sunset text-bg-primary rounded-md text-sm font-medium hover:bg-radbot-sunset/80 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save Section"}
           </button>
@@ -207,7 +207,7 @@ export function RawConfigPanel() {
             type="button"
             onClick={handleLoadCurrent}
             disabled={!effectiveSection}
-            className="px-3 py-2 bg-[#0f3460] text-[#eee] border border-[#2a3a5c] rounded-md text-sm font-medium hover:border-[#e94560] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-2 bg-bg-tertiary text-txt-primary border border-border rounded-md text-sm font-medium hover:border-radbot-sunset transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Load Current
           </button>
@@ -217,15 +217,15 @@ export function RawConfigPanel() {
       {/* Stored Config Sections */}
       <Card title="Stored Config Sections">
         {storedLoading ? (
-          <p className="text-[#999] text-sm">Loading...</p>
+          <p className="text-txt-secondary text-sm">Loading...</p>
         ) : storedSections.length === 0 ? (
-          <p className="text-[#999] text-sm">No stored config sections.</p>
+          <p className="text-txt-secondary text-sm">No stored config sections.</p>
         ) : (
           <div className="space-y-2">
             {storedSections.map((stored, idx) => (
               <div
                 key={stored.name}
-                className="bg-[#1a1a2e] border border-[#2a3a5c] rounded-md overflow-hidden"
+                className="bg-bg-primary border border-border rounded-md overflow-hidden"
               >
                 {/* Section header */}
                 <button
@@ -235,35 +235,35 @@ export function RawConfigPanel() {
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className="inline-block text-[#999] text-xs transition-transform"
+                      className="inline-block text-txt-secondary text-xs transition-transform"
                       style={{
                         transform: stored.expanded ? "rotate(90deg)" : "rotate(0deg)",
                       }}
                     >
                       &#9654;
                     </span>
-                    <span className="text-sm font-mono text-[#eee]">{stored.name}</span>
+                    <span className="text-sm font-mono text-txt-primary">{stored.name}</span>
                   </div>
                 </button>
 
                 {/* Section body */}
                 {stored.expanded && (
-                  <div className="px-3 pb-3 border-t border-[#2a3a5c]">
-                    <pre className="text-xs text-[#999] font-mono bg-[#0d1117] rounded p-3 mt-2 overflow-x-auto whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                  <div className="px-3 pb-3 border-t border-border">
+                    <pre className="text-xs text-txt-secondary font-mono bg-bg-primary rounded p-3 mt-2 overflow-x-auto whitespace-pre-wrap max-h-[300px] overflow-y-auto">
                       {JSON.stringify(stored.data, null, 2)}
                     </pre>
                     <div className="flex items-center gap-2 mt-2">
                       <button
                         type="button"
                         onClick={() => handleEditStored(stored)}
-                        className="text-xs text-[#e94560] border border-[#e94560]/30 px-2.5 py-1 rounded hover:bg-[#e94560]/10 cursor-pointer transition-colors bg-transparent"
+                        className="text-xs text-radbot-sunset border border-radbot-sunset/30 px-2.5 py-1 rounded hover:bg-radbot-sunset/10 cursor-pointer transition-colors bg-transparent"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteStored(stored.name)}
-                        className="text-xs text-[#c0392b] border border-[#c0392b]/30 px-2.5 py-1 rounded hover:bg-[#c0392b]/10 cursor-pointer transition-colors bg-transparent"
+                        className="text-xs text-terminal-red border border-terminal-red/30 px-2.5 py-1 rounded hover:bg-terminal-red/10 cursor-pointer transition-colors bg-transparent"
                       >
                         Delete
                       </button>
@@ -279,18 +279,18 @@ export function RawConfigPanel() {
       {/* Live Merged Config */}
       <Card title="Live Merged Config">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs text-[#999]">
+          <span className="text-xs text-txt-secondary">
             Final merged configuration (file + DB overrides)
           </span>
           <button
             type="button"
             onClick={handleRefreshLive}
-            className="text-xs text-[#999] border border-[#2a3a5c] px-2.5 py-1 rounded hover:border-[#e94560] hover:text-[#eee] cursor-pointer transition-colors bg-transparent"
+            className="text-xs text-txt-secondary border border-border px-2.5 py-1 rounded hover:border-radbot-sunset hover:text-txt-primary cursor-pointer transition-colors bg-transparent"
           >
             Refresh
           </button>
         </div>
-        <pre className="text-xs text-[#999] font-mono bg-[#0d1117] rounded p-3 overflow-x-auto whitespace-pre-wrap max-h-[500px] overflow-y-auto">
+        <pre className="text-xs text-txt-secondary font-mono bg-bg-primary rounded p-3 overflow-x-auto whitespace-pre-wrap max-h-[500px] overflow-y-auto">
           {liveDisplay || "Loading..."}
         </pre>
       </Card>

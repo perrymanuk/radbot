@@ -342,7 +342,7 @@ export function AlertmanagerPanel() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-[#e94560] text-white text-sm rounded hover:bg-[#b83350] disabled:opacity-50 transition-colors"
+            className="px-4 py-2 bg-radbot-sunset text-bg-primary text-sm rounded hover:bg-radbot-sunset/80 disabled:opacity-50 transition-colors"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -353,14 +353,14 @@ export function AlertmanagerPanel() {
       <Card title="Remediation Policies">
         <div className="space-y-2 mb-4">
           {policies.length === 0 ? (
-            <p className="text-[#666] text-sm">
+            <p className="text-txt-secondary/60 text-sm">
               No policies configured. Without policies, all alerts use default
               auto-remediation (max 3 per hour).
             </p>
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[#999] text-left border-b border-[#2a3a5c]">
+                <tr className="text-txt-secondary text-left border-b border-border">
                   <th className="py-1 pr-2">Pattern</th>
                   <th className="py-1 pr-2">Action</th>
                   <th className="py-1 pr-2">Limit</th>
@@ -369,16 +369,16 @@ export function AlertmanagerPanel() {
               </thead>
               <tbody>
                 {policies.map((p) => (
-                  <tr key={p.policy_id} className="border-b border-[#2a3a5c]/50">
+                  <tr key={p.policy_id} className="border-b border-border/50">
                     <td className="py-1.5 pr-2 font-mono text-xs">{p.alertname_pattern}</td>
                     <td className="py-1.5 pr-2">{p.action}</td>
-                    <td className="py-1.5 pr-2 text-[#999]">
+                    <td className="py-1.5 pr-2 text-txt-secondary">
                       {p.max_auto_remediations}/{p.window_minutes}min
                     </td>
                     <td className="py-1.5 text-right">
                       <button
                         onClick={() => handleDeletePolicy(p.policy_id)}
-                        className="text-[#c0392b] text-xs hover:underline"
+                        className="text-terminal-red text-xs hover:underline"
                       >
                         Delete
                       </button>
@@ -391,8 +391,8 @@ export function AlertmanagerPanel() {
         </div>
 
         {/* Add policy form */}
-        <div className="border-t border-[#2a3a5c] pt-3 space-y-2">
-          <p className="text-xs text-[#999] mb-2">Add Policy</p>
+        <div className="border-t border-border pt-3 space-y-2">
+          <p className="text-xs text-txt-secondary mb-2">Add Policy</p>
           <FormRow>
             <FormInput
               label="Alertname Pattern (regex)"
@@ -401,11 +401,11 @@ export function AlertmanagerPanel() {
               placeholder="HighMemoryUsage|OOM.*"
             />
             <div>
-              <label className="block text-xs text-[#999] mb-1">Action</label>
+              <label className="block text-xs text-txt-secondary mb-1">Action</label>
               <select
                 value={newAction}
                 onChange={(e) => setNewAction(e.target.value)}
-                className="w-full p-2 border border-[#2a3a5c] rounded bg-[#1a1a2e] text-[#eee] text-sm"
+                className="w-full p-2 border border-border rounded bg-bg-primary text-txt-primary text-sm"
               >
                 <option value="auto">Auto (investigate + fix)</option>
                 <option value="restart">Restart allocation</option>
@@ -430,7 +430,7 @@ export function AlertmanagerPanel() {
           <button
             onClick={handleAddPolicy}
             disabled={!newPattern}
-            className="px-3 py-1.5 bg-[#0f3460] text-white text-sm rounded hover:bg-[#16213e] disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 bg-bg-tertiary text-white text-sm rounded hover:bg-bg-secondary disabled:opacity-50 transition-colors"
           >
             Add Policy
           </button>
@@ -440,40 +440,40 @@ export function AlertmanagerPanel() {
       {/* Recent Alerts */}
       <Card title={`Alerts (${alertTotal})`}>
         {loading ? (
-          <p className="text-[#666] text-sm">Loading...</p>
+          <p className="text-txt-secondary/60 text-sm">Loading...</p>
         ) : alerts.length === 0 ? (
-          <p className="text-[#666] text-sm">No alerts received yet.</p>
+          <p className="text-txt-secondary/60 text-sm">No alerts received yet.</p>
         ) : (
           <div className="space-y-2">
             {alerts.map((a) => (
               <div
                 key={a.alert_id}
-                className="border border-[#2a3a5c] rounded p-3 bg-[#1a1a2e]"
+                className="border border-border rounded p-3 bg-bg-primary"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span
                     className={`w-2 h-2 rounded-full ${STATUS_COLORS[a.status] ?? "bg-gray-500"}`}
                   />
                   <span className="font-mono text-sm font-semibold">{a.alertname}</span>
-                  <span className="text-xs text-[#999]">{a.status}</span>
+                  <span className="text-xs text-txt-secondary">{a.status}</span>
                   {a.severity && (
-                    <span className="text-xs text-[#999] ml-auto">{a.severity}</span>
+                    <span className="text-xs text-txt-secondary ml-auto">{a.severity}</span>
                   )}
                 </div>
                 {a.summary && (
-                  <p className="text-xs text-[#999] mb-1">{a.summary}</p>
+                  <p className="text-xs text-txt-secondary mb-1">{a.summary}</p>
                 )}
                 {a.remediation_action && (
                   <p className="text-xs text-green-400">Action: {a.remediation_action}</p>
                 )}
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-[#666]">
+                  <span className="text-xs text-txt-secondary/60">
                     {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
                   </span>
                   {a.status !== "resolved" && a.status !== "ignored" && (
                     <button
                       onClick={() => handleDismiss(a.alert_id)}
-                      className="text-xs text-[#999] hover:text-[#eee] ml-auto"
+                      className="text-xs text-txt-secondary hover:text-txt-primary ml-auto"
                     >
                       Dismiss
                     </button>
@@ -486,21 +486,21 @@ export function AlertmanagerPanel() {
 
         {/* Pagination */}
         {alertTotal > alertPageSize && (
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#2a3a5c]">
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
             <button
               onClick={() => handlePageChange(alertPage - 1)}
               disabled={alertPage === 0}
-              className="px-3 py-1.5 text-xs border border-[#2a3a5c] rounded text-[#999] hover:text-[#eee] hover:border-[#e94560] disabled:opacity-30 disabled:hover:text-[#999] disabled:hover:border-[#2a3a5c] transition-colors"
+              className="px-3 py-1.5 text-xs border border-border rounded text-txt-secondary hover:text-txt-primary hover:border-radbot-sunset disabled:opacity-30 disabled:hover:text-txt-secondary disabled:hover:border-border transition-colors"
             >
               Previous
             </button>
-            <span className="text-xs text-[#999]">
+            <span className="text-xs text-txt-secondary">
               {alertPage * alertPageSize + 1}–{Math.min((alertPage + 1) * alertPageSize, alertTotal)} of {alertTotal}
             </span>
             <button
               onClick={() => handlePageChange(alertPage + 1)}
               disabled={(alertPage + 1) * alertPageSize >= alertTotal}
-              className="px-3 py-1.5 text-xs border border-[#2a3a5c] rounded text-[#999] hover:text-[#eee] hover:border-[#e94560] disabled:opacity-30 disabled:hover:text-[#999] disabled:hover:border-[#2a3a5c] transition-colors"
+              className="px-3 py-1.5 text-xs border border-border rounded text-txt-secondary hover:text-txt-primary hover:border-radbot-sunset disabled:opacity-30 disabled:hover:text-txt-secondary disabled:hover:border-border transition-colors"
             >
               Next
             </button>
@@ -510,7 +510,7 @@ export function AlertmanagerPanel() {
         <button
           onClick={() => { setAlertPage(0); loadAlerts(0); }}
           disabled={loading}
-          className="mt-3 px-3 py-1.5 text-xs border border-[#2a3a5c] rounded text-[#999] hover:text-[#eee] hover:border-[#e94560] transition-colors"
+          className="mt-3 px-3 py-1.5 text-xs border border-border rounded text-txt-secondary hover:text-txt-primary hover:border-radbot-sunset transition-colors"
         >
           Refresh
         </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAdminStore } from "@/stores/admin-store";
+import { useAppStore } from "@/stores/app-store";
 import * as adminApi from "@/lib/admin-api";
 import {
   FormInput,
@@ -33,25 +34,9 @@ function useModelOptions() {
   return models;
 }
 
-// Display labels and their config keys in agent_models
-const OVERRIDE_AGENTS = [
-  "search",
-  "scout",
-  "axel",
-  "george",
-  "memory",
-  "todo",
-  "calendar",
-  "homeassistant",
-  "gmail",
-  "jira",
-  "code_execution",
-  "web_research",
-  "filesystem",
-] as const;
-
-/** Map a short display name to the canonical config key (e.g. "search" → "search_agent"). */
-const agentConfigKey = (name: string) => `${name}_agent`;
+// Sub-agent roster is pulled from /api/agent-info at runtime so the admin
+// panel never drifts out of sync with the actual agent set. See
+// radbot/web/api/agent_info.py::_enumerate_sub_agents.
 
 // ── GooglePanel ───────────────────────────────────────────────
 
@@ -140,7 +125,7 @@ export function GooglePanel() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-lg font-semibold text-[#eee]">Google API</h2>
+        <h2 className="text-lg font-semibold text-txt-primary">Google API</h2>
         <StatusBadge status={googleStatus} />
       </div>
 
@@ -197,6 +182,10 @@ export function GooglePanel() {
 export function AgentModelsPanel() {
   const { liveConfig, loadLiveConfig, mergeConfigSection, toast } = useAdminStore();
   const modelOptions = useModelOptions();
+  const agentInfo = useAppStore((s) => s.agentInfo);
+  const loadAgentInfo = useAppStore((s) => s.loadAgentInfo);
+
+  const subAgents = agentInfo?.sub_agents_detail ?? [];
 
   const [mainModel, setMainModel] = useState("");
   const [subAgentModel, setSubAgentModel] = useState("");
@@ -205,12 +194,16 @@ export function AgentModelsPanel() {
   const [enableCodeExec, setEnableCodeExec] = useState(false);
   const [sessionMode, setSessionMode] = useState(false);
   const [maxWorkers, setMaxWorkers] = useState("10");
+  // Map of config_key ("casa_agent") → override string ("" = inherit default)
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [overridesOpen, setOverridesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadLiveConfig();
+    // Agent info is loaded at app startup, but re-fetch here so the panel
+    // always reflects the live roster if it's opened before that finishes.
+    if (!agentInfo) loadAgentInfo();
   }, []);
 
   useEffect(() => {
@@ -228,24 +221,27 @@ export function AgentModelsPanel() {
 
     const agentModels = agent.agent_models || {};
     const init: Record<string, string> = {};
-    for (const a of OVERRIDE_AGENTS) {
-      // Try canonical key (search_agent), then legacy key (search_agent_model)
-      init[a] = agentModels[agentConfigKey(a)] || agentModels[`${a}_agent_model`] || "";
+    for (const sa of subAgents) {
+      // Canonical key first, then legacy "<name>_agent_model" fallback.
+      const legacy = sa.config_key.replace(/_agent$/, "") + "_agent_model";
+      init[sa.config_key] = agentModels[sa.config_key] || agentModels[legacy] || "";
     }
     setOverrides(init);
-  }, [liveConfig]);
+  }, [liveConfig, subAgents.length]);
 
-  const setOverride = (agent: string, value: string) => {
-    setOverrides((prev) => ({ ...prev, [agent]: value }));
+  const setOverride = (key: string, value: string) => {
+    setOverrides((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Build agent_models using canonical keys (e.g. search_agent)
+      // Preserve any agent_models entries the runtime roster doesn't know about
+      // (e.g. legacy agents or ones added after last page load). mergeConfigSection
+      // deep-merges, so we only need to send the keys we're actively managing.
       const agentModels: Record<string, string> = {};
       for (const [k, v] of Object.entries(overrides)) {
-        if (v.trim()) agentModels[agentConfigKey(k)] = v.trim();
+        if (v.trim()) agentModels[k] = v.trim();
       }
 
       await mergeConfigSection("agent", {
@@ -269,7 +265,7 @@ export function AgentModelsPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#eee] mb-4">Agent Models</h2>
+      <h2 className="text-lg font-semibold text-txt-primary mb-4">Agent Models</h2>
 
       <Card title="Agent Configuration">
         <FormRow>
@@ -318,7 +314,7 @@ export function AgentModelsPanel() {
         <button
           type="button"
           onClick={() => setOverridesOpen((v) => !v)}
-          className="flex items-center gap-2 text-sm text-[#999] hover:text-[#eee] transition-colors cursor-pointer bg-transparent border-none p-0"
+          className="flex items-center gap-2 text-sm text-txt-secondary hover:text-txt-primary transition-colors cursor-pointer bg-transparent border-none p-0"
         >
           <span
             className="inline-block transition-transform"
@@ -333,19 +329,24 @@ export function AgentModelsPanel() {
           <Card>
             <Note>
               Leave blank to use the sub-agent default model. Override specific agents by entering a model name.
+              Agents marked <em>gemini-only</em> use ADK built-ins (google_search, BuiltInCodeExecutor) that require Gemini.
             </Note>
-            <div className="grid grid-cols-2 gap-3">
-              {OVERRIDE_AGENTS.map((agent) => (
-                <FormInput
-                  key={agent}
-                  label={agent}
-                  value={overrides[agent] || ""}
-                  onChange={(v) => setOverride(agent, v)}
-                  placeholder="(default)"
-                  datalist={modelOptions}
-                />
-              ))}
-            </div>
+            {subAgents.length === 0 ? (
+              <div className="text-sm text-txt-secondary py-2">Loading sub-agent roster…</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {subAgents.map((sa) => (
+                  <FormInput
+                    key={sa.config_key}
+                    label={sa.gemini_only ? `${sa.name} (gemini-only)` : sa.name}
+                    value={overrides[sa.config_key] || ""}
+                    onChange={(v) => setOverride(sa.config_key, v)}
+                    placeholder={sa.resolved_model ? `(default: ${sa.resolved_model})` : "(default)"}
+                    datalist={modelOptions}
+                  />
+                ))}
+              </div>
+            )}
           </Card>
         )}
       </div>
@@ -402,7 +403,7 @@ export function WebServerPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#eee] mb-4">Web Server</h2>
+      <h2 className="text-lg font-semibold text-txt-primary mb-4">Web Server</h2>
 
       <Card title="Server Configuration">
         <FormRow>
@@ -477,7 +478,7 @@ export function LoggingPanel() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-[#eee] mb-4">Logging</h2>
+      <h2 className="text-lg font-semibold text-txt-primary mb-4">Logging</h2>
 
       <Card title="Logging Configuration">
         <FormDropdown
