@@ -92,24 +92,23 @@ export default function ChatHeader() {
 
   return (
     <>
-      <div className="scanlines flex items-center justify-between px-3 py-1.5 bg-bg-secondary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10 relative">
+      <div className="scanlines flex items-center justify-start sm:justify-between gap-3 pl-3 pr-4 sm:px-3 py-1.5 bg-bg-secondary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10 relative">
         {/* Left: mascot + wordmark + model + status */}
         <div className="flex items-center gap-3 min-w-0">
           <div
             aria-hidden
-            className="mascot-sticker hidden sm:block w-[38px] h-[38px] flex-none rounded-md border-2 border-[#ff9966] bg-cover"
+            className="mascot-sticker block w-[32px] h-[32px] sm:w-[38px] sm:h-[38px] flex-none rounded-md border-2 border-[#ff9966] bg-cover"
             style={{
               backgroundImage: "url(/static/dist/radbot.png)",
               backgroundSize: "260%",
               backgroundPosition: "60% 30%",
             }}
           />
-          <div className="flex items-baseline gap-2">
-            <h1 className="pixel-font text-[22px] sm:text-[22px] text-txt-primary m-0 leading-none">
-              <span className="hidden sm:inline">RADBOT</span>
-              <span className="sm:hidden">RB</span>
+          <div className="hidden sm:flex items-baseline gap-2">
+            <h1 className="pixel-font text-[22px] text-txt-primary m-0 leading-none">
+              RADBOT
             </h1>
-            <span className="hidden sm:inline-flex text-[9px] font-mono font-semibold tracking-[0.15em] text-[#ff9966] px-1.5 py-0.5 rounded-sm border border-[#ff9966]/40 bg-[#ff9966]/10">
+            <span className="inline-flex text-[9px] font-mono font-semibold tracking-[0.15em] text-[#ff9966] px-1.5 py-0.5 rounded-sm border border-[#ff9966]/40 bg-[#ff9966]/10">
               BETO·v0.9
             </span>
           </div>
@@ -139,9 +138,9 @@ export default function ChatHeader() {
         </div>
 
         {/* Right: VOICE cluster + PANELS cluster */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {/* VOICE group */}
-          <div className="flex items-center">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 sm:flex-shrink-0">
+          {/* VOICE group — hidden on mobile (too cramped) */}
+          <div className="hidden sm:flex items-center">
             <GroupLabel>Voice</GroupLabel>
             <button
               onClick={toggleTtsAutoPlay}
@@ -163,9 +162,9 @@ export default function ChatHeader() {
           <div className="w-px h-5 bg-border hidden sm:block" />
 
           {/* PANELS group */}
-          <div className="flex items-center">
+          <div className="flex items-center min-w-0">
             <GroupLabel>Panels</GroupLabel>
-            <div className="flex gap-0.5 bg-bg-primary/50 p-0.5 rounded-sm items-center">
+            <div className="flex gap-0.5 bg-bg-primary/50 p-0.5 rounded-sm items-center min-w-0 overflow-x-auto sm:overflow-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <NavTab
                 label="CHAT"
                 ariaLabel="Focus chat (close side panels)"
@@ -191,12 +190,14 @@ export default function ChatHeader() {
                 active={activePanel === "events"}
                 onClick={() => togglePanel("events")}
               />
-              <NavTab
-                label="SPLIT"
-                ariaLabel="Toggle split view"
-                active={splitMode}
-                onClick={toggleSplitMode}
-              />
+              <div className="hidden sm:contents">
+                <NavTab
+                  label="SPLIT"
+                  ariaLabel="Toggle split view"
+                  active={splitMode}
+                  onClick={toggleSplitMode}
+                />
+              </div>
 
               <button
                 ref={bellRef}
@@ -204,8 +205,8 @@ export default function ChatHeader() {
                 aria-label="Notifications"
                 aria-expanded={notifOpen}
                 className={cn(
-                  "relative px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-                  "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+                  "relative flex-none px-1.5 sm:px-2.5 py-1 sm:py-1 text-[0.68rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                  "flex items-center gap-1 min-h-[32px] sm:min-h-0",
                   "focus:outline-none focus:ring-1 focus:ring-accent-blue",
                   notifOpen
                     ? "bg-accent-blue/15 text-accent-blue"
@@ -215,7 +216,7 @@ export default function ChatHeader() {
                 <span className="hidden sm:inline">NOTIF</span>
                 <span className="sm:hidden">N</span>
                 {unreadNotifCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-terminal-red text-bg-primary text-[0.5rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                  <span className="absolute top-0.5 right-0.5 sm:-top-0.5 sm:-right-0.5 bg-terminal-red text-bg-primary text-[0.45rem] sm:text-[0.5rem] font-bold rounded-full min-w-[11px] sm:min-w-[14px] h-[11px] sm:h-[14px] flex items-center justify-center px-0.5 leading-none">
                     {unreadNotifCount > 99 ? "99+" : unreadNotifCount}
                   </span>
                 )}
@@ -225,14 +226,13 @@ export default function ChatHeader() {
                 href="/terminal"
                 aria-label="Open terminal"
                 className={cn(
-                  "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
-                  "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+                  "hidden sm:flex px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
+                  "items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
                   "text-terminal-amber hover:bg-terminal-amber/15 hover:text-terminal-amber",
                   "focus:outline-none focus:ring-1 focus:ring-terminal-amber",
                 )}
               >
-                <span className="hidden sm:inline">TERM</span>
-                <span className="sm:hidden">T</span>
+                TERM
               </a>
             </div>
           </div>
@@ -241,7 +241,7 @@ export default function ChatHeader() {
             onClick={toggleFullscreen}
             aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             className={cn(
-              "w-7 h-7 flex-none grid place-items-center border border-border rounded-sm cursor-pointer transition-all",
+              "hidden sm:grid w-7 h-7 flex-none place-items-center border border-border rounded-sm cursor-pointer transition-all",
               "text-txt-secondary hover:text-txt-primary hover:bg-bg-primary/50",
               "focus:outline-none focus:ring-1 focus:ring-accent-blue",
             )}
@@ -291,8 +291,8 @@ function NavTab({
       aria-label={ariaLabel}
       aria-pressed={active}
       className={cn(
-        "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-sm",
-        "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0 border",
+        "flex-none px-1.5 sm:px-2.5 py-1 sm:py-1 text-[0.68rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-sm",
+        "flex items-center gap-1 min-h-[32px] sm:min-h-0 border",
         "focus:outline-none focus:ring-1 focus:ring-accent-blue",
         active
           ? "bg-bg-primary/60 text-txt-primary border-radbot-sunset/60"
