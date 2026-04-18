@@ -12,13 +12,13 @@
 | Domain | File | Covers |
 |--------|------|--------|
 | Agents | specs/agents.md | beto routing, sub-agents (including kidsvid), tool assignments, memory scoping, per-turn context scoping callback, structured UI cards, handoff chips |
-| Tools | specs/tools.md | FunctionTool modules, MCP, tool patterns, card protocol, direct-action REST |
-| Web | specs/web.md | FastAPI, React SPA, API routes, WS protocol, session modes, admin panels, notifications, token stats |
-| Storage | specs/storage.md | PostgreSQL tables (incl. `notifications`, `llm_usage_log`, `workspace_workers`), Qdrant, credential store |
+| Tools | specs/tools.md | FunctionTool modules, MCP consumer + bridge server, tool patterns, card protocol, direct-action REST |
+| Web | specs/web.md | FastAPI, React SPA, API routes, WS protocol, session modes, admin panels, notifications, token stats, MCP bridge transport |
+| Storage | specs/storage.md | PostgreSQL tables (incl. `notifications`, `llm_usage_log`, `workspace_workers`, `projects.wiki_path`/`path_patterns`), Qdrant, credential store (`mcp_token`) |
 | Integrations | specs/integrations.md | HA, Overseerr, Lidarr, Picnic, Jira, Gmail, ntfy, Ollama, GitHub, YouTube/CuriosityStream/Kideo |
-| Config | specs/config.md | cfg system, priority chain, DB sections, session mode, admin UI, hot-reload |
+| Config | specs/config.md | cfg system, priority chain, DB sections, session mode, admin UI, hot-reload, `RADBOT_MCP_TOKEN` + `RADBOT_WIKI_PATH` env vars |
 | Workers | specs/workers.md | Workspace/terminal workers, PTY server, Nomad jobs, proxy, legacy session-worker notes |
-| Deployment | specs/deployment.md | Docker (main + worker), Nomad, CI/CD, env vars |
+| Deployment | specs/deployment.md | Docker (main + worker), Nomad, CI/CD, env vars, ai-intel wiki volume mount |
 
 ## Cross-Cutting
 
@@ -30,6 +30,7 @@
 - **Token + cost telemetry**: `telemetry_after_model_callback` writes to `llm_usage_log` with `session_id` threaded through. `GET /api/sessions/{id}/stats` exposes per-session totals + rolling today/month cost.
 - **Unified notifications**: `notifications` table aggregates scheduled-task results, reminders, alerts, ntfy inbound. `/api/notifications/*` and `pages/NotificationsPage.tsx` drive the feed + drawer.
 - **Telos (persistent user context)**: beto owns a structured persona / context store (mission, problems, goals, projects, challenges, wisdom, predictions, taste, journal) in `telos_entries`. `inject_telos_context` (on beto only — sub-agents don't get it) appends a ~300B anchor to `system_instruction` every turn and a ~2KB full block on the first turn of each session. One-time onboarding via `uv run python -m radbot.tools.telos.cli onboard`. Beto keeps the file alive via silent tools (journal, predictions, wisdom, taste) and confirm-required tools (goals, mission, problems). See `docs/implementation/telos.md`.
+- **MCP bridge** (`radbot.mcp_server`): exposes radbot to external MCP clients (primarily Claude Code on laptop/desktop) over stdio or HTTP/SSE. 16 tools covering Telos read, wiki read/write (at `$RADBOT_WIKI_PATH`), project registry (with `projects.path_patterns` for cwd matching), todo/scheduler listings, Qdrant memory search. All tool returns are markdown `TextContent`. HTTP auth: bearer token from credential store (`mcp_token` key, rotatable from admin UI) or `RADBOT_MCP_TOKEN` env var. `GET /setup/claude-code.md` is an unauth'd markdown bootstrap for new-machine config. See `docs/implementation/mcp_bridge.md`.
 - **Config priority**: DB config > file config > credential store > env vars. See `specs/config.md`.
 - **Error pattern**: Agent tools return `{"status": "success/error", ...}` dicts.
 - **Logging**: Structured JSON via `radbot/logging_config.py`. One INFO per operation, DEBUG for hot loops.

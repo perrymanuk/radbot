@@ -24,6 +24,8 @@ Nomad templates a minimal `config.yaml` with only `database:` section. All other
 |---------|---------|
 | `RADBOT_CREDENTIAL_KEY` | Fernet key for encrypted credentials in DB |
 | `RADBOT_ADMIN_TOKEN` | Bearer token for `/admin/` API |
+| `RADBOT_MCP_TOKEN` | Bootstrap bearer for MCP bridge (credential-store `mcp_token` wins when set) |
+| `RADBOT_WIKI_PATH` | Wiki root inside the container (default `/mnt/ai-intel`, matches Nomad bind-mount) |
 | `RADBOT_CONFIG_FILE` | Path to `config.yaml` (alias: `RADBOT_CONFIG`; Nomad uses the `_FILE` variant) |
 | `RADBOT_ENV` | `dev` loads `config.dev.yaml` instead of `config.yaml` |
 | `RADBOT_WORKER_IMAGE_TAG` | Overrides `config:agent.worker_image_tag` for newly-spawned workspace workers |
@@ -38,6 +40,10 @@ constraint: shared_mount = true
 service: "radbot" (Traefik-enabled)
 health: GET /health every 30s
 resources: cpu=1000, memory=2048
+
+volumes:
+  - local/config.yaml:/app/config.yaml
+  - ${var.shared_dir}ai-intel:/mnt/ai-intel   # ai-intel wiki for MCP bridge
 ```
 
 ### Reverse Proxy Gotchas

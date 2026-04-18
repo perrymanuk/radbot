@@ -90,6 +90,9 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 | `api/stt.py` | `/api/stt` | Speech-to-text |
 | `api/health.py` | `/health` | Liveness endpoint for Nomad health check |
 | `api/malformed_function_handler.py` | (helper) | Malformed-tool-call repair utilities |
+| `api/mcp.py` | `/api/mcp` | MCP bridge admin: status, token reveal/rotate, project registry CRUD (admin-token-protected) |
+| `api/setup.py` | `/setup` | `GET /setup/claude-code.md` — unauth'd markdown bootstrap guide, base_url templated from request |
+| `mcp_server/http_transport.py` | `/mcp/sse`, `/mcp/messages/` | MCP SSE + messages endpoints (bearer-token-protected, 503 when unconfigured) |
 
 ## Direct-Action Endpoints (2026-04-18)
 

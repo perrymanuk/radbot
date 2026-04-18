@@ -9,7 +9,7 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 | Table | Module | Key columns |
 |-------|--------|-------------|
 | `tasks` | `tools/todo/db/schema.py` | `task_id` (UUID), `project_id`, `title`, `status` (backlog/inprogress/done), `related_info` (JSONB) |
-| `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE) |
+| `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE), `wiki_path` (TEXT, nullable — relative path under `$RADBOT_WIKI_PATH`), `path_patterns` (TEXT[], cwd substrings used by MCP `project_match`) |
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
@@ -65,6 +65,11 @@ Semantic memory via `radbot/memory/enhanced_memory/`.
 - Key: `RADBOT_CREDENTIAL_KEY` env var
 - Access: `get_credential_store().get("key_name")`
 - Admin UI: `/admin/` manages credentials + `config:<section>` entries
+
+Notable keys:
+
+- `mcp_token` — bearer token for the MCP bridge HTTP transport. Rotatable from admin UI (`POST /api/mcp/token/rotate`); generated via `secrets.token_urlsafe(32)`. Store value wins over `RADBOT_MCP_TOKEN` env var.
+- Integration keys (`overseerr_api_key`, `lidarr_api_key`, etc.) — see `specs/integrations.md`.
 
 ### Known Credential Keys (non-exhaustive)
 
