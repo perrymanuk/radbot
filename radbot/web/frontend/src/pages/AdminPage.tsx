@@ -16,6 +16,7 @@ import { MCPServersPanel } from "@/components/admin/panels/MCPPanel";
 import { CredentialsPanel } from "@/components/admin/panels/CredentialsPanel";
 import { RawConfigPanel } from "@/components/admin/panels/RawConfigPanel";
 import { CostTrackingPanel } from "@/components/admin/panels/TelemetryPanels";
+import { TelosPanel } from "@/components/admin/panels/TelosPanel";
 
 // ── Navigation definition ──────────────────────────────────
 interface NavItem {
@@ -32,6 +33,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: "web_server", label: "Web Server", group: "Core" },
   { id: "logging", label: "Logging", group: "Core" },
   { id: "cost_tracking", label: "Cost Tracking", group: "Core" },
+  // Personal
+  { id: "telos", label: "Telos", group: "Personal" },
   // Connections
   { id: "gmail", label: "Gmail", group: "Connections", statusKey: "gmail" },
   { id: "calendar", label: "Calendar", group: "Connections", statusKey: "calendar" },
@@ -74,6 +77,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   web_server: WebServerPanel,
   logging: LoggingPanel,
   cost_tracking: CostTrackingPanel,
+  telos: TelosPanel,
   gmail: GmailPanel,
   calendar: CalendarPanel,
   jira: JiraPanel,

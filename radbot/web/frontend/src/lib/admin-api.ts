@@ -163,3 +163,125 @@ export async function getSessionUsage(token: string): Promise<SessionUsageStats>
 export async function getGmailAccounts(token: string): Promise<{ accounts: any[]; error?: string }> {
   return adminFetch("/admin/api/gmail/accounts", { token });
 }
+
+// ── Telos ────────────────────────────────────────────────
+export interface TelosEntry {
+  entry_id: string;
+  section: string;
+  ref_code: string | null;
+  content: string;
+  metadata: Record<string, any>;
+  status: string;
+  sort_order: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TelosStatus {
+  has_identity: boolean;
+}
+
+export interface TelosBulkEntry {
+  section: string;
+  content: string;
+  ref_code?: string | null;
+  metadata?: Record<string, any>;
+  status?: string;
+  sort_order?: number;
+}
+
+export async function telosGetStatus(token: string): Promise<TelosStatus> {
+  return adminFetch("/api/telos/status", { token });
+}
+
+export async function telosGetSection(
+  token: string,
+  section: string,
+  includeInactive = false,
+): Promise<{ section: string; entries: TelosEntry[] }> {
+  const qs = includeInactive ? "?include_inactive=true" : "";
+  return adminFetch(`/api/telos/section/${encodeURIComponent(section)}${qs}`, { token });
+}
+
+export async function telosAddEntry(
+  token: string,
+  section: string,
+  body: { content: string; ref_code?: string | null; metadata?: Record<string, any>; status?: string; sort_order?: number },
+): Promise<TelosEntry> {
+  return adminFetch(`/api/telos/entry/${encodeURIComponent(section)}`, {
+    token,
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function telosUpdateEntry(
+  token: string,
+  section: string,
+  refCode: string,
+  patch: { content?: string; metadata_merge?: Record<string, any>; metadata_replace?: Record<string, any>; status?: string; sort_order?: number },
+): Promise<TelosEntry> {
+  return adminFetch(`/api/telos/entry/${encodeURIComponent(section)}/${encodeURIComponent(refCode)}`, {
+    token,
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function telosArchive(
+  token: string,
+  section: string,
+  refCode: string,
+  reason?: string,
+): Promise<{ status: string }> {
+  return adminFetch(`/api/telos/archive/${encodeURIComponent(section)}/${encodeURIComponent(refCode)}`, {
+    token,
+    method: "POST",
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+}
+
+export async function telosBulk(
+  token: string,
+  entries: TelosBulkEntry[],
+  replace = false,
+): Promise<{ status: string; inserted_or_updated: number; replaced: boolean }> {
+  return adminFetch("/api/telos/bulk", {
+    token,
+    method: "POST",
+    body: JSON.stringify({ entries, replace }),
+  });
+}
+
+export async function telosImportMarkdown(
+  token: string,
+  markdown: string,
+  replace = false,
+): Promise<{ status: string; imported: number; replaced: boolean }> {
+  return adminFetch("/api/telos/import", {
+    token,
+    method: "POST",
+    body: JSON.stringify({ markdown, replace }),
+  });
+}
+
+export async function telosExportMarkdown(token: string): Promise<string> {
+  const res = await fetch("/api/telos/export", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
+
+export async function telosResolvePrediction(
+  token: string,
+  refCode: string,
+  outcome: boolean,
+  actualValue?: string,
+): Promise<{ status: string; miscalibrated: boolean; entry: TelosEntry | null }> {
+  return adminFetch(`/api/telos/resolve-prediction/${encodeURIComponent(refCode)}`, {
+    token,
+    method: "POST",
+    body: JSON.stringify({ outcome, actual_value: actualValue ?? null }),
+  });
+}
