@@ -2,32 +2,39 @@
 
 ## Architecture
 
-All agent tools are `google.adk.tools.FunctionTool` wrappers around plain Python functions. Tools return `{"status": "success/error", ...}` dicts. Each tool module exports an `ALL_TOOLS` or named list (e.g., `HA_TOOLS`, `SCHEDULER_TOOLS`) for registration in agent factories.
+All agent tools are `google.adk.tools.FunctionTool` wrappers around plain Python functions. Tools return `{"status": "success/error", ...}` dicts. Each tool module exports an `ALL_TOOLS` or named list (e.g., `HA_DASHBOARD_TOOLS`, `SCHEDULER_TOOLS`, `CARD_TOOLS`) for registration in agent factories.
 
-Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not registered as agent FunctionTools.
+Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not registered as agent FunctionTools. A new class of **card-rendering tools** exists: they return pre-formatted ` ```radbot:<kind> ` fenced JSON blocks that the agent includes verbatim in its reply, which the frontend parses into UI components.
 
 ## Tool Inventory
 
 | Module | Count | Agent | Tool Names |
 |--------|-------|-------|------------|
 | `tools/basic/` | 1 | planner | `get_current_time` |
-| `tools/memory/` | 2/agent | all | `search_agent_memory`, `store_agent_memory` |
-| `tools/todo/api/` | 8 | tracker | `add_task`, `complete_task`, `remove_task`, `list_projects`, `list_project_tasks`, `list_all_tasks`, `update_task`, `update_project` |
+| `tools/memory/` | 2/agent | all | `search_agent_memory`, `store_agent_memory` (scoped per agent) |
+| `tools/todo/` | 8 | tracker | `add_task`, `complete_task`, `remove_task`, `list_projects`, `list_project_tasks`, `list_all_tasks`, `update_task`, `update_project` |
 | `tools/calendar/` | 5 | planner | `list_calendar_events`, `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `check_calendar_availability` |
 | `tools/gmail/` | 4 | comms | `list_emails`, `search_emails`, `get_email`, `list_gmail_accounts` |
 | `tools/homeassistant/` (REST) | 6 | casa | `list_ha_entities`, `get_ha_entity_state`, `turn_on_ha_entity`, `turn_off_ha_entity`, `toggle_ha_entity`, `search_ha_entities` |
-| `tools/homeassistant/` (Dashboard) | 6 | casa | `list_ha_dashboards`, `get_ha_dashboard_config`, `create_ha_dashboard`, `update_ha_dashboard`, `delete_ha_dashboard`, `save_ha_dashboard_config` |
+| `tools/homeassistant/` (Dashboard WS) | 6 | casa | `list_ha_dashboards`, `get_ha_dashboard_config`, `create_ha_dashboard`, `update_ha_dashboard`, `delete_ha_dashboard`, `save_ha_dashboard_config` |
 | `tools/scheduler/` | 3 | planner | `create_scheduled_task`, `list_scheduled_tasks`, `delete_scheduled_task` |
 | `tools/reminders/` | 3 | planner | `create_reminder`, `list_reminders`, `delete_reminder` |
 | `tools/webhooks/` | 3 | tracker | `create_webhook`, `list_webhooks`, `delete_webhook` |
 | `tools/overseerr/` | 4 | casa | `search_overseerr_media`, `get_overseerr_media_details`, `request_overseerr_media`, `list_overseerr_requests` |
-| `tools/picnic/` | 10 | casa | `search_picnic_product`, `get_picnic_cart`, `add_to_picnic_cart`, `remove_from_picnic_cart`, `clear_picnic_cart`, `get_picnic_delivery_slots`, `set_picnic_delivery_slot`, `submit_shopping_list_to_picnic`, `get_picnic_order_history`, `get_picnic_delivery_details` |
+| `tools/lidarr/` | 5 | casa | `search_lidarr_artist`, `search_lidarr_album`, `add_lidarr_artist`, `add_lidarr_album`, `list_lidarr_quality_profiles` |
+| `tools/picnic/` | 12 | casa | `search_picnic_product`, `get_picnic_cart`, `add_to_picnic_cart`, `remove_from_picnic_cart`, `clear_picnic_cart`, `get_picnic_delivery_slots`, `set_picnic_delivery_slot`, `submit_shopping_list_to_picnic`, `get_picnic_lists`, `get_picnic_list_details`, `get_picnic_order_history`, `get_picnic_delivery_details` |
 | `tools/jira/` | 6 | comms | `list_my_jira_issues`, `get_jira_issue`, `get_issue_transitions`, `transition_jira_issue`, `add_jira_comment`, `search_jira_issues` |
-| `tools/shell/` | 1 | axel | `execute_shell_command` |
+| `tools/shell/` | 1 | axel | `execute_shell_command` (via `get_shell_tool()`) |
 | `tools/claude_code/` | 6 | axel | `clone_repository`, `claude_code_plan`, `claude_code_continue`, `claude_code_execute`, `commit_and_push`, `list_workspaces` |
 | `tools/nomad/` | 7 | axel | `list_nomad_jobs`, `get_nomad_job_status`, `get_nomad_allocation_logs`, `restart_nomad_allocation`, `plan_nomad_job_update`, `submit_nomad_job_update`, `check_nomad_service_health` |
+| `tools/youtube/` (YouTube) | 3 | kidsvid | `search_youtube_videos`, `get_youtube_video_details`, `get_youtube_channel_info` |
+| `tools/youtube/` (CuriosityStream) | 2 | kidsvid | `search_curiositystream`, `list_curiositystream_categories` |
+| `tools/youtube/` (Kideo) | 10 | kidsvid | `add_video_to_kideo`, `add_videos_to_kideo_batch`, `list_kideo_collections`, `create_kideo_collection`, `generate_video_tags`, `set_kideo_video_tags`, `get_kideo_popular_videos`, `get_kideo_tag_stats`, `get_kideo_channel_stats`, `retag_untagged_kideo_videos` |
+| `tools/shared/card_protocol.py` (cards) | 3 | casa | `show_media_card`, `show_season_breakdown`, `show_ha_device_card` |
+| Axel execution tools | 4 | axel | `code_execution_tool`, `run_tests`, `validate_code`, `generate_documentation` |
+| `load_artifacts` (ADK) | 1 | axel | built-in |
 
-**Total**: ~68 FunctionTools + variable MCP tools + 2 ADK built-ins
+**Total**: ~105 FunctionTools + variable MCP tools + 2 ADK built-ins (`google_search`, `BuiltInCodeExecutor`).
 
 ## Module Details
 
@@ -63,138 +70,209 @@ Global variants (`search_past_conversations`, `store_important_information`) exi
 
 ### calendar — `tools/calendar/calendar_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_calendar_events` | `calendar_id`, `max_results`, `query`, `days_ahead`, `is_workspace` | List upcoming events |
-| `create_calendar_event` | `summary`, `start_time`, `end_time`, `description`, `location`, `attendees`, `calendar_id`, `timezone`, `is_workspace` | Create event |
-| `update_calendar_event` | `event_id`, `summary`, `start_time`, `end_time`, `description`, `location`, `attendees`, `calendar_id`, `timezone`, `is_workspace` | Update event |
-| `delete_calendar_event` | `event_id`, `calendar_id`, `is_workspace` | Delete event |
-| `check_calendar_availability` | `calendar_ids`, `days_ahead`, `is_workspace` | Check free/busy times |
+| Tool | Parameters |
+|------|-----------|
+| `list_calendar_events` | `calendar_id`, `max_results`, `query`, `days_ahead`, `is_workspace` |
+| `create_calendar_event` | `summary`, `start_time`, `end_time`, `description`, `location`, `attendees`, `calendar_id`, `timezone`, `is_workspace` |
+| `update_calendar_event` | `event_id`, `summary`, `start_time`, `end_time`, `description`, `location`, `attendees`, `calendar_id`, `timezone`, `is_workspace` |
+| `delete_calendar_event` | `event_id`, `calendar_id`, `is_workspace` |
+| `check_calendar_availability` | `calendar_ids`, `days_ahead`, `is_workspace` |
 
 ### gmail — `tools/gmail/gmail_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_emails` | `max_results`, `label`, `account` | List recent emails |
-| `search_emails` | `query`, `max_results`, `account` | Search with Gmail query syntax |
-| `get_email` | `message_id`, `account` | Get full email content |
-| `list_gmail_accounts` | — | List configured accounts |
+| Tool | Parameters |
+|------|-----------|
+| `list_emails` | `max_results`, `label`, `account` |
+| `search_emails` | `query`, `max_results`, `account` |
+| `get_email` | `message_id`, `account` |
+| `list_gmail_accounts` | — |
 
-### homeassistant — `tools/homeassistant/ha_tools_impl.py`
+### homeassistant (REST) — `tools/homeassistant/ha_tools_impl.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_ha_entities` | — | List all entities |
-| `get_ha_entity_state` | `entity_id` | Get entity state + attributes |
-| `turn_on_ha_entity` | `entity_id` | Turn on device |
-| `turn_off_ha_entity` | `entity_id` | Turn off device |
-| `toggle_ha_entity` | `entity_id` | Toggle on/off |
-| `search_ha_entities` | `search_term`, `domain_filter` | Search by name/ID |
+| Tool | Parameters |
+|------|-----------|
+| `list_ha_entities` | — |
+| `get_ha_entity_state` | `entity_id` |
+| `turn_on_ha_entity` | `entity_id` |
+| `turn_off_ha_entity` | `entity_id` |
+| `toggle_ha_entity` | `entity_id` |
+| `search_ha_entities` | `search_term`, `domain_filter` |
 
-### homeassistant dashboard — `tools/homeassistant/ha_dashboard_tools.py`
+### homeassistant (Dashboard) — `tools/homeassistant/ha_dashboard_tools.py`
 
 Uses WebSocket client (`ha_websocket_client.py`) for Lovelace CRUD.
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_ha_dashboards` | — | List all Lovelace dashboards |
-| `get_ha_dashboard_config` | `url_path` | Get dashboard views/cards config |
-| `create_ha_dashboard` | `url_path`, `title`, `icon`, `require_admin` | Create new dashboard |
-| `update_ha_dashboard` | `dashboard_id`, `title`, `icon`, `require_admin` | Update dashboard metadata |
-| `delete_ha_dashboard` | `dashboard_id` | Delete dashboard |
-| `save_ha_dashboard_config` | `config`, `url_path` | Save full Lovelace config JSON |
+| Tool | Parameters |
+|------|-----------|
+| `list_ha_dashboards` | — |
+| `get_ha_dashboard_config` | `url_path` |
+| `create_ha_dashboard` | `url_path`, `title`, `icon`, `require_admin` |
+| `update_ha_dashboard` | `dashboard_id`, `title`, `icon`, `require_admin` |
+| `delete_ha_dashboard` | `dashboard_id` |
+| `save_ha_dashboard_config` | `config`, `url_path` |
 
 ### scheduler — `tools/scheduler/schedule_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `create_scheduled_task` | `name`, `cron_expression`, `prompt`, `description` | Create recurring cron task |
-| `list_scheduled_tasks` | — | List all scheduled tasks |
-| `delete_scheduled_task` | `task_id` | Delete scheduled task |
+| Tool | Parameters |
+|------|-----------|
+| `create_scheduled_task` | `name`, `cron_expression`, `prompt`, `description` |
+| `list_scheduled_tasks` | — |
+| `delete_scheduled_task` | `task_id` |
 
 ### reminders — `tools/reminders/reminder_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `create_reminder` | `message`, `remind_at`, `delay_minutes`, `timezone_name` | Set one-shot reminder |
-| `list_reminders` | `status` (pending/completed/cancelled/all) | List reminders |
-| `delete_reminder` | `reminder_id` | Cancel/delete reminder |
+| Tool | Parameters |
+|------|-----------|
+| `create_reminder` | `message`, `remind_at`, `delay_minutes`, `timezone_name` |
+| `list_reminders` | `status` (pending/completed/cancelled/all) |
+| `delete_reminder` | `reminder_id` |
 
 ### webhooks — `tools/webhooks/webhook_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `create_webhook` | `name`, `path_suffix`, `prompt_template`, `secret` | Register webhook endpoint |
-| `list_webhooks` | — | List registered webhooks |
-| `delete_webhook` | `webhook_id` | Delete webhook |
+| Tool | Parameters |
+|------|-----------|
+| `create_webhook` | `name`, `path_suffix`, `prompt_template`, `secret` |
+| `list_webhooks` | — |
+| `delete_webhook` | `webhook_id` |
 
 ### overseerr — `tools/overseerr/overseerr_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `search_overseerr_media` | `query`, `page` | Search movies/TV shows |
-| `get_overseerr_media_details` | `tmdb_id`, `media_type` | Get movie/TV details |
-| `request_overseerr_media` | `tmdb_id`, `media_type`, `seasons` | Request media download |
-| `list_overseerr_requests` | `max_results`, `filter_status` | List current requests |
+| Tool | Parameters |
+|------|-----------|
+| `search_overseerr_media` | `query`, `page` |
+| `get_overseerr_media_details` | `tmdb_id`, `media_type` |
+| `request_overseerr_media` | `tmdb_id`, `media_type`, `seasons` |
+| `list_overseerr_requests` | `max_results`, `filter_status` |
+
+### lidarr — `tools/lidarr/lidarr_tools.py`
+
+| Tool | Parameters |
+|------|-----------|
+| `search_lidarr_artist` | `query` |
+| `search_lidarr_album` | `query` |
+| `add_lidarr_artist` | `foreign_artist_id`, `quality_profile_id`, `root_folder_path`, `monitor` |
+| `add_lidarr_album` | `foreign_album_id`, `quality_profile_id`, `root_folder_path`, `monitor` |
+| `list_lidarr_quality_profiles` | — |
 
 ### picnic — `tools/picnic/picnic_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `search_picnic_product` | `query` | Search grocery catalog |
-| `get_picnic_cart` | — | View shopping cart |
-| `add_to_picnic_cart` | `product_id`, `count` | Add product to cart |
-| `remove_from_picnic_cart` | `product_id`, `count` | Remove from cart |
-| `clear_picnic_cart` | — | Clear all items |
-| `get_picnic_delivery_slots` | — | List available delivery times |
-| `set_picnic_delivery_slot` | `slot_id` | Place order (commits) |
-| `submit_shopping_list_to_picnic` | `project_name` | Add todo items to cart |
-| `get_picnic_order_history` | — | View past orders |
-| `get_picnic_delivery_details` | `delivery_id` | Get items in past order |
+| Tool | Parameters |
+|------|-----------|
+| `search_picnic_product` | `query` |
+| `get_picnic_cart` | — |
+| `add_to_picnic_cart` | `product_id`, `count` |
+| `remove_from_picnic_cart` | `product_id`, `count` |
+| `clear_picnic_cart` | — |
+| `get_picnic_delivery_slots` | — |
+| `set_picnic_delivery_slot` | `slot_id` |
+| `submit_shopping_list_to_picnic` | `project_name` |
+| `get_picnic_lists` | — |
+| `get_picnic_list_details` | `list_id` |
+| `get_picnic_order_history` | — |
+| `get_picnic_delivery_details` | `delivery_id` |
 
 ### jira — `tools/jira/jira_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_my_jira_issues` | `project`, `status`, `priority`, `max_results` | List assigned issues |
-| `get_jira_issue` | `issue_key` | Get issue details |
-| `get_issue_transitions` | `issue_key` | List valid status transitions |
-| `transition_jira_issue` | `issue_key`, `status_name` | Change issue status |
-| `add_jira_comment` | `issue_key`, `comment` | Add comment |
-| `search_jira_issues` | `jql`, `max_results` | Search with JQL |
+| Tool | Parameters |
+|------|-----------|
+| `list_my_jira_issues` | `project`, `status`, `priority`, `max_results` |
+| `get_jira_issue` | `issue_key` |
+| `get_issue_transitions` | `issue_key` |
+| `transition_jira_issue` | `issue_key`, `status_name` |
+| `add_jira_comment` | `issue_key`, `comment` |
+| `search_jira_issues` | `jql`, `max_results` |
 
 ### shell — `tools/shell/shell_tool.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `execute_shell_command` | `command`, `arguments`, `timeout` | Run shell command (allow-listed in strict mode) |
+| Tool | Parameters |
+|------|-----------|
+| `execute_shell_command` | `command`, `arguments`, `timeout` — allow-listed in strict mode |
 
 ### claude_code — `tools/claude_code/claude_code_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `clone_repository` | `owner`, `repo`, `branch` | Clone GitHub repo via GitHub App |
-| `claude_code_plan` | `prompt`, `work_folder`, `session_id` | Run Claude Code in plan-only mode |
-| `claude_code_continue` | `prompt`, `session_id`, `work_folder` | Continue planning with feedback |
-| `claude_code_execute` | `prompt`, `work_folder`, `session_id` | Execute approved plan |
-| `commit_and_push` | `work_folder`, `commit_message`, `branch` | Commit and push via GitHub App |
-| `list_workspaces` | — | List active Claude Code workspaces |
+| Tool | Parameters |
+|------|-----------|
+| `clone_repository` | `owner`, `repo`, `branch` |
+| `claude_code_plan` | `prompt`, `work_folder`, `session_id` |
+| `claude_code_continue` | `prompt`, `session_id`, `work_folder` |
+| `claude_code_execute` | `prompt`, `work_folder`, `session_id` |
+| `commit_and_push` | `work_folder`, `commit_message`, `branch` |
+| `list_workspaces` | — |
 
 ### nomad — `tools/nomad/nomad_tools.py`
 
-| Tool | Parameters | Description |
-|------|-----------|-------------|
-| `list_nomad_jobs` | `prefix` | List Nomad jobs |
-| `get_nomad_job_status` | `job_id` | Job status + allocations |
-| `get_nomad_allocation_logs` | `job_id`, `task`, `log_type`, `lines` | Fetch allocation logs |
-| `restart_nomad_allocation` | `job_id`, `task` | Restart allocation |
-| `plan_nomad_job_update` | `job_file_path` | Plan job update (dry-run) |
-| `submit_nomad_job_update` | `job_file_path` | Submit job update |
-| `check_nomad_service_health` | `service_name` | Check service health |
+| Tool | Parameters |
+|------|-----------|
+| `list_nomad_jobs` | `prefix` |
+| `get_nomad_job_status` | `job_id` |
+| `get_nomad_allocation_logs` | `job_id`, `task`, `log_type`, `lines` |
+| `restart_nomad_allocation` | `job_id`, `task` |
+| `plan_nomad_job_update` | `job_file_path` |
+| `submit_nomad_job_update` | `job_file_path` |
+| `check_nomad_service_health` | `service_name` |
+
+### youtube — `tools/youtube/`
+
+Three client modules wired onto the kidsvid agent.
+
+**YouTube** (`youtube_tools.py`, `youtube_client.py`):
+
+| Tool | Parameters |
+|------|-----------|
+| `search_youtube_videos` | `query`, `max_results`, `safe_search` — blocks YouTube Shorts at ingest |
+| `get_youtube_video_details` | `video_id` |
+| `get_youtube_channel_info` | `channel_id` |
+
+**CuriosityStream** (`curiositystream_tools.py`, `curiositystream_client.py`):
+
+| Tool | Parameters |
+|------|-----------|
+| `search_curiositystream` | `query`, `max_results` |
+| `list_curiositystream_categories` | — |
+
+**Kideo library** (`kideo_tools.py`, `kideo_client.py`, `tag_generator.py`):
+
+| Tool | Parameters | Notes |
+|------|-----------|-------|
+| `add_video_to_kideo` | `video_id`, `collection_id`, `tags` | Blocks Shorts |
+| `add_videos_to_kideo_batch` | `video_ids`, `collection_id` | Bulk ingest |
+| `list_kideo_collections` | — | |
+| `create_kideo_collection` | `name`, `description` | |
+| `generate_video_tags` | `video_id` | AI tags from transcript + description |
+| `set_kideo_video_tags` | `video_id`, `tags` | Overwrite tags |
+| `get_kideo_popular_videos` | `limit` | Analytics: play counts |
+| `get_kideo_tag_stats` | — | Tag usage stats |
+| `get_kideo_channel_stats` | `channel_id` | Per-channel analytics |
+| `retag_untagged_kideo_videos` | `batch_size` | Backfill AI tags |
+
+### card_protocol — `tools/shared/card_protocol.py`
+
+Emits ` ```radbot:<kind> ` fenced JSON blocks the agent includes verbatim in its reply. Frontend parses into UI components.
+
+Valid kinds: `media`, `seasons`, `ha-device`, `handoff`.
+
+| Tool | Parameters | Notes |
+|------|-----------|-------|
+| `show_media_card` | `tmdb_id`, `media_type`, `title`, `year`, ... | Best-effort Overseerr poster lookup when `tmdb_id` + `media_type` known |
+| `show_season_breakdown` | `tmdb_id`, `title`, `seasons` (list) | Per-season progress/status |
+| `show_ha_device_card` | `entity_id`, `state`, `brightness_pct`, ... | Domain-inferred icon |
+
+`handoff` blocks are emitted server-side, not by agents — `session_runner.py` wraps every `agent_transfer` event as a `radbot:handoff` block (reflexive/duplicate transfers filtered).
+
+### execution tools — `agent/execution_agent/tools.py`
+
+Axel-specific (not a standalone module):
+
+| Tool | Purpose |
+|------|---------|
+| `code_execution_tool` | Runs Python code in a temp file via shell (30s timeout) |
+| `run_tests` | pytest runner |
+| `validate_code` | Syntax/lint validation |
+| `generate_documentation` | Docstring / README generation |
 
 ## MCP Tools
 
-Loaded dynamically on axel agent:
+Loaded dynamically on the axel agent only:
 
 - **Filesystem MCP**: `create_fileserver_toolset()` — file read/write via MCP stdio server
 - **Dynamic MCP**: `load_dynamic_mcp_tools()` — additional MCP servers from config
@@ -206,19 +284,23 @@ Tool count varies based on available MCP servers.
 | Tool | Agent | Type |
 |------|-------|------|
 | `google_search` | search_agent | Grounding tool (cannot mix with FunctionTools) |
-| `BuiltInCodeExecutor` | code_execution_agent, axel | Code executor (via `generate_content_config`) |
+| `BuiltInCodeExecutor` | code_execution_agent, axel | Code executor (via `generate_content_config` / `code_executor=`) |
 | `load_artifacts` | axel | ADK artifact loading |
 
 ## Non-Tool Services
 
-These expose REST endpoints but are not registered as agent FunctionTools:
+REST-only, not registered as agent FunctionTools:
 
 | Service | Class | Endpoint | Purpose |
 |---------|-------|----------|---------|
 | TTS | `TTSService` | `POST /api/tts/synthesize` | Google Cloud Text-to-Speech |
 | STT | `STTService` | `POST /api/stt/transcribe` | Google Cloud Speech-to-Text |
-| ntfy | `NtfyClient` | (push, no REST endpoint) | Push notifications via ntfy.sh |
+| ntfy | `NtfyClient` | (push + SSE subscriber, no REST endpoint) | Push notifications + inbound triggers |
 | Alertmanager | `process_alert_from_payload()` | `POST /api/alerts/webhook` | Alert ingestion + remediation pipeline |
+| Notifications | unified store | `GET/POST /api/notifications/*` | Cross-source notification feed (scheduled, reminder, alert, ntfy) |
+| Direct media actions | Overseerr wrapper | `GET/POST /api/media/*` | Non-agent media search + request |
+| Direct HA actions | HA REST wrapper | `GET/POST /api/ha/*` | Non-agent device state + service calls |
+| Per-session token stats | `llm_usage_log` aggregation | `GET /api/sessions/{id}/stats` | Session token/cost totals |
 
 ## Key Files
 
@@ -226,6 +308,11 @@ These expose REST endpoints but are not registered as agent FunctionTools:
 |------|---------|
 | `tools/{module}/{module}_tools.py` | Tool function definitions + FunctionTool wrapping |
 | `tools/{module}/__init__.py` | Exports `ALL_TOOLS` / named tool lists |
-| `tools/specialized/base_toolset.py` | Base class for domain toolsets |
-| `tools/specialized/*_toolset.py` | Toolset factories combining tools per agent |
 | `tools/memory/agent_memory_factory.py` | `create_agent_memory_tools()` scoped memory factory |
+| `tools/shared/card_protocol.py` | Card block formatting + `CARD_TOOLS` |
+| `tools/shared/config_helper.py` | `get_integration_config()` resolver |
+| `tools/shared/client_utils.py` | `client_or_error()`, singleton helpers |
+| `tools/shared/tool_decorator.py` | `@tool_error_handler` |
+| `tools/shared/retry.py` | `@retry_on_error` |
+| `tools/shared/db_schema.py` | `init_table_schema()` idempotent helper |
+| `agent/factory_utils.py` | `load_tools(module, attr, agent, label)` |
