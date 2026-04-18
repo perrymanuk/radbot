@@ -83,6 +83,7 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 | `api/media.py` | `/api/media` | Direct Overseerr/TMDB actions — bypasses agent (new 2026-04-18) |
 | `api/videos.py` | `/api/videos` | Direct Kideo actions for kidsvid `<VideoCard />` — bypasses agent |
 | `api/ha.py` | `/api/ha` | Direct Home Assistant state + service — bypasses agent (new 2026-04-18) |
+| `api/telos.py` | `/api/telos` | Telos user-context store — admin-token-protected CRUD + bulk + markdown import/export + prediction resolve |
 | `api/terminal.py` | `/terminal` | Terminal PTY WebSocket + workspace REST |
 | `api/terminal_proxy.py` | (helper) | `WorkspaceProxy`: workspace worker lifecycle |
 | `api/tts.py` | `/api/tts` | Text-to-speech |
@@ -101,6 +102,24 @@ Frontend buttons on Casa-rendered UI cards hit these REST endpoints directly —
 | `GET` | `/api/media/search?query=X` | `MediaCardData[]` with TMDB `poster_url` (max 15 results) |
 | `GET` | `/api/media/{tmdb_id}?media_type=movie\|tv` | Enriched detail (seasons, on-server fractions, content_rating) |
 | `POST` | `/api/media/request` | Wraps Overseerr `create_request` — auto-fills all seasons for TV |
+
+### Telos (`/api/telos`) — `web/api/telos.py`
+
+All endpoints require the admin bearer token (same as `/admin/api/*`). Drives the `TelosPanel` admin UI and supports power-user markdown import/export.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/telos/status` | `{has_identity}` — wizard-vs-editor branch |
+| `GET` | `/api/telos/sections` | Per-section active-entry counts + headers |
+| `GET` | `/api/telos/section/{section}?include_inactive=false` | Entries in a section |
+| `GET` | `/api/telos/entry/{section}/{ref_code}` | Single entry |
+| `POST` | `/api/telos/entry/{section}` | Add entry (body: `{content, ref_code?, metadata?, status?, sort_order?}`) |
+| `PUT` | `/api/telos/entry/{section}/{ref_code}` | Patch entry (body: `{content?, metadata_merge?, metadata_replace?, status?, sort_order?}`) |
+| `POST` | `/api/telos/archive/{section}/{ref_code}` | Soft delete (body: `{reason?}`) |
+| `POST` | `/api/telos/bulk` | Atomic multi-section upsert — used by the onboarding wizard (body: `{entries, replace?}`) |
+| `POST` | `/api/telos/import` | Merge-or-replace from canonical Telos markdown (body: `{markdown, replace?}`) |
+| `GET` | `/api/telos/export` | Current Telos as canonical markdown (text/plain) |
+| `POST` | `/api/telos/resolve-prediction/{ref_code}` | Resolve a prediction; auto-adds `wrong_about` on miscalibration (body: `{outcome, actual_value?}`) |
 
 ### Home Assistant (`/api/ha`) — `web/api/ha.py`
 
@@ -194,6 +213,7 @@ Flat panel structure (no more grouping superclasses).
 | `DeveloperPanels.tsx` | `GitHubAppPanel`, `ClaudeCodePanel` |
 | `InfrastructurePanels.tsx` | `PostgresqlPanel`, `QdrantPanel` |
 | `TelemetryPanels.tsx` | `CostTrackingPanel` |
+| `TelosPanel.tsx` | `TelosPanel` (wizard for fresh install, editor after — per-section nav, add/edit/archive, prediction resolve, markdown import/export) |
 | `MCPPanel.tsx` | `MCPServersPanel` |
 | `CredentialsPanel.tsx` | `CredentialsPanel` |
 | `RawConfigPanel.tsx` | `RawConfigPanel` |

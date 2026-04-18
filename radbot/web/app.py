@@ -55,6 +55,7 @@ from radbot.web.api.notifications import router as notifications_router
 from radbot.web.api.media import router as media_router
 from radbot.web.api.videos import router as videos_router
 from radbot.web.api.ha import router as ha_router
+from radbot.web.api.telos import router as telos_router
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,7 @@ def create_app():
     app.include_router(media_router)
     app.include_router(videos_router)
     app.include_router(ha_router)
+    app.include_router(telos_router)
     register_terminal_websocket(app)
     logger.debug("API routers registered during app initialization")
 
