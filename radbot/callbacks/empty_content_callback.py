@@ -34,6 +34,15 @@ def scrub_empty_content_before_model(
     cascading failures where subsequent model calls also return empty.
     This scrubs them out before each model call.
 
+    **Safety guard**: never leaves ``contents`` empty. If every entry
+    looks empty (happens in ADK V1 right after ``transfer_to_agent`` —
+    the sub-agent's first LLM request can carry scaffolding-only
+    Content objects), we leave the request untouched and let ADK / the
+    model handle it. Reducing ``contents`` to ``[]`` triggers the
+    google-genai transformer's ``ValueError('contents are required.')``
+    and kills the request outright, which is a worse failure mode than
+    passing through.
+
     Returns None so the request proceeds normally.
     """
     if not llm_request.contents:
@@ -50,11 +59,18 @@ def scrub_empty_content_before_model(
         else:
             removed += 1
 
-    if removed > 0:
+    if removed > 0 and cleaned:
         llm_request.contents = cleaned
         logger.info(
             "empty_content_scrub: removed %d/%d empty Content objects from request history",
             removed,
+            original_count,
+        )
+    elif removed > 0 and not cleaned:
+        # Would have emptied contents entirely — pass through instead.
+        logger.warning(
+            "empty_content_scrub: %d Content objects all had empty parts; "
+            "passing through untouched to avoid 'contents are required' 400",
             original_count,
         )
 
