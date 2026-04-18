@@ -6,6 +6,16 @@ const config: Config = {
     extend: {
       fontFamily: {
         mono: ['"Source Code Pro"', "monospace"],
+        pixel: ['"Press Start 2P"', '"Source Code Pro"', "monospace"],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          '"Segoe UI"',
+          "Roboto",
+          '"Helvetica Neue"',
+          "Arial",
+          "sans-serif",
+        ],
       },
       colors: {
         bg: {
@@ -27,6 +37,13 @@ const config: Config = {
           amber: "#FFBF00",
           red: "#CC0000",
           blue: "#0066FF",
+        },
+        // Mock-aligned accents for agent avatars + notification types
+        radbot: {
+          sunset: "#ff9966",
+          violet: "#b088ff",
+          magenta: "#ff66aa",
+          sky: "#66ccff",
         },
       },
       borderRadius: {
@@ -55,6 +72,10 @@ const config: Config = {
           "0%": { transform: "translateX(100%)" },
           "100%": { transform: "translateX(0)" },
         },
+        "drawer-in": {
+          "0%": { transform: "translateX(100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
       },
       animation: {
         "terminal-blink": "terminal-blink 0.8s infinite",
@@ -62,6 +83,7 @@ const config: Config = {
         "stt-pulse": "stt-pulse 1s ease-in-out infinite",
         "pulse-blue": "pulse-blue 2s infinite",
         "slide-in-right": "slide-in-right 0.2s ease-out",
+        "drawer-in": "drawer-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
       },
     },
   },

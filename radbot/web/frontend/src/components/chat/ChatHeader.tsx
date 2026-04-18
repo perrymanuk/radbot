@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
+import { useNotificationStore } from "@/stores/notification-store";
 import { cn } from "@/lib/utils";
 import type { ConnectionStatus } from "@/types";
+import NotificationsPopover from "@/components/notifications/NotificationsPopover";
+import NotificationDetail from "@/components/notifications/NotificationDetail";
+import type { Notification } from "@/types";
 
 function StatusDot({ status }: { status: ConnectionStatus }) {
   const colors: Record<ConnectionStatus, string> = {
@@ -23,16 +27,52 @@ function StatusDot({ status }: { status: ConnectionStatus }) {
   );
 }
 
+const STATUS_LABEL: Record<ConnectionStatus, string> = {
+  active: "WS CONNECTED",
+  thinking: "WS THINKING",
+  connecting: "WS CONNECTING",
+  reconnecting: "WS RECONNECTING",
+  disconnected: "WS DISCONNECTED",
+  error: "WS ERROR",
+};
+
+function GroupLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="hidden md:inline font-mono text-[0.55rem] tracking-[0.2em] text-txt-secondary/60 uppercase mr-1.5 select-none">
+      {children}
+    </span>
+  );
+}
+
 export default function ChatHeader() {
   const status = useAppStore((s) => s.connectionStatus);
   const agentInfo = useAppStore((s) => s.agentInfo);
   const togglePanel = useAppStore((s) => s.togglePanel);
+  const setActivePanel = useAppStore((s) => s.setActivePanel);
   const activePanel = useAppStore((s) => s.activePanel);
-  const createNewSession = useAppStore((s) => s.createNewSession);
   const unreadNotifCount = useAppStore((s) => s.unreadNotificationCount);
+  const splitMode = useAppStore((s) => s.splitMode);
+  const toggleSplitMode = useAppStore((s) => s.toggleSplitMode);
+
   const [ttsAutoPlay, setTtsAutoPlay] = useState(
     () => localStorage.getItem("radbot_tts_autoplay") === "true",
   );
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const bellRef = useRef<HTMLButtonElement>(null);
+
+  const loadNotifications = useNotificationStore((s) => s.loadNotifications);
+
+  useEffect(() => {
+    if (notifOpen) loadNotifications();
+  }, [notifOpen, loadNotifications]);
+
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
 
   const toggleTtsAutoPlay = () => {
     const next = !ttsAutoPlay;
@@ -40,118 +80,195 @@ export default function ChatHeader() {
     localStorage.setItem("radbot_tts_autoplay", String(next));
   };
 
-  const agentName = agentInfo?.name ?? "BETO";
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
   const modelName = agentInfo?.model ?? "";
 
   return (
-    <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10">
-      {/* Left: title + status */}
-      <div className="flex items-center gap-2 min-w-0">
-        <h1 className="text-sm sm:text-[0.85rem] tracking-wider font-normal text-txt-secondary uppercase font-mono m-0 whitespace-nowrap">
-          <span className="hidden sm:inline">RadBot</span>
-          <span className="sm:hidden">RB</span>
-        </h1>
-        <StatusDot status={status} />
-        <span className="text-[0.75rem] text-txt-secondary hidden sm:inline">
-          <span className="text-terminal-amber font-bold">{agentName}</span>
+    <>
+      <div className="scanlines flex items-center justify-between px-3 py-1.5 bg-bg-secondary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10 relative">
+        {/* Left: mascot + wordmark + model + status */}
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            aria-hidden
+            className="mascot-sticker hidden sm:block w-[38px] h-[38px] flex-none rounded-md border-2 border-[#ff9966] bg-cover"
+            style={{
+              backgroundImage: "url(/static/dist/radbot.png)",
+              backgroundSize: "260%",
+              backgroundPosition: "60% 30%",
+            }}
+          />
+          <div className="flex items-baseline gap-2">
+            <h1 className="pixel-font text-[22px] sm:text-[22px] text-txt-primary m-0 leading-none">
+              <span className="hidden sm:inline">RADBOT</span>
+              <span className="sm:hidden">RB</span>
+            </h1>
+            <span className="hidden sm:inline-flex text-[9px] font-mono font-semibold tracking-[0.15em] text-[#ff9966] px-1.5 py-0.5 rounded-sm border border-[#ff9966]/40 bg-[#ff9966]/10">
+              BETO·v0.9
+            </span>
+          </div>
+
           {modelName && (
-            <span className="text-txt-secondary/70 ml-2">{modelName}</span>
+            <>
+              <div className="w-px h-5 bg-border hidden md:block mx-1" />
+              <div className="hidden md:flex items-center gap-1.5">
+                <span className="font-mono text-[0.55rem] tracking-[0.2em] text-txt-secondary/60 uppercase">
+                  Model
+                </span>
+                <span className="font-mono text-[0.7rem] text-txt-primary tracking-[0.05em] px-1.5 py-0.5 rounded-sm border border-border bg-bg-primary/50 truncate max-w-[220px]">
+                  {modelName}
+                </span>
+              </div>
+            </>
           )}
-        </span>
-      </div>
 
-      {/* Right: action buttons + panel nav */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {/* Action buttons group */}
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => createNewSession()}
-            aria-label="Create new session"
-            className={cn(
-              "px-2 sm:px-2.5 py-1.5 sm:py-1 border text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-              "flex items-center gap-1 min-h-[40px] sm:min-h-0",
-              "bg-bg-tertiary text-terminal-green border-terminal-green hover:bg-terminal-green hover:text-bg-primary",
-              "focus:outline-none focus:ring-1 focus:ring-terminal-green",
-            )}
-          >
-            <span className="hidden sm:inline">+ NEW</span>
-            <span className="sm:hidden">+</span>
-          </button>
-          <button
-            onClick={toggleTtsAutoPlay}
-            aria-label={ttsAutoPlay ? "Disable auto text-to-speech" : "Enable auto text-to-speech"}
-            className={cn(
-              "px-2 sm:px-2.5 py-1.5 sm:py-1 border text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-              "flex items-center gap-1 min-h-[40px] sm:min-h-0",
-              "focus:outline-none focus:ring-1 focus:ring-accent-blue",
-              ttsAutoPlay
-                ? "bg-terminal-green/15 text-terminal-green border-terminal-green/50"
-                : "bg-bg-tertiary text-txt-secondary border-border hover:text-txt-primary hover:border-txt-secondary",
-            )}
-          >
-            <span className="hidden sm:inline">{ttsAutoPlay ? "TTS:ON" : "TTS:OFF"}</span>
-            <span className="sm:hidden">TTS</span>
-          </button>
+          <div className="w-px h-5 bg-border hidden sm:block mx-1" />
+
+          <div className="flex items-center gap-1.5">
+            <StatusDot status={status} />
+            <span className="font-mono text-[0.6rem] tracking-[0.14em] text-txt-secondary hidden sm:inline">
+              {STATUS_LABEL[status]}
+            </span>
+          </div>
         </div>
 
-        {/* Separator */}
-        <div className="w-px h-5 bg-border hidden sm:block" />
+        {/* Right: VOICE cluster + PANELS cluster */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* VOICE group */}
+          <div className="flex items-center">
+            <GroupLabel>Voice</GroupLabel>
+            <button
+              onClick={toggleTtsAutoPlay}
+              aria-label={ttsAutoPlay ? "Disable auto text-to-speech" : "Enable auto text-to-speech"}
+              className={cn(
+                "px-2 sm:px-2.5 py-1.5 sm:py-1 border text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                "flex items-center gap-1 min-h-[40px] sm:min-h-0",
+                "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+                ttsAutoPlay
+                  ? "bg-terminal-green/15 text-terminal-green border-terminal-green/50"
+                  : "bg-bg-tertiary text-txt-secondary border-border hover:text-txt-primary hover:border-txt-secondary",
+              )}
+            >
+              <span className="hidden sm:inline">{ttsAutoPlay ? "TTS ON" : "TTS OFF"}</span>
+              <span className="sm:hidden">TTS</span>
+            </button>
+          </div>
 
-        {/* Navigation tabs group */}
-        <div className="flex gap-0.5 bg-bg-primary/50 p-0.5 rounded-sm">
-          <NavTab
-            label="SESS"
-            ariaLabel="Sessions panel"
-            active={activePanel === "sessions"}
-            onClick={() => togglePanel("sessions")}
-          />
-          <NavTab
-            label="TASKS"
-            ariaLabel="Tasks panel"
-            active={activePanel === "tasks"}
-            onClick={() => togglePanel("tasks")}
-          />
-          <NavTab
-            label="EVENTS"
-            mobileLabel="EVT"
-            ariaLabel="Events panel"
-            active={activePanel === "events"}
-            onClick={() => togglePanel("events")}
-          />
-          <a
-            href="/notifications"
-            aria-label="Notifications"
+          <div className="w-px h-5 bg-border hidden sm:block" />
+
+          {/* PANELS group */}
+          <div className="flex items-center">
+            <GroupLabel>Panels</GroupLabel>
+            <div className="flex gap-0.5 bg-bg-primary/50 p-0.5 rounded-sm items-center">
+              <NavTab
+                label="CHAT"
+                ariaLabel="Focus chat (close side panels)"
+                active={activePanel === null && !splitMode}
+                onClick={() => setActivePanel(null)}
+              />
+              <NavTab
+                label="SESS"
+                ariaLabel="Sessions panel"
+                active={activePanel === "sessions"}
+                onClick={() => togglePanel("sessions")}
+              />
+              <NavTab
+                label="TASKS"
+                ariaLabel="Tasks panel"
+                active={activePanel === "tasks"}
+                onClick={() => togglePanel("tasks")}
+              />
+              <NavTab
+                label="EVENTS"
+                mobileLabel="EVT"
+                ariaLabel="Events panel"
+                active={activePanel === "events"}
+                onClick={() => togglePanel("events")}
+              />
+              <NavTab
+                label="SPLIT"
+                ariaLabel="Toggle split view"
+                active={splitMode}
+                onClick={toggleSplitMode}
+              />
+
+              <button
+                ref={bellRef}
+                onClick={() => setNotifOpen((v) => !v)}
+                aria-label="Notifications"
+                aria-expanded={notifOpen}
+                className={cn(
+                  "relative px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
+                  "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+                  "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+                  notifOpen
+                    ? "bg-accent-blue/15 text-accent-blue"
+                    : "text-accent-blue hover:bg-accent-blue/15",
+                )}
+              >
+                <span className="hidden sm:inline">NOTIF</span>
+                <span className="sm:hidden">N</span>
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-terminal-red text-bg-primary text-[0.5rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                    {unreadNotifCount > 99 ? "99+" : unreadNotifCount}
+                  </span>
+                )}
+              </button>
+
+              <a
+                href="/terminal"
+                aria-label="Open terminal"
+                className={cn(
+                  "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
+                  "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+                  "text-terminal-amber hover:bg-terminal-amber/15 hover:text-terminal-amber",
+                  "focus:outline-none focus:ring-1 focus:ring-terminal-amber",
+                )}
+              >
+                <span className="hidden sm:inline">TERM</span>
+                <span className="sm:hidden">T</span>
+              </a>
+            </div>
+          </div>
+
+          <button
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             className={cn(
-              "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline relative",
-              "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
-              "text-accent-blue hover:bg-accent-blue/15 hover:text-accent-blue",
+              "w-7 h-7 flex-none grid place-items-center border border-border rounded-sm cursor-pointer transition-all",
+              "text-txt-secondary hover:text-txt-primary hover:bg-bg-primary/50",
               "focus:outline-none focus:ring-1 focus:ring-accent-blue",
             )}
+            title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
           >
-            <span className="hidden sm:inline">NOTIF</span>
-            <span className="sm:hidden">N</span>
-            {unreadNotifCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-terminal-red text-bg-primary text-[0.5rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
-                {unreadNotifCount > 99 ? "99+" : unreadNotifCount}
-              </span>
-            )}
-          </a>
-          <a
-            href="/terminal"
-            aria-label="Open terminal"
-            className={cn(
-              "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
-              "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
-              "text-terminal-amber hover:bg-terminal-amber/15 hover:text-terminal-amber",
-              "focus:outline-none focus:ring-1 focus:ring-terminal-amber",
-            )}
-          >
-            <span className="hidden sm:inline">TERM</span>
-            <span className="sm:hidden">T</span>
-          </a>
+            <span className="font-mono text-[0.8rem] leading-none">{isFullscreen ? "⤦" : "⤢"}</span>
+          </button>
         </div>
       </div>
-    </div>
+
+      {notifOpen && (
+        <NotificationsPopover
+          buttonRef={bellRef}
+          onClose={() => setNotifOpen(false)}
+          onSelect={(n) => {
+            setSelectedNotif(n);
+            setNotifOpen(false);
+          }}
+        />
+      )}
+      {selectedNotif && (
+        <NotificationDetail
+          notification={selectedNotif}
+          onClose={() => setSelectedNotif(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -174,12 +291,12 @@ function NavTab({
       aria-label={ariaLabel}
       aria-pressed={active}
       className={cn(
-        "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer",
-        "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+        "px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer rounded-sm",
+        "flex items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0 border",
         "focus:outline-none focus:ring-1 focus:ring-accent-blue",
         active
-          ? "bg-accent-blue text-bg-primary border-b-2 border-accent-blue"
-          : "text-txt-secondary hover:text-txt-primary hover:bg-bg-tertiary/50",
+          ? "bg-bg-primary/60 text-txt-primary border-radbot-sunset/60"
+          : "text-txt-secondary border-transparent hover:text-txt-primary hover:bg-bg-tertiary/50",
       )}
     >
       <span className="hidden sm:inline">{label}</span>

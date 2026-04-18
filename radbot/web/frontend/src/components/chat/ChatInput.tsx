@@ -6,6 +6,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import CommandSuggestions from "./CommandSuggestions";
 import EmojiSuggestions from "./EmojiSuggestions";
 import FloatingMicButton from "./FloatingMicButton";
+import { Icon } from "./icons";
 import { cn, uuid } from "@/lib/utils";
 
 const COMMANDS = [
@@ -31,7 +32,6 @@ export default function ChatInput() {
   const memoryMode = useAppStore((s) => s.memoryMode);
   const setMemoryMode = useAppStore((s) => s.setMemoryMode);
 
-  // STT hook - inject transcript into input
   const handleTranscript = useCallback((transcript: string) => {
     setText((prev) => (prev ? prev + " " + transcript : transcript));
   }, []);
@@ -39,57 +39,51 @@ export default function ChatInput() {
   const isMobile = useIsMobile();
 
   const isDisabled =
-    connectionStatus === "disconnected" ||
-    connectionStatus === "error";
+    connectionStatus === "disconnected" || connectionStatus === "error";
+  const isThinking = connectionStatus === "thinking";
 
-  // Auto-resize textarea
+  // Auto-resize textarea (1–~8 rows, capped)
   const resize = useCallback(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 150) + "px";
+    el.style.height = "0px";
+    el.style.height = Math.min(160, el.scrollHeight) + "px";
   }, []);
-
   useEffect(() => {
     resize();
   }, [text, resize]);
+
+  // ⌘K / Ctrl+K focuses the composer
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const send = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    // Handle slash commands locally
     if (trimmed.startsWith("/")) {
       const parts = trimmed.slice(1).split(" ");
       const cmd = parts[0].toLowerCase();
-
       switch (cmd) {
         case "sessions":
           togglePanel("sessions");
-          addMessage({
-            id: uuid(),
-            role: "system",
-            content: "Sessions panel toggled",
-            timestamp: Date.now(),
-          });
+          addMessage({ id: uuid(), role: "system", content: "Sessions panel toggled", timestamp: Date.now() });
           break;
         case "tasks":
           togglePanel("tasks");
-          addMessage({
-            id: uuid(),
-            role: "system",
-            content: "Tasks panel toggled",
-            timestamp: Date.now(),
-          });
+          addMessage({ id: uuid(), role: "system", content: "Tasks panel toggled", timestamp: Date.now() });
           break;
         case "events":
           togglePanel("events");
-          addMessage({
-            id: uuid(),
-            role: "system",
-            content: "Events panel toggled",
-            timestamp: Date.now(),
-          });
+          addMessage({ id: uuid(), role: "system", content: "Events panel toggled", timestamp: Date.now() });
           break;
         case "clear":
           clearMessages();
@@ -99,30 +93,15 @@ export default function ChatInput() {
           COMMANDS.forEach((c) => {
             msg += `- \`${c.name}\` - ${c.description}\n`;
           });
-          msg += "\n**Controls:** Enter=send, Shift+Enter=newline, Up/Down=history";
-          addMessage({
-            id: uuid(),
-            role: "system",
-            content: msg,
-            timestamp: Date.now(),
-          });
+          msg += "\n**Controls:** Enter=send, Shift+Enter=newline, Up/Down=history, ⌘K=focus";
+          addMessage({ id: uuid(), role: "system", content: msg, timestamp: Date.now() });
           break;
         }
         default:
-          // Unknown command - send to server
           wsSend(trimmed);
-          break;
       }
     } else {
-      // Add user message to UI immediately
-      addMessage({
-        id: uuid(),
-        role: "user",
-        content: trimmed,
-        timestamp: Date.now(),
-      });
-
-      // Send via WebSocket
+      addMessage({ id: uuid(), role: "user", content: trimmed, timestamp: Date.now() });
       wsSend(trimmed);
     }
 
@@ -132,24 +111,18 @@ export default function ChatInput() {
   }, [text, togglePanel, addMessage, clearMessages, addToInputHistory, setMemoryMode]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // If command suggestions are visible, let them handle arrow keys
     if (commandFilter !== null || emojiFilter !== null) return;
-
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
-
     if (e.key === "ArrowUp" && text === "") {
       e.preventDefault();
-      const prev = navigateHistory("up");
-      setText(prev);
+      setText(navigateHistory("up"));
     }
-
     if (e.key === "ArrowDown" && text === "") {
       e.preventDefault();
-      const next = navigateHistory("down");
-      setText(next);
+      setText(navigateHistory("down"));
     }
   };
 
@@ -157,28 +130,20 @@ export default function ChatInput() {
     const val = e.target.value;
     setText(val);
 
-    // Memory mode: start with #
-    if (val.startsWith("#") && !memoryMode) {
-      setMemoryMode(true);
-    } else if (!val.startsWith("#") && memoryMode) {
-      setMemoryMode(false);
-    }
+    if (val.startsWith("#") && !memoryMode) setMemoryMode(true);
+    else if (!val.startsWith("#") && memoryMode) setMemoryMode(false);
 
-    // Command autocomplete
     if (val.startsWith("/")) {
-      const cmdPart = val.split(" ")[0];
-      setCommandFilter(cmdPart);
+      setCommandFilter(val.split(" ")[0]);
     } else {
       setCommandFilter(null);
     }
 
-    // Emoji autocomplete
     const cursorPos = e.target.selectionStart;
     const colonIdx = val.lastIndexOf(":", cursorPos);
     if (
       colonIdx !== -1 &&
       !val.slice(colonIdx, cursorPos).includes(" ") &&
-      // Don't trigger if it's a completed shortcode
       !(val.indexOf(":", colonIdx + 1) !== -1 &&
         val.indexOf(":", colonIdx + 1) < cursorPos)
     ) {
@@ -198,110 +163,139 @@ export default function ChatInput() {
     const cursorPos = textareaRef.current?.selectionStart ?? text.length;
     const colonIdx = text.lastIndexOf(":", cursorPos);
     if (colonIdx !== -1) {
-      const newText =
-        text.slice(0, colonIdx) + shortcode + text.slice(cursorPos);
-      setText(newText);
+      setText(text.slice(0, colonIdx) + shortcode + text.slice(cursorPos));
     }
     setEmojiFilter(null);
     textareaRef.current?.focus();
   };
 
-  const micLabel =
-    stt.state === "recording" ? "REC" : stt.state === "processing" ? "..." : "MIC";
+  const hasText = text.trim().length > 0;
+  const accentClass = memoryMode ? "text-radbot-magenta" : "text-radbot-sunset";
+  const ringClass = memoryMode
+    ? "ring-radbot-magenta/20 border-radbot-magenta/50"
+    : "ring-radbot-sunset/10 border-border";
+
+  const placeholder = isThinking
+    ? "agent is thinking…"
+    : memoryMode
+      ? "remember this…"
+      : "type a message, / for commands, # to save to memory";
 
   return (
-    <div className="px-1 py-1 border-t border-border bg-bg-primary flex-shrink-0 z-10">
-      {/* Floating mic FAB on mobile */}
+    <div className="relative px-3 pt-2 pb-1 bg-bg-primary border-t border-border flex-shrink-0 z-10">
       {isMobile && <FloatingMicButton state={stt.state} toggle={stt.toggle} />}
 
-      <div className="flex gap-1.5 relative items-stretch">
-        {/* $ prompt prefix — inside the input area */}
-        <span className={cn(
-          "absolute left-2 top-1/2 -translate-y-1/2 font-bold text-base z-10 pointer-events-none font-mono",
-          memoryMode ? "text-terminal-green" : "text-accent-blue",
-        )}>
+      {/* Command suggestions (slash) */}
+      {commandFilter !== null && (
+        <CommandSuggestions
+          filter={commandFilter}
+          commands={COMMANDS}
+          onSelect={selectCommand}
+          onClose={() => setCommandFilter(null)}
+        />
+      )}
+
+      {/* Emoji suggestions (colon) */}
+      {emojiFilter !== null && (
+        <EmojiSuggestions
+          filter={emojiFilter}
+          onSelect={selectEmoji}
+          onClose={() => setEmojiFilter(null)}
+        />
+      )}
+
+      {/* Input shell */}
+      <div
+        className={cn(
+          "flex items-end gap-2.5 px-3 py-2 bg-bg-secondary rounded border ring-[3px] transition-all",
+          ringClass,
+        )}
+      >
+        <span
+          className={cn(
+            "font-mono text-[0.85rem] font-bold leading-[22px] select-none",
+            accentClass,
+          )}
+          aria-hidden
+        >
           {memoryMode ? "#" : "$"}
         </span>
-
-        {/* Command suggestions */}
-        {commandFilter !== null && (
-          <CommandSuggestions
-            filter={commandFilter}
-            commands={COMMANDS}
-            onSelect={selectCommand}
-            onClose={() => setCommandFilter(null)}
-          />
-        )}
-
-        {/* Emoji suggestions */}
-        {emojiFilter !== null && (
-          <EmojiSuggestions
-            filter={emojiFilter}
-            onSelect={selectEmoji}
-            onClose={() => setEmojiFilter(null)}
-          />
-        )}
-
         <textarea
           ref={textareaRef}
           value={text}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={
-            connectionStatus === "thinking"
-              ? "Agent is thinking..."
-              : "Type a message..."
-          }
           disabled={isDisabled}
           rows={1}
+          placeholder={placeholder}
+          aria-label="Message composer"
           className={cn(
-            "flex-1 pl-6 pr-2 py-1.5 border border-border resize-none outline-none",
-            "text-base sm:text-[0.85rem] min-h-[44px] sm:min-h-[30px] max-h-[150px] overflow-y-auto",
-            "bg-bg-secondary text-txt-primary font-mono",
-            "caret-accent-blue transition-all",
-            "focus:border-accent-blue focus:shadow-[0_0_5px_rgba(53,132,228,0.3)]",
-            "placeholder:text-txt-secondary/50",
-            memoryMode && "border-terminal-green caret-terminal-green focus:border-terminal-green focus:shadow-[0_0_5px_rgba(51,255,51,0.3)]",
+            "flex-1 resize-none bg-transparent outline-none",
+            "font-sans text-[0.875rem] leading-[1.55] text-txt-primary",
+            "placeholder:text-txt-secondary/60",
+            "min-h-[22px] max-h-[160px]",
+            "disabled:opacity-50",
           )}
         />
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={stt.toggle}
+            disabled={stt.state === "processing"}
+            aria-label={
+              stt.state === "recording" ? "Stop recording" : "Start voice input"
+            }
+            className={cn(
+              "w-7 h-7 grid place-items-center rounded border transition-colors",
+              "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+              stt.state === "recording"
+                ? "border-terminal-red text-terminal-red bg-terminal-red/15 animate-pulse"
+                : stt.state === "processing"
+                  ? "border-terminal-amber text-terminal-amber cursor-wait"
+                  : "border-border text-txt-secondary hover:bg-bg-tertiary hover:text-txt-primary",
+            )}
+          >
+            <Icon.mic />
+          </button>
+          <button
+            type="button"
+            onClick={send}
+            disabled={!hasText || isDisabled}
+            aria-label="Send message"
+            className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-all",
+              "font-mono text-[0.68rem] font-bold tracking-[0.08em]",
+              hasText && !isDisabled
+                ? cn(
+                    memoryMode
+                      ? "bg-radbot-magenta text-bg-primary border-radbot-magenta"
+                      : "bg-radbot-sunset text-bg-primary border-radbot-sunset",
+                    "hover:brightness-110",
+                  )
+                : "bg-bg-tertiary text-txt-secondary/70 border-border cursor-not-allowed",
+              "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+            )}
+          >
+            SEND
+            <span
+              className={cn(
+                "font-mono text-[0.6rem] px-1 py-0.5 border rounded-sm",
+                hasText && !isDisabled ? "border-black/35 bg-black/20" : "border-border bg-transparent",
+              )}
+            >
+              ↵
+            </span>
+          </button>
+        </div>
+      </div>
 
-        {/* MIC button — inline on desktop only */}
-        <button
-          onClick={stt.toggle}
-          disabled={stt.state === "processing"}
-          aria-label={stt.state === "recording" ? "Stop recording" : "Start voice input"}
-          className={cn(
-            "px-2 border border-border bg-bg-tertiary text-txt-primary",
-            "cursor-pointer hidden sm:flex items-center justify-center transition-all",
-            "uppercase tracking-wider text-[0.7rem] font-mono",
-            "hover:bg-accent-blue hover:text-bg-primary",
-            "focus:outline-none focus:ring-1 focus:ring-accent-blue",
-            stt.state === "recording" &&
-              "bg-terminal-red/20 border-terminal-red text-terminal-red animate-pulse",
-            stt.state === "processing" &&
-              "border-terminal-amber text-terminal-amber cursor-wait",
-          )}
-        >
-          {micLabel}
-        </button>
-
-        {/* SEND button */}
-        <button
-          onClick={send}
-          disabled={isDisabled || !text.trim()}
-          aria-label="Send message"
-          className={cn(
-            "px-3 border border-border bg-bg-tertiary text-txt-primary",
-            "cursor-pointer flex items-center justify-center transition-all",
-            "uppercase tracking-wider text-[0.7rem] font-mono",
-            "min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0",
-            "hover:bg-accent-blue hover:text-bg-primary",
-            "focus:outline-none focus:ring-1 focus:ring-accent-blue",
-            "disabled:border-accent-blue/30 disabled:text-accent-blue/30 disabled:bg-bg-tertiary disabled:cursor-not-allowed",
-          )}
-        >
-          SEND
-        </button>
+      {/* Hint row */}
+      <div className="flex gap-3 pt-1.5 pl-1 font-mono text-[0.6rem] text-txt-secondary/70 flex-wrap">
+        <span>↑↓ history</span>
+        <span>/ commands</span>
+        <span>: emoji</span>
+        <span className="text-radbot-magenta"># save to memory</span>
+        <span className="ml-auto opacity-60 hidden sm:inline">⌘K focus</span>
       </div>
     </div>
   );
