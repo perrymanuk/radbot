@@ -15,10 +15,16 @@ from typing import Any, Dict
 _PRICING = {
     # model_prefix: (input_per_M, output_per_M, cached_input_per_M)
     "gemini-2.5-pro": (1.25, 10.00, 0.3125),
+    "gemini-2.5-flash-lite": (0.10, 0.40, 0.025),
     "gemini-2.5-flash": (0.15, 0.60, 0.0375),
     "gemini-2.0-flash": (0.10, 0.40, 0.025),
     "gemini-3.1-pro": (1.25, 10.00, 0.3125),
     "gemini-3.1-flash": (0.15, 0.60, 0.0375),
+    # Rolling aliases — Google periodically repoints these. Pricing is
+    # whatever the latest flash/pro tier costs, which tracks the explicit
+    # per-version entries above.
+    "gemini-flash-latest": (0.15, 0.60, 0.0375),
+    "gemini-pro-latest": (1.25, 10.00, 0.3125),
     # Fallback for unknown models
     "_default": (1.25, 10.00, 0.3125),
 }

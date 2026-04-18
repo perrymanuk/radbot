@@ -49,10 +49,10 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 - **Global instruction**: injects today's date
 - **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`)
 - **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, notifications, alerts, telemetry), HA client check
-- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback]`
+- **Before-model callbacks**: `[filter_tool_events_from_prompt, scrub_empty_content_before_model, sanitize_before_model_callback]`
 - **After-model callbacks**: `[handle_empty_response_after_model, telemetry_after_model_callback]`
 - **Instruction file**: `config/default_configs/instructions/main_agent.md`
-- **Full conversation history**: root keeps all prior turns (unlike sub-agents, which are scoped to the current turn)
+- **Full conversation history**: root keeps all prior user/assistant text turns. Sub-agent tool_call and function_response events are dropped from the LLM prompt by `filter_tool_events_from_prompt` (session state is retained) to keep the cacheable prefix stable — without this, churning tool-response blobs pushed beto's prompt-cache hit rate to ~1%.
 
 ## Domain Agents
 
@@ -196,6 +196,7 @@ From `config/default_configs/instructions/main_agent.md`:
 | `sanitize_before_model_callback` | `callbacks/sanitize_callback.py` | beto (before_model) | Strip PII / sensitive tokens |
 | `scrub_empty_content_before_model` | `callbacks/empty_content_callback.py` | all (before_model) | Drop Content entries with empty text parts (Gemini API errors) |
 | `scope_sub_agent_context_callback` | `callbacks/scope_to_current_turn.py` | sub-agents only (before_model) | Trim to current turn |
+| `filter_tool_events_from_prompt` | `callbacks/filter_tool_events.py` | beto only (before_model) | Drop tool-only Content (function_call / function_response) from the LLM prompt so beto's cacheable prefix stays stable across turns |
 | `handle_empty_response_after_model` | `callbacks/empty_content_callback.py` | all (after_model) | Replace empty model responses with a "still thinking" marker |
 | `telemetry_after_model_callback` | `callbacks/telemetry_callback.py` | all (after_model) | Record token usage + cost in `llm_usage_log` with `session_id` |
 | `tool_call_repair_callback` | `callbacks/tool_call_repair_callback.py` | (available, not wired by default) | Repair malformed function calls |
@@ -213,4 +214,5 @@ From `config/default_configs/instructions/main_agent.md`:
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |
+| `callbacks/filter_tool_events.py` | Strip tool-only Content from beto's LLM prompt to keep cacheable prefix stable |
 | `tools/shared/card_protocol.py` | `radbot:<kind>` fenced-block card emission |
