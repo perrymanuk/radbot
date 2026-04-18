@@ -35,30 +35,68 @@ def create_home_agent() -> Optional[Agent]:
         # Build tools list
         tools = []
 
-        # Home Assistant tools
-        try:
-            from radbot.tools.homeassistant import (
-                get_ha_entity_state,
-                list_ha_entities,
-                search_ha_entities,
-                toggle_ha_entity,
-                turn_off_ha_entity,
-                turn_on_ha_entity,
-            )
+        # Home Assistant tools — prefer the native `mcp_server` integration
+        # (HA 2025.2+): one streamable-HTTP client, all 19 built-in Assist
+        # intents plus every user-exposed script, native fuzzy resolution
+        # via name/area/floor/domain[]/device_class[]. Falls back to the
+        # REST tool set only if MCP is disabled or unreachable.
+        from radbot.config.config_loader import config_loader
 
-            tools.extend(
-                [
-                    search_ha_entities,
-                    list_ha_entities,
+        ha_config = config_loader.get_home_assistant_config()
+        # Default OFF on re-ship: opt in via integrations.home_assistant.use_mcp=true
+        # in the admin UI once you've verified HA's mcp_server is healthy and
+        # exposing the tools you expect.
+        use_mcp = ha_config.get("use_mcp", False)
+
+        ha_tools_loaded = False
+        if use_mcp:
+            try:
+                from radbot.tools.homeassistant.ha_mcp_client import (
+                    get_ha_mcp_client,
+                )
+                from radbot.tools.homeassistant.ha_mcp_tools import (
+                    build_ha_mcp_function_tools,
+                )
+
+                mcp_client = get_ha_mcp_client()
+                if mcp_client is not None:
+                    mcp_tools = build_ha_mcp_function_tools(mcp_client)
+                    if mcp_tools:
+                        tools.extend(mcp_tools)
+                        logger.info(
+                            "Added %d Home Assistant MCP tools to Casa",
+                            len(mcp_tools),
+                        )
+                        ha_tools_loaded = True
+            except Exception as e:
+                logger.warning(
+                    "Failed to load HA MCP tools, will try REST fallback: %s", e
+                )
+
+        if not ha_tools_loaded:
+            try:
+                from radbot.tools.homeassistant import (
                     get_ha_entity_state,
-                    turn_on_ha_entity,
-                    turn_off_ha_entity,
+                    list_ha_entities,
+                    search_ha_entities,
                     toggle_ha_entity,
-                ]
-            )
-            logger.info("Added 6 Home Assistant tools to Casa")
-        except Exception as e:
-            logger.warning(f"Failed to add HA tools to Casa: {e}")
+                    turn_off_ha_entity,
+                    turn_on_ha_entity,
+                )
+
+                tools.extend(
+                    [
+                        search_ha_entities,
+                        list_ha_entities,
+                        get_ha_entity_state,
+                        turn_on_ha_entity,
+                        turn_off_ha_entity,
+                        toggle_ha_entity,
+                    ]
+                )
+                logger.info("Added 6 Home Assistant REST tools to Casa (fallback)")
+            except Exception as e:
+                logger.warning(f"Failed to add HA REST tools to Casa: {e}")
 
         # Dashboard tools (WebSocket-based)
         tools.extend(load_tools("radbot.tools.homeassistant", "HA_DASHBOARD_TOOLS", "Casa", "HA dashboard"))
