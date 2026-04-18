@@ -60,7 +60,8 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 | Tool Group | Count | Source |
 |------------|-------|--------|
-| Home Assistant REST | 6 | `radbot.tools.homeassistant` (`search_ha_entities`, `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`) |
+| Home Assistant (MCP, primary) | dynamic (~19 built-in + user-exposed scripts) | `radbot.tools.homeassistant.ha_mcp_tools.build_ha_mcp_function_tools` — discovered at factory time from HA's `mcp_server` (HA 2025.2+). Falls back to the REST row below if `use_mcp=false` or discovery fails. |
+| Home Assistant REST (fallback) | 6 | `radbot.tools.homeassistant` (`search_ha_entities`, `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`) — used when MCP disabled/unavailable |
 | HA Dashboard (WS) | 6 | `radbot.tools.homeassistant.ha_dashboard_tools.HA_DASHBOARD_TOOLS` |
 | Overseerr | 4 | `radbot.tools.overseerr.OVERSEERR_TOOLS` |
 | Lidarr | 5 | `radbot.tools.lidarr.LIDARR_TOOLS` (`search_lidarr_artist`, `search_lidarr_album`, `add_lidarr_artist`, `add_lidarr_album`, `list_lidarr_quality_profiles`) |
