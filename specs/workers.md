@@ -1,226 +1,170 @@
-# Session Workers
+# Workers
 
 ## Overview
 
-Session workers run agent sessions as independent persistent Nomad service jobs. Each worker holds full ADK session state in memory and exposes an A2A (Agent-to-Agent) HTTP endpoint. The main radbot app acts as a gateway — the WebSocket handler delegates to a `SessionProxy` that manages worker lifecycle and proxies messages.
+Workers are persistent Nomad service jobs spawned by the main radbot app for **terminal/workspace** sessions. Each worker runs a minimal PTY server — no ADK, no agent stack, no A2A — and serves the terminal over WebSocket. The main app acts as a gateway: `WorkspaceProxy` in `web/api/terminal_proxy.py` manages lifecycle and proxies WebSocket frames.
 
-**Why**: `InMemorySessionService` loses all state on restart. Workers keep sessions alive as independent processes — surviving main app restarts, providing resource isolation, and enabling horizontal scaling. Primary use case is persistent Claude Code terminal environments.
+**Design shift (2026-03-22)**: the worker was originally designed to host the full ADK agent stack and proxy chat via A2A. That path was reverted in commit `393c173` (and the session-worker chat flow finally removed in `12e4901`) because:
 
-**Design principle**: Workers are persistent session holders. They run the agent runtime (including Claude Code CLI) and hold state indefinitely. Workers restart on crash and run until explicitly stopped — there is no idle self-termination. The main app evolves independently — new features don't require restarting existing workers.
+- Keeping ADK state per session was expensive and rarely needed for chat
+- `InMemorySessionService` already reseeds from chat DB on cold starts (good enough)
+- Terminal (Claude Code CLI) is the real use case for per-session workers — it genuinely needs persistent state (the Claude Code session ID for `--resume`)
 
-## Architecture
+**Current state**: workers are persistent, lean PTY servers. Chat always runs in-process in the main app.
+
+## Two Worker Flavors
+
+Both share `radbot/worker/` and the `workspace_workers` / `session_workers` tables in PostgreSQL.
+
+| Flavor | Spec builder | DB table | Active usage |
+|--------|--------------|----------|--------------|
+| Workspace worker (terminal) | `build_workspace_worker_spec()` | `workspace_workers` | Active — each cloned workspace gets one |
+| Session worker (chat, legacy) | `build_worker_job_spec()` | `session_workers` | Not used for routing chat post-`12e4901`; code kept for potential revival |
+
+Only the workspace worker is active in production flow.
+
+## Architecture (Active — Workspace/Terminal)
 
 ```
                     ┌──────────────────────────────────┐
                     │       Main radbot App             │
                     │   (Gateway / UI / Scheduler)      │
                     │                                   │
-  Browser ◄──WS──► │  /ws/{session_id}                 │
+  Browser ◄──WS──► │  /terminal/ws/{workspace_id}      │
                     │       │                           │
-                    │  SessionManager                   │
-                    │   mode=remote? ──► SessionProxy   │
-                    │   mode=local?  ──► SessionRunner  │
-                    │                        │          │
-                    └────────────────────────┼──────────┘
-                                             │ A2A HTTP
-                              ┌──────────────▼──────────────┐
-                              │    Nomad Batch Job           │
-                              │  radbot-session-{id[:8]}     │
-                              │                              │
-                              │  python -m radbot.worker     │
-                              │    --session-id <UUID>       │
-                              │                              │
-                              │  ┌─────────────────────┐     │
-                              │  │ Starlette (to_a2a)  │     │
-                              │  │  /.well-known/agent  │     │
-                              │  │  /health             │     │
-                              │  │  /info               │     │
-                              │  └─────────┬───────────┘     │
-                              │            │                 │
-                              │  ┌─────────▼───────────┐     │
-                              │  │ ADK Runner           │     │
-                              │  │  InMemorySession     │     │
-                              │  │  root_agent (beto)   │     │
-                              │  │  all sub-agents      │     │
-                              │  │  memory service      │     │
-                              │  └─────────────────────┘     │
-                              │                              │
-                              │  ActivityWatchdog (tracking)  │
-                              └──────────────────────────────┘
+                    │  WorkspaceProxy                   │
+                    │   mode=remote? spawn Nomad job    │
+                    │   mode=local?  local PTY          │
+                    └──────────────────────┼────────────┘
+                                           │ WebSocket
+                              ┌────────────▼─────────────┐
+                              │   Nomad Service Job       │
+                              │  radbot-workspace-{id[:8]}│
+                              │                           │
+                              │  python -m radbot.worker  │
+                              │    --workspace-id <UUID>  │
+                              │                           │
+                              │  Starlette + uvicorn      │
+                              │    /ws (PTY WebSocket)    │
+                              │    /health, /info         │
+                              │                           │
+                              │  TerminalManager          │
+                              │    PTY (Claude Code CLI)  │
+                              └───────────────────────────┘
 ```
 
 ## Worker Process
 
-### Entry Point: `radbot/worker/__main__.py`
+### Entry Point — `radbot/worker/__main__.py`
 
 ```
-python -m radbot.worker --session-id <UUID> [--host 0.0.0.0] [--port 8000]
+python -m radbot.worker --workspace-id <UUID> [--host 0.0.0.0] [--port 8000]
 ```
 
-Startup sequence:
-1. Bootstrap logging, env vars, DB config (same as `radbot.web`)
-2. Import `root_agent` from `radbot.agent.agent_core` (creates full agent tree)
-3. Run `setup_before_agent_call()` (DB schema init)
-4. Create `Runner` with `InMemorySessionService`, `InMemoryArtifactService`, memory service
-5. Enable context caching (intervals=20, ttl=3600s, min_tokens=1024)
-6. Call `to_a2a(root_agent, runner=runner)` → Starlette app with A2A routes
-7. Add `ActivityMiddleware` (touches watchdog on every request)
-8. Add `/health` and `/info` routes
-9. On startup: start watchdog + seed session from chat DB history
-10. Run with `uvicorn`
+Startup (minimal — no ADK):
 
-### A2A Protocol
+1. `setup_logging()` + `load_dotenv()`
+2. Schema init (workspace_workers, coder_workspaces) — called directly, NOT via ADK callback (`ec49f62`)
+3. DB config load so GitHub App credentials are available for clones (`2694efa`)
+4. Build Starlette app with routes:
+   - `GET /health` — returns `{status, workspace_id, idle_seconds, uptime_seconds}`
+   - `GET /info` — metadata
+   - `WS /ws` — PTY terminal (delegated to `terminal_handler.handle_terminal_websocket`)
+5. `ActivityMiddleware` touches a watchdog on every request
+6. Add `ActivityWatchdog` for observability only (no idle-shutdown — `f988aca`)
+7. Run with `uvicorn` (`uvicorn[standard]` for WebSocket support — `ab13a23`)
 
-Workers use Google ADK's built-in A2A support:
+Workers use a `Starlette` lifespan context manager (`b9465ed`) and an empty `__init__.py` built into the Dockerfile (`5252d0c`) to avoid shared-app import fallout (`2e3efd3`, `db2a290`).
 
-| Component | Role |
-|-----------|------|
-| `to_a2a()` | Converts `BaseAgent` into Starlette app with A2A JSON-RPC routes |
-| `A2aAgentExecutor` | Wraps `Runner`, processes A2A messages → ADK events → A2A responses |
-| `AgentCardBuilder` | Auto-generates `/.well-known/agent.json` from agent metadata |
-| `a2a-sdk` | Protocol types, server framework, client library |
+### Docker Image
 
-The A2A endpoint handles:
-- Agent card discovery (`/.well-known/agent.json`)
-- Message send (JSON-RPC `message/send`)
-- Task management (submit, status, artifacts)
+- Separate from main app: `radbot-worker` built via `Dockerfile.worker`
+- Multi-stage build with `uv` + GHA layer caching (`c20e8b2`, `c1cbdd8`)
+- Python 3.14-slim base
+- Shell ergonomics preinstalled (`485b83d`): `zsh`, `fzf`, `git-delta`, `jq`, `tree`, `bat`, `fd-find`, `less`
+- Bundles Claude Code CLI
 
-### Endpoints
+### Terminal Handler
 
-| Path | Method | Purpose |
-|------|--------|---------|
-| `/health` | GET | Health check — returns `{status, session_id, idle_seconds, uptime_seconds}` |
-| `/info` | GET | Metadata — returns `{session_id, agent_name, idle_seconds, uptime_seconds}` |
-| `/.well-known/agent.json` | GET | A2A agent card (auto-generated) |
-| `/` | POST | A2A JSON-RPC endpoint (message/send, tasks) |
+`radbot/worker/terminal_handler.py` — shared module also used by `web/api/terminal.py` for local-mode.
 
-### Idle Watchdog: `radbot/worker/idle_watchdog.py`
+- `TerminalManager` — per-workspace map of `TerminalSession`s
+- `TerminalSession` — PTY subprocess (Claude Code CLI by default), `TERM=xterm-256color` (`e8b5b47`), scrollback buffer, multi-client fan-out
+- **Binary WebSocket protocol** (`661ff39`) for PTY I/O — shorter frames, GPU canvas addon on the frontend
+- **Multi-client** (`0442134`) — multiple browsers can share one PTY
+- **Scrollback replay** on reconnect (`324611f`)
+- **Session-ID persistence** (`1b3b29c`) — Claude Code's session ID is saved to `coder_workspaces.last_session_id` so the next spawn does `claude --resume`
+- **Directory auto-recreate** (`6e38f25`) — if a workspace dir is missing after container restart, re-clone from GitHub App
 
-Two components:
-- **`ActivityWatchdog`**: Tracks `last_activity` and `uptime_seconds` via `time.monotonic()`. Pure observability — no shutdown logic. Health and info endpoints report these values.
-- **`ActivityMiddleware`**: Starlette middleware that calls `watchdog.touch()` on every HTTP request.
+### Idle Watchdog — `radbot/worker/idle_watchdog.py`
 
-Workers are persistent — they do not self-terminate. Stop them explicitly via `NomadClient.stop_job()` or workspace deletion.
+Two components, **observability only**:
 
-### History Seeding: `radbot/worker/history_loader.py`
+- `ActivityWatchdog` — tracks `last_activity` + `uptime_seconds`
+- `ActivityMiddleware` — calls `watchdog.touch()` on every HTTP/WS request
 
-On startup, the worker pre-loads chat history from PostgreSQL:
-1. Query `chat_messages` table for the session (limit: `max_history * 2`, default 30)
-2. Take last `max_history` messages (default 15)
-3. Create ADK `Event` objects with user/assistant roles
-4. Group user+assistant pairs under shared `invocation_id`
-5. Append to session via `session_service.append_event()`
+Workers do NOT self-terminate on idle (`f988aca`). Stop them explicitly via `NomadClient.stop_job()` or workspace deletion.
 
-This function is shared between the worker and `SessionRunner` (web app).
+## Gateway Side (Main App)
 
-## Gateway (Main App Side)
+### WorkspaceProxy — `radbot/web/api/terminal_proxy.py`
 
-### SessionProxy: `radbot/web/api/session/session_proxy.py`
+Duck-typed replacement for local PTY flow when `session_mode=remote`:
 
-Duck-typed replacement for `SessionRunner` — same `process_message(message) → dict` interface.
+- Spawns Nomad service job on first terminal open
+- Discovers existing worker via Nomad service catalog (`find_service_by_tag("workspace_id=<UUID>")`)
+- Falls back to `session_workers` / `workspace_workers` DB rows, then DB config → Consul if needed (`2811156`)
+- Proxies WebSocket frames 1:1 between browser and worker (`/ws`)
+- Pre-spawns the worker on workspace *creation*, not just first open (`3e93b63`), to avoid cold-start on first click
+- Guards against duplicate spawns with a lock (`08e59bf`) and a 120s startup timeout
 
-#### Message Flow
+### Terminal Router — `radbot/web/api/terminal.py`
 
-```python
-async def process_message(message, run_config=None) -> dict:
-    worker_url = await self._ensure_worker()    # spawn if needed
-    if not worker_url:
-        return await self._fallback_local(...)  # degrade gracefully
+- REST endpoints: list workspaces, clone, delete, workspace health
+- `register_terminal_websocket(app)` wires the WS route — delegates to `WorkspaceProxy` when remote, or to the local `terminal_handler` when local
+- Differentiates OAuth vs. API-key token injection for Claude Code PTY (`be55369`)
+- Scrollable workspace tabs in header bar (`7548aa5`)
+- Multiple workspaces per repo/branch supported (`dd9919e`)
+- Onboarding bypass + trust prompts pre-answered (`76b86b0`)
 
-    response_text = await self._send_a2a_message(worker_url, message)
-    if response_text is None:
-        return await self._fallback_local(...)  # A2A failed
+## Nomad Job Templates — `radbot/worker/nomad_template.py`
 
-    return {"response": response_text, "events": [], "source": "remote_worker"}
-```
+Two builder functions (both return `{"Job": {...}}` for Nomad HTTP API):
 
-#### Worker Discovery
+| Function | Purpose |
+|----------|---------|
+| `build_worker_job_spec(session_id=..., ...)` | Legacy session worker (chat) — kept for potential future use |
+| `build_workspace_worker_spec(workspace_id=..., ...)` | Active workspace worker (terminal) |
 
-Priority order:
-1. **Cached URL** — check health, use if still healthy
-2. **Nomad service discovery** — `GET /v1/service/radbot-session`, filter by `session_id` tag
-3. **DB fallback** — `session_workers` table lookup
-4. **Spawn new** — submit Nomad service job, poll until healthy
+Shared properties:
 
-#### Spawning
-
-1. Check concurrency limit (`max_session_workers`, default 10)
-2. Read bootstrap secrets from main app's env (`RADBOT_CREDENTIAL_KEY`, `RADBOT_ADMIN_TOKEN`) + DB config (`postgres_pass`)
-3. Generate job spec via `nomad_template.build_worker_job_spec()`
-4. Submit via `NomadClient.submit_job()`
-5. Record in `session_workers` table (status=`starting`)
-6. Poll Nomad service discovery until worker registers + passes health check (timeout: 120s)
-7. Update DB record (status=`healthy`, `worker_url`)
-
-#### A2A Client
-
-Uses `a2a-sdk` directly (not `RemoteA2aAgent`):
-1. Resolve agent card from `{worker_url}/.well-known/agent.json`
-2. Create `A2AClientFactory` with `httpx.AsyncClient`
-3. Build `A2AMessage` with user text
-4. Send via `a2a_client.send_message()`, iterate response stream
-5. Extract text from response parts
-
-#### Fallback
-
-Falls back to local `SessionRunner` when:
-- Nomad client not configured
-- Worker limit reached
-- Worker fails to start within 120s
-- A2A message fails
-- Any unhandled exception
-
-Fallback result includes `"source": "local_fallback"` for observability.
-
-### SessionManager: `radbot/web/api/session/session_manager.py`
-
-Extended with `mode` property (lazy-loaded from `config:agent` → `session_mode`):
-- `"local"` (default): creates `SessionRunner`
-- `"remote"`: creates `SessionProxy`
-
-### Dependencies: `radbot/web/api/session/dependencies.py`
-
-FastAPI dependency `get_or_create_runner_for_session()` checks `session_manager.mode` and creates the appropriate handler.
-
-## Nomad Job Template: `radbot/worker/nomad_template.py`
-
-Generates JSON job spec (Python dict) compatible with Nomad HTTP API.
-
-```python
-build_worker_job_spec(
-    session_id="...",       # full UUID
-    image_tag="v0.14",      # Docker tag
-    credential_key="...",   # RADBOT_CREDENTIAL_KEY
-    admin_token="...",      # RADBOT_ADMIN_TOKEN
-    postgres_pass="...",    # DB password
-    # Optional:
-    cpu=500, memory=1024,
-    dns_server=None, extra_env=None,
-) -> {"Job": {...}}
-```
-
-Key properties:
 - `type = "service"` — Nomad restarts on crash, runs until explicitly stopped
 - `restart: attempts=1, mode=fail` — minimal retry, no restart loop
 - Dynamic port on `host_network = "lan"`
-- Service `radbot-session` with tag `session_id=<UUID>` for discovery
+- Service name with `workspace_id=<UUID>` or `session_id=<UUID>` tag for discovery
 - Health check `GET /health` every 30s
-- Config via Nomad template stanza (same pattern as main job)
+- Config via Nomad template stanza mirrors main job's credential bootstrap
 
-## Worker DB: `radbot/worker/db.py`
+## Worker DB — `radbot/worker/db.py`
 
-Table: `session_workers`
+Two tables, same shape:
+
+**`session_workers`** (legacy, not used for chat routing):
 
 | Column | Type | Purpose |
 |--------|------|---------|
 | `session_id` | UUID PK | Links to `chat_sessions` |
-| `nomad_job_id` | TEXT | Nomad job ID (e.g. `radbot-session-550e8400`) |
-| `worker_url` | TEXT | Discovered URL (e.g. `http://10.0.1.5:28432`) |
+| `nomad_job_id` | TEXT | e.g. `radbot-session-550e8400` |
+| `worker_url` | TEXT | e.g. `http://10.0.1.5:28432` |
 | `status` | TEXT | `starting` → `healthy` → `stopped` / `failed` |
-| `created_at` | TIMESTAMPTZ | When job was submitted |
-| `last_active_at` | TIMESTAMPTZ | Updated on each proxied message |
-| `image_tag` | TEXT | Docker image tag at spawn time |
-| `metadata` | JSONB | Extensible metadata |
+| `created_at` | TIMESTAMPTZ | |
+| `last_active_at` | TIMESTAMPTZ | |
+| `image_tag` | TEXT | |
+| `metadata` | JSONB | |
+
+**`workspace_workers`** (active):
+
+Same columns, keyed by `workspace_id` UUID PK.
 
 Operations: `upsert_worker`, `get_worker`, `update_worker_status`, `touch_worker`, `list_active_workers`, `count_active_workers`, `delete_worker`.
 
@@ -231,129 +175,98 @@ Added to `NomadClient` (`radbot/tools/nomad/nomad_client.py`):
 | Method | API | Purpose |
 |--------|-----|---------|
 | `list_services(name)` | `GET /v1/service/{name}` | All registrations for a service |
-| `find_service_by_tag(name, tag)` | filters above | Find worker by `session_id=<UUID>` tag |
+| `find_service_by_tag(name, tag)` | filter above | Find worker by `workspace_id=<UUID>` tag |
+
+Consul remains as a fallback (`2811156`), but Nomad's native service discovery is the primary path (`ccfeeb3`).
 
 ## Config
 
 | Key | Location | Default | Purpose |
 |-----|----------|---------|---------|
-| `session_mode` | `config:agent` | `local` | `local` = in-process; `remote` = Nomad workers |
-| `max_session_workers` | `config:agent` | `10` | Max concurrent worker jobs |
-| `worker_image_tag` | `config:agent` or `RADBOT_WORKER_IMAGE_TAG` | `latest` | Docker tag for new workers |
+| `session_mode` | `config:agent` | `local` | Terminal/workspace workers only — `local` = local PTY, `remote` = Nomad workers |
+| `max_session_workers` | `config:agent` | `10` | Max concurrent worker jobs (shared budget) |
+| `worker_image_tag` | `config:agent` or `RADBOT_WORKER_IMAGE_TAG` | `latest` | Docker tag for newly-spawned workers |
 
 ## Sequence Diagrams
 
-### New Session (Remote Mode)
+### Open a terminal (remote mode, cold)
 
 ```
-Browser ──WS──► /ws/{session_id}
+Browser ──WS──► /terminal/ws/{workspace_id}
                   │
                   ▼
-            SessionManager.get_runner() → None (new session)
-            dependencies → SessionProxy(session_id)
-                  │
-                  ▼ process_message("hello")
-            SessionProxy._ensure_worker()
-              ├─ _discover_worker() → None
+            WorkspaceProxy._ensure_worker()
+              ├─ _discover_worker() → None (first open)
               └─ _spawn_worker()
                    ├─ count_active_workers() < limit
-                   ├─ build_worker_job_spec()
+                   ├─ build_workspace_worker_spec()
                    ├─ NomadClient.submit_job()
                    ├─ upsert_worker(status="starting")
                    └─ _wait_for_healthy()
                         └─ poll find_service_by_tag() + /health
                              │
                              ▼ worker healthy
-            SessionProxy._send_a2a_message(worker_url, "hello")
-              ├─ resolve agent card
-              ├─ A2AClient.send_message()
-              └─ extract text response
-                  │
-                  ▼
-            return {"response": "...", "source": "remote_worker"}
+            WorkspaceProxy bridges WS frames ──► worker /ws (PTY)
 ```
 
-### Reconnect After Main App Restart
+### Reconnect after main app restart
 
 ```
-Browser ──WS──► /ws/{session_id}
+Browser ──WS──► /terminal/ws/{workspace_id}
                   │
                   ▼
-            SessionProxy._ensure_worker()
+            WorkspaceProxy._ensure_worker()
               └─ _discover_worker()
-                   └─ find_service_by_tag("session_id=xxx")
+                   └─ find_service_by_tag("workspace_id=xxx")
                         │
-                        ▼ worker still running!
+                        ▼ worker still running
                    _check_health(url) → 200 OK
                   │
                   ▼
-            SessionProxy._send_a2a_message()
-              └─ Worker has FULL session state (in-memory, never lost)
-                  No history reconstruction needed
+            Bridge WS frames — Claude Code can --resume from saved session ID
+            Scrollback buffer replayed on WS reconnect
 ```
 
-### Worker Explicit Stop
+### Worker crash
 
 ```
-Admin or workspace delete
+PTY subprocess exits / allocation OOMs
       │
-SessionProxy.stop_worker()
-      └─ NomadClient.stop_job("radbot-session-{id}")
-           └─ DELETE /v1/job/{id}
-                │
-                ▼
-    Nomad deregisters job, kills allocation
-    session_workers.status → "stopped"
-```
-
-### Worker Crash Recovery
-
-```
-Worker process crashes (OOM, unhandled exception)
-      │
-Nomad RestartPolicy (attempts=3, mode=delay)
-      └─ Restart allocation after 15s delay
-           └─ Worker boots, re-seeds from DB
-                └─ Claude Code can --resume from saved session ID
+Nomad service job restart policy
+      └─ Fresh allocation on same host (or rescheduled)
+           └─ Worker boots, mounts workspace dir (auto-recreate if missing)
+                └─ Terminal client reconnects, resumes Claude Code session
 ```
 
 ## Testing
 
-### Unit Tests: `tests/unit/test_worker_components.py`
+### Unit Tests — `tests/unit/test_worker_components.py`
 
 | Class | Tests | Covers |
 |-------|-------|--------|
-| `TestNomadJobTemplate` | 13 | Job structure, args, env, service tags, resources, constraints, serialization |
-| `TestActivityWatchdog` | 3 | Activity tracking, touch reset, uptime |
-| `TestHistoryLoader` | 6 | DB loading, empty handling, max limit, invocation ID pairing |
-| `TestSessionManagerMode` | 5 | Mode switching, runner registry |
-| `TestSessionProxyUnit` | 7 | Health checks, fallback, concurrency limits, message routing |
+| `TestNomadJobTemplate` | Job structure, args, env, service tags, resources, constraints, serialization |
+| `TestActivityWatchdog` | Activity tracking, touch reset, uptime |
+| `TestHistoryLoader` | DB loading (legacy chat path), empty handling, invocation ID pairing |
 
-### E2E Tests: `tests/e2e/test_session_worker.py`
+### E2E Tests — `tests/e2e/test_session_worker.py` + `tests/e2e/test_terminal_worker.py`
 
-| Class | Mark | Tests | Covers |
-|-------|------|-------|--------|
-| `TestSessionWorkerAPI` | `e2e` | 2 | Health endpoint, schema init |
-| `TestNomadJobSubmission` | `requires_nomad` | 3 | Nomad connectivity, template validation |
-| `TestSessionProxyFlow` | `requires_nomad` + `requires_gemini` | 3 | Full WS→proxy→worker→A2A→response, worker reuse |
-| `TestSessionProxyFallback` | `e2e` | 2 | Local mode default, local sessions work |
-| `TestWorkerDBTracking` | `e2e` | 6 | CRUD on session_workers table |
-| `TestNomadServiceDiscovery` | `requires_nomad` | 2 | Service lookup edge cases |
+- `TestSessionWorkerAPI` — `/health` endpoint, schema init
+- `TestNomadJobSubmission` — Nomad connectivity, template validation (`requires_nomad`)
+- `TestWorkerDBTracking` — CRUD on both worker tables
+- `TestNomadServiceDiscovery` — Service lookup edge cases
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `radbot/worker/__init__.py` | Package |
-| `radbot/worker/__main__.py` | Entry point: A2A + terminal routes, --workspace-id/--session-id |
-| `radbot/worker/terminal_handler.py` | Shared PTY module: `TerminalManager`, `TerminalSession`, binary WS handler |
-| `radbot/worker/idle_watchdog.py` | `ActivityWatchdog` + `ActivityMiddleware` |
-| `radbot/worker/history_loader.py` | Shared: seed ADK session from chat DB |
+| `radbot/worker/__init__.py` | Package marker |
+| `radbot/worker/__main__.py` | Entry point — PTY server with /health, /info, /ws |
+| `radbot/worker/terminal_handler.py` | Shared PTY module — `TerminalManager`, `TerminalSession`, binary WS handler |
+| `radbot/worker/idle_watchdog.py` | `ActivityWatchdog` + `ActivityMiddleware` (observability only) |
 | `radbot/worker/nomad_template.py` | `build_worker_job_spec()` + `build_workspace_worker_spec()` |
-| `radbot/worker/db.py` | `session_workers` + `workspace_workers` tables |
-| `radbot/web/api/terminal.py` | Terminal REST + WS proxy (local/remote mode) |
-| `radbot/web/api/terminal_proxy.py` | `WorkspaceProxy`: workspace worker lifecycle |
-| `radbot/web/api/session/session_proxy.py` | `SessionProxy`: chat session A2A proxy |
-| `radbot/web/api/session/session_manager.py` | Mode switching (local/remote) |
-| `radbot/web/api/session/dependencies.py` | FastAPI dep: Runner or Proxy based on mode |
+| `radbot/worker/db.py` | `session_workers` + `workspace_workers` CRUD |
+| `radbot/worker/history_loader.py` | Shared: seed ADK session from chat DB (used by main-app chat, not workers) |
+| `radbot/web/api/terminal.py` | Terminal REST + WS registration (local/remote mode) |
+| `radbot/web/api/terminal_proxy.py` | `WorkspaceProxy` — workspace worker lifecycle + WS bridge |
+| `radbot/web/api/session/session_manager.py` | Chat `SessionRunner` registry (always local) |
 | `radbot/tools/nomad/nomad_client.py` | `list_services()`, `find_service_by_tag()` |

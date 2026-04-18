@@ -341,11 +341,57 @@ Exception tracebacks are included in an `"exc"` field when present.
 
 ---
 
+## Spec Maintenance
+
+`SPEC.md` at the repo root + `specs/*.md` are the system of record for cross-cutting architecture. They are read by future sessions (including Claude) to orient — stale specs produce stale code.
+
+### Rule: every PR that changes shape updates the matching spec in the same PR
+
+"Changes shape" means any of:
+
+- New / removed / renamed agent, tool, or tool module
+- New / removed / renamed FunctionTool on an existing agent (update the tool table + count)
+- New / removed API router, REST endpoint, or WebSocket message type
+- New / removed / altered DB table or column
+- New / removed / altered `config:<section>` key
+- New integration (client class, credential keys, admin panel)
+- Change to session / worker / terminal architecture, callback pipeline, or routing
+- New admin UI panel or change to `NAV_ITEMS` / `PANEL_MAP`
+- Language/runtime upgrade (Python, ADK, genai, React, Node) — `specs/deployment.md`
+
+### Spec ↔ code map
+
+| If you change… | Update |
+|----------------|--------|
+| `radbot/agent/**` (factories, callbacks, routing) | `specs/agents.md` |
+| `radbot/tools/**` (new tool, new FunctionTool, new list export) | `specs/tools.md` (and `specs/agents.md` tool counts for any affected agent) |
+| `radbot/web/**` (routers, WS types, frontend pages/panels) | `specs/web.md` |
+| SQL schema / `init_*_schema()` / `web/db/**` | `specs/storage.md` |
+| `radbot/tools/<integration>/*_client.py` or new admin panel | `specs/integrations.md` (and `specs/web.md` for the panel) |
+| `radbot/config/**`, `config_schema.json`, new `config:<section>` | `specs/config.md` |
+| `radbot/worker/**`, terminal proxy, nomad templates | `specs/workers.md` |
+| Dockerfiles, CI workflows, Nomad job, runtime versions | `specs/deployment.md` |
+| Cross-cutting architectural shift | `SPEC.md` quick-ref + the domain spec |
+
+### Workflow
+
+1. Make the code change
+2. Re-read the affected spec(s) — `cat specs/<domain>.md`
+3. Edit the spec in the same commit / same PR — do not defer to a "docs PR later" (they rarely come)
+4. If the change invalidates examples / file-path refs in other specs, fix those too (search for the old name: `grep -rn "old_name" specs/ SPEC.md CLAUDE.md`)
+
+### PR template hook
+
+When opening a PR, the PR body should explicitly answer: **"Which specs did this PR update, or why was none needed?"** If the answer is "none needed," the reviewer should verify that against the spec ↔ code map above.
+
+---
+
 ## Pre-Commit Checklist
 
 Before every commit, review and update these if the changes affect them:
 
-1. **README.md** — Feature descriptions, project structure, tech stack
-2. **docs/implementation/** — Add or update implementation docs for new features
-3. **CLAUDE.md** — Update if new conventions, patterns, or architecture decisions
-4. **config_schema.json** — Update if new config sections (`radbot/config/schema/`)
+1. **Specs** — `SPEC.md` + `specs/*.md` per the spec ↔ code map above (**mandatory** when shape changes)
+2. **README.md** — Feature descriptions, project structure, tech stack
+3. **docs/implementation/** — Add or update implementation docs for new features
+4. **CLAUDE.md** — Update if new conventions, patterns, or architecture decisions
+5. **config_schema.json** — Update if new config sections (`radbot/config/schema/`)
