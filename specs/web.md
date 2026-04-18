@@ -81,6 +81,7 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 | `api/alerts.py` | `/api/alerts` | Alertmanager ingestion + policies |
 | `api/notifications.py` | `/api/notifications` | Unified notification feed (new 2026-04-11) |
 | `api/media.py` | `/api/media` | Direct Overseerr/TMDB actions — bypasses agent (new 2026-04-18) |
+| `api/videos.py` | `/api/videos` | Direct Kideo actions for kidsvid `<VideoCard />` — bypasses agent |
 | `api/ha.py` | `/api/ha` | Direct Home Assistant state + service — bypasses agent (new 2026-04-18) |
 | `api/terminal.py` | `/terminal` | Terminal PTY WebSocket + workspace REST |
 | `api/terminal_proxy.py` | (helper) | `WorkspaceProxy`: workspace worker lifecycle |
@@ -107,6 +108,16 @@ Frontend buttons on Casa-rendered UI cards hit these REST endpoints directly —
 |--------|------|---------|
 | `GET` | `/api/ha/state/{entity_id}` | Normalized `HaDevice` (domain-inferred icon, `brightness_pct`, state mapping) |
 | `POST` | `/api/ha/service` | `ha_client.call_service()`, returns fresh entity state |
+
+### Kideo videos (`/api/videos`) — `web/api/videos.py`
+
+Powers the ADD TO KIDEO button + library-status pill on kidsvid's `<VideoCard />`.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/videos/collections` | Kideo collections for the picker dropdown |
+| `GET` | `/api/videos/kideo-status?url=X` | Library status for a video URL (`in_library` / `queued` / `processing` / `not_added`) |
+| `POST` | `/api/videos/add-to-kideo` | `{url, collection_id?, generate_tags?}` — adds + (best-effort) AI-tags YouTube videos |
 
 ## Per-Session Token Stats (2026-04-18)
 
@@ -191,5 +202,5 @@ Registered in `pages/AdminPage.tsx` via `NAV_ITEMS` + `PANEL_MAP`.
 
 ### Chat Components (post-refresh 2026-04-18)
 
-- `components/chat/AgentCards.tsx` — renders `MediaCard`, `SeasonBreakdownCard`, `HaDeviceCard`, `HandoffLine` (parses ` ```radbot:<kind> ` fenced blocks from message text)
+- `components/chat/AgentCards.tsx` — renders `MediaCard`, `SeasonBreakdownCard`, `HaDeviceCard`, `VideoCard`, `HandoffLine` (parses ` ```radbot:<kind> ` fenced blocks from message text). `<VideoCard />` is kidsvid's kid-video card with an ADD TO KIDEO direct-action button calling `/api/videos`.
 - Terminal refresh: mascot, stats footer, notifications drawer — see commit `9ebfb9f`

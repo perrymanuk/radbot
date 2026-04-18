@@ -24,7 +24,7 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 - `scope_sub_agent_context_callback` (before-model callback on every sub-agent) trims LLM input to the *current user turn only*. Prevents context bleed (e.g. Casa volunteering movie cards because an earlier turn mentioned movies) and keeps sub-agent prompts from growing linearly with session length. Root Beto keeps full history for conversational coherence. See `radbot/callbacks/scope_to_current_turn.py`.
 - `/api/agents/agent-info` walks `root_agent.sub_agents` at runtime to return the live roster (name, config key, resolved model, gemini_only flag) — the frontend admin palette reads this instead of a hard-coded list.
-- Agents emit **structured UI cards** via fenced code blocks (`` ```radbot:<kind> ``). Casa ships `CARD_TOOLS` (`show_media_card`, `show_season_breakdown`, `show_ha_device_card`). Every `agent_transfer` event is also auto-wrapped as a `radbot:handoff` block by `session_runner.py` — no LLM call needed. See `radbot/tools/shared/card_protocol.py`.
+- Agents emit **structured UI cards** via fenced code blocks (`` ```radbot:<kind> ``). Casa ships `show_media_card`, `show_season_breakdown`, `show_ha_device_card`; kidsvid ships `show_video_card` (kid-video cards with ADD TO KIDEO button). Every `agent_transfer` event is also auto-wrapped as a `radbot:handoff` block by `session_runner.py` — no LLM call needed. See `radbot/tools/shared/card_protocol.py`.
 
 ## Agent Summary
 
@@ -36,7 +36,7 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 | **tracker** | `agent/tracker_agent/factory.py` | `resolve_agent_model("tracker_agent")` | 13 | Tasks, projects, webhooks |
 | **comms** | `agent/comms_agent/factory.py` | `resolve_agent_model("comms_agent")` | 12 | Email (Gmail), Jira |
 | **axel** | `agent/execution_agent/factory.py` | `config_manager.get_agent_model("axel_agent_model")` | 17+ MCP | Shell, files, code exec, Claude Code, Nomad, MCP |
-| **kidsvid** | `agent/youtube_agent/factory.py` | `resolve_agent_model("kidsvid_agent")` | 17 | Children's video curation (YouTube + CuriosityStream + Kideo) |
+| **kidsvid** | `agent/youtube_agent/factory.py` | `resolve_agent_model("kidsvid_agent")` | 18 | Children's video curation (YouTube + CuriosityStream + Kideo + video card) |
 | **scout** | `agent/research_agent/factory.py` | `config_manager.get_agent_model("scout_agent")` | 2 | Research, design collaboration (sequential thinking) |
 | **search_agent** | `tools/adk_builtin/search_tool.py` | Gemini 2+ (hardcoded) | 1 | Google Search grounding |
 | **code_execution_agent** | `tools/adk_builtin/code_execution_tool.py` | Gemini 2+ (hardcoded) | 0* | Python code execution |
@@ -66,10 +66,10 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 | Overseerr | 4 | `radbot.tools.overseerr.OVERSEERR_TOOLS` |
 | Lidarr | 5 | `radbot.tools.lidarr.LIDARR_TOOLS` (`search_lidarr_artist`, `search_lidarr_album`, `add_lidarr_artist`, `add_lidarr_album`, `list_lidarr_quality_profiles`) |
 | Picnic | 12 | `radbot.tools.picnic.PICNIC_TOOLS` |
-| Card protocol | 3 | `radbot.tools.shared.card_protocol.CARD_TOOLS` (`show_media_card`, `show_season_breakdown`, `show_ha_device_card`) |
+| Card protocol | 3 | `radbot.tools.shared.card_protocol` (`show_media_card`, `show_season_breakdown`, `show_ha_device_card`) |
 | Memory | 2 | `create_agent_memory_tools("casa")` |
 
-Emits UI cards inline with replies. Casa is the only agent that currently ships `CARD_TOOLS`.
+Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsvid ships `show_video_card` for kid-video cards.
 
 ### planner — Calendar, Scheduling, Reminders
 
@@ -120,6 +120,7 @@ Emits UI cards inline with replies. Casa is the only agent that currently ships 
 | CuriosityStream | 2 | `CURIOSITYSTREAM_TOOLS`: `search_curiositystream`, `list_curiositystream_categories` |
 | Kideo library | 10 | `KIDEO_TOOLS`: `add_video_to_kideo`, `add_videos_to_kideo_batch`, `list_kideo_collections`, `create_kideo_collection`, `generate_video_tags`, `set_kideo_video_tags`, `get_kideo_popular_videos`, `get_kideo_tag_stats`, `get_kideo_channel_stats`, `retag_untagged_kideo_videos` |
 | Memory | 2 | `create_agent_memory_tools("kidsvid")` |
+| Card protocol | 1 | `show_video_card` (from `radbot.tools.shared.card_protocol`) — emits `radbot:video` block rendered as `<VideoCard />` with ADD TO KIDEO button |
 
 YouTube Shorts are filtered out at ingest time in `kideo_tools.py` (both search and Kideo submission paths).
 

@@ -30,7 +30,7 @@ from radbot.tools.shared.tool_decorator import tool_error_handler
 
 logger = logging.getLogger(__name__)
 
-_VALID_KINDS = {"media", "seasons", "ha-device", "handoff"}
+_VALID_KINDS = {"media", "seasons", "ha-device", "handoff", "video"}
 
 
 def _lookup_poster_url(tmdb_id: int, media_type: str) -> Optional[str]:
@@ -54,6 +54,42 @@ def _lookup_poster_url(tmdb_id: int, media_type: str) -> Optional[str]:
     except Exception as e:
         logger.debug("Poster URL lookup failed for %s/%s: %s", media_type, tmdb_id, e)
         return None
+
+
+_KIDEO_STATUS_MAP = {
+    "ready": "in_library",
+    "available": "in_library",
+    "downloaded": "in_library",
+    "queued": "queued",
+    "pending": "queued",
+    "downloading": "processing",
+    "transcoding": "processing",
+    "error": "error",
+    "failed": "error",
+}
+
+
+def _lookup_kideo_status(url: Optional[str]) -> tuple:
+    """Best-effort Kideo library lookup.
+
+    Returns ``(card_status, kideo_video_id)`` where ``card_status`` is one of
+    ``"in_library" | "queued" | "processing" | "error"`` or ``None`` when the
+    video is not in Kideo / lookup failed. Mirrors :func:`_lookup_poster_url`
+    — never raises.
+    """
+    if not url:
+        return None, None
+    try:
+        from radbot.tools.youtube.kideo_client import find_video_by_url
+
+        match = find_video_by_url(url)
+    except Exception as e:
+        logger.debug("Kideo lookup failed for %s: %s", url, e)
+        return None, None
+    if not match:
+        return None, None
+    raw_status = (match.get("status") or "").lower()
+    return _KIDEO_STATUS_MAP.get(raw_status, "in_library"), match.get("id")
 
 
 def format_card_block(kind: str, data: Any) -> str:
@@ -292,12 +328,123 @@ def show_ha_device_card(
     }
 
 
+_VIDEO_SOURCES = {"youtube", "curiositystream"}
+_VIDEO_STATUSES = {"in_library", "queued", "processing", "error", "not_added"}
+
+
+@tool_error_handler("render kid video card")
+def show_video_card(
+    title: str,
+    source: str,
+    url: str,
+    video_id: Optional[str] = None,
+    channel: Optional[str] = None,
+    duration_seconds: Optional[int] = None,
+    published_at: Optional[str] = None,
+    thumbnail_url: Optional[str] = None,
+    view_count: Optional[int] = None,
+    tags: Optional[List[str]] = None,
+    note: Optional[str] = None,
+    subtitle: Optional[str] = None,
+    status: Optional[str] = None,
+    kideo_video_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Render a kid-video recommendation card inline in chat.
+
+    Produces a card with thumbnail, channel/duration/source metadata, a Kideo
+    library-status pill, and an "ADD TO KIDEO" direct-action button. Mirrors
+    :func:`show_media_card` for movies/TV.
+
+    Args:
+        title: Video title.
+        source: ``"youtube"`` or ``"curiositystream"``.
+        url: Full video URL — required so the ADD TO KIDEO button can submit it.
+        video_id: Source-specific id (YouTube watch id, CuriosityStream numeric id).
+        channel: Channel / producer name.
+        duration_seconds: Length in seconds (rendered as ``Hh MMm`` or ``MM:SS``).
+        published_at: ISO timestamp; the year is rendered.
+        thumbnail_url: Thumbnail image URL (16:9). Falls back to a glyph poster.
+        view_count: View count (rendered as e.g. ``1.2M views``).
+        tags: Educational tags rendered as small chips.
+        note: Italic footer line — short educational rationale or pacing note.
+        subtitle: Optional secondary line under the title.
+        status: Override the auto-resolved Kideo status. One of
+            ``"in_library" | "queued" | "processing" | "error" | "not_added"``.
+        kideo_video_id: Override the auto-resolved Kideo UUID.
+
+    Returns:
+        ``{"status": "success", "block": "...", "instructions": "..."}``.
+        Include the ``block`` string verbatim in your reply.
+    """
+    if source not in _VIDEO_SOURCES:
+        return {
+            "status": "error",
+            "message": f"source must be one of {sorted(_VIDEO_SOURCES)}",
+        }
+    if status is not None and status not in _VIDEO_STATUSES:
+        return {
+            "status": "error",
+            "message": f"status must be one of {sorted(_VIDEO_STATUSES)}",
+        }
+    if not url:
+        return {"status": "error", "message": "url is required"}
+
+    resolved_status: Optional[str] = status
+    resolved_kideo_id = kideo_video_id
+    if resolved_status is None:
+        looked_status, looked_id = _lookup_kideo_status(url)
+        resolved_status = looked_status or "not_added"
+        if resolved_kideo_id is None:
+            resolved_kideo_id = looked_id
+
+    data: Dict[str, Any] = {
+        "title": title,
+        "source": source,
+        "url": url,
+        "status": resolved_status,
+    }
+    if video_id:
+        data["video_id"] = video_id
+    if channel:
+        data["channel"] = channel
+    if duration_seconds is not None:
+        try:
+            data["duration_seconds"] = max(0, int(duration_seconds))
+        except (ValueError, TypeError):
+            pass
+    if published_at:
+        data["published_at"] = published_at
+    if thumbnail_url:
+        data["thumbnail_url"] = thumbnail_url
+    if view_count is not None:
+        try:
+            data["view_count"] = max(0, int(view_count))
+        except (ValueError, TypeError):
+            pass
+    if tags:
+        data["tags"] = [str(t) for t in tags if t]
+    if note:
+        data["note"] = note
+    if subtitle:
+        data["subtitle"] = subtitle
+    if resolved_kideo_id:
+        data["kideo_video_id"] = resolved_kideo_id
+
+    return {
+        "status": "success",
+        "block": format_card_block("video", data),
+        "instructions": "Include the 'block' string verbatim in your reply.",
+    }
+
+
 show_media_card_tool = FunctionTool(show_media_card)
 show_season_breakdown_tool = FunctionTool(show_season_breakdown)
 show_ha_device_card_tool = FunctionTool(show_ha_device_card)
+show_video_card_tool = FunctionTool(show_video_card)
 
 CARD_TOOLS = [
     show_media_card_tool,
     show_season_breakdown_tool,
     show_ha_device_card_tool,
+    show_video_card_tool,
 ]

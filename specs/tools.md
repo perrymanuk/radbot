@@ -31,7 +31,7 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/youtube/` (YouTube) | 3 | kidsvid | `search_youtube_videos`, `get_youtube_video_details`, `get_youtube_channel_info` |
 | `tools/youtube/` (CuriosityStream) | 2 | kidsvid | `search_curiositystream`, `list_curiositystream_categories` |
 | `tools/youtube/` (Kideo) | 10 | kidsvid | `add_video_to_kideo`, `add_videos_to_kideo_batch`, `list_kideo_collections`, `create_kideo_collection`, `generate_video_tags`, `set_kideo_video_tags`, `get_kideo_popular_videos`, `get_kideo_tag_stats`, `get_kideo_channel_stats`, `retag_untagged_kideo_videos` |
-| `tools/shared/card_protocol.py` (cards) | 3 | casa | `show_media_card`, `show_season_breakdown`, `show_ha_device_card` |
+| `tools/shared/card_protocol.py` (cards) | 4 | casa, kidsvid | `show_media_card`, `show_season_breakdown`, `show_ha_device_card`, `show_video_card` |
 | Axel execution tools | 4 | axel | `code_execution_tool`, `run_tests`, `validate_code`, `generate_documentation` |
 | `load_artifacts` (ADK) | 1 | axel | built-in |
 
@@ -273,13 +273,14 @@ Three client modules wired onto the kidsvid agent.
 
 Emits ` ```radbot:<kind> ` fenced JSON blocks the agent includes verbatim in its reply. Frontend parses into UI components.
 
-Valid kinds: `media`, `seasons`, `ha-device`, `handoff`.
+Valid kinds: `media`, `seasons`, `ha-device`, `handoff`, `video`.
 
 | Tool | Parameters | Notes |
 |------|-----------|-------|
 | `show_media_card` | `tmdb_id`, `media_type`, `title`, `year`, ... | Best-effort Overseerr poster lookup when `tmdb_id` + `media_type` known |
 | `show_season_breakdown` | `tmdb_id`, `title`, `seasons` (list) | Per-season progress/status |
 | `show_ha_device_card` | `entity_id`, `state`, `brightness_pct`, ... | Domain-inferred icon |
+| `show_video_card` | `title`, `source`, `url`, `video_id`, `channel`, `duration_seconds`, `thumbnail_url`, `tags`, `note`, ... | Kidsvid card. Auto-resolves Kideo library status via `kideo_client.find_video_by_url`. Direct-action ADD TO KIDEO button hits `/api/videos/add-to-kideo` |
 
 `handoff` blocks are emitted server-side, not by agents — `session_runner.py` wraps every `agent_transfer` event as a `radbot:handoff` block (reflexive/duplicate transfers filtered).
 

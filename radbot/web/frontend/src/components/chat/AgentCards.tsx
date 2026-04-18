@@ -744,3 +744,392 @@ export function HaDeviceCard({ d }: { d: HaDevice }) {
 // HandoffLine now lives in HandoffLine.tsx (uses the shared agent-registry
 // for colors/glyphs). Re-export its type here for any legacy imports.
 export type { HandoffInfo } from "@/components/chat/HandoffLine";
+
+// ─────────────────────────────────────────────────────────
+// VideoCard — kid-video recommendations from the kidsvid agent.
+// Mirrors MediaCard but for YouTube / CuriosityStream videos with
+// an ADD TO KIDEO direct-action button (POST /api/videos/add-to-kideo).
+// ─────────────────────────────────────────────────────────
+
+export type VideoStatus =
+  | "in_library"
+  | "queued"
+  | "processing"
+  | "error"
+  | "not_added";
+
+export interface VideoCardData {
+  title: string;
+  source: "youtube" | "curiositystream";
+  url: string;
+  status: VideoStatus;
+  subtitle?: string;
+  video_id?: string;
+  channel?: string;
+  duration_seconds?: number;
+  published_at?: string;
+  thumbnail_url?: string;
+  view_count?: number;
+  tags?: string[];
+  note?: string;
+  kideo_video_id?: string;
+}
+
+interface KideoCollection {
+  id: string;
+  name: string;
+  color?: string;
+  icon?: string;
+  video_count?: number;
+}
+
+function formatDuration(seconds?: number): string | null {
+  if (!seconds || seconds <= 0) return null;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function formatViews(views?: number): string | null {
+  if (!views || views <= 0) return null;
+  if (views >= 1_000_000)
+    return `${(views / 1_000_000).toFixed(views >= 10_000_000 ? 0 : 1)}M views`;
+  if (views >= 1_000)
+    return `${(views / 1_000).toFixed(views >= 10_000 ? 0 : 1)}K views`;
+  return `${views} views`;
+}
+
+function publishedYear(published?: string): string | null {
+  if (!published) return null;
+  const m = published.match(/^(\d{4})/);
+  return m ? m[1] : null;
+}
+
+function VideoStatusPill({ status }: { status: VideoStatus }) {
+  const map: Record<VideoStatus, { label: string; color: string }> = {
+    in_library: {
+      label: "IN LIBRARY",
+      color: "text-terminal-green border-terminal-green/40 bg-terminal-green/10",
+    },
+    queued: {
+      label: "QUEUED",
+      color: "text-terminal-amber border-terminal-amber/40 bg-terminal-amber/10",
+    },
+    processing: {
+      label: "PROCESSING",
+      color: "text-radbot-sunset border-radbot-sunset/40 bg-radbot-sunset/10",
+    },
+    error: {
+      label: "ERROR",
+      color: "text-terminal-red border-terminal-red/40 bg-terminal-red/10",
+    },
+    not_added: {
+      label: "NOT IN KIDEO",
+      color: "text-txt-secondary border-border bg-bg-tertiary",
+    },
+  };
+  const m = map[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 font-mono text-[0.6rem] font-bold tracking-[0.12em] px-1.5 py-0.5 rounded-sm border",
+        m.color,
+      )}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden />
+      {m.label}
+    </span>
+  );
+}
+
+function VideoThumbnail({ v }: { v: VideoCardData }) {
+  const accent = v.source === "curiositystream" ? "#66ccff" : "#ff66aa";
+  const [imgErr, setImgErr] = useState(false);
+  const hasImage = !!v.thumbnail_url && !imgErr;
+  const glyph = (v.title.trim()[0] || "?").toUpperCase();
+  const sourceBadge = v.source === "curiositystream" ? "CS" : "YT";
+  const duration = formatDuration(v.duration_seconds);
+
+  return (
+    <div
+      className="flex-none relative rounded-sm border border-border overflow-hidden"
+      style={{
+        width: 142,
+        height: 80,
+        background: hasImage
+          ? "#0e1419"
+          : `radial-gradient(ellipse at 30% 30%, ${accent}55, #121c2b 70%)`,
+        boxShadow: hasImage
+          ? `0 0 14px -6px ${accent}99`
+          : `inset 0 0 32px -6px ${accent}`,
+      }}
+    >
+      {hasImage && (
+        <img
+          src={v.thumbnail_url}
+          alt={v.title}
+          loading="lazy"
+          onError={() => setImgErr(true)}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+      {!hasImage && (
+        <div className="absolute inset-0 grid place-items-center">
+          <span
+            className="font-pixel text-[2rem] leading-none"
+            style={{ color: accent, textShadow: `0 0 12px ${accent}aa` }}
+          >
+            {glyph}
+          </span>
+        </div>
+      )}
+      <span
+        className="absolute top-1.5 left-1.5 font-mono text-[0.5rem] font-bold tracking-[0.14em] px-1 py-[1px] rounded-sm z-10"
+        style={{
+          background: `${accent}33`,
+          color: accent,
+          border: `1px solid ${accent}55`,
+          backdropFilter: hasImage ? "blur(4px)" : undefined,
+        }}
+      >
+        {sourceBadge}
+      </span>
+      {duration && (
+        <span
+          className="absolute bottom-1 right-1 font-mono text-[0.55rem] font-bold tracking-wider px-1 py-[1px] rounded-sm bg-black/70 text-white z-10"
+        >
+          {duration}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function VideoCard({ v }: { v: VideoCardData }) {
+  const sourceLabel = v.source === "curiositystream" ? "CURIOSITYSTREAM" : "YOUTUBE";
+  const year = publishedYear(v.published_at);
+  const views = formatViews(v.view_count);
+
+  return (
+    <div className="inline-flex align-top gap-3.5 p-3.5 mr-2 mb-2 bg-bg-secondary border border-border rounded-sm w-[480px] max-w-full">
+      <VideoThumbnail v={v} />
+      <div className="flex-1 min-w-0 flex flex-col gap-2">
+        {/* Top badge row: source · year · channel */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="inline-flex items-center gap-1 font-mono text-[0.6rem] text-txt-secondary tracking-[0.12em] uppercase px-1 py-[1px] border border-border rounded-sm">
+            <Icon.play size={10} /> {sourceLabel}
+          </span>
+          {year && (
+            <span className="font-mono text-[0.6rem] text-txt-secondary/70 tracking-[0.1em]">
+              · {year}
+            </span>
+          )}
+          {v.channel && (
+            <span className="font-mono text-[0.6rem] text-txt-secondary tracking-[0.1em] truncate max-w-[180px]">
+              · {v.channel}
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <div className="text-[0.95rem] font-bold text-txt-primary leading-tight">
+          {v.title}
+        </div>
+        {v.subtitle && (
+          <div className="text-[0.72rem] text-txt-secondary -mt-1">{v.subtitle}</div>
+        )}
+
+        {/* Status + views row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <VideoStatusPill status={v.status} />
+          {views && (
+            <span className="font-mono text-[0.6rem] text-txt-secondary tracking-[0.1em] uppercase">
+              {views}
+            </span>
+          )}
+        </div>
+
+        {/* Tags */}
+        {v.tags && v.tags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {v.tags.slice(0, 5).map((tag) => (
+              <span
+                key={tag}
+                className="font-mono text-[0.6rem] text-txt-secondary/80 tracking-[0.06em] px-1 py-[1px] rounded-sm border border-border/60 bg-bg-primary/40"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Note */}
+        {v.note && (
+          <div className="text-[0.7rem] text-txt-secondary/80 italic leading-snug">
+            {v.note}
+          </div>
+        )}
+
+        {/* Actions */}
+        <VideoActions v={v} />
+      </div>
+    </div>
+  );
+}
+
+function VideoActions({ v }: { v: VideoCardData }) {
+  const [status, setStatus] = useState<VideoStatus>(v.status);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [collections, setCollections] = useState<KideoCollection[] | null>(null);
+  const [collectionsErr, setCollectionsErr] = useState<string | null>(null);
+  const inLibrary = status === "in_library";
+
+  const openYouTubeLabel =
+    v.source === "curiositystream" ? "OPEN ON CURIOSITYSTREAM" : "OPEN ON YOUTUBE";
+
+  const submit = async (collectionId: string | null) => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    setShowPicker(false);
+    try {
+      const res = await fetch("/api/videos/add-to-kideo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: v.url, collection_id: collectionId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `${res.status} ${res.statusText}`);
+      }
+      const body = await res.json();
+      setStatus((body.status as VideoStatus) || "queued");
+    } catch (e: any) {
+      setErr(e.message || "Add failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openPicker = async () => {
+    setShowPicker(true);
+    if (collections !== null) return;
+    try {
+      const res = await fetch("/api/videos/collections");
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      const body = await res.json();
+      setCollections(body.collections || []);
+    } catch (e: any) {
+      setCollectionsErr(e.message || "Couldn't load collections");
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-2 flex-wrap pt-1">
+        <button
+          onClick={inLibrary ? undefined : openPicker}
+          disabled={inLibrary || busy}
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm",
+            "font-mono text-[0.65rem] font-bold tracking-[0.08em]",
+            "transition-all focus:outline-none focus:ring-1 focus:ring-accent-blue",
+            inLibrary
+              ? "bg-bg-tertiary text-txt-secondary/60 border border-border cursor-not-allowed"
+              : "text-bg-primary hover:brightness-110",
+          )}
+          style={
+            inLibrary
+              ? undefined
+              : {
+                  background: "#33FF33",
+                  border: "1px solid #33FF33",
+                }
+          }
+        >
+          <Icon.plus size={10} />
+          {busy
+            ? "ADDING…"
+            : inLibrary
+              ? "IN LIBRARY"
+              : status === "queued" || status === "processing"
+                ? "QUEUED"
+                : "ADD TO KIDEO"}
+        </button>
+
+        <a
+          href={v.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            "inline-flex items-center gap-1 px-2.5 py-1 rounded-sm no-underline",
+            "font-mono text-[0.65rem] font-bold tracking-[0.08em]",
+            "text-txt-secondary border border-border bg-bg-tertiary",
+            "hover:text-txt-primary hover:border-txt-secondary transition-colors",
+            "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+          )}
+        >
+          <Icon.play size={10} />
+          {openYouTubeLabel}
+        </a>
+
+        {err && (
+          <span className="font-mono text-[0.6rem] text-terminal-red">{err}</span>
+        )}
+      </div>
+
+      {showPicker && (
+        <div className="mt-2 p-2 bg-bg-primary/60 border border-border rounded-sm">
+          <div className="font-mono text-[0.6rem] text-txt-secondary tracking-[0.1em] uppercase mb-1.5">
+            Add to collection
+          </div>
+          {collections === null && !collectionsErr && (
+            <div className="font-mono text-[0.65rem] text-txt-secondary">
+              Loading…
+            </div>
+          )}
+          {collectionsErr && (
+            <div className="font-mono text-[0.65rem] text-terminal-red">
+              {collectionsErr}
+            </div>
+          )}
+          {collections && collections.length === 0 && (
+            <div className="font-mono text-[0.65rem] text-txt-secondary">
+              No collections yet — adding without one.
+            </div>
+          )}
+          {collections && (
+            <div className="flex items-center gap-1 flex-wrap">
+              <button
+                onClick={() => submit(null)}
+                className="font-mono text-[0.65rem] px-2 py-1 rounded-sm border border-border bg-bg-tertiary text-txt-secondary hover:text-txt-primary hover:border-txt-secondary transition-colors"
+              >
+                NO COLLECTION
+              </button>
+              {collections.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => submit(c.id)}
+                  className="font-mono text-[0.65rem] px-2 py-1 rounded-sm border border-border bg-bg-tertiary text-txt-secondary hover:text-txt-primary hover:border-txt-secondary transition-colors"
+                  style={c.color ? { color: c.color, borderColor: `${c.color}66` } : undefined}
+                >
+                  {c.name}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowPicker(false)}
+                className="font-mono text-[0.6rem] px-1.5 py-1 text-txt-secondary/60 hover:text-txt-primary"
+              >
+                CANCEL
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
