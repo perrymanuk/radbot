@@ -49,7 +49,7 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 - **Global instruction**: injects today's date
 - **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`) + 18 Telos tools (`TELOS_TOOLS`, see `specs/tools.md`)
 - **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, telos, notifications, alerts, telemetry), HA client check
-- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback, inject_telos_context]`
+- **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback, sanitize_tool_schemas_before_model, inject_telos_context]`
 - **After-model callbacks**: `[handle_empty_response_after_model, telemetry_after_model_callback]`
 - **Instruction file**: `config/default_configs/instructions/main_agent.md`
 - **Telos persona injection** (beto only): `inject_telos_context` appends an anchor (~300B: identity + mission + counts + tool pointer) to `llm_request.config.system_instruction` on every turn. On the first turn of each session it also appends the full block (~2KB: mission, problems, goals, active projects, challenges, wisdom, last 5 journal entries), gated by `callback_context.state["telos_bootstrapped"]`. Sub-agents are tool executors and do **not** receive Telos context. See `docs/implementation/telos.md`.
@@ -154,7 +154,7 @@ All assembly happens in `radbot/agent/agent_core.py` at module import time:
 3. `create_specialized_agents()` builds the domain agents in order: casa → planner → tracker → comms → axel → kidsvid. None-returning factories are filtered out.
 4. `all_sub_agents` = builtin sub-agents + specialized — passed to the root `Agent(...)` constructor
 5. **Before construction**, callbacks are attached to each sub-agent:
-   - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model]`
+   - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model, sanitize_tool_schemas_before_model]`
    - `after_model_callback = [handle_empty_response_after_model, telemetry_after_model_callback]`
 6. Root `Agent(...)` is constructed — ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting `parent_agent` on every sub-agent
 
@@ -197,6 +197,7 @@ From `config/default_configs/instructions/main_agent.md`:
 | `sanitize_before_model_callback` | `callbacks/sanitize_callback.py` | beto (before_model) | Strip PII / sensitive tokens |
 | `scrub_empty_content_before_model` | `callbacks/empty_content_callback.py` | all (before_model) | Drop Content entries with empty text parts (Gemini API errors) |
 | `scope_sub_agent_context_callback` | `callbacks/scope_to_current_turn.py` | sub-agents only (before_model) | Trim to current turn |
+| `sanitize_tool_schemas_before_model` | `callbacks/sanitize_tool_schemas.py` | all (before_model) | Strip the non-standard `additional_properties` key from every tool's parameters schema before it hits Gemini. Works around the Pydantic→Schema-proto snake-case leak from google-genai 1.72.0 that Gemini validators reject with HTTP 400 INVALID_ARGUMENT. Surfaces on any agent with `Optional[Dict[...]]` or `Optional[List[...]]` tool params (e.g. Telos's `telos_add_entry.metadata`). |
 | `inject_telos_context` | `tools/telos/callback.py` | beto only (before_model) | Inject Telos anchor every turn + full block on first turn of session into `system_instruction` |
 | `handle_empty_response_after_model` | `callbacks/empty_content_callback.py` | all (after_model) | Replace empty model responses with a "still thinking" marker |
 | `telemetry_after_model_callback` | `callbacks/telemetry_callback.py` | all (after_model) | Record token usage + cost in `llm_usage_log` with `session_id` |
@@ -215,5 +216,6 @@ From `config/default_configs/instructions/main_agent.md`:
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |
+| `callbacks/sanitize_tool_schemas.py` | Strip the non-standard `additional_properties` key from tool parameter schemas before Gemini rejects them |
 | `tools/telos/callback.py` | Inject Telos user-context into beto's `system_instruction` (anchor every turn, full block session-start) |
 | `tools/shared/card_protocol.py` | `radbot:<kind>` fenced-block card emission |
