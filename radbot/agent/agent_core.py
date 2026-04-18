@@ -33,6 +33,7 @@ from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
+from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
@@ -149,7 +150,11 @@ all_sub_agents.extend(specialized_agents)
 # current user turn (prevents cross-turn context bleed). Root Beto keeps
 # full history — only sub-agents are scoped.
 _after_cbs = [handle_empty_response_after_model, telemetry_after_model_callback]
-_before_cbs = [scope_sub_agent_context_callback, scrub_empty_content_before_model]
+_before_cbs = [
+    scope_sub_agent_context_callback,
+    scrub_empty_content_before_model,
+    sanitize_tool_schemas_before_model,
+]
 for sa in all_sub_agents:
     if not sa.after_model_callback:
         sa.after_model_callback = _after_cbs
@@ -169,6 +174,7 @@ root_agent = Agent(
     before_model_callback=[
         scrub_empty_content_before_model,
         sanitize_before_model_callback,
+        sanitize_tool_schemas_before_model,
         # Telos: inject user persona/context into beto's system_instruction.
         # Anchor every turn, full block session-start only (state-gated).
         # Attached to beto ONLY — sub-agents don't need user persona context.
