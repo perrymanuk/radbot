@@ -2,10 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { wsSend } from "@/hooks/use-websocket";
 import { useSTT } from "@/hooks/use-stt";
-import { useIsMobile } from "@/hooks/use-mobile";
 import CommandSuggestions from "./CommandSuggestions";
 import EmojiSuggestions from "./EmojiSuggestions";
-import FloatingMicButton from "./FloatingMicButton";
 import { Icon } from "./icons";
 import { cn, uuid } from "@/lib/utils";
 
@@ -36,7 +34,6 @@ export default function ChatInput() {
     setText((prev) => (prev ? prev + " " + transcript : transcript));
   }, []);
   const stt = useSTT(handleTranscript);
-  const isMobile = useIsMobile();
 
   const isDisabled =
     connectionStatus === "disconnected" || connectionStatus === "error";
@@ -183,8 +180,6 @@ export default function ChatInput() {
 
   return (
     <div className="relative px-3 pt-2 pb-1 bg-bg-primary border-t border-border flex-shrink-0 z-10">
-      {isMobile && <FloatingMicButton state={stt.state} toggle={stt.toggle} />}
-
       {/* Command suggestions (slash) */}
       {commandFilter !== null && (
         <CommandSuggestions

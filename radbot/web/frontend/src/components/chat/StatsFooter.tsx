@@ -172,18 +172,22 @@ export default function StatsFooter() {
     >
       {/* Left: counters + ctx bar */}
       <div className="flex items-center min-w-0 overflow-hidden">
-        <Stat label="MSGS">{msgs}</Stat>
-        <Dot />
-        <Stat label="IN">{formatTokens(inTok)}</Stat>
-        <Dot />
-        <Stat label="OUT">{formatTokens(outTok)}</Stat>
-        <Dot />
+        <span className="hidden sm:inline-flex items-baseline">
+          <Stat label="MSGS">{msgs}</Stat>
+          <Dot />
+          <Stat label="IN">{formatTokens(inTok)}</Stat>
+          <Dot />
+          <Stat label="OUT">{formatTokens(outTok)}</Stat>
+          <Dot />
+        </span>
         <Stat label="TOTAL">{formatTokens(total)}</Stat>
         <Dot />
         <span className="whitespace-nowrap inline-flex items-center">
           <span className="text-txt-secondary/60 tracking-[0.14em] uppercase">CTX</span>
-          <CtxBar pct={ctxPct} />
-          <span className={cn("font-semibold tabular-nums", ctxValueClass)}>{ctxLabel}</span>
+          <span className="hidden sm:inline-flex">
+            <CtxBar pct={ctxPct} />
+          </span>
+          <span className={cn("font-semibold tabular-nums ml-1.5 sm:ml-0", ctxValueClass)}>{ctxLabel}</span>
         </span>
       </div>
 

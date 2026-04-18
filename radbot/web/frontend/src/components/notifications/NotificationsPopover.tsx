@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { cn } from "@/lib/utils";
 import type { Notification, NotificationType } from "@/types";
 import { useNotificationStore } from "@/stores/notification-store";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   buttonRef: RefObject<HTMLElement | null>;
@@ -52,6 +53,7 @@ export default function NotificationsPopover({
   const popRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<"all" | "unread">("all");
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 56, right: 12 });
+  const isMobile = useIsMobile();
 
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
@@ -105,8 +107,12 @@ export default function NotificationsPopover({
       ref={popRef}
       role="dialog"
       aria-label="Notifications"
-      className="fixed z-[800] w-[380px] max-w-[calc(100vw-24px)] bg-bg-secondary border border-border rounded-sm shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)] flex flex-col max-h-[70vh]"
-      style={{ top: pos.top, right: pos.right }}
+      className="fixed z-[800] sm:w-[380px] sm:max-w-[calc(100vw-24px)] bg-bg-secondary border border-border rounded-sm shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)] flex flex-col max-h-[70vh]"
+      style={
+        isMobile
+          ? { top: pos.top, left: 12, right: 12 }
+          : { top: pos.top, right: pos.right }
+      }
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-bg-tertiary flex-none">

@@ -55,7 +55,7 @@ function ProjectPath({ name }: { name: string }) {
     slashIdx > 0 ? [name.slice(0, slashIdx).trim(), name.slice(slashIdx + 1).trim()] : ["radbot", name];
 
   return (
-    <span className="font-mono text-[0.7rem] tracking-[0.08em]">
+    <span className="font-mono text-[0.7rem] tracking-[0.08em] truncate min-w-0">
       <span className="text-accent-blue font-semibold">{project}</span>
       <span className="text-txt-secondary/50 mx-1">/</span>
       <span className="text-txt-primary">{session || "untitled"}</span>
