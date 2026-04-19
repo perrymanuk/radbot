@@ -1,7 +1,7 @@
-import { useEffect } from "react";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import ProjectList from "@/components/projects/ProjectList";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import ProjectList, { type ProjectListHandle } from "@/components/projects/ProjectList";
 import ProjectDetail from "@/components/projects/ProjectDetail";
 import {
   selectOrphans,
@@ -19,70 +19,164 @@ export default function ProjectsPage() {
   const project = useProjectsStore((s) =>
     refCode ? selectProject(s, refCode) : undefined,
   );
+  const summary = useProjectsStore((s) => s.summary);
+  const entries = useProjectsStore((s) => s.entries);
+  const listRef = useRef<ProjectListHandle>(null);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
 
+  // Global "/" focuses the project filter input
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/") return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      listRef.current?.focusFilter();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Default-select first active project if nothing in URL
+  const effectiveProject = (() => {
+    if (project) return project;
+    if (refCode) return undefined;
+    const first = summary.find((p) => p.status === "active") ?? summary[0];
+    return first ? entries[`projects:${first.ref_code}`] : undefined;
+  })();
+
   return (
     <div
-      className="flex flex-col h-screen bg-bg-primary text-txt-primary"
+      className="projects-scope"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100vh",
+        position: "relative",
+      }}
       data-test="projects-page"
     >
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-tertiary border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-3">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 16px",
+          borderBottom: "1px solid var(--p-border)",
+          background: "var(--bg-sunk)",
+          flex: "none",
+          position: "relative",
+          zIndex: 2,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <a
             href="/"
-            className="text-[0.7rem] font-mono text-txt-secondary hover:text-txt-primary no-underline"
+            style={{
+              fontFamily: "var(--p-mono)",
+              fontSize: 11,
+              color: "var(--text-dim)",
+              textDecoration: "none",
+            }}
           >
             &lt; CHAT
           </a>
-          <div className="w-px h-5 bg-border" />
-          <h1 className="text-sm font-mono tracking-wider text-txt-secondary uppercase m-0">
-            Projects
-          </h1>
+          <span style={{ width: 1, height: 18, background: "var(--p-border)" }} />
+          <span
+            style={{
+              fontFamily: "var(--pixel)",
+              fontSize: 18,
+              color: "var(--sunset)",
+              textShadow:
+                "0 0 10px color-mix(in oklch, var(--sunset) 60%, transparent)",
+              letterSpacing: "0.05em",
+            }}
+          >
+            PROJECTS
+          </span>
           {orphanCount > 0 && (
             <span
-              className="text-[0.65rem] font-mono bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded border border-red-500/40"
+              style={{
+                fontFamily: "var(--p-mono)",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                color: "var(--magenta)",
+                padding: "2px 6px",
+                borderRadius: 3,
+                background:
+                  "color-mix(in oklch, var(--magenta) 12%, transparent)",
+                border:
+                  "1px solid color-mix(in oklch, var(--magenta) 36%, transparent)",
+              }}
               title="Entries whose parent ref_code points at a missing project or milestone"
               data-test="projects-orphan-badge"
             >
-              {orphanCount} orphan{orphanCount === 1 ? "" : "s"}
+              {orphanCount} ORPHAN{orphanCount === 1 ? "" : "S"}
             </span>
           )}
         </div>
-        <button
-          onClick={() => loadAll()}
-          disabled={loading}
-          className="px-2.5 py-1 text-[0.7rem] font-mono uppercase tracking-wider text-txt-secondary hover:text-txt-primary disabled:opacity-40"
-          data-test="projects-refresh"
-        >
-          {loading ? "…" : "refresh"}
-        </button>
       </div>
 
       {error && (
-        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/40 text-[0.75rem] font-mono text-red-400">
+        <div
+          style={{
+            padding: "8px 16px",
+            background: "color-mix(in oklch, var(--magenta) 10%, transparent)",
+            borderBottom:
+              "1px solid color-mix(in oklch, var(--magenta) 40%, transparent)",
+            fontFamily: "var(--p-mono)",
+            fontSize: 11,
+            color: "var(--magenta)",
+          }}
+        >
           {error}
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden">
+      <div style={{ flex: 1, overflow: "hidden", position: "relative", zIndex: 2 }}>
         {!loaded && loading ? (
-          <div className="flex items-center justify-center h-full text-[0.8rem] font-mono text-txt-secondary animate-pulse">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              fontFamily: "var(--p-mono)",
+              fontSize: 12,
+              color: "var(--text-dim)",
+            }}
+          >
             Loading projects…
           </div>
         ) : (
           <PanelGroup direction="horizontal">
-            <Panel defaultSize={28} minSize={18} maxSize={40}>
-              <ProjectList />
+            <Panel defaultSize={25} minSize={18} maxSize={40}>
+              <ProjectList ref={listRef} />
             </Panel>
-            <PanelResizeHandle className="w-px bg-border hover:bg-accent-blue/40 transition-colors" />
-            <Panel defaultSize={72}>
-              {project ? (
-                <ProjectDetail project={project} />
+            <PanelResizeHandle style={{ width: 1, background: "var(--p-border)" }} />
+            <Panel defaultSize={75}>
+              {effectiveProject ? (
+                <ProjectDetail
+                  project={effectiveProject}
+                  onRefresh={() => loadAll()}
+                  refreshing={loading}
+                />
               ) : (
-                <div className="flex items-center justify-center h-full text-[0.8rem] font-mono text-txt-secondary">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    height: "100%",
+                    fontFamily: "var(--p-mono)",
+                    fontSize: 12,
+                    color: "var(--text-dim)",
+                  }}
+                >
                   {refCode
                     ? `No project ${refCode}.`
                     : "Select a project from the list."}

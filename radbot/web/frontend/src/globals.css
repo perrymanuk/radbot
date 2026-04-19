@@ -124,4 +124,88 @@
   .row-dashed + .row-dashed {
     border-top: 1px dashed rgba(48, 64, 80, 0.6);
   }
+
+  /* ── Projects page — design tokens (ported from prototype) ─── */
+  .projects-scope {
+    --bg: #0b0e12;
+    --bg-sunk: #070a0e;
+    --surface: #11161c;
+    --surface-2: #161c24;
+    --p-border: #2a333e;
+    --border-soft: #1a222c;
+    --text: #e6ecf2;
+    --text-mute: #9aa7b5;
+    --text-dim: #5c6b7a;
+    --sunset: #ff7849;
+    --amber: #ffb347;
+    --magenta: #ff3d7f;
+    --violet: #a884ff;
+    --sky: #5ec0ff;
+    --crt: #7dffb5;
+    --sans: "Inter", system-ui, sans-serif;
+    --p-mono: "Geist Mono", ui-monospace, monospace;
+    --pixel: "VT323", monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* CRT scanline overlay, scoped to projects page */
+  .projects-scope::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.015) 0 1px,
+      transparent 1px 3px
+    );
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: overlay;
+  }
+
+  .projects-scope button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+
+  .projects-scope input {
+    background: none;
+    border: none;
+    outline: none;
+    font: inherit;
+    color: inherit;
+  }
+
+  .projects-scope a {
+    color: var(--sky);
+    text-decoration: none;
+  }
+  .projects-scope a:hover {
+    text-decoration: underline;
+  }
+
+  .projects-scope .kbd {
+    display: inline-block;
+    padding: 0 5px;
+    font-family: var(--p-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: var(--bg-sunk);
+    border: 1px solid var(--p-border);
+    border-radius: 3px;
+    line-height: 1.4;
+  }
+
+  .projects-scope ::selection {
+    background: color-mix(in oklch, var(--sunset) 35%, transparent);
+    color: var(--text);
+  }
 }
