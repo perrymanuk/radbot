@@ -135,6 +135,7 @@ export function AdminSidebar({ active, setActive, status }: SidebarProps) {
                       onClick={() => setActive(p.id)}
                       data-test={`admin-nav-${p.id}`}
                       data-status={dotStatus}
+                      data-active={isActive ? "true" : "false"}
                       style={{
                         width: "100%",
                         display: "flex",
