@@ -216,15 +216,15 @@ class AgentFactory:
                 # Register memory tools
                 agent.register_tool_handler(
                     "search_past_conversations",
-                    lambda params: MessageToDict(
+                    lambda params: MessageToDict(  # noqa: F821 — dead path; ADK 0.4 register_tool_handler API removed
                         search_past_conversations(params)
-                    ),  # noqa: F821 — dead path; ADK 0.4 register_tool_handler API removed
+                    ),
                 )
                 agent.register_tool_handler(
                     "store_important_information",
-                    lambda params: MessageToDict(
+                    lambda params: MessageToDict(  # noqa: F821 — dead path; ADK 0.4 register_tool_handler API removed
                         store_important_information(params)
-                    ),  # noqa: F821 — dead path; ADK 0.4 register_tool_handler API removed
+                    ),
                 )
 
                 # In ADK 0.4.0, agent transfers are handled natively
