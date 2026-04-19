@@ -356,15 +356,19 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 - **stdio**: `uv run python -m radbot.mcp_server` (local, no auth)
 - **HTTP/SSE**: `GET /mcp/sse` + `POST /mcp/messages/` mounted on the FastAPI app (bearer token)
 
-**Tool surface** (16, all returning markdown `TextContent`):
+**Tool surface** (28, all returning markdown `TextContent`):
 
 | Group | Tools |
 |---|---|
-| Telos | `telos_get_full`, `telos_get_section`, `telos_get_entry`, `telos_search_journal` |
+| Telos (read) | `telos_get_full`, `telos_get_section`, `telos_get_entry`, `telos_search_journal` |
 | Wiki (at `$RADBOT_WIKI_PATH`) | `wiki_read`, `wiki_list`, `wiki_search`, `wiki_write` (strict path sanitization) |
-| Projects | `project_match(cwd)`, `project_list`, `project_register`, `project_get_context` |
+| Projects (read) | `project_match(cwd)`, `project_list`, `project_get_context`, `project_list_children`, `project_set_path_patterns` |
+| Projects (mutate) | `project_create`, `project_update`, `project_archive(cascade_children?)`, `project_merge(from_ref, into_ref)` |
+| Project hierarchy (mutate) | `milestone_add`, `milestone_complete`, `task_add`, `task_update`, `task_complete`, `task_archive`, `exploration_add` |
 | Tasks / schedule | `list_tasks`, `list_reminders`, `list_scheduled_tasks` |
 | Memory | `search_memory` (Qdrant, default scope=`beto`, pass `agent_scope="all"` to widen) |
+
+Project-hierarchy mutations are a parallel surface to beto's confirm-required `telos_*` tools — they call the same `radbot.tools.telos.db` primitives; user confirmation is expected at the MCP client UI layer (e.g. Claude Code's per-tool approval) rather than enforced server-side. All removal is soft (`status='archived'`, `metadata.archived_reason`) — no hard deletes.
 
 **Return convention:** markdown for any structured output, plain single-line text for primitives (`project_match` → name) and action confirmations (`wiki_write` → `Wrote N bytes to <path>`). Never JSON to the LLM — JSON consumers hit the REST API at `/api/*`.
 
