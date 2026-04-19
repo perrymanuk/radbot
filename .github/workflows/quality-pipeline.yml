@@ -339,7 +339,11 @@ jobs:
           echo "PLAYWRIGHT_BASE_URL=$PLAYWRIGHT_BASE_URL"
           SPECS=$(node e2e/select-affected.mjs)
           echo "Affected specs: '$SPECS'"
-          npx playwright test $SPECS
+          # --config explicit because playwright.config.ts lives in e2e/, not
+          # this cwd (radbot/web/frontend). Without it, Playwright doesn't
+          # find the config and silently falls back to defaults — including
+          # an undefined baseURL.
+          npx playwright test --config=e2e/playwright.config.ts $SPECS
       - name: Collect failure artifacts
         if: failure()
         run: |
