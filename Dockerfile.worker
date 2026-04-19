@@ -89,12 +89,10 @@ RUN pip install --no-cache-dir \
 # Copy only the modules the worker needs.
 # Generate minimal __init__.py files to avoid importing agent/ADK dependencies
 # from the main app's __init__.py files.
-RUN mkdir -p radbot radbot/worker radbot/tools radbot/tools/shared \
-             radbot/tools/todo radbot/tools/todo/db \
+RUN mkdir -p radbot radbot/worker radbot/db radbot/tools radbot/tools/shared \
              radbot/tools/claude_code radbot/tools/github \
     && echo '__version__ = "0.1.0"' > radbot/__init__.py \
     && touch radbot/tools/__init__.py \
-    && touch radbot/tools/todo/__init__.py \
     && touch radbot/tools/claude_code/__init__.py \
     && touch radbot/tools/github/__init__.py
 
@@ -107,7 +105,7 @@ COPY radbot/worker/nomad_template.py radbot/worker/
 COPY radbot/config/ radbot/config/
 COPY radbot/credentials/ radbot/credentials/
 COPY radbot/tools/shared/ radbot/tools/shared/
-COPY radbot/tools/todo/db/ radbot/tools/todo/db/
+COPY radbot/db/ radbot/db/
 COPY radbot/tools/claude_code/db.py radbot/tools/claude_code/
 COPY radbot/tools/claude_code/claude_code_client.py radbot/tools/claude_code/
 COPY radbot/tools/github/github_app_client.py radbot/tools/github/
