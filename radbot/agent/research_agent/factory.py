@@ -161,8 +161,14 @@ def create_research_agent(
     # for any agent that is part of a sub_agents tree. Adding it explicitly causes
     # a "Duplicate function declaration" error from the Gemini API.
 
-    # Append completion instructions (task or transfer depending on V1/V2 mode)
-    if hasattr(adk_agent, "instruction") and adk_agent.instruction:
+    # Append completion instructions (task or transfer depending on V1/V2 mode).
+    # Root agents don't transfer — they ARE the root, the next agent on the
+    # receiving end is the user, and ADK doesn't auto-inject
+    # ``transfer_to_agent`` unless the agent has sub-agents. Appending
+    # TRANSFER_INSTRUCTIONS on a root would tell the model to call a tool
+    # that isn't registered → "Tool 'transfer_to_agent' not found" on the
+    # first turn that tries to "return control." Skip entirely for as_root.
+    if not as_root and hasattr(adk_agent, "instruction") and adk_agent.instruction:
         try:
             from google.adk.features import FeatureName, is_feature_enabled
             v2_active = not is_feature_enabled(FeatureName.V1_LLM_AGENT)
