@@ -73,7 +73,7 @@ def create_find_ha_entities_tool():
             )
             return result
 
-        logger.info(f"Created entity search tool using @tool decorator")
+        logger.info("Created entity search tool using @tool decorator")
         return search_home_assistant_entities
 
     except (ImportError, AttributeError):

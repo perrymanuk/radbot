@@ -430,7 +430,7 @@ def setup_mcp_server(
     Returns:
         Tuple of (Server, FileServerMCP)
     """
-    logger.info(f"Setting up MCP server for filesystem operations")
+    logger.info("Setting up MCP server for filesystem operations")
     logger.info(f"Root directory: {root_dir}")
     logger.info(f"Allow write: {allow_write}")
     logger.info(f"Allow delete: {allow_delete}")
@@ -784,7 +784,7 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Starting MCP Fileserver Server")
+    print("Starting MCP Fileserver Server")
     print(f"Root directory: {args.root_dir}")
     print(f"Allow write: {args.allow_write}")
     print(f"Allow delete: {args.allow_delete}")

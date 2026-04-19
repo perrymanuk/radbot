@@ -82,7 +82,7 @@ def get_shell_tool(strict_mode: bool = True, use_claude_cli: bool = False) -> An
         logger.warning("Shell tool initialized in ALLOW ALL mode - SECURITY RISK")
 
     # Always using subprocess now
-    tool_description += f" (Using subprocess for execution)"
+    tool_description += " (Using subprocess for execution)"
 
     # Create a wrapper function for ADK compatibility
     def shell_command_tool(

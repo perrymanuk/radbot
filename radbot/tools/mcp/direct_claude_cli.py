@@ -667,7 +667,7 @@ def list_claude_cli_tools() -> Dict[str, Any]:
         cwd = config.get("working_directory", os.getcwd())
 
         # Execute the command
-        logger.info(f"Listing Claude CLI help information")
+        logger.info("Listing Claude CLI help information")
 
         # Run the process
         process = subprocess.Popen(
@@ -767,7 +767,7 @@ def main():
     connection_result = test_direct_claude_cli_connection()
 
     if connection_result.get("success", False):
-        print(f"✅ Connection successful!")
+        print("✅ Connection successful!")
         print(f"Output: {connection_result.get('output', '')}")
     else:
         print(
@@ -787,7 +787,7 @@ def main():
     print("\nTesting direct command execution...")
     cmd_result = execute_command_directly("pwd")
     if cmd_result.get("success", False):
-        print(f"✅ Command execution successful!")
+        print("✅ Command execution successful!")
         print(
             f"Output: {cmd_result.get('output', '')[:200]}..."
             if len(cmd_result.get("output", "")) > 200

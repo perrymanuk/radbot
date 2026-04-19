@@ -1225,7 +1225,7 @@ class SessionRunner:
                             claude_prompt_tool = create_claude_prompt_tool()
 
                             if claude_prompt_tool:
-                                logger.info(f"Successfully loaded Claude prompt tool")
+                                logger.info("Successfully loaded Claude prompt tool")
 
                                 # Get the tool name - use multiple approaches to be robust
                                 tool_name = None
@@ -1262,7 +1262,7 @@ class SessionRunner:
                                 # Successfully loaded prompt tool, no need to try other methods
                                 continue
                             else:
-                                logger.warning(f"Failed to create Claude prompt tool")
+                                logger.warning("Failed to create Claude prompt tool")
                         except Exception as e:
                             logger.warning(f"Error loading Claude prompt tool: {e}")
                     else:

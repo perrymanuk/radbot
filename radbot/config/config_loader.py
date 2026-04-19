@@ -130,7 +130,7 @@ class ConfigLoader:
         # If we reach here, we couldn't find config.yaml
         # Instead of raising an error, return a default path for potential creation
         logger.warning(
-            f"No config.yaml found. Using default configuration with environment variables."
+            "No config.yaml found. Using default configuration with environment variables."
         )
         return project_root / "config.yaml"
 

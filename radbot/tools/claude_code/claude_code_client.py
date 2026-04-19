@@ -408,7 +408,7 @@ def get_claude_code_status() -> Dict[str, Any]:
         if not auth_info.get("loggedIn"):
             return {
                 "status": "error",
-                "message": f"Token configured but authentication failed — token may be expired or invalid",
+                "message": "Token configured but authentication failed — token may be expired or invalid",
                 "cli_available": True,
                 "token_configured": True,
             }

@@ -425,8 +425,6 @@ def get_workspace_calendar_service(
         ValueError: If credentials_path is None
         Exception: If authentication fails
     """
-    global _workspace_services
-
     # Return cached service if available and not forced to create new
     cache_key = f"{user_email}:{','.join(scopes or [FULL_ACCESS_SCOPE])}"
     if not force_new and cache_key in _workspace_services:
@@ -546,7 +544,7 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
             return False
 
         # Try to get calendar metadata
-        logger.debug(f"Attempting to access calendar metadata...")
+        logger.debug("Attempting to access calendar metadata...")
         try:
             calendar_info = service.calendars().get(calendarId=calendar_id).execute()
             logger.debug(
@@ -573,7 +571,7 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
             from datetime import datetime
 
             now = datetime.utcnow().isoformat() + "Z"
-            logger.debug(f"Attempting to list calendar events...")
+            logger.debug("Attempting to list calendar events...")
             events = (
                 service.events()
                 .list(calendarId=calendar_id, timeMin=now, maxResults=10)

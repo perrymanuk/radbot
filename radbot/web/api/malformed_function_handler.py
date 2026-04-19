@@ -54,7 +54,7 @@ def extract_text_from_malformed_function(
         text = extract_text_from_print_statements(malformed_content)
 
         if text:
-            logger.info(f"Successfully extracted text from malformed function call")
+            logger.info("Successfully extracted text from malformed function call")
             return text
 
     return None

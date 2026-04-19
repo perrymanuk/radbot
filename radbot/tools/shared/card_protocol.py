@@ -97,7 +97,7 @@ def _lookup_kideo_status(url: Optional[str]) -> tuple:
 
 
 def format_card_block(kind: str, data: Any) -> str:
-    """Return a ``\`\`\`radbot:<kind>\\n{json}\\n\`\`\``` fenced block."""
+    r"""Return a ```radbot:<kind>\n{json}\n``` fenced block."""
     if kind not in _VALID_KINDS:
         raise ValueError(f"Unknown card kind: {kind!r}. Valid: {sorted(_VALID_KINDS)}")
     payload = json.dumps(data, ensure_ascii=False)

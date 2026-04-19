@@ -1047,7 +1047,7 @@ async def websocket_endpoint(
 
             # Check for special command to reset session to Beto
             if user_message.lower() in ["reset to beto", "use beto", "start beto"]:
-                logger.debug(f"Explicit request to reset session to Beto agent")
+                logger.debug("Explicit request to reset session to Beto agent")
                 if hasattr(runner, "reset_session"):
                     await runner.reset_session()
                     await manager.send_status(session_id, "reset")

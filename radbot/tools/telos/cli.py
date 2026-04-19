@@ -133,7 +133,7 @@ def onboard() -> int:
     telos_db.upsert_singleton(
         Section.IDENTITY, IDENTITY_REF, identity_content, metadata
     )
-    print(f"  ✓ Identity saved.")
+    print("  ✓ Identity saved.")
 
     # 2. Problems.
     print("\n[2/9] Problems — big things you're trying to solve.")

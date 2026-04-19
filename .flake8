@@ -9,13 +9,10 @@ max-line-length = 120
 #   E203 — whitespace before ':' (conflicts with black)
 #   E402 — module-level import not at top (justified by lazy / conditional imports)
 #   F401 — imported but unused (re-exports in __init__.py + intentional API surface)
-#   F541 — f-string without placeholders (cosmetic; sometimes intentional for consistency)
 #   F811 — redefinition of unused name (lazy-import patterns + try/except fallbacks)
-#   F824 — unused `global` (false positive when re-binding via getattr)
 #   F841 — assigned but unused local (often debug variables; cleaned up incrementally)
 #   W293 — whitespace on blank line (cosmetic)
-#   W605 — invalid escape sequence (regex strings in markdown / docstrings)
-extend-ignore = E203,E402,F401,F541,F811,F824,F841,W293,W605
+extend-ignore = E203,E402,F401,F811,F841,W293
 
 # Per-file overrides for files where wholesale ignores would hide real bugs.
 per-file-ignores =

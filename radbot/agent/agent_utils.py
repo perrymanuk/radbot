@@ -215,7 +215,7 @@ def create_agent(
                         if hasattr(sa, "name")
                     ):
                         sub_agents.append(search_sub)
-                        logger.info(f"Added search_agent to root_agent.sub_agents list")
+                        logger.info("Added search_agent to root_agent.sub_agents list")
                 except Exception as e:
                     logger.warning(f"Failed to create search agent: {str(e)}")
 
@@ -231,7 +231,7 @@ def create_agent(
                     ):
                         sub_agents.append(code_sub)
                         logger.info(
-                            f"Added code_execution_agent to root_agent.sub_agents list"
+                            "Added code_execution_agent to root_agent.sub_agents list"
                         )
                 except Exception as e:
                     logger.warning(f"Failed to create code execution agent: {str(e)}")

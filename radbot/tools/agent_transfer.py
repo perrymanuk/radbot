@@ -38,7 +38,7 @@ def handle_agent_transfers(agent, from_agent: str, request: str):
     # This prevents context confusion between agents by not forwarding the original prompt
     greeting = f"I am now {agent.name}. How can I help you today?"
     logger.info(
-        f"Agent transfer complete - request NOT forwarded to maintain context separation"
+        "Agent transfer complete - request NOT forwarded to maintain context separation"
     )
     return greeting
 

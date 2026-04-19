@@ -96,7 +96,6 @@ def load_dynamic_mcp_tools() -> List[Any]:
                         init_result = {"success": False, "error": None}
 
                         def init_async_client():
-                            nonlocal init_result
                             try:
                                 # This thread will have its own event loop
                                 loop = asyncio.new_event_loop()
@@ -213,7 +212,6 @@ def load_specific_mcp_tools(server_id: str) -> List[Any]:
                 init_result = {"success": False, "error": None}
 
                 def init_async_client():
-                    nonlocal init_result
                     try:
                         # This thread will have its own event loop
                         loop = asyncio.new_event_loop()

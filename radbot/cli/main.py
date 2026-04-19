@@ -511,7 +511,7 @@ def process_commands(command: str, agent: RadBotAgent, user_id: str) -> bool:
         if hasattr(agent, "_memory_service") and agent._memory_service is not None:
             memory_service = agent._memory_service
             print("\nMemory System Status:")
-            print(f"  Enabled: Yes")
+            print("  Enabled: Yes")
 
             # Get collection information
             try:

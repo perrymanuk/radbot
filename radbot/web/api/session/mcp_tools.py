@@ -102,7 +102,7 @@ def _try_load_mcp_tools(self):
                         claude_prompt_tool = create_claude_prompt_tool()
 
                         if claude_prompt_tool:
-                            logger.debug(f"Successfully loaded Claude prompt tool")
+                            logger.debug("Successfully loaded Claude prompt tool")
 
                             # Get the tool name - use multiple approaches to be robust
                             tool_name = None
@@ -135,7 +135,7 @@ def _try_load_mcp_tools(self):
                             # Successfully loaded prompt tool, no need to try other methods
                             continue
                         else:
-                            logger.warning(f"Failed to create Claude prompt tool")
+                            logger.warning("Failed to create Claude prompt tool")
                     except Exception as e:
                         logger.warning(f"Error loading Claude prompt tool: {e}")
                 else:
