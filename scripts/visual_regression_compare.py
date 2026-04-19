@@ -114,19 +114,25 @@ def build_prompt(
 
 
 def run_claude(prompt: str, timeout: int) -> str:
-    """Invoke `claude -p` with a prompt and return its stdout."""
+    """Invoke `claude -p` with a prompt on stdin and return its stdout.
+
+    Uses stdin (not -p <arg>) to sidestep shell arg-length limits for large
+    prompts. Adds --dangerously-skip-permissions because CI has no TTY to
+    approve Read tool calls.
+    """
     cmd = [
         "claude",
         "-p",
-        prompt,
         "--allowed-tools",
         "Read",
         "--max-turns",
         "30",
+        "--dangerously-skip-permissions",
     ]
     try:
         result = subprocess.run(
             cmd,
+            input=prompt,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -141,11 +147,42 @@ def run_claude(prompt: str, timeout: int) -> str:
         raise RuntimeError(f"claude CLI timed out after {timeout}s") from e
 
     if result.returncode != 0:
+        # Claude CLI often writes diagnostic info to stdout even on failure
         stderr = (result.stderr or "").strip()[:2000]
-        raise RuntimeError(
-            f"claude CLI exited {result.returncode}: {stderr or '(no stderr)'}"
-        )
+        stdout = (result.stdout or "").strip()[:2000]
+        parts: list[str] = [f"claude CLI exited {result.returncode}"]
+        if stderr:
+            parts.append(f"stderr: {stderr}")
+        if stdout:
+            parts.append(f"stdout: {stdout}")
+        if not stderr and not stdout:
+            parts.append("(no output on either stream)")
+        raise RuntimeError(" — ".join(parts))
     return result.stdout or ""
+
+
+def _preflight() -> None:
+    """Surface a clear error up-front if the CLI or API key is missing."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        sys.stderr.write(
+            "WARN: ANTHROPIC_API_KEY not set. Claude CLI may fail to auth.\n"
+        )
+    try:
+        ver = subprocess.run(
+            ["claude", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        sys.stderr.write(f"claude CLI: {(ver.stdout or ver.stderr).strip()[:200]}\n")
+    except FileNotFoundError:
+        sys.stderr.write(
+            "ERROR: `claude` CLI not found on PATH. "
+            "Install with: npm install -g @anthropic-ai/claude-code\n"
+        )
+    except Exception as e:
+        sys.stderr.write(f"WARN: claude --version failed: {e}\n")
 
 
 _JSON_OBJ_RE = re.compile(
@@ -271,7 +308,11 @@ def main() -> int:
         args.before, args.after, names, before_pngs, after_pngs, args.pr_context
     )
 
-    sys.stderr.write(f"Evaluating {len(names)} screenshot(s) via claude CLI…\n")
+    _preflight()
+    sys.stderr.write(
+        f"Evaluating {len(names)} screenshot(s) via claude CLI "
+        f"(prompt {len(prompt)} chars, timeout {args.timeout}s)…\n"
+    )
     try:
         raw = run_claude(prompt, args.timeout)
     except RuntimeError as e:
