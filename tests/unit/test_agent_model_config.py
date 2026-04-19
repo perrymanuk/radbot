@@ -128,6 +128,33 @@ class TestAgentModelConfig(unittest.TestCase):
         self.assertTrue(call_kwargs["enable_sequential_thinking"])
         self.assertFalse(call_kwargs["enable_google_search"])
         self.assertFalse(call_kwargs["enable_code_execution"])
+        # sub-agent scout stays in "task" mode (matches beto's routing tree)
+        self.assertEqual(call_kwargs.get("mode"), "task")
+
+    @patch("radbot.agent.research_agent.factory.config_manager")
+    @patch("radbot.agent.research_agent.factory.ResearchAgent")
+    def test_scout_as_root_uses_chat_mode(self, mock_research_agent, mock_config_manager):
+        """Scout built as a session root must use mode='chat'.
+
+        ADK 2.0's Runner rejects a root LlmAgent with any mode other than
+        'chat' ("LlmAgent as root agent must have mode='chat', but got
+        mode='task'"). This is the regression guard for that path — without
+        it, the bug only surfaces on the first real user turn in a scout-
+        rooted session, past every construction-time smoke test.
+        """
+        mock_config_manager.get_agent_model.return_value = "gemini-2.5-pro-latest"
+        mock_config_manager.get_main_model.return_value = "gemini-2.5-pro"
+
+        mock_instance = MagicMock()
+        mock_instance.get_adk_agent.return_value = MagicMock()
+        mock_research_agent.return_value = mock_instance
+
+        create_research_agent(as_subagent=False, as_root=True)
+
+        mock_research_agent.assert_called_once()
+        call_kwargs = mock_research_agent.call_args.kwargs
+        self.assertEqual(call_kwargs.get("mode"), "chat")
+        self.assertEqual(call_kwargs["app_name"], "scout")
 
     @patch.dict(
         os.environ,
