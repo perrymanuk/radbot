@@ -1,26 +1,24 @@
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import ChatPage from "./pages/ChatPage";
 import AdminPage from "./pages/AdminPage";
 import TerminalPage from "./pages/TerminalPage";
 import NotificationsPage from "./pages/NotificationsPage";
+import ProjectsPage from "./pages/ProjectsPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 export default function App() {
-  const path = window.location.pathname;
-  const isAdmin = path.startsWith("/admin");
-  const isTerminal = path.startsWith("/terminal");
-  const isNotifications = path.startsWith("/notifications");
-
   return (
     <ErrorBoundary>
-      {isAdmin ? (
-        <AdminPage />
-      ) : isTerminal ? (
-        <TerminalPage />
-      ) : isNotifications ? (
-        <NotificationsPage />
-      ) : (
-        <ChatPage />
-      )}
+      <BrowserRouter>
+        <Routes>
+          <Route path="/admin/*" element={<AdminPage />} />
+          <Route path="/terminal/*" element={<TerminalPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/projects/:refCode" element={<ProjectsPage />} />
+          <Route path="*" element={<ChatPage />} />
+        </Routes>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }
