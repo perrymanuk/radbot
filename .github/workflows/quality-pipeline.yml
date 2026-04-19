@@ -432,7 +432,7 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           SCREENSHOT_DIR: ${{ github.workspace }}/screens/main
-        run: npx playwright test --grep @screenshot
+        run: npx playwright test --config=e2e/playwright.config.ts --grep @screenshot
         continue-on-error: true
       - name: Tear down stack (main)
         if: always()
@@ -460,7 +460,7 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           SCREENSHOT_DIR: ${{ github.workspace }}/screens/pr
-        run: npx playwright test --grep @screenshot
+        run: npx playwright test --config=e2e/playwright.config.ts --grep @screenshot
         continue-on-error: true
       - name: Tear down stack (pr)
         if: always()
@@ -476,9 +476,10 @@ jobs:
           ANTHROPIC_BUDGET_USD: ${{ env.ANTHROPIC_BUDGET_USD }}
         run: |
           # anthropic isn't in pyproject.toml deps; only the visual-regression
-          # comparator script needs it. Install on demand for this job.
-          uv pip install --system anthropic>=0.40.0
-          python scripts/visual_regression_compare.py \
+          # comparator script needs it. uv run --with creates an ephemeral
+          # venv with the dep — avoids the "externally-managed" PEP 668 error
+          # that --system would hit on Ubuntu's system Python.
+          uv run --with "anthropic>=0.40.0" python scripts/visual_regression_compare.py \
             --before "$GITHUB_WORKSPACE/screens/main" \
             --after "$GITHUB_WORKSPACE/screens/pr" \
             --output-json "$GITHUB_WORKSPACE/visual-result.json" \

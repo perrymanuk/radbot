@@ -19,6 +19,13 @@
       "radbot/web/frontend/src/pages/AdminPage.tsx",
       "radbot/web/frontend/src/stores/admin-store.ts",
       "radbot/web/api/admin.py"
+    ],
+    "specs/projects.spec.ts": [
+      "radbot/web/frontend/src/pages/ProjectsPage.tsx",
+      "radbot/web/frontend/src/components/projects/**",
+      "radbot/web/frontend/src/stores/projects-store.ts",
+      "radbot/web/frontend/src/lib/telos-api.ts",
+      "radbot/web/api/telos.py"
     ]
   },
   "alwaysRun": [
