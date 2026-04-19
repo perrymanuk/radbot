@@ -133,7 +133,9 @@ class TestAgentModelConfig(unittest.TestCase):
 
     @patch("radbot.agent.research_agent.factory.config_manager")
     @patch("radbot.agent.research_agent.factory.ResearchAgent")
-    def test_scout_as_root_uses_chat_mode(self, mock_research_agent, mock_config_manager):
+    def test_scout_as_root_uses_chat_mode(
+        self, mock_research_agent, mock_config_manager
+    ):
         """Scout built as a session root must use mode='chat'.
 
         ADK 2.0's Runner rejects a root LlmAgent with any mode other than
