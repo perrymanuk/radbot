@@ -173,7 +173,7 @@ def turn_on_ha_entity(entity_id: str) -> Dict[str, Any]:
         else:
             return {
                 "status": "error",
-                "message": f"Failed to turn on entity '{entity_id}'. It might not support turn_on or an API error occurred.",
+                "message": f"Failed to turn on entity '{entity_id}'. It might not support turn_on or an API error occurred.",  # noqa: E501
             }
     except Exception as e:
         logger.error(f"Error in turn_on_ha_entity tool for {entity_id}: {e}")
@@ -222,7 +222,7 @@ def turn_off_ha_entity(entity_id: str) -> Dict[str, Any]:
         else:
             return {
                 "status": "error",
-                "message": f"Failed to turn off entity '{entity_id}'. It might not support turn_off or an API error occurred.",
+                "message": f"Failed to turn off entity '{entity_id}'. It might not support turn_off or an API error occurred.",  # noqa: E501
             }
     except Exception as e:
         logger.error(f"Error in turn_off_ha_entity tool for {entity_id}: {e}")
@@ -271,7 +271,7 @@ def toggle_ha_entity(entity_id: str) -> Dict[str, Any]:
         else:
             return {
                 "status": "error",
-                "message": f"Failed to toggle entity '{entity_id}'. It might not support toggle or an API error occurred.",
+                "message": f"Failed to toggle entity '{entity_id}'. It might not support toggle or an API error occurred.",  # noqa: E501
             }
     except Exception as e:
         logger.error(f"Error in toggle_ha_entity tool for {entity_id}: {e}")
@@ -352,7 +352,7 @@ def search_ha_entities(
             if not entities:
                 return {
                     "status": "error" if domain_filter not in domains else "success",
-                    "message": f"Domain '{domain_filter}' {'not found' if domain_filter not in domains else 'has no entities'}",
+                    "message": f"Domain '{domain_filter}' {'not found' if domain_filter not in domains else 'has no entities'}",  # noqa: E501
                     "search_term": search_term,
                     "domain_filter": domain_filter,
                     "available_domains": sorted(list(domains)),

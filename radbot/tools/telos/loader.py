@@ -158,7 +158,7 @@ def _render_full_block(
     if not sections:
         return ""
 
-    header = "USER CONTEXT (Telos) — full profile. Use for grounding beto in the user's current mission, goals, and recent state. Do not repeat verbatim to the user."
+    header = "USER CONTEXT (Telos) — full profile. Use for grounding beto in the user's current mission, goals, and recent state. Do not repeat verbatim to the user."  # noqa: E501
     body = _assemble(header, sections)
 
     # If over budget, drop journal entries from the tail first.

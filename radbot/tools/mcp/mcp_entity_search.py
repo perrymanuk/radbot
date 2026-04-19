@@ -69,7 +69,7 @@ def create_find_ha_entities_tool():
             )
             result = find_home_assistant_entities(search_term, domain_filter)
             logger.info(
-                f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"
+                f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"  # noqa: E501
             )
             return result
 
@@ -103,7 +103,7 @@ def create_find_ha_entities_tool():
             )
             result = find_home_assistant_entities(search_term, domain_filter)
             logger.info(
-                f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"
+                f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"  # noqa: E501
             )
             return result
 
@@ -235,8 +235,8 @@ def search_home_assistant_entities(
                 return {
                     "success": False,
                     "status": "unsupported_domain",
-                    "message": f"I couldn't find the entity because the domain '{domain}' is not supported by your Home Assistant MCP integration.\n\n"
-                    f"Supported domains are: {', '.join(supported_domains) if supported_domains else 'None detected'}\n\n"
+                    "message": f"I couldn't find the entity because the domain '{domain}' is not supported by your Home Assistant MCP integration.\n\n"  # noqa: E501
+                    f"Supported domains are: {', '.join(supported_domains) if supported_domains else 'None detected'}\n\n"  # noqa: E501
                     "This could be because:\n"
                     "1. The domain is not properly enabled in your Home Assistant instance\n"
                     "2. The domain is not exposed via the MCP integration\n"

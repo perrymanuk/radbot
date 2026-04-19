@@ -190,7 +190,7 @@ def add_sub_agent(self: RadBotAgent, sub_agent: Any) -> None:
         sub_agent._parent = self.root_agent
 
     logger.info(
-        f"Added sub-agent '{sub_agent.name if hasattr(sub_agent, 'name') else 'unnamed'}' to agent '{self.root_agent.name}'"
+        f"Added sub-agent '{sub_agent.name if hasattr(sub_agent, 'name') else 'unnamed'}' to agent '{self.root_agent.name}'"  # noqa: E501
     )
 
 

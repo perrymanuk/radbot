@@ -96,7 +96,7 @@ def create_planner_agent() -> Optional[Agent]:
         agent = Agent(
             name="planner",
             model=model,
-            description="Calendar events, scheduled recurring tasks, one-shot reminders, webhook triggers, and time queries.",
+            description="Calendar events, scheduled recurring tasks, one-shot reminders, webhook triggers, and time queries.",  # noqa: E501
             instruction=instruction,
             tools=tools,
             mode="task",

@@ -78,7 +78,7 @@ class CalendarManager:
                         .execute()
                     )
                     logger.info(
-                        f"Successfully authenticated with Google Calendar as: {primary_calendar.get('summary', 'Unknown')}"
+                        f"Successfully authenticated with Google Calendar as: {primary_calendar.get('summary', 'Unknown')}"  # noqa: E501
                     )
                     return True
                 except Exception as e:

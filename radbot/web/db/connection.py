@@ -59,7 +59,7 @@ DB_PORT = (
 
 # Basic validation
 if not all([DB_NAME, DB_USER, DB_PASSWORD]):
-    error_msg = "Database credentials (database.chat_history.db_name, database.chat_history.user, database.chat_history.password) must be set in config.yaml or as environment variables"
+    error_msg = "Database credentials (database.chat_history.db_name, database.chat_history.user, database.chat_history.password) must be set in config.yaml or as environment variables"  # noqa: E501
     logger.error(error_msg)
     raise ValueError(error_msg)
 

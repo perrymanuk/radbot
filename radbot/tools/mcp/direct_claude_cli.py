@@ -724,7 +724,7 @@ def test_direct_claude_cli_connection() -> Dict[str, Any]:
                 "status": "connected",
                 "output": result.get("output", "").strip(),
                 "tools": tools_result.get("tools", []),
-                "message": f"Successfully connected to Claude CLI directly with {len(tools_result.get('tools', []))} tools available",
+                "message": f"Successfully connected to Claude CLI directly with {len(tools_result.get('tools', []))} tools available",  # noqa: E501
             }
         else:
             return {

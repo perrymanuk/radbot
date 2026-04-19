@@ -156,12 +156,12 @@ def _process_response_text(text):
                     if is_special:
                         # For special API responses, preserve exact formatting
                         safe_content = escape(block_content)
-                        wrapped_content = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_content}</pre>'
+                        wrapped_content = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_content}</pre>'  # noqa: E501
                     else:
                         # For regular JSON, format it nicely
                         formatted = json.dumps(json_obj, indent=2)
                         safe_content = escape(formatted)
-                        wrapped_content = f'<pre data-content-type="json-formatted" class="content-json-formatted">{safe_content}</pre>'
+                        wrapped_content = f'<pre data-content-type="json-formatted" class="content-json-formatted">{safe_content}</pre>'  # noqa: E501
 
                     # Replace the code block with our data-attribute version
                     start, end = match.span()

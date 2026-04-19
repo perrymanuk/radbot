@@ -717,7 +717,7 @@ class ConnectionManager:
                         original_length = len(event["text"])
                         event["text"] = (
                             event["text"][:100000]
-                            + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"
+                            + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"  # noqa: E501
                         )
                         logger.debug(
                             f"Truncated event text from {original_length} to {len(event['text'])} characters"

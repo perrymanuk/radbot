@@ -40,7 +40,7 @@ def init_reminder_schema() -> None:
         create_index_sqls=[
             "CREATE INDEX idx_reminders_status ON reminders (status);",
             "CREATE INDEX idx_reminders_pending_at ON reminders (remind_at) WHERE status = 'pending';",
-            "CREATE INDEX idx_reminders_undelivered ON reminders (delivered) WHERE status = 'completed' AND delivered = FALSE;",
+            "CREATE INDEX idx_reminders_undelivered ON reminders (delivered) WHERE status = 'completed' AND delivered = FALSE;",  # noqa: E501
         ],
     )
 

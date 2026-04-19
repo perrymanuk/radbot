@@ -382,7 +382,7 @@ def get_claude_code_status() -> Dict[str, Any]:
     if not token_configured:
         return {
             "status": "error",
-            "message": "No OAuth token configured — set claude_code_oauth_token in credential store or CLAUDE_CODE_OAUTH_TOKEN env var",
+            "message": "No OAuth token configured — set claude_code_oauth_token in credential store or CLAUDE_CODE_OAUTH_TOKEN env var",  # noqa: E501
             "cli_available": True,
             "token_configured": False,
         }

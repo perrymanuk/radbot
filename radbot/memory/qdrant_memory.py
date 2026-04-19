@@ -96,7 +96,7 @@ class QdrantMemoryService(BaseMemoryService):
                         url=url, api_key=api_key, https=use_https, prefer_grpc=False
                     )
                     logger.info(
-                        f"Connected to Qdrant with API key at {url} ({'HTTPS' if use_https else 'HTTP'} mode, gRPC disabled)"
+                        f"Connected to Qdrant with API key at {url} ({'HTTPS' if use_https else 'HTTP'} mode, gRPC disabled)"  # noqa: E501
                     )
                 else:
                     self.client = QdrantClient(

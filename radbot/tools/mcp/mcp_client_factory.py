@@ -183,7 +183,7 @@ class MCPClientFactory:
 
                     client_class = MCPSSEClient
                     logger.warning(
-                        f"MCP SDK WebSocketClient not available, falling back to standard client for server: {server_id}"
+                        f"MCP SDK WebSocketClient not available, falling back to standard client for server: {server_id}"  # noqa: E501
                     )
 
                 client_args = {"url": url}

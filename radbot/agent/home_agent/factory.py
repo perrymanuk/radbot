@@ -139,7 +139,7 @@ def create_home_agent() -> Optional[Agent]:
         agent = Agent(
             name="casa",
             model=model,
-            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), music collection (Lidarr), and grocery ordering (Picnic).",
+            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), music collection (Lidarr), and grocery ordering (Picnic).",  # noqa: E501
             instruction=instruction,
             tools=tools,
             mode="task",

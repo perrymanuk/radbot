@@ -349,7 +349,7 @@ class SessionRunner:
                     else:
                         is_final = event.is_final_response
                 logger.debug(
-                    f"Event {i}: is_final={is_final}, content={type(event.content).__name__ if hasattr(event, 'content') else 'N/A'}"
+                    f"Event {i}: is_final={is_final}, content={type(event.content).__name__ if hasattr(event, 'content') else 'N/A'}"  # noqa: E501
                 )
 
                 # Log content parts detail to diagnose text extraction
@@ -372,7 +372,7 @@ class SessionRunner:
                                 part_attrs.append(f"function_response={name}")
                             if not part_attrs:
                                 part_attrs.append(
-                                    f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}"
+                                    f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}"  # noqa: E501
                                 )
                             logger.debug(
                                 f"  Event {i} part {j}: {', '.join(part_attrs)}"
@@ -620,7 +620,7 @@ class SessionRunner:
 
         except Exception as e:
             logger.error(f"Error in process_message: {str(e)}", exc_info=True)
-            error_message = f"I apologize, but I encountered an error processing your message. Please try again. Error: {str(e)}"
+            error_message = f"I apologize, but I encountered an error processing your message. Please try again. Error: {str(e)}"  # noqa: E501
             return {"response": error_message, "events": []}
 
     def _extract_response_from_event(self, event):
@@ -705,7 +705,7 @@ class SessionRunner:
 
                             # Replace the JSON part with wrapped version
                             safe_json = escape(json_str)
-                            wrapped_json = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_json}</pre>'
+                            wrapped_json = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_json}</pre>'  # noqa: E501
 
                             # If the JSON is embedded in other text, preserve it
                             result = full_text.replace(json_str, wrapped_json)
@@ -747,12 +747,12 @@ class SessionRunner:
                         if is_special:
                             # For special API responses, preserve exact formatting
                             safe_content = escape(block_content)
-                            wrapped_content = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_content}</pre>'
+                            wrapped_content = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_content}</pre>'  # noqa: E501
                         else:
                             # For regular JSON, format it nicely
                             formatted = json.dumps(json_obj, indent=2)
                             safe_content = escape(formatted)
-                            wrapped_content = f'<pre data-content-type="json-formatted" class="content-json-formatted">{safe_content}</pre>'
+                            wrapped_content = f'<pre data-content-type="json-formatted" class="content-json-formatted">{safe_content}</pre>'  # noqa: E501
 
                         # Replace the code block with our data-attribute version
                         start, end = match.span()

@@ -775,7 +775,7 @@ def check_calendar_availability_wrapper(
 
         return result
     except Exception as e:
-        error_message = f"Exception while checking calendar availability: {str(e)}. Please check authentication credentials."
+        error_message = f"Exception while checking calendar availability: {str(e)}. Please check authentication credentials."  # noqa: E501
         print(error_message)
         return {"status": "error", "message": error_message, "calendars": {}}
 

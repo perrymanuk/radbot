@@ -263,7 +263,7 @@ def create_tool_schemas_with_function_tool() -> List[Any]:
                 "properties": {
                     "entity_id": {
                         "type": "string",
-                        "description": "The unique identifier of the entity (e.g., 'light.living_room', 'sensor.temperature')",
+                        "description": "The unique identifier of the entity (e.g., 'light.living_room', 'sensor.temperature')",  # noqa: E501
                     }
                 },
                 "required": ["entity_id"],
@@ -317,7 +317,7 @@ def create_tool_schemas_with_function_tool() -> List[Any]:
         function=toggle_ha_entity,
         function_schema={
             "name": "toggle_home_assistant_entity",
-            "description": "Toggle the state of a Home Assistant entity (e.g., turns lights/switches on if off, off if on)",
+            "description": "Toggle the state of a Home Assistant entity (e.g., turns lights/switches on if off, off if on)",  # noqa: E501
             "parameters": {
                 "type": "object",
                 "properties": {
