@@ -28,13 +28,16 @@ export default defineConfig({
   projects: [
     {
       name: "anonymous",
-      use: { ...devices["Desktop Chrome"] },
+      // baseURL repeated explicitly: project-level `use` shadows top-level
+      // `use.baseURL` when devices are spread in, causing page.goto("/")
+      // to fail with "Cannot navigate to invalid URL".
+      use: { ...devices["Desktop Chrome"], baseURL: BASE_URL },
       testMatch: /.*\.spec\.ts/,
       testIgnore: /admin\.spec\.ts/,
     },
     {
       name: "admin-authed",
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], baseURL: BASE_URL },
       testMatch: /admin\.spec\.ts/,
     },
   ],

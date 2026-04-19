@@ -458,14 +458,16 @@ jobs:
       # ── Phase 3: AI compare ──────────────────────────────────────────
       - name: Compare screenshots
         id: compare
+        working-directory: pr
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BUDGET_USD: ${{ env.ANTHROPIC_BUDGET_USD }}
-        run: uv run python scripts/visual_regression_compare.py \
-              --before "$GITHUB_WORKSPACE/screens/main" \
-              --after "$GITHUB_WORKSPACE/screens/pr" \
-              --output-json visual-result.json \
-              --max-score 20 >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          uv run python scripts/visual_regression_compare.py \
+            --before "$GITHUB_WORKSPACE/screens/main" \
+            --after "$GITHUB_WORKSPACE/screens/pr" \
+            --output-json "$GITHUB_WORKSPACE/visual-result.json" \
+            --max-score 20 >> "$GITHUB_STEP_SUMMARY"
       - name: Upload screenshot artifacts
         if: always()
         uses: actions/upload-artifact@v4

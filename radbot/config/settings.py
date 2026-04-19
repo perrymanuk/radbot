@@ -86,11 +86,11 @@ class ConfigManager:
             or "gemini-2.5-flash",
             # Agent-specific models
             "agent_models": merged_agent_models,
-            # Use Vertex AI flag
+            # Use Vertex AI flag — env var takes precedence over file config
             "use_vertex_ai": (
-                agent_config.get("use_vertex_ai", False)
-                if "use_vertex_ai" in agent_config
-                else os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE").upper() == "TRUE"
+                os.environ["GOOGLE_GENAI_USE_VERTEXAI"].upper() == "TRUE"
+                if "GOOGLE_GENAI_USE_VERTEXAI" in os.environ
+                else agent_config.get("use_vertex_ai", False)
             ),
             # Vertex AI project ID
             "vertex_project": agent_config.get("vertex_project")
