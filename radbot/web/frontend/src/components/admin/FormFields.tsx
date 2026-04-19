@@ -1,8 +1,24 @@
-/** Reusable admin form controls matching the legacy FormBuilder (FB). */
+/**
+ * Reusable admin form controls.
+ *
+ * These are thin wrappers around the shell primitives in
+ * `components/admin/shell/primitives.tsx`. Every existing panel imports from
+ * this module, so restyling here re-skins every panel automatically without
+ * touching panel code.
+ */
+import type { ReactNode } from "react";
+import {
+  Button,
+  Field,
+  SectionCard,
+  Select,
+  StatusPill,
+  TextArea,
+  TextInput,
+  Toggle,
+  type PanelStatus,
+} from "@/components/admin/shell";
 import { cn } from "@/lib/utils";
-
-const fieldBase =
-  "w-full p-2 border border-border rounded-md bg-bg-primary text-txt-primary text-sm outline-none focus:border-radbot-sunset transition-colors";
 
 // ── Text / Password / Number ─────────────────────────────
 interface InputProps {
@@ -18,27 +34,36 @@ interface InputProps {
 }
 
 export function FormInput({
-  label, value, onChange, type = "text", placeholder, hint, readOnly, datalist, className,
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+  hint,
+  readOnly,
+  datalist,
+  className,
 }: InputProps) {
   const listId = datalist ? `dl-${label.replace(/\s/g, "-").toLowerCase()}` : undefined;
   return (
-    <div className={cn("mb-3", className)}>
-      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        readOnly={readOnly}
-        list={listId}
-        className={cn(fieldBase, readOnly && "opacity-60 cursor-not-allowed")}
-      />
-      {datalist && (
-        <datalist id={listId}>
-          {datalist.map((v) => <option key={v} value={v} />)}
-        </datalist>
-      )}
-      {hint && <div className="text-[0.72rem] text-txt-secondary/60 mt-0.5">{hint}</div>}
+    <div className={cn("mb-3", className)} style={{ display: "flex", flexDirection: "column" }}>
+      <Field label={label} hint={hint}>
+        <TextInput
+          value={String(value ?? "")}
+          onChange={onChange}
+          type={type}
+          placeholder={placeholder}
+          readOnly={readOnly}
+          list={listId}
+        />
+        {datalist && (
+          <datalist id={listId}>
+            {datalist.map((v) => (
+              <option key={v} value={v} />
+            ))}
+          </datalist>
+        )}
+      </Field>
     </div>
   );
 }
@@ -52,23 +77,16 @@ interface ToggleProps {
 
 export function FormToggle({ label, checked, onChange }: ToggleProps) {
   return (
-    <div className="flex items-center gap-2.5 mb-3">
-      <button
-        type="button"
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      <Toggle value={checked} onChange={onChange} />
+      <span
+        style={{
+          fontSize: 13,
+          color: "var(--text)",
+          cursor: "pointer",
+        }}
         onClick={() => onChange(!checked)}
-        className={cn(
-          "relative w-[38px] h-5 rounded-[10px] transition-colors flex-shrink-0 cursor-pointer border-none p-0",
-          checked ? "bg-terminal-green" : "bg-radbot-sunset",
-        )}
       >
-        <span
-          className={cn(
-            "absolute left-0 w-3.5 h-3.5 rounded-full transition-transform top-[3px]",
-            checked ? "translate-x-[21px] bg-white" : "translate-x-[3px] bg-txt-secondary",
-          )}
-        />
-      </button>
-      <span className="text-sm text-txt-secondary cursor-pointer" onClick={() => onChange(!checked)}>
         {label}
       </span>
     </div>
@@ -87,12 +105,9 @@ interface DropdownProps {
 export function FormDropdown({ label, value, onChange, options, className }: DropdownProps) {
   return (
     <div className={cn("mb-3", className)}>
-      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={cn(fieldBase, "cursor-pointer")}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </select>
+      <Field label={label}>
+        <Select value={value} onChange={onChange} options={options} />
+      </Field>
     </div>
   );
 }
@@ -108,14 +123,16 @@ interface TextareaProps {
 
 export function FormTextarea({ label, value, onChange, placeholder, large }: TextareaProps) {
   return (
-    <div className="mb-3">
-      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={cn(fieldBase, "resize-y font-mono text-[0.8rem]", large ? "min-h-[200px]" : "min-h-[80px]")}
-      />
+    <div style={{ marginBottom: 12 }}>
+      <Field label={label}>
+        <TextArea
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          rows={large ? 12 : 4}
+          mono
+        />
+      </Field>
     </div>
   );
 }
@@ -132,47 +149,76 @@ interface SliderProps {
 
 export function FormSlider({ label, value, onChange, min, max, step }: SliderProps) {
   return (
-    <div className="mb-3">
-      <label className="block text-xs text-txt-secondary mb-1 font-medium">{label}</label>
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          min={min}
-          max={max}
-          step={step}
-          className="flex-1 accent-radbot-sunset"
-        />
-        <span className="min-w-[3em] text-right text-sm text-txt-secondary font-mono">{value}</span>
-      </div>
+    <div style={{ marginBottom: 12 }}>
+      <Field label={label}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <input
+            type="range"
+            value={value}
+            onChange={(e) => onChange(parseFloat(e.target.value))}
+            min={min}
+            max={max}
+            step={step}
+            style={{ flex: 1, accentColor: "var(--sunset)" }}
+          />
+          <span
+            style={{
+              minWidth: "3em",
+              textAlign: "right",
+              fontSize: 12,
+              fontFamily: "var(--mono)",
+              color: "var(--text-mute)",
+            }}
+          >
+            {value}
+          </span>
+        </div>
+      </Field>
     </div>
   );
 }
 
 // ── Form Row (grid) ──────────────────────────────────────
-export function FormRow({ children, cols = 2 }: { children: React.ReactNode; cols?: 2 | 3 }) {
+export function FormRow({ children, cols = 2 }: { children: ReactNode; cols?: 2 | 3 }) {
   return (
-    <div className={cn("grid gap-3", cols === 3 ? "grid-cols-3" : "grid-cols-2")}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        gap: 12,
+      }}
+    >
       {children}
     </div>
   );
 }
 
 // ── Card ─────────────────────────────────────────────────
-export function Card({ title, children }: { title?: string; children: React.ReactNode }) {
+export function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-      {title && <h3 className="text-sm mb-3 text-radbot-sunset">{title}</h3>}
-      {children}
+    <div style={{ marginBottom: 16 }}>
+      <SectionCard title={title} accent="var(--sunset)">
+        {children}
+      </SectionCard>
     </div>
   );
 }
 
 // ── Note ─────────────────────────────────────────────────
-export function Note({ children }: { children: React.ReactNode }) {
+export function Note({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-bg-tertiary border border-border rounded-md px-3 py-2.5 text-[0.8rem] text-txt-secondary mb-4">
+    <div
+      style={{
+        padding: "10px 12px",
+        borderRadius: 6,
+        background: "color-mix(in oklch, var(--sky) 6%, var(--surface))",
+        border: "1px solid color-mix(in oklch, var(--sky) 22%, var(--border))",
+        color: "var(--text-mute)",
+        fontSize: 12,
+        lineHeight: 1.5,
+        marginBottom: 14,
+      }}
+    >
       {children}
     </div>
   );
@@ -189,30 +235,36 @@ interface ActionBarProps {
 
 export function ActionBar({ onSave, onTest, testResult, testing, saving }: ActionBarProps) {
   return (
-    <div className="flex items-center gap-2.5 mt-5 pt-3.5 border-t border-border">
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginTop: 18,
+        paddingTop: 14,
+        borderTop: "1px solid var(--border-soft)",
+      }}
+    >
       {onTest && (
-        <button
-          onClick={onTest}
-          disabled={testing}
-          className="px-3 py-2 bg-bg-tertiary text-txt-primary border border-border rounded-md text-sm font-medium hover:border-radbot-sunset transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {testing ? "Testing..." : "Test Connection"}
-        </button>
+        <Button onClick={onTest} disabled={testing} variant="default">
+          {testing ? "Testing…" : "Test Connection"}
+        </Button>
       )}
       {testResult && (
-        <span className={cn("text-sm", testResult.status === "ok" ? "text-terminal-green" : "text-terminal-red")}>
+        <span
+          style={{
+            fontSize: 12,
+            color: testResult.status === "ok" ? "var(--crt)" : "var(--magenta)",
+          }}
+        >
           {testResult.message}
         </span>
       )}
-      <span className="flex-1" />
+      <span style={{ flex: 1 }} />
       {onSave && (
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className="px-4 py-2 bg-radbot-sunset text-bg-primary rounded-md text-sm font-medium hover:bg-radbot-sunset/80 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
+        <Button onClick={onSave} disabled={saving} variant="primary" icon="check">
+          {saving ? "Saving…" : "Save"}
+        </Button>
       )}
     </div>
   );
@@ -220,19 +272,11 @@ export function ActionBar({ onSave, onTest, testResult, testing, saving }: Actio
 
 // ── Badge ────────────────────────────────────────────────
 export function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    ok: "bg-terminal-green/15 text-terminal-green",
-    error: "bg-terminal-red/15 text-terminal-red",
-    unconfigured: "bg-bg-tertiary text-txt-secondary/60",
+  const map: Record<string, PanelStatus> = {
+    ok: "connected",
+    error: "error",
+    unconfigured: "disconnected",
   };
-  const labels: Record<string, string> = {
-    ok: "Connected",
-    error: "Error",
-    unconfigured: "Not Configured",
-  };
-  return (
-    <span className={cn("text-xs px-2.5 py-0.5 rounded-full font-semibold", styles[status] || styles.unconfigured)}>
-      {labels[status] || status}
-    </span>
-  );
+  const panelStatus: PanelStatus = map[status] ?? "neutral";
+  return <StatusPill status={panelStatus} />;
 }

@@ -125,6 +125,91 @@
     border-top: 1px dashed rgba(48, 64, 80, 0.6);
   }
 
+  /* ── Admin page — design tokens (ported from admin redesign handoff) ─── */
+  .admin-scope {
+    --bg: #0b0e12;
+    --bg-sunk: #070a0e;
+    --surface: #11161c;
+    --surface-2: #161c24;
+    --border: #2a333e;
+    --border-soft: #1a222c;
+    --text: #e6ecf2;
+    --text-mute: #9aa7b5;
+    --text-dim: #5c6b7a;
+    --sunset: #ff7849;
+    --amber: #ffb347;
+    --magenta: #ff3d7f;
+    --violet: #a884ff;
+    --sky: #5ec0ff;
+    --crt: #7dffb5;
+    --sans: "Inter", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+    --pixel: "VT323", monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .admin-scope button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+
+  .admin-scope input,
+  .admin-scope textarea,
+  .admin-scope select {
+    font: inherit;
+    color: inherit;
+  }
+  .admin-scope input:focus,
+  .admin-scope textarea:focus,
+  .admin-scope select:focus {
+    outline: none;
+    border-color: var(--sunset) !important;
+  }
+
+  .admin-scope a {
+    color: var(--sky);
+    text-decoration: none;
+  }
+  .admin-scope a:hover {
+    text-decoration: underline;
+  }
+
+  .admin-scope .kbd {
+    display: inline-block;
+    padding: 0 5px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-dim);
+    background: var(--bg-sunk);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    line-height: 1.4;
+  }
+
+  .admin-scope ::selection {
+    background: color-mix(in oklch, var(--sunset) 35%, transparent);
+    color: var(--text);
+  }
+
+  /* Mobile tweaks: reclaim horizontal space and avoid iOS auto-zoom. */
+  @media (max-width: 767px) {
+    .admin-scope .admin-sidebar-wrap {
+      display: none !important;
+    }
+    .admin-scope textarea,
+    .admin-scope input {
+      font-size: 16px !important;
+    }
+  }
+
   /* ── Projects page — design tokens (ported from prototype) ─── */
   .projects-scope {
     --bg: #0b0e12;

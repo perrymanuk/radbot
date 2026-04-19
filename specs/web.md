@@ -237,7 +237,44 @@ Flat panel structure (no more grouping superclasses).
 | `CredentialsPanel.tsx` | `CredentialsPanel` |
 | `RawConfigPanel.tsx` | `RawConfigPanel` |
 
-Registered in `pages/AdminPage.tsx` via `NAV_ITEMS` + `PANEL_MAP`.
+Registered in `pages/AdminPage.tsx` via `PANEL_MAP`. The sidebar nav catalog
+(categories + icons + status keys) lives in
+`components/admin/shell/catalog.ts` as `PANEL_CATEGORIES`, decoupled from the
+panel registry.
+
+### Admin Shell (`components/admin/shell/`, 2026-04-19 redesign)
+
+The admin area uses a scoped design system (class `admin-scope` on the page
+root) with its own palette/font tokens (`--bg`, `--surface`, `--sunset`,
+`--crt`, `--mono` = JetBrains Mono, `--pixel` = VT323) defined in
+`globals.css`. The shell module exports:
+
+- `icons.tsx` — `<AIcon name=… size={…}/>` with a 46-glyph set (sparkle, cpu,
+  server, chart, compass, mail, cart, db, nomad, speaker, mic, bell, alert,
+  git, anchor, shield, stack, key, code, plus/close/check/copy/ext/refresh/
+  play/pause/edit/trash/eye + chevrons).
+- `primitives.tsx` — `SectionCard`, `Field`, `FieldGrid`, `TextInput`,
+  `TextArea`, `Select`, `Toggle`, `Button` (primary|default|ghost|danger,
+  sm|md|lg), `RefCode`, `StatusDot`, `StatusPill`
+  (connected|configured|disconnected|error|neutral), `Empty`, `Note` (info|
+  warning|neutral).
+- `catalog.ts` — `PANEL_CATEGORIES` (10 groups: CORE, PERSONAL, CONNECTIONS,
+  INFRASTRUCTURE, MEDIA & VOICE, NOTIFICATIONS, AUTOMATION, DEVELOPER,
+  SECURITY, ADVANCED), `findPanel`, `mapStatus` (maps admin-store raw
+  `ok|error|unconfigured` → design-system `PanelStatus`).
+- `Sidebar.tsx` — categorized `<AdminSidebar>` with collapsible groups,
+  live filter (`filter panels…`), per-panel status dot, active highlight.
+- `PanelHeader.tsx` — panel chrome (crumb, icon tile, title, status pill,
+  actions slot).
+
+`FormFields.tsx` remains the import surface for panels (`FormInput`,
+`FormToggle`, `FormDropdown`, `FormTextarea`, `FormSlider`, `FormRow`,
+`Card`, `Note`, `ActionBar`, `StatusBadge`); its internals now delegate to
+the shell primitives so restyling flows through every panel automatically.
+
+`AdminPage.tsx` syncs `activePanel` to the `?panel=<id>` query param for
+deep-linking. On mobile (<768px) the sidebar is hidden via `.admin-scope
+.admin-sidebar-wrap { display: none }`.
 
 ### Chat Components (post-refresh 2026-04-18)
 

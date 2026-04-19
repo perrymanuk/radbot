@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { useAdminStore } from "@/stores/admin-store";
 import { cn } from "@/lib/utils";
 
-// Panel imports
+import {
+  AdminSidebar,
+  PanelHeader,
+  findPanel,
+  mapStatus,
+  PANEL_CATEGORIES,
+} from "@/components/admin/shell";
+
+// Panel imports — unchanged from legacy AdminPage; the visual refresh comes
+// from the shared primitives in FormFields.tsx which every panel uses.
 import { GooglePanel, AgentModelsPanel, WebServerPanel, LoggingPanel } from "@/components/admin/panels/CorePanels";
 import { GmailPanel, CalendarPanel, JiraPanel, OverseerrPanel, LidarrPanel, HomeAssistantPanel, FilesystemPanel, PicnicPanel, YouTubePanel, KideoPanel } from "@/components/admin/panels/ConnectionPanels";
 import { PostgresqlPanel, QdrantPanel } from "@/components/admin/panels/InfrastructurePanels";
@@ -19,60 +28,6 @@ import { CostTrackingPanel } from "@/components/admin/panels/TelemetryPanels";
 import { TelosPanel } from "@/components/admin/panels/TelosPanel";
 import { McpBridgePanel } from "@/components/admin/panels/McpBridgePanel";
 
-// ── Navigation definition ──────────────────────────────────
-interface NavItem {
-  id: string;
-  label: string;
-  group: string;
-  statusKey?: string; // key into IntegrationStatus for sidebar dot
-}
-
-const NAV_ITEMS: NavItem[] = [
-  // Core
-  { id: "google", label: "Google AI", group: "Core", statusKey: "google" },
-  { id: "agent_models", label: "Agent & Models", group: "Core" },
-  { id: "web_server", label: "Web Server", group: "Core" },
-  { id: "logging", label: "Logging", group: "Core" },
-  { id: "cost_tracking", label: "Cost Tracking", group: "Core" },
-  // Personal
-  { id: "telos", label: "Telos", group: "Personal" },
-  // Connections
-  { id: "gmail", label: "Gmail", group: "Connections", statusKey: "gmail" },
-  { id: "calendar", label: "Calendar", group: "Connections", statusKey: "calendar" },
-  { id: "jira", label: "Jira", group: "Connections", statusKey: "jira" },
-  { id: "overseerr", label: "Overseerr", group: "Connections", statusKey: "overseerr" },
-  { id: "lidarr", label: "Lidarr", group: "Connections", statusKey: "lidarr" },
-  { id: "home_assistant", label: "Home Assistant", group: "Connections", statusKey: "home_assistant" },
-  { id: "picnic", label: "Picnic", group: "Connections", statusKey: "picnic" },
-  { id: "youtube", label: "YouTube", group: "Connections", statusKey: "youtube" },
-  { id: "kideo", label: "Kideo", group: "Connections", statusKey: "kideo" },
-  { id: "filesystem", label: "Filesystem", group: "Connections" },
-  // Infrastructure
-  { id: "postgresql", label: "PostgreSQL", group: "Infrastructure", statusKey: "postgresql" },
-  { id: "qdrant", label: "Qdrant", group: "Infrastructure", statusKey: "qdrant" },
-  { id: "nomad", label: "Nomad", group: "Infrastructure", statusKey: "nomad" },
-  // Media & Voice
-  { id: "tts", label: "Text-to-Speech", group: "Media & Voice", statusKey: "tts" },
-  { id: "stt", label: "Speech-to-Text", group: "Media & Voice", statusKey: "stt" },
-  // Notifications
-  { id: "ntfy", label: "Push Notifications", group: "Notifications", statusKey: "ntfy" },
-  // Automation
-  { id: "scheduler", label: "Scheduler", group: "Automation" },
-  { id: "webhooks", label: "Webhooks", group: "Automation" },
-  { id: "alertmanager", label: "Alertmanager", group: "Automation", statusKey: "alertmanager" },
-  // Developer
-  { id: "github_app", label: "GitHub App", group: "Developer", statusKey: "github" },
-  { id: "claude_code", label: "Claude Code", group: "Developer", statusKey: "claude_code" },
-  // Security
-  { id: "sanitization", label: "Sanitization", group: "Security" },
-  // Advanced
-  { id: "mcp_bridge", label: "MCP Bridge", group: "Advanced" },
-  { id: "mcp_servers", label: "MCP Servers", group: "Advanced" },
-  { id: "credentials", label: "Credentials", group: "Advanced" },
-  { id: "raw_config", label: "Raw Config", group: "Advanced" },
-];
-
-// Panel component mapping
 const PANEL_MAP: Record<string, React.ComponentType> = {
   google: GooglePanel,
   agent_models: AgentModelsPanel,
@@ -108,7 +63,6 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   raw_config: RawConfigPanel,
 };
 
-// ── Main Admin Page ────────────────────────────────────────
 export default function AdminPage() {
   const authenticated = useAdminStore((s) => s.authenticated);
   const token = useAdminStore((s) => s.token);
@@ -120,13 +74,16 @@ export default function AdminPage() {
       if (s.authenticated || !s.token) setChecking(false);
     });
     const t = setTimeout(() => setChecking(false), 3000);
-    return () => { unsub(); clearTimeout(t); };
+    return () => {
+      unsub();
+      clearTimeout(t);
+    };
   }, [checking]);
 
   if (checking) {
     return (
-      <div className="fixed inset-0 bg-bg-primary z-[1000] flex items-center justify-center">
-        <div className="text-txt-secondary text-sm">Authenticating…</div>
+      <div className="admin-scope fixed inset-0 z-[1000] flex items-center justify-center">
+        <div style={{ color: "var(--text-mute)", fontSize: 13 }}>Authenticating…</div>
       </div>
     );
   }
@@ -135,12 +92,14 @@ export default function AdminPage() {
 
   return (
     <div
-      className="h-screen flex flex-col bg-bg-primary text-txt-primary font-sans"
+      className="admin-scope h-screen flex flex-col"
       data-test="admin-dashboard"
     >
-      <Header />
+      <TopChrome />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
+        <div className="admin-sidebar-wrap" style={{ display: "flex", flex: "none" }}>
+          <SidebarContainer />
+        </div>
         <Content />
       </div>
       <ToastContainer />
@@ -148,7 +107,32 @@ export default function AdminPage() {
   );
 }
 
-// ── Auth Overlay ───────────────────────────────────────────
+function SidebarContainer() {
+  const activePanel = useAdminStore((s) => s.activePanel);
+  const setActivePanel = useAdminStore((s) => s.setActivePanel);
+  const status = useAdminStore((s) => s.status);
+  const loadStatus = useAdminStore((s) => s.loadStatus);
+  const loadLiveConfig = useAdminStore((s) => s.loadLiveConfig);
+
+  useEffect(() => {
+    loadStatus();
+    loadLiveConfig();
+  }, [loadStatus, loadLiveConfig]);
+
+  return (
+    <AdminSidebar
+      active={activePanel}
+      setActive={(id) => {
+        setActivePanel(id);
+        const url = new URL(window.location.href);
+        url.searchParams.set("panel", id);
+        window.history.replaceState({}, "", url.toString());
+      }}
+      status={status}
+    />
+  );
+}
+
 function AuthOverlay() {
   const [input, setInput] = useState("");
   const setToken = useAdminStore((s) => s.setToken);
@@ -163,21 +147,66 @@ function AuthOverlay() {
 
   return (
     <div
-      className="fixed inset-0 bg-bg-primary z-[1000] flex items-center justify-center"
+      className="admin-scope fixed inset-0 z-[1000] flex items-center justify-center"
       data-test="admin-login-prompt"
     >
-      <form onSubmit={handleSubmit} className="bg-bg-secondary border border-border rounded-xl p-8 w-[380px]">
-        <h2 className="text-xl font-semibold mb-1">Admin Access</h2>
-        <p className="text-txt-secondary text-sm mb-6">Enter your admin token</p>
-        {error && <div className="text-terminal-red text-sm mb-3" data-test="admin-login-error">{error}</div>}
-        <input
-          type="text"
-          name="username"
-          autoComplete="username"
-          value="admin"
-          readOnly
-          hidden
-        />
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 28,
+          width: 380,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: 10,
+            marginBottom: 4,
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: "var(--pixel)",
+              fontSize: 26,
+              color: "var(--text)",
+              letterSpacing: "0.04em",
+              textShadow: "0 0 10px color-mix(in oklch, var(--sunset) 40%, transparent)",
+            }}
+          >
+            RADBOT
+          </h2>
+          <span
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.14em",
+              color: "var(--sunset)",
+              padding: "1px 6px",
+              borderRadius: 3,
+              background: "color-mix(in oklch, var(--sunset) 14%, transparent)",
+              border: "1px solid color-mix(in oklch, var(--sunset) 30%, transparent)",
+            }}
+          >
+            ADMIN
+          </span>
+        </div>
+        <p style={{ color: "var(--text-mute)", fontSize: 13, marginBottom: 22 }}>
+          Enter your admin token
+        </p>
+        {error && (
+          <div
+            style={{ color: "var(--magenta)", fontSize: 12, marginBottom: 12 }}
+            data-test="admin-login-error"
+          >
+            {error}
+          </div>
+        )}
+        <input type="text" name="username" autoComplete="username" value="admin" readOnly hidden />
         <input
           type="password"
           name="password"
@@ -186,14 +215,37 @@ function AuthOverlay() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Token"
-          className="w-full p-2.5 border border-border rounded-md bg-bg-primary text-txt-primary text-sm mb-4 outline-none focus:border-radbot-sunset"
           autoFocus
           data-test="admin-token-input"
+          style={{
+            width: "100%",
+            padding: "10px 12px",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--bg-sunk)",
+            color: "var(--text)",
+            fontSize: 13,
+            marginBottom: 16,
+            outline: "none",
+          }}
         />
         <button
           type="submit"
-          className="w-full py-2.5 bg-radbot-sunset text-bg-primary rounded-md font-medium text-sm hover:bg-radbot-sunset/80 transition-colors cursor-pointer"
           data-test="admin-token-submit"
+          style={{
+            width: "100%",
+            padding: "10px",
+            background: "var(--sunset)",
+            color: "var(--bg)",
+            borderRadius: 6,
+            fontFamily: "var(--mono)",
+            fontWeight: 700,
+            fontSize: 12,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            boxShadow: "0 0 18px -4px color-mix(in oklch, var(--sunset) 50%, transparent)",
+            cursor: "pointer",
+          }}
         >
           Authenticate
         </button>
@@ -202,131 +254,146 @@ function AuthOverlay() {
   );
 }
 
-// ── Header ─────────────────────────────────────────────────
-function Header() {
+function TopChrome() {
   const logout = useAdminStore((s) => s.logout);
 
   return (
-    <div className="scanlines h-[50px] bg-bg-secondary border-b border-border flex items-center justify-between px-4 flex-shrink-0 relative z-10">
-      <div className="flex items-center gap-3 min-w-0">
+    <header
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "8px 16px",
+        background: "var(--bg-sunk)",
+        borderBottom: "1px solid var(--border)",
+        flex: "none",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div
           aria-hidden
-          className="mascot-sticker hidden sm:block w-[34px] h-[34px] flex-none rounded-md border-2 border-[#ff9966] bg-cover"
           style={{
-            backgroundImage: "url(/static/dist/radbot.png)",
-            backgroundSize: "260%",
-            backgroundPosition: "60% 30%",
+            width: 28,
+            height: 28,
+            borderRadius: 6,
+            background:
+              "linear-gradient(135deg, var(--sunset), var(--magenta))",
+            boxShadow:
+              "0 0 14px -3px color-mix(in oklch, var(--sunset) 60%, transparent)",
+            display: "grid",
+            placeItems: "center",
+            flex: "none",
           }}
-        />
-        <div className="flex items-baseline gap-2">
-          <h1 className="pixel-font text-[18px] text-txt-primary m-0 leading-none">RADBOT</h1>
-          <span className="inline-flex text-[9px] font-mono font-semibold tracking-[0.15em] text-radbot-sunset px-1.5 py-0.5 rounded-sm border border-radbot-sunset/40 bg-radbot-sunset/10">
-            ADMIN
+        >
+          <span
+            style={{
+              fontFamily: "var(--pixel)",
+              fontSize: 16,
+              color: "var(--bg)",
+              fontWeight: 700,
+            }}
+          >
+            R
           </span>
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <a
-          href="/"
-          className="font-mono text-[0.7rem] uppercase tracking-wider text-txt-secondary border border-border px-2.5 py-1 rounded-sm hover:border-radbot-sunset hover:text-txt-primary no-underline transition-colors"
+        <span
+          style={{
+            fontFamily: "var(--pixel)",
+            fontSize: 18,
+            letterSpacing: "0.04em",
+            color: "var(--text)",
+            textShadow: "0 0 6px color-mix(in oklch, var(--sunset) 35%, transparent)",
+          }}
         >
-          Chat UI
-        </a>
-        <button
-          onClick={logout}
-          className="font-mono text-[0.7rem] uppercase tracking-wider text-txt-secondary border border-border px-2.5 py-1 rounded-sm hover:border-radbot-sunset hover:text-txt-primary cursor-pointer transition-colors bg-transparent"
+          RADBOT
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.14em",
+            color: "var(--sunset)",
+            padding: "1px 6px",
+            borderRadius: 3,
+            background: "color-mix(in oklch, var(--sunset) 14%, transparent)",
+            border: "1px solid color-mix(in oklch, var(--sunset) 30%, transparent)",
+          }}
         >
-          Logout
-        </button>
+          ADMIN
+        </span>
       </div>
-    </div>
+      <span style={{ flex: 1 }} />
+      <a
+        href="/"
+        style={{
+          fontFamily: "var(--mono)",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--text-mute)",
+          border: "1px solid var(--border)",
+          padding: "5px 10px",
+          borderRadius: 4,
+        }}
+      >
+        Chat UI
+      </a>
+      <button
+        type="button"
+        onClick={logout}
+        style={{
+          fontFamily: "var(--mono)",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--text-mute)",
+          border: "1px solid var(--border)",
+          padding: "5px 10px",
+          borderRadius: 4,
+          cursor: "pointer",
+          background: "transparent",
+        }}
+      >
+        Logout
+      </button>
+    </header>
   );
 }
 
-// ── Sidebar ────────────────────────────────────────────────
-function Sidebar() {
+function Content() {
   const activePanel = useAdminStore((s) => s.activePanel);
-  const setActivePanel = useAdminStore((s) => s.setActivePanel);
   const status = useAdminStore((s) => s.status);
-  const loadStatus = useAdminStore((s) => s.loadStatus);
-  const loadLiveConfig = useAdminStore((s) => s.loadLiveConfig);
+  const found = findPanel(activePanel);
+  const PanelComponent = PANEL_MAP[activePanel];
 
-  // Load status and config on mount
-  useEffect(() => {
-    loadStatus();
-    loadLiveConfig();
-  }, [loadStatus, loadLiveConfig]);
-
-  // Group nav items
-  const groups = new Map<string, NavItem[]>();
-  NAV_ITEMS.forEach((item) => {
-    const arr = groups.get(item.group) ?? [];
-    arr.push(item);
-    groups.set(item.group, arr);
-  });
+  const statusKey = found?.panel.statusKey;
+  const panelStatus = mapStatus(statusKey ? status[statusKey] : undefined);
 
   return (
     <div
-      className="w-[220px] min-w-[220px] bg-bg-secondary border-r border-border overflow-y-auto py-2 flex-shrink-0"
-      data-test="admin-sidebar"
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        minWidth: 0,
+      }}
     >
-      {Array.from(groups.entries()).map(([group, items]) => (
-        <div key={group} data-test={`admin-group-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
-          <div className="text-[0.65rem] font-bold tracking-wider uppercase text-txt-secondary/60 px-4 pt-3 pb-1">
-            {group}
-          </div>
-          {items.map((item) => {
-            const s = item.statusKey ? status[item.statusKey] : undefined;
-            return (
-              <div
-                key={item.id}
-                onClick={() => setActivePanel(item.id)}
-                data-test={`admin-nav-${item.id}`}
-                data-status={s?.status ?? "unknown"}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-1.5 cursor-pointer text-sm text-txt-secondary transition-all border-l-[3px] border-transparent",
-                  "hover:bg-bg-tertiary hover:text-txt-primary",
-                  activePanel === item.id && "bg-bg-tertiary text-txt-primary border-l-radbot-sunset",
-                )}
-              >
-                {/* Status dot */}
-                {item.statusKey && (
-                  <span
-                    className={cn(
-                      "w-2 h-2 rounded-full flex-shrink-0",
-                      s?.status === "ok" ? "bg-terminal-green" :
-                      s?.status === "error" ? "bg-terminal-red" :
-                      "bg-txt-secondary/40",
-                    )}
-                    title={s?.message || s?.status || "unknown"}
-                  />
-                )}
-                <span className="truncate">{item.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Content ────────────────────────────────────────────────
-function Content() {
-  const activePanel = useAdminStore((s) => s.activePanel);
-  const PanelComponent = PANEL_MAP[activePanel];
-
-  return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="max-w-[800px]">
+      {found && (
+        <PanelHeader panel={found.panel} category={found.category} status={panelStatus} />
+      )}
+      <div style={{ padding: "22px 26px", maxWidth: 1100, width: "100%" }}>
         {PanelComponent ? (
           <PanelComponent />
         ) : (
-          <div>
-            <h2 className="text-lg font-semibold mb-4">
-              {NAV_ITEMS.find((i) => i.id === activePanel)?.label ?? activePanel}
-            </h2>
-            <p className="text-txt-secondary text-sm">Panel not found.</p>
+          <div style={{ color: "var(--text-mute)", fontSize: 13 }}>
+            Panel not found. Available:{" "}
+            {PANEL_CATEGORIES.flatMap((c) => c.panels)
+              .map((p) => p.id)
+              .join(", ")}
           </div>
         )}
       </div>
@@ -334,7 +401,6 @@ function Content() {
   );
 }
 
-// ── Toast Container ────────────────────────────────────────
 function ToastContainer() {
   const toasts = useAdminStore((s) => s.toasts);
   const dismissToast = useAdminStore((s) => s.dismissToast);
@@ -342,22 +408,51 @@ function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 flex flex-col gap-2 z-[9999]">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          onClick={() => dismissToast(t.id)}
-          className={cn(
-            "px-4 py-3 rounded-lg shadow-lg text-sm font-medium cursor-pointer transition-all animate-[slideIn_0.3s_ease-out]",
-            "max-w-[400px] break-words",
-            t.type === "success"
-              ? "bg-terminal-green/15 border border-terminal-green/30 text-terminal-green"
-              : "bg-terminal-red/15 border border-terminal-red/30 text-terminal-red",
-          )}
-        >
-          {t.message}
-        </div>
-      ))}
+    <div
+      style={{
+        position: "fixed",
+        bottom: 20,
+        right: 20,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        zIndex: 9999,
+      }}
+    >
+      {toasts.map((t) => {
+        const color = t.type === "success" ? "var(--crt)" : "var(--magenta)";
+        return (
+          <div
+            key={t.id}
+            onClick={() => dismissToast(t.id)}
+            className={cn("animate-[slideIn_0.3s_ease-out]")}
+            style={{
+              padding: "12px 16px",
+              borderRadius: 8,
+              background: `color-mix(in oklch, ${color} 14%, var(--surface))`,
+              border: `1px solid color-mix(in oklch, ${color} 40%, transparent)`,
+              color,
+              fontSize: 13,
+              fontWeight: 500,
+              maxWidth: 400,
+              wordBreak: "break-word",
+              cursor: "pointer",
+              boxShadow: "0 8px 30px -10px rgba(0,0,0,0.5)",
+            }}
+          >
+            {t.message}
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+// URL ↔ store sync: read ?panel= on mount.
+if (typeof window !== "undefined") {
+  const p = new URLSearchParams(window.location.search).get("panel");
+  if (p && PANEL_MAP[p]) {
+    // Defer to next tick so Zustand has initialized.
+    queueMicrotask(() => useAdminStore.setState({ activePanel: p }));
+  }
 }
