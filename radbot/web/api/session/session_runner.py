@@ -37,8 +37,6 @@ from radbot.web.api.malformed_function_handler import (
 
 # Import event processing functions
 from radbot.web.api.session.event_processing import (
-    _get_event_details,
-    _get_plan_step_summary,
     _process_agent_transfer_event,
     _process_generic_event,
     _process_model_response_event,
@@ -46,15 +44,11 @@ from radbot.web.api.session.event_processing import (
     _process_tool_call_event,
 )
 
-# Import serialization function
-from radbot.web.api.session.serialization import _safely_serialize
-
 # Import utility functions
 from radbot.web.api.session.utils import (
     _extract_response_from_event,
     _get_current_timestamp,
     _get_event_type,
-    _process_response_text,
 )
 
 

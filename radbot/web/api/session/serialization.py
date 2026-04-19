@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 def _safely_serialize(obj):
     """Safely serialize objects to JSON-compatible structures."""
-    import json
-
     try:
         # Try direct JSON serialization
         json.dumps(obj)

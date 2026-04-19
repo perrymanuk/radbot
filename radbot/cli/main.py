@@ -226,7 +226,6 @@ async def setup_agent() -> Optional[RadBotAgent]:
     # Refresh config_manager and apply DB model overrides to root agent
     try:
         from agent import root_agent
-        from radbot.config import config_manager
 
         config_manager.apply_model_config(root_agent)
     except Exception as model_err:
@@ -247,10 +246,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
             create_home_assistant_agent_factory,
         )
         from radbot.agent.memory_agent_factory import create_memory_enabled_agent
-        from radbot.config.settings import ConfigManager
         from radbot.tools.mcp.mcp_tools import create_ha_mcp_enabled_agent
-
-        config_manager = ConfigManager()
 
         # Configure basic tools
         basic_tools = [get_current_time]
@@ -347,11 +343,7 @@ async def setup_agent() -> Optional[RadBotAgent]:
                     )
 
                 # Create the base agent with all components directly, bypassing the factory functions
-                from google.adk.agents import Agent
-                from google.adk.sessions import InMemorySessionService
-
                 from radbot.agent.agent import RadBotAgent
-                from radbot.agent.runner import RadbotRunner as Runner
 
                 # Create components directly
                 session_service = InMemorySessionService()
@@ -674,8 +666,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        import asyncio
-
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nInterrupted by user. Exiting.")

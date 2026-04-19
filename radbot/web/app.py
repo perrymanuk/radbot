@@ -340,7 +340,6 @@ async def initialize_app_startup():
         # Refresh config_manager and apply DB model overrides to root agent
         try:
             from agent import root_agent
-            from radbot.config import config_manager
 
             config_manager.apply_model_config(root_agent)
         except Exception as model_err:

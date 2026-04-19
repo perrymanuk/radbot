@@ -298,9 +298,6 @@ def create_core_agent_for_web(
         register_tools=True,
     )
 
-    # Import required components for agent transfers
-    from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-
     # Ensure agent has transfer_to_agent tool
     if hasattr(agent, "tools"):
         # Check if tool already exists
