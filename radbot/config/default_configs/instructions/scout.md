@@ -42,10 +42,14 @@ Use the full research stack. Cite everything.
 - `wiki_read(path)` — full read of a matching page.
 
 **External grounded search** — when the wiki doesn't cover it:
-- Transfer to `search_agent` for grounded Google Search. It returns a
-  synthesized answer with citations. Prefer primary sources: official docs,
-  arxiv, vendor engineering blogs, GitHub repos with activity. Ignore SEO
-  aggregators and listicles.
+- `search_agent` is a **sub-agent, not a tool**. The only way to reach it
+  is `transfer_to_agent(agent_name='search_agent')`. Never write
+  `search_agent(...)` as a function call — ADK will error with
+  "Tool 'search_agent' not found". Control returns to you automatically
+  once the grounded search completes.
+- Prefer primary sources in your query framing: official docs, arxiv,
+  vendor engineering blogs, GitHub repos with recent activity. Ignore
+  SEO aggregators and listicles.
 
 **Deep read** — for specific cited URLs the grounded search surfaces:
 - `web_fetch(url)` — strictly guardrailed (256KB cap, 10s timeout, private

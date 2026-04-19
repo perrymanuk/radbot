@@ -123,11 +123,15 @@ class ConfigManager:
         self.model_config = self._load_model_config()
 
     def apply_model_config(self, root_agent) -> None:
-        """Reload model config and apply to root_agent and its sub-agents.
+        """Reload model config and apply to every known root agent and its tree.
 
-        This is the single place where model changes are pushed onto the
-        live agent tree.  Called from web startup, CLI startup, and admin
-        hot-reload.
+        This is the single place where model changes are pushed onto live
+        agents.  Called from web startup, CLI startup, and admin hot-reload.
+
+        Walks beto (the passed root_agent) plus every entry in
+        ``ROOT_AGENTS`` — needed because scout, when used as a session root,
+        is a separate Agent instance not reachable from beto.sub_agents.
+        Without this, DB config changes silently skip scout-rooted sessions.
         """
         _logger = logging.getLogger(__name__)
         self.reload_model_config()
@@ -142,17 +146,49 @@ class ConfigManager:
             root_agent.model = new_model
             _logger.info(f"Applied model config: {old_model} -> {new_model}")
 
-        for sa in root_agent.sub_agents or []:
-            name = getattr(sa, "name", None)
-            if not name:
+        # Collect every agent we need to patch — beto + every alternate root
+        # (scout_root_agent, …) + all of their sub-agents. Deduplicate by
+        # object identity so shared sub-agents aren't patched twice.
+        try:
+            from radbot.agent.agent_core import ROOT_AGENTS
+
+            roots = list(ROOT_AGENTS.values())
+        except Exception:
+            roots = []
+
+        if root_agent not in roots:
+            roots.insert(0, root_agent)
+
+        seen_ids: set[int] = set()
+        for r in roots:
+            if id(r) in seen_ids:
                 continue
-            lookup = name if name.endswith("_agent") else f"{name}_agent"
-            new_sa_model = self.get_agent_model(lookup)
-            if sa.model != new_sa_model:
-                _logger.info(
-                    f"Applied sub-agent '{name}' model: {sa.model} -> {new_sa_model}"
-                )
-                sa.model = new_sa_model
+            seen_ids.add(id(r))
+            # Apply the alternate-root's own model using its name-derived key
+            r_name = getattr(r, "name", None)
+            if r_name and r is not root_agent:
+                r_lookup = r_name if r_name.endswith("_agent") else f"{r_name}_agent"
+                new_r_model = self.get_agent_model(r_lookup)
+                if r.model != new_r_model:
+                    _logger.info(
+                        f"Applied root '{r_name}' model: {r.model} -> {new_r_model}"
+                    )
+                    r.model = new_r_model
+
+            for sa in (getattr(r, "sub_agents", None) or []):
+                if id(sa) in seen_ids:
+                    continue
+                seen_ids.add(id(sa))
+                name = getattr(sa, "name", None)
+                if not name:
+                    continue
+                lookup = name if name.endswith("_agent") else f"{name}_agent"
+                new_sa_model = self.get_agent_model(lookup)
+                if sa.model != new_sa_model:
+                    _logger.info(
+                        f"Applied sub-agent '{name}' model: {sa.model} -> {new_sa_model}"
+                    )
+                    sa.model = new_sa_model
 
     def _load_home_assistant_config(self) -> Dict[str, Any]:
         """
