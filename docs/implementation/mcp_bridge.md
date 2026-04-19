@@ -54,10 +54,10 @@ Both transports serve the same `Server` instance produced by
 | `wiki_list(glob?)` | markdown | Grouped by dir; 500-entry cap |
 | `wiki_search(query, glob?, limit?)` | markdown | `path:line — text` bullets |
 | `wiki_write(path, content)` | plain confirmation | Atomic via `.tmp` rename |
-| `project_match(cwd)` | plain string | Name or empty; used by SessionStart hook |
-| `project_list()` | markdown table | name · patterns · wiki_path |
-| `project_register(name, path_patterns, wiki_path?)` | plain confirmation | Upsert |
-| `project_get_context(name)` | markdown | Reads `wiki_path` file (PR 1); PR 2 swaps in live Telos hierarchy |
+| `project_match(cwd)` | plain string (ref_code) | Used by SessionStart hook; empty on miss |
+| `project_list()` | markdown table | ref · name · patterns · wiki_path (active Telos projects only) |
+| `project_set_path_patterns(ref_code, path_patterns, wiki_path?)` | plain confirmation | Updates `metadata` on an existing Telos project via `metadata_merge` |
+| `project_get_context(ref_or_name)` | markdown | Telos content + recent journal entries with matching `related_refs`. PR 2 replaces with full hierarchy render (milestones/tasks/explorations) |
 | `list_tasks(status?, project?)` | markdown | Grouped by status |
 | `list_reminders(status?)` | markdown | Relative-time phrasing |
 | `list_scheduled_tasks()` | markdown table | name · cron · enabled · prompt |
@@ -102,38 +102,68 @@ Nomad container). The `wiki_*` tools sanitize every input path:
 Tests cover: parent traversal (`../../../etc/passwd`), absolute paths,
 symlinks leading out of root. All return `**Error:** ...` markdown.
 
-## Project registry
+## Project registry (Telos-backed)
 
-Extends the existing `projects` table (created by `tools/todo/db/schema.py`)
-with two columns (idempotent migration):
+Projects are the entries in `telos_entries` where `section='projects'` —
+the same source of truth beto uses for goal/project context injection.
+Each project's `metadata` JSONB carries two optional MCP-bridge fields:
 
-| Column | Type | Purpose |
+| metadata key | Type | Purpose |
 |---|---|---|
-| `wiki_path` | TEXT | Path to the project's wiki page (relative to wiki root) |
-| `path_patterns` | TEXT[] | `cwd` substrings that identify this project |
+| `path_patterns` | list[str] | `cwd` substrings that identify this project. `project_match(cwd)` returns the project whose longest matching pattern wins. |
+| `wiki_path` | string | Optional path (relative to wiki root) to the project's wiki page. Consumed by `project_get_context` as a "further reading" link today; PR 2 replaces `project_get_context` with a live hierarchy render and this field becomes purely informational. |
 
-`project_match(cwd)` is the critical read: it does a SQL `LIKE '%<pattern>%'`
-against each element of `path_patterns` and returns the longest matching
-project name (ties broken by most-specific name). The SessionStart hook
-(see below) calls this on every session start; an empty result means "no
-radbot project matches this cwd — stay silent."
+`project_match(cwd)` is the critical read — called by Claude Code's
+SessionStart hook on every session start. Returns the project's
+**ref_code** (e.g. `P1`) for URL-safe pass-through. Empty result means
+"no Telos project claims this cwd" and the hook stays silent.
 
-`project_register(name, path_patterns, wiki_path)` is an UPSERT. Admin UI
-exposes an inline-edit table for browsing/adding/deleting.
+`project_set_path_patterns(ref_code, path_patterns, wiki_path?)`
+attaches MCP-bridge metadata to an existing Telos project via
+`metadata_merge`. It does **not** create Telos projects — that path
+remains through beto's confirm-required `telos_add_project`, so every
+project entry still passes through the regular Telos provenance.
+
+### Deprecated: todo.projects
+
+PR-1 briefly added `wiki_path` + `path_patterns` columns to the
+`tools/todo/db/schema.py` `projects` table (a lightweight todo-list
+registry, not identity-level projects). Those columns are unused after
+this PR; the migration was removed from `init_schema`. Existing DBs keep
+the columns harmlessly; new installs don't get them.
+
+### Admin UI
+
+The "MCP Bridge" panel lists the active Telos projects and lets you
+inline-edit their `path_patterns` + `wiki_path` by calling
+`PUT /api/telos/entry/projects/{ref}` with `metadata_merge`. No
+create/delete buttons — those belong in the Telos panel.
 
 ## REST endpoints
 
-All under `/api/mcp/`, admin-token-gated (same bearer as `/api/telos/*`):
+Two routers under different auth:
+
+**Admin-token-gated** (`/api/mcp/*`) — owned by the React admin panel:
 
 | Method + Path | Purpose |
 |---|---|
 | `GET /api/mcp/status` | Auth configured, token source, wiki mount check, SSE + setup URLs |
 | `GET /api/mcp/token/reveal` | Explicit reveal — returns cleartext token |
 | `POST /api/mcp/token/rotate` | Generates + stores + returns new token |
-| `GET /api/mcp/projects` | List all projects |
-| `POST /api/mcp/projects` | Upsert `{name, path_patterns, wiki_path?}` |
-| `PATCH /api/mcp/projects/{name}` | Partial update |
-| `DELETE /api/mcp/projects/{name}` | Remove |
+
+**MCP-token-gated** (`/api/projects/*`) — called by the SessionStart
+hook; mirrors the MCP tools so shell scripts can consume them without
+an MCP client:
+
+| Method + Path | Purpose |
+|---|---|
+| `GET /api/projects/match?cwd=<path>` | Returns `{"project": "<ref_code>"}` or `{"project": null}` |
+| `GET /api/projects/{ref_or_name}/context.md` | Renders the project context markdown |
+
+Project *listing* and *editing* use the existing `/api/telos/*` routes
+(`GET /api/telos/section/projects`, `PUT /api/telos/entry/projects/{ref}`
+with `metadata_merge`). Having two write paths for one resource would
+guarantee drift.
 
 Plus the MCP-transport endpoints (not under `/api/`, different auth):
 

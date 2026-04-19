@@ -57,7 +57,10 @@ from radbot.web.api.videos import router as videos_router
 from radbot.web.api.ha import router as ha_router
 from radbot.web.api.telos import router as telos_router
 from radbot.web.api.setup import router as setup_router
-from radbot.web.api.mcp import router as mcp_admin_router
+from radbot.web.api.mcp import (
+    router as mcp_admin_router,
+    public_router as mcp_public_router,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,7 @@ def create_app():
     app.include_router(telos_router)
     app.include_router(setup_router)
     app.include_router(mcp_admin_router)
+    app.include_router(mcp_public_router)
     register_terminal_websocket(app)
 
     # Mount MCP HTTP/SSE transport (gated by RADBOT_MCP_TOKEN env var)

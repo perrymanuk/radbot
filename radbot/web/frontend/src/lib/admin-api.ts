@@ -298,12 +298,6 @@ export interface McpStatus {
   setup_url: string;
 }
 
-export interface McpProject {
-  name: string;
-  path_patterns: string[];
-  wiki_path: string | null;
-}
-
 export async function getMcpStatus(token: string): Promise<McpStatus> {
   return adminFetch("/api/mcp/status", { token });
 }
@@ -316,21 +310,8 @@ export async function rotateMcpToken(token: string): Promise<{ token: string; so
   return adminFetch("/api/mcp/token/rotate", { token, method: "POST" });
 }
 
-export async function listMcpProjects(token: string): Promise<McpProject[]> {
-  return adminFetch("/api/mcp/projects", { token });
-}
-
-export async function upsertMcpProject(token: string, project: McpProject): Promise<McpProject> {
-  return adminFetch("/api/mcp/projects", {
-    token,
-    method: "POST",
-    body: JSON.stringify(project),
-  });
-}
-
-export async function deleteMcpProject(token: string, name: string): Promise<{ deleted: string }> {
-  return adminFetch(`/api/mcp/projects/${encodeURIComponent(name)}`, {
-    token,
-    method: "DELETE",
-  });
-}
+// Project registry is Telos-backed — use `telosGetSection("projects")` +
+// `telosUpdateEntry` with `metadata_merge={path_patterns, wiki_path}` to
+// manage the MCP-bridge metadata on existing Telos projects. Projects are
+// created via the confirm-required `telos_add_project` agent tool, not
+// from the MCP-bridge admin panel.
