@@ -125,17 +125,23 @@ beto_tools = create_agent_memory_tools("beto") + list(TELOS_TOOLS)
 # ADK 2.0's _Mesh builds the routing graph in model_post_init.
 # ---------------------------------------------------------------------------
 
-# Builtin sub-agents (search, code execution, scout)
-from radbot.agent.research_agent.factory import create_research_agent
-from radbot.tools.adk_builtin.code_execution_tool import create_code_execution_agent
-from radbot.tools.adk_builtin.search_tool import create_search_agent
+# Builtin sub-agents (search, code execution, scout).
+# Late imports are intentional — these factories must run after beto_tools /
+# TELOS setup above, which monkey-patches module state they depend on.
+from radbot.agent.research_agent.factory import create_research_agent  # noqa: E402
+from radbot.tools.adk_builtin.code_execution_tool import (  # noqa: E402
+    create_code_execution_agent,
+)
+from radbot.tools.adk_builtin.search_tool import create_search_agent  # noqa: E402
 
 search_agent = create_search_agent(name="search_agent")
 code_execution_agent = create_code_execution_agent(name="code_execution_agent")
 scout_agent = create_research_agent(name="scout", as_subagent=False)
 
 # Domain sub-agents (casa, planner, comms, axel, kidsvid)
-from radbot.agent.specialized_agent_factory import create_specialized_agents
+from radbot.agent.specialized_agent_factory import (  # noqa: E402
+    create_specialized_agents,
+)
 
 specialized_agents = create_specialized_agents()
 logger.debug(f"Created {len(specialized_agents)} specialized agents")

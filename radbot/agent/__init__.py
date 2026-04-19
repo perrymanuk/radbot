@@ -17,9 +17,6 @@ The REST API approach allows:
 """
 
 import logging
-import sys
-
-logger = logging.getLogger(__name__)
 
 # Import agent classes and factories from the proper modules
 from radbot.agent.agent import (
@@ -41,6 +38,8 @@ from radbot.agent.shell_agent_factory import (
     create_shell_agent,
     create_shell_enabled_root_agent,
 )
+
+logger = logging.getLogger(__name__)
 
 # Import the root_agent from the root-level agent.py module
 logger.info("Importing root_agent from the root-level agent.py module")

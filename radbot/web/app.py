@@ -534,7 +534,7 @@ async def shutdown_terminals():
 
 # Handle X-Forwarded-Proto/Host behind reverse proxies (Traefik, etc.)
 # This ensures redirects use the correct scheme (https) when behind a proxy.
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 

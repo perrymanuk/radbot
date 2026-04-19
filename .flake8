@@ -7,8 +7,9 @@ max-line-length = 120
 
 # Codes we explicitly ignore project-wide:
 #   E203 — whitespace before ':' (conflicts with black)
-#   E402 — module-level import not at top (justified by lazy / conditional imports)
-extend-ignore = E203,E402
+# Everything else (E402/F401/F541/F811/F824/F841/W293/W605) was previously
+# muted here and has been fixed + re-enabled via PT16 steps.
+extend-ignore = E203
 
 # Per-file overrides for files where wholesale ignores would hide real bugs.
 per-file-ignores =

@@ -8,10 +8,9 @@ including tools from Home Assistant, FileServer, and other MCP integrations.
 import logging
 from typing import Any, Callable, List, Optional
 
-logger = logging.getLogger(__name__)
-
-# Import necessary modules
 from radbot.tools.mcp.mcp_core import get_available_mcp_tools
+
+logger = logging.getLogger(__name__)
 
 
 def create_mcp_enabled_agent(

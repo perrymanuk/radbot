@@ -7,15 +7,13 @@ capabilities via MCP Server integration.
 
 import logging
 
-logger = logging.getLogger(__name__)
-
 from radbot.tools.mcp.mcp_entity_search import (
     create_find_ha_entities_tool,
     search_home_assistant_entities,
 )
-
-# Import necessary components
 from radbot.tools.mcp.mcp_homeassistant import create_home_assistant_toolset
+
+logger = logging.getLogger(__name__)
 
 
 def create_ha_mcp_enabled_agent(

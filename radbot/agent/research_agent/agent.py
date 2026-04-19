@@ -8,8 +8,6 @@ agent for technical research and design collaboration.
 import logging
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
-
 # Import ADK components
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
@@ -22,6 +20,8 @@ from radbot.agent.research_agent.sequential_thinking import (
 )
 from radbot.agent.research_agent.tools import get_research_tools
 from radbot.config import config_manager
+
+logger = logging.getLogger(__name__)
 
 
 class ResearchAgent:

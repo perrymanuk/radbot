@@ -10,45 +10,38 @@ import logging
 import os
 import sys
 
-logger = logging.getLogger(__name__)
-
-# Add project root to path
+# Add repo root to sys.path so `import agent` (root-level agent.py) resolves.
+# Must happen before any radbot/agent imports below.
 project_root = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../../../../")
 )
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from google.adk.artifacts import InMemoryArtifactService
-from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
+from google.adk.artifacts import InMemoryArtifactService  # noqa: E402
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.genai.types import Content, Part  # noqa: E402
 
-# Import root_agent directly from agent.py
-from agent import root_agent
-
-# Import needed ADK components
-from radbot.agent.runner import RadbotRunner as Runner
-
-# Import the malformed function handler
-from radbot.web.api.malformed_function_handler import (
+# Import root_agent directly from agent.py (resolved via sys.path insert above)
+from agent import root_agent  # noqa: E402
+from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
+from radbot.web.api.malformed_function_handler import (  # noqa: E402
     extract_text_from_malformed_function,
 )
-
-# Import event processing functions
-from radbot.web.api.session.event_processing import (
+from radbot.web.api.session.event_processing import (  # noqa: E402
     _process_agent_transfer_event,
     _process_generic_event,
     _process_model_response_event,
     _process_planner_event,
     _process_tool_call_event,
 )
-
-# Import utility functions
-from radbot.web.api.session.utils import (
+from radbot.web.api.session.utils import (  # noqa: E402
     _extract_response_from_event,
     _get_current_timestamp,
     _get_event_type,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SessionRunner:

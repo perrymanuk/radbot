@@ -7,14 +7,15 @@ This module provides factory functions for creating research agents.
 import logging
 from typing import Any, List, Optional, Union
 
-logger = logging.getLogger(__name__)
-
-# Import ADK components
-
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent
 from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
+
+# Import ADK components
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_research_agent(

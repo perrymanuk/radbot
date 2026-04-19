@@ -20,8 +20,6 @@ except (ImportError, AttributeError):
 
     HAVE_ADK_TOOL_DECORATOR = False
 
-logger = logging.getLogger(__name__)
-
 from radbot.tools.ha_state_cache import search_ha_entities
 
 # Import the tool functions
@@ -32,6 +30,8 @@ from radbot.tools.ha_tools_impl import (
     turn_off_ha_entity,
     turn_on_ha_entity,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_tool_schemas() -> List[Any]:

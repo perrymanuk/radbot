@@ -13,20 +13,19 @@ from google.adk.agents import Agent
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 
+# Import agent factory and base components
+from radbot.agent.agent_base import RadBotAgent
+from radbot.agent.agent_factory import AgentFactory
 from radbot.agent.runner import RadbotRunner as Runner
+
+# Import our configuration modules
+from radbot.config.settings import ConfigManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Type alias for backward compatibility
 SessionService = InMemorySessionService
-
-# Import agent factory and base components
-from radbot.agent.agent_base import RadBotAgent
-from radbot.agent.agent_factory import AgentFactory
-
-# Import our configuration modules
-from radbot.config.settings import ConfigManager
 
 
 def create_runner(

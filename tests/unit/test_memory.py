@@ -22,14 +22,14 @@ class MockPayloadSchemaType(enum.Enum):
     BOOL = "bool"
 
 
-# Save the original and replace with mock
+# Save the original and replace with mock. Imports below depend on the
+# patched PayloadSchemaType, so they must happen AFTER the monkey-patch.
 original_payload_schema_type = models.PayloadSchemaType
 models.PayloadSchemaType = MockPayloadSchemaType
 
-# Import needed modules
-from radbot.memory.embedding import EmbeddingModel, embed_text
-from radbot.memory.qdrant_memory import QdrantMemoryService
-from radbot.tools.memory.memory_tools import (
+from radbot.memory.embedding import EmbeddingModel, embed_text  # noqa: E402
+from radbot.memory.qdrant_memory import QdrantMemoryService  # noqa: E402
+from radbot.tools.memory.memory_tools import (  # noqa: E402
     search_past_conversations,
     store_important_information,
 )

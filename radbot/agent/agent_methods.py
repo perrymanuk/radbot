@@ -11,11 +11,10 @@ from typing import Any, Dict, List
 from google.genai.types import Content, Part
 from google.protobuf.json_format import MessageToDict
 
+from radbot.agent.agent_base import RadBotAgent
+
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Import necessary components
-from radbot.agent.agent_base import RadBotAgent
 
 
 def add_tool(self: RadBotAgent, tool: Any) -> None:

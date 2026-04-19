@@ -11,14 +11,14 @@ from typing import List, Optional
 # Import necessary components
 from google.adk.agents import Agent
 
-# Configure logging
-logger = logging.getLogger(__name__)
-
 from radbot.agent.agent_base import FALLBACK_INSTRUCTION
 
 # Import our configuration modules
 from radbot.config import config_manager
 from radbot.config.settings import ConfigManager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class AgentFactory:
