@@ -59,6 +59,16 @@ def _build_scout_toolkit() -> List[Any]:
     except Exception as e:
         logger.warning("Scout: Telos subset unavailable: %s", e)
 
+    # Plan Council — 3 core critics + 1 on-demand UX/DX + the trigger heuristic.
+    # Scout orchestrates the rounds herself; no hidden aggregator.
+    try:
+        from radbot.tools.council import COUNCIL_TOOLS, should_convene_council_tool
+
+        toolkit.extend(COUNCIL_TOOLS)
+        toolkit.append(should_convene_council_tool)
+    except Exception as e:
+        logger.warning("Scout: plan council unavailable: %s", e)
+
     return toolkit
 
 
