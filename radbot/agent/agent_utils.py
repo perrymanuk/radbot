@@ -128,7 +128,6 @@ def create_agent(
             tools=all_tools,
             instruction_name=instruction_name,
             config=config,
-            register_tools=register_tools,
         )
         logger.info(f"Created web agent with {len(all_tools)} tools")
 
