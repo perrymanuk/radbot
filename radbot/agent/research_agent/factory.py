@@ -125,7 +125,12 @@ def create_research_agent(
     if tools:
         toolkit.extend(tools)
 
-    # Create the research agent with explicit name and app_name
+    # Create the research agent with explicit name and app_name.
+    # ADK 2.0 requires the Runner's root LlmAgent to be in "chat" mode — the
+    # sub-agent default ``mode="task"`` triggers a startup error on the first
+    # real turn. When scout is being constructed as a session root, swap to
+    # "chat"; sub-agent usage keeps "task" so we don't disturb the existing
+    # beto→scout transfer path.
     research_agent = ResearchAgent(
         name=name,
         model=model,
@@ -135,6 +140,7 @@ def create_research_agent(
         enable_google_search=enable_google_search,
         enable_code_execution=enable_code_execution,
         app_name=app_name,  # Should match the root agent's name
+        mode="chat" if as_root else "task",
     )
 
     adk_agent = research_agent.get_adk_agent()
