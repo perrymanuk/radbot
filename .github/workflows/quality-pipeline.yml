@@ -467,22 +467,23 @@ jobs:
         working-directory: pr
         run: docker compose down -v || true
 
-      # ── Phase 3: AI compare ──────────────────────────────────────────
+      # ── Phase 3: AI compare (Claude Code CLI as judge) ───────────────
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
       - name: Compare screenshots
         id: compare
         working-directory: pr
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BUDGET_USD: ${{ env.ANTHROPIC_BUDGET_USD }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # anthropic isn't in pyproject.toml deps; only the visual-regression
-          # comparator script needs it. uv run --with creates an ephemeral
-          # venv with the dep — avoids the "externally-managed" PEP 668 error
-          # that --system would hit on Ubuntu's system Python.
-          uv run --with "anthropic>=0.40.0" python scripts/visual_regression_compare.py \
+          uv run python scripts/visual_regression_compare.py \
             --before "$GITHUB_WORKSPACE/screens/main" \
             --after "$GITHUB_WORKSPACE/screens/pr" \
             --output-json "$GITHUB_WORKSPACE/visual-result.json" \
+            --output-md "$GITHUB_WORKSPACE/visual-summary.md" \
+            --pr-context "$PR_TITLE" \
             --max-score 20 >> "$GITHUB_STEP_SUMMARY"
       - name: Upload screenshot artifacts
         if: always()
@@ -492,6 +493,7 @@ jobs:
           path: |
             screens/
             visual-result.json
+            visual-summary.md
           retention-days: 14
 
   # ──────────────────────────────────────────────────────────────────────
@@ -516,6 +518,13 @@ jobs:
       statuses: write
     steps:
       - uses: actions/checkout@v4
+      - name: Download visual-regression artifact
+        if: needs.visual-regression.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: visual-regression-${{ github.run_id }}
+          path: visual-artifact
       - name: Compute total score
         id: tally
         env:
@@ -553,6 +562,12 @@ jobs:
             if [ "$BLOCKED" = "true" ]; then
               echo
               echo "**Auto-merge disabled** — sensitive paths touched: \`$BLOCKED_PATHS\`"
+            fi
+            if [ -f visual-artifact/visual-summary.md ]; then
+              echo
+              echo "### Visual regression details"
+              echo
+              cat visual-artifact/visual-summary.md
             fi
           } > comment.md
       - name: Post sticky comment
