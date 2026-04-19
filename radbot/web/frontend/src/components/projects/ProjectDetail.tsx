@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router-dom";
+import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
 import { cn } from "@/lib/utils";
 import {
@@ -32,12 +33,14 @@ export default function ProjectDetail({ project }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = (searchParams.get("tab") as TabKey) || "overview";
 
-  const counts = useProjectsStore((s) => ({
-    milestones: selectMilestonesForProject(s, project.ref_code!).length,
-    tasks: selectTasksForProject(s, project.ref_code!).length,
-    explorations: selectExplorationsForProject(s, project.ref_code!).length,
-    goals: selectGoalsForProject(s, project.ref_code!).length,
-  }));
+  const counts = useProjectsStore(
+    useShallow((s) => ({
+      milestones: selectMilestonesForProject(s, project.ref_code!).length,
+      tasks: selectTasksForProject(s, project.ref_code!).length,
+      explorations: selectExplorationsForProject(s, project.ref_code!).length,
+      goals: selectGoalsForProject(s, project.ref_code!).length,
+    })),
+  );
 
   const tabCount = (key: TabKey) => {
     if (key === "milestones") return counts.milestones;

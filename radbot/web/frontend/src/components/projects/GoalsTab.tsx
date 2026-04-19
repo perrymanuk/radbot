@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
 import {
   selectGoalsForProject,
@@ -10,8 +11,8 @@ interface Props {
 }
 
 export default function GoalsTab({ project }: Props) {
-  const goals = useProjectsStore((s) =>
-    selectGoalsForProject(s, project.ref_code!),
+  const goals = useProjectsStore(
+    useShallow((s) => selectGoalsForProject(s, project.ref_code!)),
   );
 
   if (goals.length === 0) {

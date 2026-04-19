@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
 import {
   bucketTasks,
@@ -11,8 +12,8 @@ interface Props {
 }
 
 export default function TasksTab({ project }: Props) {
-  const tasks = useProjectsStore((s) =>
-    selectTasksForProject(s, project.ref_code!),
+  const tasks = useProjectsStore(
+    useShallow((s) => selectTasksForProject(s, project.ref_code!)),
   );
   const buckets = bucketTasks(tasks);
 

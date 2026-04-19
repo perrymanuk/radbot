@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
 import {
   selectExplorationsForProject,
@@ -10,8 +11,8 @@ interface Props {
 }
 
 export default function ExplorationsTab({ project }: Props) {
-  const explorations = useProjectsStore((s) =>
-    selectExplorationsForProject(s, project.ref_code!),
+  const explorations = useProjectsStore(
+    useShallow((s) => selectExplorationsForProject(s, project.ref_code!)),
   );
 
   if (explorations.length === 0) {
