@@ -556,12 +556,14 @@ jobs:
             fi
           } > comment.md
       - name: Post sticky comment
-        uses: peter-evans/create-or-update-comment@v4
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: comment.md
-          edit-mode: replace
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ github.event.pull_request.number }}
+          # `header` is the hidden marker used to find the existing comment
+          # on subsequent runs and update in place instead of creating a new one.
+          header: quality-pipeline
+          path: comment.md
       - name: Set commit status
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
