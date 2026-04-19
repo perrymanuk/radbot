@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/stores/app-store";
+import type { SessionAgent } from "@/types";
 import SessionItem from "./SessionItem";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -12,6 +13,7 @@ export default function SessionsPanel() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newAgent, setNewAgent] = useState<SessionAgent>("beto");
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -28,10 +30,11 @@ export default function SessionsPanel() {
   const handleCreate = async () => {
     const name = newName.trim() || undefined;
     const description = newDescription.trim() || undefined;
-    await createNewSession(name, description);
+    await createNewSession(name, description, newAgent);
     setCreating(false);
     setNewName("");
     setNewDescription("");
+    setNewAgent("beto");
     if (isMobile) setActivePanel(null);
   };
 
@@ -39,6 +42,7 @@ export default function SessionsPanel() {
     setCreating(false);
     setNewName("");
     setNewDescription("");
+    setNewAgent("beto");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -94,6 +98,30 @@ export default function SessionsPanel() {
             rows={2}
             className="w-full bg-bg-secondary text-txt-primary border border-border px-2 py-1 font-mono text-[0.65rem] outline-none focus:border-accent-blue resize-none"
           />
+          <div
+            className="flex gap-1 mt-1"
+            role="radiogroup"
+            aria-label="Session root agent"
+            data-test="session-agent-picker"
+          >
+            {(["beto", "scout"] as const).map((a) => (
+              <button
+                key={a}
+                type="button"
+                role="radio"
+                aria-checked={newAgent === a}
+                data-test={`session-agent-${a}`}
+                onClick={() => setNewAgent(a)}
+                className={`flex-1 px-2 py-0.5 border text-[0.7rem] font-mono uppercase tracking-wider transition-all ${
+                  newAgent === a
+                    ? "border-accent-blue text-accent-blue bg-bg-primary"
+                    : "border-border text-txt-secondary hover:text-txt-primary"
+                }`}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
           <div className="flex gap-2 mt-1">
             <button
               onClick={handleCreate}

@@ -33,34 +33,56 @@ class SessionManager:
         logger.info("Session manager initialized")
 
     async def get_or_create_runner(
-        self, session_id: str, user_id: str = "web_user"
+        self,
+        session_id: str,
+        user_id: str = "web_user",
+        agent_name: Optional[str] = None,
     ) -> SessionRunner:
         """Atomically get or create a runner for a session.
 
         Holds the lock across the entire check-and-create operation to prevent
         TOCTOU races when multiple WebSocket connections arrive simultaneously.
+
+        If ``agent_name`` isn't passed explicitly, the DB is consulted — an
+        existing session keeps whichever root agent it was created with.
+        Brand-new sessions fall back to ``"beto"``.
         """
         async with self.lock:
             runner = self.sessions.get(session_id)
             if runner:
                 return runner
 
+            # Resolve which root agent this session uses. An existing row wins
+            # over any caller-supplied name — agent_name is immutable for a
+            # session's lifetime (tied to the ADK session-service partition).
+            from radbot.web.db import chat_operations
+
+            existing = chat_operations.get_session_agent_name(session_id)
+            effective_agent = existing or agent_name or "beto"
+
             logger.info(
-                "Creating new session runner for session %s",
+                "Creating new session runner for session %s (agent=%s)",
                 session_id,
+                effective_agent,
             )
 
-            runner = SessionRunner(user_id=user_id, session_id=session_id)
-            logger.info("Created SessionRunner for session %s", session_id)
+            runner = SessionRunner(
+                user_id=user_id, session_id=session_id, agent_name=effective_agent
+            )
+            logger.info(
+                "Created SessionRunner for session %s (root=%s)",
+                session_id,
+                effective_agent,
+            )
 
-            # Register session in DB
+            # Register session in DB — pass agent_name through so a brand-new
+            # session is stamped on first touch.
             try:
-                from radbot.web.db import chat_operations
-
                 chat_operations.create_or_update_session(
                     session_id=session_id,
                     name=f"Session {session_id[:8]}",
                     user_id=user_id,
+                    agent_name=effective_agent,
                 )
             except Exception as db_err:
                 logger.warning("Failed to register session in DB: %s", db_err)

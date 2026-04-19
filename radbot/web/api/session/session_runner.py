@@ -22,8 +22,10 @@ from google.adk.artifacts import InMemoryArtifactService  # noqa: E402
 from google.adk.sessions import InMemorySessionService  # noqa: E402
 from google.genai.types import Content, Part  # noqa: E402
 
-# Import root_agent directly from agent.py (resolved via sys.path insert above)
-from agent import root_agent  # noqa: E402
+# Registry of available session roots (keyed by agent_name stored on
+# chat_sessions). get_root_agent imports agent.py transitively, which sets
+# up the agent tree; unknown names fall back to beto.
+from radbot.agent.agent_core import get_root_agent  # noqa: E402
 from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
 from radbot.web.api.malformed_function_handler import (  # noqa: E402
     extract_text_from_malformed_function,
@@ -47,16 +49,26 @@ logger = logging.getLogger(__name__)
 class SessionRunner:
     """Enhanced ADK Runner for web sessions."""
 
-    def __init__(self, user_id: str, session_id: str):
+    def __init__(self, user_id: str, session_id: str, agent_name: str = "beto"):
         """Initialize a SessionRunner for a specific user.
 
         Args:
             user_id: Unique user identifier
             session_id: Session identifier
+            agent_name: Root agent name for this session. ``"beto"`` (default)
+                routes through the general-purpose orchestrator; ``"scout"``
+                boots a planning-focused session that skips beto's routing
+                layer. Unknown names fall back to beto.
         """
         self.user_id = user_id
         self.session_id = session_id
+        self.agent_name = agent_name
         self.session_service = InMemorySessionService()
+
+        # Resolve the session's root agent. ``get_root_agent`` falls back to
+        # beto on any unknown name (so legacy rows or typos don't strand
+        # sessions).
+        self._root_agent = get_root_agent(agent_name)
 
         # Create artifact service for this session
         self.artifact_service = InMemoryArtifactService()
@@ -65,17 +77,25 @@ class SessionRunner:
         # Log agent tree structure
         self._log_agent_tree()
 
-        # Create the ADK Runner with app_name matching the agent name
-        app_name = root_agent.name if hasattr(root_agent, "name") else "beto"
-        logger.debug(f"Using app_name='{app_name}' for session management")
+        # Create the ADK Runner with app_name matching the selected root
+        app_name = (
+            self._root_agent.name if hasattr(self._root_agent, "name") else agent_name
+        )
+        logger.info(
+            "SessionRunner session=%s user=%s root=%s app_name=%s",
+            session_id,
+            user_id,
+            app_name,
+            app_name,
+        )
 
-        # Get memory service from root_agent if available
+        # Get memory service from the selected root agent if available
         memory_service = None
-        if hasattr(root_agent, "_memory_service"):
-            memory_service = root_agent._memory_service
+        if hasattr(self._root_agent, "_memory_service"):
+            memory_service = self._root_agent._memory_service
             logger.debug("Using memory service from root agent")
-        elif hasattr(root_agent, "memory_service"):
-            memory_service = root_agent.memory_service
+        elif hasattr(self._root_agent, "memory_service"):
+            memory_service = self._root_agent.memory_service
             logger.debug("Using memory service from root agent")
 
         # Store memory_service in the global ToolContext class so memory tools can find it
@@ -88,7 +108,7 @@ class SessionRunner:
 
         # Create the Runner with artifact service and memory service
         self.runner = Runner(
-            agent=root_agent,
+            agent=self._root_agent,
             app_name=app_name,
             session_service=self.session_service,
             artifact_service=self.artifact_service,  # Pass artifact service to Runner
@@ -116,21 +136,22 @@ class SessionRunner:
         """Log the agent tree structure for debugging."""
         logger.debug("===== AGENT TREE STRUCTURE =====")
 
+        agent = self._root_agent
         # Check root agent
-        if hasattr(root_agent, "name"):
-            logger.debug(f"ROOT AGENT: name='{root_agent.name}'")
+        if hasattr(agent, "name"):
+            logger.debug(f"ROOT AGENT: name='{agent.name}'")
         else:
             logger.warning("ROOT AGENT: No name attribute")
 
         # Check sub-agents
-        if hasattr(root_agent, "sub_agents") and root_agent.sub_agents:
+        if hasattr(agent, "sub_agents") and agent.sub_agents:
             sub_agent_names = [
-                sa.name for sa in root_agent.sub_agents if hasattr(sa, "name")
+                sa.name for sa in agent.sub_agents if hasattr(sa, "name")
             ]
             logger.debug(f"SUB-AGENTS: {sub_agent_names}")
 
             # Check each sub-agent
-            for i, sa in enumerate(root_agent.sub_agents):
+            for i, sa in enumerate(agent.sub_agents):
                 sa_name = sa.name if hasattr(sa, "name") else f"unnamed-{i}"
                 logger.debug(f"SUB-AGENT {i}: name='{sa_name}'")
 
@@ -1150,7 +1171,11 @@ class SessionRunner:
                 logger.debug("No DB history found for session %s", self.session_id)
                 return
 
-            agent_name = root_agent.name if hasattr(root_agent, "name") else "beto"
+            agent_name = (
+                self._root_agent.name
+                if hasattr(self._root_agent, "name")
+                else self.agent_name
+            )
             MAX_HISTORY = 15
             recent = db_messages[-MAX_HISTORY:]
 

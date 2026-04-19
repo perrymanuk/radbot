@@ -106,6 +106,13 @@ def create_schema_if_not_exists() -> bool:
                     ADD COLUMN IF NOT EXISTS description TEXT;
                 """)
 
+                # Add agent_name column — identifies the session's root agent.
+                # Existing rows default to 'beto' so the migration is zero-risk.
+                cursor.execute(f"""
+                    ALTER TABLE {CHAT_SCHEMA}.chat_sessions
+                    ADD COLUMN IF NOT EXISTS agent_name TEXT NOT NULL DEFAULT 'beto';
+                """)
+
                 logger.info(
                     f"Chat history schema and tables created or verified in schema '{CHAT_SCHEMA}'"
                 )
@@ -312,6 +319,7 @@ def create_or_update_session(
     user_id: Optional[str] = None,
     preview: Optional[str] = None,
     description: Optional[str] = None,
+    agent_name: Optional[str] = None,
 ) -> bool:
     """
     Create or update a chat session.
@@ -322,6 +330,9 @@ def create_or_update_session(
         user_id: Optional user identifier
         preview: Optional preview text for the session
         description: Optional project description for the session
+        agent_name: Optional root agent name ('beto' | 'scout'). Only applied on
+            INSERT; updates to an existing session leave the agent_name
+            unchanged (the root agent is immutable across a session's lifetime).
 
     Returns:
         bool: True if successful, False on error
@@ -334,10 +345,13 @@ def create_or_update_session(
             logger.error(f"Invalid session_id format: {session_id}")
             return False
 
-    # Insert or update SQL
+    # Insert or update SQL — agent_name is set on INSERT only; never overwritten
+    # on conflict (the root agent must be stable for a session's lifetime so the
+    # ADK session-service partition remains consistent).
     sql = f"""
-        INSERT INTO {CHAT_SCHEMA}.chat_sessions (session_id, name, user_id, preview, description)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO {CHAT_SCHEMA}.chat_sessions
+            (session_id, name, user_id, preview, description, agent_name)
+        VALUES (%s, %s, %s, %s, %s, COALESCE(%s, 'beto'))
         ON CONFLICT (session_id)
         DO UPDATE SET
             name = COALESCE(EXCLUDED.name, chat_sessions.name),
@@ -347,7 +361,7 @@ def create_or_update_session(
             is_active = true;
     """
 
-    params = (session_id, name, user_id, preview, description)
+    params = (session_id, name, user_id, preview, description, agent_name)
 
     try:
         with get_chat_db_connection() as conn:
@@ -357,6 +371,31 @@ def create_or_update_session(
     except Exception as e:
         logger.error(f"Error creating/updating session {session_id}: {e}")
         return False
+
+
+def get_session_agent_name(session_id: str) -> Optional[str]:
+    """Return the root agent name for a session, or None if not found.
+
+    Fast path used by session routing to decide which root Agent to spin up.
+    """
+    if isinstance(session_id, str):
+        try:
+            session_id = uuid.UUID(session_id)
+        except ValueError:
+            return None
+
+    try:
+        with get_chat_db_connection() as conn:
+            with get_chat_db_cursor(conn) as cursor:
+                cursor.execute(
+                    f"SELECT agent_name FROM {CHAT_SCHEMA}.chat_sessions WHERE session_id = %s;",
+                    (session_id,),
+                )
+                row = cursor.fetchone()
+                return row[0] if row else None
+    except Exception as e:
+        logger.warning("get_session_agent_name failed for %s: %s", session_id, e)
+        return None
 
 
 def update_session_last_message(
@@ -420,7 +459,7 @@ def list_sessions(
         List of session dictionaries
     """
     base_sql = f"""
-        SELECT session_id, name, user_id, created_at, last_message_at, preview, is_active, description
+        SELECT session_id, name, user_id, created_at, last_message_at, preview, is_active, description, agent_name
         FROM {CHAT_SCHEMA}.chat_sessions
         WHERE is_active = true
     """

@@ -30,7 +30,7 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 
 | Table | Module | Key columns |
 |-------|--------|-------------|
-| `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |
+| `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active`, `agent_name` (TEXT NOT NULL DEFAULT 'beto' — root agent for the session; immutable after creation, partitions the ADK session-service) |
 | `chat_messages` | `web/db/chat_operations.py` | `message_id` (UUID), `session_id`, `role`, `content`, `agent_name`, `metadata` (JSONB) |
 
 ### Indexes Worth Knowing

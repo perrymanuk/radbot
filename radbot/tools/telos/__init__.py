@@ -11,9 +11,10 @@ See ``docs/implementation/telos.md`` for the full design.
 from .callback import inject_telos_context
 from .db import init_telos_schema
 from .loader import build_telos_tiers
-from .telos_tools import TELOS_TOOLS
+from .telos_tools import SCOUT_TELOS_TOOLS, TELOS_TOOLS
 
 __all__ = [
+    "SCOUT_TELOS_TOOLS",
     "TELOS_TOOLS",
     "build_telos_tiers",
     "init_telos_schema",

@@ -206,6 +206,59 @@ logger.info(
     f"{len(root_agent.sub_agents)} sub-agents"
 )
 
+# ---------------------------------------------------------------------------
+# Scout root — alternate session root for direct planning conversations.
+#
+# Lets a chat session skip beto's orchestration layer entirely when the user
+# wants an extended back-and-forth with scout (research → plan → write to
+# Telos). Each session picks its root agent by name via
+# chat_sessions.agent_name; the Runner is constructed with the matching
+# root here. Scout still exists as a sub-agent under beto for the
+# "quick research detour mid-beto-chat" case — this is a **second** scout
+# instance, separate Python object, with its own sub-agent tree.
+# ---------------------------------------------------------------------------
+
+# Scout's own grounded-search child. Can't reuse beto's search_agent — ADK
+# binds a sub_agent to one parent. Same tool (ADK google_search), different
+# Python instance.
+scout_search_agent = create_search_agent(name="search_agent")
+
+scout_root_agent = create_research_agent(
+    name="scout",
+    as_root=True,
+    sub_agents=[scout_search_agent],
+)
+if memory_service:
+    scout_root_agent._memory_service = memory_service
+
+logger.info(
+    f"Created scout root agent with "
+    f"{len(scout_root_agent.tools) if hasattr(scout_root_agent, 'tools') else 0} tools and "
+    f"{len(scout_root_agent.sub_agents) if hasattr(scout_root_agent, 'sub_agents') else 0} sub-agents"
+)
+
+# Registry of valid session root agents. Keyed by the agent_name stored on
+# chat_sessions. Session routing looks up the root here.
+ROOT_AGENTS: dict = {
+    "beto": root_agent,
+    "scout": scout_root_agent,
+}
+
+
+def get_root_agent(agent_name: str = "beto"):
+    """Return the root agent for a given session-agent name.
+
+    Unknown names fall back to beto so a typo or legacy row doesn't strand
+    a session.
+    """
+    agent = ROOT_AGENTS.get(agent_name)
+    if agent is None:
+        logger.warning(
+            "Unknown session agent_name=%r — falling back to beto", agent_name
+        )
+        return root_agent
+    return agent
+
 
 def create_agent(tools: Optional[List[Any]] = None, app_name: str = "beto"):
     """

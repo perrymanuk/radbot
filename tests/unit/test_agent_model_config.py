@@ -113,17 +113,21 @@ class TestAgentModelConfig(unittest.TestCase):
         # Verify the get_agent_model was called with the correct agent name
         mock_config_manager.get_agent_model.assert_called_with("scout_agent")
 
-        # Verify ResearchAgent was created with the correct model
-        mock_research_agent.assert_called_with(
-            name="scout",
-            model=mock_config_manager.get_agent_model.return_value,
-            instruction=None,
-            tools=None,
-            enable_sequential_thinking=True,
-            enable_google_search=False,
-            enable_code_execution=False,
-            app_name="beto",
+        # Verify ResearchAgent was created with the right identity + model.
+        # (We only assert the stable kwargs — scout now builds her own toolkit
+        # and loads scout.md inside the factory, so `tools` and `instruction`
+        # are populated by the factory, not passed through None.)
+        mock_research_agent.assert_called_once()
+        call_kwargs = mock_research_agent.call_args.kwargs
+        self.assertEqual(call_kwargs["name"], "scout")
+        self.assertEqual(
+            call_kwargs["model"],
+            mock_config_manager.get_agent_model.return_value,
         )
+        self.assertEqual(call_kwargs["app_name"], "beto")
+        self.assertTrue(call_kwargs["enable_sequential_thinking"])
+        self.assertFalse(call_kwargs["enable_google_search"])
+        self.assertFalse(call_kwargs["enable_code_execution"])
 
     @patch.dict(
         os.environ,
