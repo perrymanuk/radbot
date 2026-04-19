@@ -178,12 +178,6 @@ export default function ChatHeader() {
                 onClick={() => togglePanel("sessions")}
               />
               <NavTab
-                label="TASKS"
-                ariaLabel="Tasks panel"
-                active={activePanel === "tasks"}
-                onClick={() => togglePanel("tasks")}
-              />
-              <NavTab
                 label="EVENTS"
                 mobileLabel="EVT"
                 ariaLabel="Events panel"

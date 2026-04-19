@@ -25,7 +25,6 @@ _process_initialized = False
 
 # Registry of DB schema initializers: (state_key, module_path, function_name)
 _SCHEMA_INITS = [
-    ("todo_init", "radbot.tools.todo", "init_database"),
     ("scheduler_init", "radbot.tools.scheduler", "init_scheduler_schema"),
     ("webhook_init", "radbot.tools.webhooks", "init_webhook_schema"),
     ("reminder_init", "radbot.tools.reminders", "init_reminder_schema"),

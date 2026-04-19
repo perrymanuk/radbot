@@ -2,7 +2,7 @@
 Database operations for the Claude Code / Coder Workspaces module.
 
 Handles schema creation and CRUD for the ``coder_workspaces`` table,
-reusing the shared PostgreSQL pool from ``radbot.tools.todo.db.connection``.
+reusing the shared PostgreSQL pool from ``radbot.db.connection``.
 """
 
 import logging
@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
 
-from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection, get_db_cursor
 
 logger = logging.getLogger(__name__)
 

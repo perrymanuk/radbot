@@ -2,7 +2,8 @@
 
 RadBot is an AI agent framework built on Google ADK 2.0.0a3, PostgreSQL, Qdrant,
 and MCP. The main agent "beto" has a 90s SoCal personality. Multi-agent architecture
-with specialized sub-agents (casa, planner, tracker, comms, scout, axel, search, code execution).
+with specialized sub-agents (casa, planner, comms, scout, axel, kidsvid, search, code execution).
+Project/task management lives in Telos (on beto) — there is no tracker sub-agent.
 
 **Package manager**: `uv` — always use `uv run` to execute Python commands.
 
@@ -81,10 +82,9 @@ radbot/
 │   ├── agent_core.py             # Root agent (beto) creation — orchestrator only
 │   ├── agent_initializer.py      # Basic ADK imports and config
 │   ├── agent_tools_setup.py      # Schema init callback, search/code/scout creation
-│   ├── specialized_agent_factory.py  # Creates all domain agents (casa, planner, tracker, comms, axel)
-│   ├── home_agent/               # Casa agent (Home Assistant + Overseerr)
-│   ├── planner_agent/            # Planner agent (Calendar + Scheduler + Reminders)
-│   ├── tracker_agent/            # Tracker agent (Todo + Webhooks)
+│   ├── specialized_agent_factory.py  # Creates all domain agents (casa, planner, comms, axel, kidsvid)
+│   ├── home_agent/               # Casa agent (Home Assistant + Overseerr + Picnic + Lidarr)
+│   ├── planner_agent/            # Planner agent (Calendar + Scheduler + Reminders + Webhooks)
 │   ├── comms_agent/              # Comms agent (Gmail + Jira)
 │   ├── execution_agent/          # Axel agent (shell + filesystem + MCP)
 │   ├── research_agent/           # Scout agent (research + sequential thinking)
@@ -121,15 +121,15 @@ radbot/
 
 ## Sub-Agents
 
-Beto is a **pure orchestrator** with only memory tools. All domain tools live on specialized sub-agents.
+Beto is a **pure orchestrator** with memory + Telos tools. All domain tools live on specialized sub-agents.
 Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
+Project / milestone / task / exploration management stays on beto (Telos-backed) — there is no tracker sub-agent.
 
 | Agent | Factory location | Tools | Purpose |
 |---|---|---|---|
-| **beto** (root) | `agent/agent_core.py` | 2 memory + 18 telos | Orchestrator, routes to specialists; owns persistent user context (Telos) |
-| **casa** | `agent/home_agent/factory.py` | 6 HA REST (default) **OR** HA MCP (~19 built-in + user scripts, dynamic; opt-in via `integrations.home_assistant.use_mcp=true`) + 6 HA Dashboard + 4 Overseerr + 5 Lidarr + 8 Picnic + 2 memory | Smart home, media requests, music, grocery. HA MCP path enables HA's native Assist intent tools (HassLightSet, HassClimateSetTemperature, HassMediaSearchAndPlay, etc.) once explicitly toggled. |
-| **planner** | `agent/planner_agent/factory.py` | 1 time + 5 calendar + 3 scheduler + 3 reminder + 2 memory | Calendar, scheduling, reminders |
-| **tracker** | `agent/tracker_agent/factory.py` | 8 todo + 3 webhook + 2 memory | Task/project management |
+| **beto** (root) | `agent/agent_core.py` | 2 memory + 27 telos | Orchestrator, routes to specialists; owns Telos (identity, mission, goals, projects + milestones + project_tasks + explorations, journal, …) |
+| **casa** | `agent/home_agent/factory.py` | 6 HA REST (default) **OR** HA MCP (~19 built-in + user scripts, dynamic; opt-in via `integrations.home_assistant.use_mcp=true`) + 6 HA Dashboard + 4 Overseerr + 5 Lidarr + 10 Picnic + 4 cards + 2 memory | Smart home, media requests, music, grocery. HA MCP path enables HA's native Assist intent tools (HassLightSet, HassClimateSetTemperature, HassMediaSearchAndPlay, etc.) once explicitly toggled. |
+| **planner** | `agent/planner_agent/factory.py` | 1 time + 5 calendar + 3 scheduler + 3 reminder + 3 webhook + 2 memory | Calendar, scheduling, reminders, webhook triggers |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
 | **scout** | `agent/research_agent/factory.py` | 2 memory | Technical research, design collab |
 | **kidsvid** | `agent/youtube_agent/factory.py` | 3 YouTube + 2 CuriosityStream + 10 Kideo + 2 memory | Children's video curation (YouTube + CuriosityStream search, Kideo library, AI tagging, analytics) |
@@ -150,13 +150,12 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 |---|---|---|---|
 | `tools/basic/` | `basic_tools.py`, `weather_connector.py` | `get_current_time`, `get_weather` | Time and weather |
 | `tools/memory/` | `memory_tools.py`, `agent_memory_factory.py` | `search_past_conversations`, `store_important_information`, `create_agent_memory_tools()` | Qdrant semantic memory (global + per-agent scoped) |
-| `tools/todo/` | `db_tools.py`, `todo_tools.py`, `db/` | `add_task_tool`, `complete_task_tool`, `list_all_tasks_tool`, +5 more | Task/project management |
 | `tools/calendar/` | `calendar_tools.py`, `calendar_manager.py` | `list_calendar_events_tool`, `create_calendar_event_tool`, +3 more | Google Calendar CRUD |
 | `tools/gmail/` | `gmail_tools.py`, `gmail_manager.py` | `list_emails_tool`, `search_emails_tool`, `get_email_tool`, `list_gmail_accounts_tool` | Gmail read-only |
 | `tools/homeassistant/` | `ha_tools_impl.py`, `ha_rest_client.py` | `list_ha_entities`, `get_ha_entity_state`, `turn_on/off/toggle_ha_entity`, `search_ha_entities` | Home Assistant REST |
 | `tools/scheduler/` | `schedule_tools.py`, `db.py`, `engine.py` | `create_scheduled_task_tool`, `list_scheduled_tasks_tool`, `delete_scheduled_task_tool` | APScheduler cron tasks |
 | `tools/reminders/` | `reminder_tools.py`, `db.py` | `create_reminder_tool`, `list_reminders_tool`, `delete_reminder_tool` | One-shot reminders |
-| `tools/telos/` | `telos_tools.py`, `db.py`, `loader.py`, `callback.py`, `markdown_io.py`, `cli.py` | 18 telos tools (read + silent-update + confirm-required) | Persistent user context store (identity, mission, goals, problems, projects, challenges, wisdom, predictions, journal, etc.). Beto-only. Injected into beto's `system_instruction` via `inject_telos_context` (anchor every turn, full block session-start). Onboarding: `uv run python -m radbot.tools.telos.cli onboard`. See `docs/implementation/telos.md` |
+| `tools/telos/` | `telos_tools.py`, `db.py`, `loader.py`, `callback.py`, `markdown_io.py`, `cli.py` | 27 telos tools (read + silent-update + confirm-required + project hierarchy) | Persistent user context store (identity, mission, goals, problems, **projects + milestones + project_tasks + explorations**, challenges, wisdom, predictions, journal, etc.). Beto-only. Injected into beto's `system_instruction` via `inject_telos_context` (anchor every turn, full block session-start). Onboarding: `uv run python -m radbot.tools.telos.cli onboard`. See `docs/implementation/telos.md` |
 | `tools/webhooks/` | `webhook_tools.py`, `db.py`, `template_renderer.py` | `create_webhook_tool`, `list_webhooks_tool`, `delete_webhook_tool` | External POST webhooks |
 | `tools/overseerr/` | `overseerr_tools.py`, `overseerr_client.py` | `search_overseerr_media_tool`, `request_overseerr_media_tool`, +2 more | Media requests |
 | `tools/lidarr/` | `lidarr_tools.py`, `lidarr_client.py` | `search_lidarr_artist_tool`, `add_lidarr_artist_tool`, +3 more | Music collection (Lidarr) |
@@ -181,12 +180,11 @@ Beto routes requests via ADK's `transfer_to_agent` — no wrapper tools needed.
 
 ## Database Tables
 
-All tables use the shared pool from `radbot/tools/todo/db/connection.py` unless noted.
+All tables use the shared pool from `radbot/db/connection.py` unless noted.
 
 | Table | Module | Key columns |
 |---|---|---|
-| `tasks` | `tools/todo/db/schema.py` | `task_id` (UUID), `project_id`, `title`, `status` (backlog/inprogress/done), `related_info` (JSONB) |
-| `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE) |
+| ~~`tasks`, `projects`~~ | _deprecated — inert after the todo module was removed; data lives in `telos_entries` with sections `projects` + `project_tasks`. Old rows retained for rollback; migrate via `scripts/migrate_todo_to_telos.py`._ |
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
 | `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section`, `ref_code`, `content`, `metadata` (JSONB), `status`, `sort_order`, UNIQUE (section, ref_code) |
@@ -274,7 +272,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 ## Common Patterns
 
 - **Lazy imports**: Use inside functions to avoid circular deps and import-time crashes
-- **DB connections**: Reuse pool from `radbot.tools.todo.db.connection` (call `get_db_pool()`)
+- **DB connections**: Reuse pool from `radbot.db.connection` (call `get_db_pool()`)
 - **Schema init**: Idempotent `init_*_schema()` with `CREATE TABLE IF NOT EXISTS`
 - **Singleton clients**: `_client` module-level + `get_client()`/`reset_client()` with `close()` for HTTP sessions
 - **Agent tools**: Wrap plain functions as `FunctionTool` from `google.adk.tools`

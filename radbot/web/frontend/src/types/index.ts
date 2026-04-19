@@ -17,28 +17,6 @@ export interface Session {
   preview?: string | null;
 }
 
-// ── Tasks ─────────────────────────────────────────────────
-export type TaskStatus = "backlog" | "in_progress" | "done";
-
-export interface Task {
-  task_id: string;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  project_id: string;
-  project_name?: string;
-  category?: string;
-  priority?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Project {
-  project_id: string;
-  name: string;
-  description?: string;
-}
-
 // ── Agent Events ──────────────────────────────────────────
 export type EventCategory =
   | "tool_call"
@@ -98,7 +76,7 @@ export interface Notification {
 }
 
 // ── Panels ────────────────────────────────────────────────
-export type PanelType = "sessions" | "tasks" | "events" | null;
+export type PanelType = "sessions" | "events" | null;
 
 // ── Agent Info ────────────────────────────────────────────
 export interface SubAgentDetail {

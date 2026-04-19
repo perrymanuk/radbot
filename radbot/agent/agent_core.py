@@ -135,7 +135,7 @@ search_agent = create_search_agent(name="search_agent")
 code_execution_agent = create_code_execution_agent(name="code_execution_agent")
 scout_agent = create_research_agent(name="scout", as_subagent=False)
 
-# Domain sub-agents (casa, planner, tracker, comms, axel)
+# Domain sub-agents (casa, planner, comms, axel, kidsvid)
 from radbot.agent.specialized_agent_factory import create_specialized_agents
 
 specialized_agents = create_specialized_agents()

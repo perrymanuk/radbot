@@ -1,7 +1,5 @@
 import type {
   Session,
-  Task,
-  Project,
   AgentEvent,
   AgentInfo,
   Message,
@@ -64,45 +62,6 @@ export async function fetchMessages(
   limit = 50,
 ): Promise<Message[]> {
   return json(`/api/sessions/${sessionId}/messages?limit=${limit}`);
-}
-
-// ── Tasks ─────────────────────────────────────────────────
-export async function fetchTasks(): Promise<Task[]> {
-  return json("/api/tasks");
-}
-
-export async function createTask(data: {
-  title: string;
-  description?: string;
-  project_id: string;
-  status?: string;
-  category?: string;
-}): Promise<{ task_id: string }> {
-  return json("/api/tasks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateTask(
-  taskId: string,
-  data: Partial<Pick<Task, "title" | "description" | "status" | "project_id">>,
-): Promise<void> {
-  await fetch(`${BASE}/api/tasks/${taskId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-}
-
-export async function deleteTask(taskId: string): Promise<void> {
-  await fetch(`${BASE}/api/tasks/${taskId}`, { method: "DELETE" });
-}
-
-// ── Projects ──────────────────────────────────────────────
-export async function fetchProjects(): Promise<Project[]> {
-  return json("/api/projects");
 }
 
 // ── Events ────────────────────────────────────────────────

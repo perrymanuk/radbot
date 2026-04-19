@@ -17,8 +17,10 @@ def tools() -> list[mcp_types.Tool]:
         mcp_types.Tool(
             name="list_tasks",
             description=(
-                "List radbot todo tasks across all projects, grouped by status. "
-                "Optional status filter: `backlog`, `inprogress`, or `done`."
+                "List radbot project tasks (Telos-backed), grouped by kanban "
+                "status. Optional filters: `status` (backlog/inprogress/done) "
+                "and `project` (ref_code like `PRJ1` or a substring of the "
+                "project name)."
             ),
             inputSchema={
                 "type": "object",
@@ -29,7 +31,7 @@ def tools() -> list[mcp_types.Tool]:
                     },
                     "project": {
                         "type": "string",
-                        "description": "Filter to a specific project name.",
+                        "description": "Filter to a project by ref_code or name substring.",
                     },
                 },
                 "additionalProperties": False,
@@ -103,21 +105,55 @@ def _relative_time(dt: datetime) -> str:
 
 
 def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextContent:
-    from radbot.tools.todo.db.connection import get_db_connection
-    from radbot.tools.todo.db.queries import list_all_tasks
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
 
     if status and status not in ("backlog", "inprogress", "done"):
         return mcp_types.TextContent(
             type="text", text=f"**Error:** invalid status `{status}`"
         )
 
-    with get_db_connection() as conn:
-        rows = list_all_tasks(conn, status_filter=status)
-
+    # Resolve project filter to a ref_code (exact or substring match).
+    project_filter_ref: str | None = None
+    project_names: dict[str, str] = {}
+    for p in telos_db.list_section(Section.PROJECTS, status="active"):
+        if p.ref_code:
+            project_names[p.ref_code] = (
+                (p.content or "").splitlines()[0].strip() or p.ref_code
+            )
     if project:
-        rows = [r for r in rows if r.get("project_name") == project]
+        needle = project.strip().lower()
+        if project in project_names:
+            project_filter_ref = project
+        else:
+            for ref, name in project_names.items():
+                if needle == name.lower() or needle in name.lower():
+                    project_filter_ref = ref
+                    break
+        if project_filter_ref is None:
+            return mcp_types.TextContent(
+                type="text", text=f"_No project matching `{project}`._"
+            )
 
-    if not rows:
+    rows = telos_db.list_section(
+        Section.PROJECT_TASKS, status="active", order_by="sort_order_asc"
+    )
+    by_status: dict[str, list[tuple[str, str, str]]] = {
+        "backlog": [], "inprogress": [], "done": [],
+    }
+    for r in rows:
+        meta = r.metadata or {}
+        st = meta.get("task_status") or "backlog"
+        if status and st != status:
+            continue
+        parent_ref = meta.get("parent_project") or ""
+        if project_filter_ref and parent_ref != project_filter_ref:
+            continue
+        proj_name = project_names.get(parent_ref, parent_ref or "—")
+        title = meta.get("title") or (r.content or "").split("\n", 1)[0][:80]
+        by_status.setdefault(st, []).append((r.ref_code or "?", proj_name, title))
+
+    if not any(by_status.values()):
         filt = " · ".join(
             bit for bit in (
                 f"status={status}" if status else None,
@@ -128,13 +164,6 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
             type="text", text=f"_No tasks{(' (' + filt + ')') if filt else ''}._"
         )
 
-    # Group by status for readability
-    by_status: dict[str, list[dict[str, Any]]] = {
-        "backlog": [], "inprogress": [], "done": [],
-    }
-    for r in rows:
-        by_status.setdefault(r.get("status", "backlog"), []).append(r)
-
     lines: list[str] = []
     for st in ("inprogress", "backlog", "done"):
         bucket = by_status.get(st) or []
@@ -142,10 +171,8 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
             continue
         lines.append(f"## {st} ({len(bucket)})")
         lines.append("")
-        for r in bucket:
-            title = r.get("title") or (r.get("description") or "").split("\n", 1)[0][:80]
-            proj = r.get("project_name") or "—"
-            lines.append(f"- **[{proj}]** {title}")
+        for ref_code, proj_name, title in bucket:
+            lines.append(f"- `{ref_code}` **[{proj_name}]** {title}")
         lines.append("")
     return mcp_types.TextContent(type="text", text="\n".join(lines).rstrip())
 

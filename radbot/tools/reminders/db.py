@@ -2,7 +2,7 @@
 Database operations for the Reminder Tool.
 
 This module handles schema creation and CRUD operations for one-shot reminders,
-reusing the existing PostgreSQL connection pool from radbot.tools.todo.db.connection.
+reusing the existing PostgreSQL connection pool from radbot.db.connection.
 """
 
 import logging
@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
 
-from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection, get_db_cursor
 
 logger = logging.getLogger(__name__)
 

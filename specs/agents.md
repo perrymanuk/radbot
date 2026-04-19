@@ -5,20 +5,23 @@
 Beto is a **pure orchestrator** — it holds only memory tools and routes requests to specialized sub-agents via ADK's auto-injected `transfer_to_agent`. Each sub-agent owns its domain tools and returns control by calling `transfer_to_agent(agent_name='beto')`.
 
 ```
-                              beto (orchestrator)
+                              beto (orchestrator + Telos project hierarchy)
                                     │
-     ┌─────────┬──────────┬─────────┼─────────┬──────────┬─────────┐
-     │         │          │         │         │          │         │
-   casa     planner    tracker    comms     axel     kidsvid    scout
-  (smart   (calendar  (todo +   (email +  (execution (children   (research +
-   home +   schedule + projects   Jira)     + infra)  video       design
-   media +  reminders) + webhooks)                    curation)   collab)
-   music +
+     ┌─────────┬──────────┬─────────┬─────────┬──────────┐
+     │         │          │         │         │          │
+   casa     planner     comms     axel     kidsvid    scout
+  (smart   (calendar  (email +  (execution (children   (research +
+   home +   schedule + Jira)     + infra)  video       design
+   media +  reminders +          curation)   collab)
+   music +  webhooks)
    grocery)
                                                   │
                               scout also peers with search_agent
                               & code_execution_agent (ADK built-ins)
 ```
+
+Beto owns **all project/task management directly** via Telos tools (projects, milestones, project_tasks, explorations). The earlier tracker sub-agent + `tools/todo` module have been retired — webhooks moved to planner.
+
 
 **Key architectural refinements (post-2026-03-22):**
 
@@ -30,10 +33,9 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 | Agent | Factory | Model | Tool Count | Purpose |
 |-------|---------|-------|------------|---------|
-| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 20 | Orchestrator, routes to specialists; owns Telos (persistent user context) |
-| **casa** | `agent/home_agent/factory.py` | `resolve_agent_model("casa_agent")` | ~38 | Smart home, media, music, grocery, card emission |
-| **planner** | `agent/planner_agent/factory.py` | `resolve_agent_model("planner_agent")` | 14 | Calendar, scheduling, reminders |
-| **tracker** | `agent/tracker_agent/factory.py` | `resolve_agent_model("tracker_agent")` | 13 | Tasks, projects, webhooks |
+| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 29 | Orchestrator, routes to specialists; owns Telos (persistent user context + project hierarchy) |
+| **casa** | `agent/home_agent/factory.py` | `resolve_agent_model("casa_agent")` | ~37 | Smart home, media, music, grocery, card emission |
+| **planner** | `agent/planner_agent/factory.py` | `resolve_agent_model("planner_agent")` | 17 | Calendar, scheduling, reminders, webhooks |
 | **comms** | `agent/comms_agent/factory.py` | `resolve_agent_model("comms_agent")` | 12 | Email (Gmail), Jira |
 | **axel** | `agent/execution_agent/factory.py` | `config_manager.get_agent_model("axel_agent_model")` | 17+ MCP | Shell, files, code exec, Claude Code, Nomad, MCP |
 | **kidsvid** | `agent/youtube_agent/factory.py` | `resolve_agent_model("kidsvid_agent")` | 18 | Children's video curation (YouTube + CuriosityStream + Kideo + video card) |
@@ -47,8 +49,8 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 - **Temperature**: 0.2
 - **Global instruction**: injects today's date
-- **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`) + 18 Telos tools (`TELOS_TOOLS`, see `specs/tools.md`)
-- **Before-agent callback**: `setup_before_agent_call` — DB schema init (todo, scheduler, webhook, reminder, telos, notifications, alerts, telemetry), HA client check
+- **Tools**: `search_agent_memory`, `store_agent_memory` (via `create_agent_memory_tools("beto")`) + 27 Telos tools (`TELOS_TOOLS`, see `specs/tools.md`; includes projects / milestones / project_tasks / explorations hierarchy tools)
+- **Before-agent callback**: `setup_before_agent_call` — DB schema init (scheduler, webhook, reminder, telos, notifications, alerts, telemetry), HA client check
 - **Before-model callbacks**: `[scrub_empty_content_before_model, sanitize_before_model_callback, sanitize_tool_schemas_before_model, inject_telos_context]`
 - **After-model callbacks**: `[handle_empty_response_after_model, telemetry_after_model_callback]`
 - **Instruction file**: `config/default_configs/instructions/main_agent.md`
@@ -72,7 +74,7 @@ Beto is a **pure orchestrator** — it holds only memory tools and routes reques
 
 Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsvid ships `show_video_card` for kid-video cards.
 
-### planner — Calendar, Scheduling, Reminders
+### planner — Calendar, Scheduling, Reminders, Webhooks
 
 | Tool Group | Count | Source |
 |------------|-------|--------|
@@ -80,15 +82,8 @@ Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsv
 | Calendar | 5 | `list_calendar_events`, `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`, `check_calendar_availability` |
 | Scheduler | 3 | `radbot.tools.scheduler.SCHEDULER_TOOLS` |
 | Reminders | 3 | `radbot.tools.reminders.REMINDER_TOOLS` |
+| Webhooks | 3 | `radbot.tools.webhooks.WEBHOOK_TOOLS` (moved here when the tracker sub-agent was retired) |
 | Memory | 2 | `create_agent_memory_tools("planner")` |
-
-### tracker — Tasks, Projects, Webhooks
-
-| Tool Group | Count | Source |
-|------------|-------|--------|
-| Todo | 8 | `radbot.tools.todo.ALL_TOOLS` |
-| Webhooks | 3 | `radbot.tools.webhooks.WEBHOOK_TOOLS` |
-| Memory | 2 | `create_agent_memory_tools("tracker")` |
 
 ### comms — Email, Jira
 
@@ -153,7 +148,7 @@ All assembly happens in `radbot/agent/agent_core.py` at module import time:
 
 1. `create_agent_memory_tools("beto")` — beto's 2 memory tools
 2. `create_search_agent()`, `create_code_execution_agent()`, `create_research_agent(name="scout", as_subagent=False)` — the three "peer" sub-agents
-3. `create_specialized_agents()` builds the domain agents in order: casa → planner → tracker → comms → axel → kidsvid. None-returning factories are filtered out.
+3. `create_specialized_agents()` builds the domain agents in order: casa → planner → comms → axel → kidsvid. None-returning factories are filtered out.
 4. `all_sub_agents` = builtin sub-agents + specialized — passed to the root `Agent(...)` constructor
 5. **Before construction**, callbacks are attached to each sub-agent:
    - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model, sanitize_tool_schemas_before_model]`
@@ -181,8 +176,8 @@ From `config/default_configs/instructions/main_agent.md`:
 | Request Type | Agent |
 |-------------|-------|
 | Smart home, lights, sensors, climate, media requests, music (Lidarr), grocery (Picnic) | `casa` |
-| Calendar, reminders, scheduled tasks, time queries | `planner` |
-| Todo lists, projects, task management, webhooks | `tracker` |
+| Calendar, reminders, scheduled tasks, webhooks, time queries | `planner` |
+| Project / milestone / task / exploration work | `beto` (direct via Telos tools) |
 | Email (Gmail), Jira issues | `comms` |
 | Web research, design discussion, rubber-ducking | `scout` |
 | Code implementation, file ops, shell, GitHub, Nomad, alerts | `axel` |
@@ -211,10 +206,10 @@ From `config/default_configs/instructions/main_agent.md`:
 |------|---------|
 | `agent/agent_core.py` | Root agent creation, sub-agent assembly, callback wiring |
 | `agent/agent_tools_setup.py` | DB schema init callback, search/code/scout creation |
-| `agent/specialized_agent_factory.py` | Domain agent creation (casa, planner, tracker, comms, axel, kidsvid) |
+| `agent/specialized_agent_factory.py` | Domain agent creation (casa, planner, comms, axel, kidsvid) |
 | `agent/{domain}_agent/factory.py` | Per-domain agent factory function |
 | `agent/shared.py` | `load_agent_instruction`, `resolve_agent_model`, task/transfer instruction helpers |
-| `config/default_configs/instructions/*.md` | Agent instruction files (main_agent.md, casa.md, planner.md, tracker.md, comms.md, axel.md, scout.md, kidsvid.md) |
+| `config/default_configs/instructions/*.md` | Agent instruction files (main_agent.md, casa.md, planner.md, comms.md, axel.md, scout.md, kidsvid.md) |
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |

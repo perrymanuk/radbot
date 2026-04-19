@@ -9,7 +9,6 @@ import { cn, uuid } from "@/lib/utils";
 
 const COMMANDS = [
   { name: "/sessions", description: "Toggle sessions panel" },
-  { name: "/tasks", description: "Toggle tasks panel" },
   { name: "/events", description: "Toggle events panel" },
   { name: "/clear", description: "Clear conversation history" },
   { name: "/help", description: "Show available commands" },
@@ -73,10 +72,6 @@ export default function ChatInput() {
         case "sessions":
           togglePanel("sessions");
           addMessage({ id: uuid(), role: "system", content: "Sessions panel toggled", timestamp: Date.now() });
-          break;
-        case "tasks":
-          togglePanel("tasks");
-          addMessage({ id: uuid(), role: "system", content: "Tasks panel toggled", timestamp: Date.now() });
           break;
         case "events":
           togglePanel("events");

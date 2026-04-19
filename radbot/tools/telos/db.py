@@ -2,7 +2,7 @@
 
 Single table `telos_entries` backs all sections. Section-specific fields
 live in JSONB `metadata`. Reuses the shared PostgreSQL pool from
-`radbot.tools.todo.db.connection`.
+`radbot.db.connection`.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import psycopg2
 import psycopg2.extras
 
-from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection, get_db_cursor
 
 from .models import REF_PREFIX, STATUS_VALUES, Entry, Section
 

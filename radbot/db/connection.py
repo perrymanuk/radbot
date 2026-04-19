@@ -1,9 +1,9 @@
-"""
-Database connection handling for the Todo Tool.
+"""Shared PostgreSQL connection pool for radbot.
 
-This module encapsulates database connection management
-using the psycopg2 library with connection pooling.
-Connection pool is initialized lazily on first use.
+Lazy-initialised `psycopg2.pool.ThreadedConnectionPool` used by every module
+that touches the main database (scheduler, reminders, webhooks, telos,
+notifications, alerts, credentials, claude_code, worker, telemetry, MCP
+bridge, web health).
 """
 
 import atexit
@@ -15,38 +15,30 @@ from contextlib import contextmanager
 from typing import Generator
 
 import psycopg2
-import psycopg2.extras  # For RealDictCursor
+import psycopg2.extras
 import psycopg2.pool
 
-# Import configuration
 from radbot.config import config_loader
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
-# Register UUID adapter for psycopg2
 psycopg2.extensions.register_adapter(
     uuid.UUID, lambda u: psycopg2.extensions.adapt(str(u))
 )
 
-# --- Lazy Connection Pool ---
-
-# Connection pool (initialized on first use)
-_pool = None
+_pool: psycopg2.pool.ThreadedConnectionPool | None = None
 _pool_lock = threading.Lock()
 
-# Configure pool size (overridable via environment variables)
 MIN_CONN = int(os.environ.get("RADBOT_DB_POOL_MIN", "1"))
 MAX_CONN = int(os.environ.get("RADBOT_DB_POOL_MAX", "10"))
 
 
 def _close_pool() -> None:
-    """Close the connection pool on interpreter shutdown."""
     global _pool
     if _pool is not None:
         try:
             _pool.closeall()
-            logger.debug("Todo DB connection pool closed")
+            logger.debug("radbot DB connection pool closed")
         except Exception:
             pass
         _pool = None
@@ -55,40 +47,31 @@ def _close_pool() -> None:
 atexit.register(_close_pool)
 
 
-def _get_pool() -> psycopg2.pool.ThreadedConnectionPool:
-    """Get or initialize the database connection pool.
-
-    Raises:
-        ValueError: If database credentials are not configured.
-        psycopg2.OperationalError: If the database connection fails.
-    """
+def get_db_pool() -> psycopg2.pool.ThreadedConnectionPool:
+    """Return the process-wide connection pool, initialising on first call."""
     global _pool
     if _pool is not None:
         return _pool
-
     with _pool_lock:
-        # Double-check after acquiring lock
         if _pool is not None:
             return _pool
-
         return _init_pool_locked()
 
 
+# Backwards-compatible alias used throughout the codebase.
+_get_pool = get_db_pool
+
+
 def _init_pool_locked() -> psycopg2.pool.ThreadedConnectionPool:
-    """Actually create the pool. Must be called while holding _pool_lock."""
     global _pool
 
-    # Get database configuration from config.yaml
     database_config = config_loader.get_config().get("database", {})
-
-    # Load from config.yaml or fall back to environment variables
     db_name = database_config.get("db_name") or os.getenv("POSTGRES_DB")
     db_user = database_config.get("user") or os.getenv("POSTGRES_USER")
     db_password = database_config.get("password") or os.getenv("POSTGRES_PASSWORD")
     db_host = database_config.get("host") or os.getenv("POSTGRES_HOST", "localhost")
     db_port = database_config.get("port") or os.getenv("POSTGRES_PORT", "5432")
 
-    # Basic validation
     if not all([db_name, db_user, db_password]):
         error_msg = (
             "Database credentials (database.db_name, database.user, database.password) "
@@ -116,26 +99,25 @@ def _init_pool_locked() -> psycopg2.pool.ThreadedConnectionPool:
 
 @contextmanager
 def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]:
-    """Provides a database connection from the pool, managing cleanup."""
-    pool = _get_pool()
+    """Provide a pooled connection, returning it on exit."""
+    pool = get_db_pool()
     conn = None
     try:
         conn = pool.getconn()
         yield conn
     except psycopg2.Error as e:
-        # Log or handle pool errors if necessary
         logger.error(f"Error getting connection from pool: {e}")
-        raise  # Re-raise the original psycopg2 error
+        raise
     finally:
         if conn:
-            pool.putconn(conn)  # Return connection to the pool
+            pool.putconn(conn)
 
 
 @contextmanager
 def get_db_cursor(
     conn: psycopg2.extensions.connection, commit: bool = False
 ) -> Generator[psycopg2.extensions.cursor, None, None]:
-    """Provides a cursor from a connection, handling commit/rollback."""
+    """Yield a cursor, committing on success or rolling back on error."""
     with conn.cursor() as cursor:
         try:
             yield cursor
@@ -146,5 +128,4 @@ def get_db_cursor(
                 f"Database operation failed. Rolling back transaction. Error: {e}"
             )
             conn.rollback()
-            raise  # Re-raise the original psycopg2 error
-        # No finally block needed for cursor, 'with' handles closing
+            raise
