@@ -10,13 +10,20 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // workflow `env:` block — dotenv won't override them (override:false default).
 dotenv.config({ path: resolve(__dirname, "../../../../.env") });
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
+const BASE_URL =
+  process.env.PLAYWRIGHT_BASE_URL ||
+  (process.env.CI ? "http://localhost:8001" : "http://localhost:5173");
 
 // Surface the resolved value to stdout so CI logs show exactly what we used.
 // eslint-disable-next-line no-console
 console.log(
-  `[playwright.config] BASE_URL=${BASE_URL} (PLAYWRIGHT_BASE_URL=${process.env.PLAYWRIGHT_BASE_URL ?? "<unset>"})`,
+  `[playwright.config] BASE_URL=${BASE_URL} (PLAYWRIGHT_BASE_URL=${process.env.PLAYWRIGHT_BASE_URL ?? "<unset>"} CI=${process.env.CI ?? "<unset>"})`,
 );
+
+// Crash hard if BASE_URL ends up empty so we never silently fall back to "/".
+if (!BASE_URL || !BASE_URL.startsWith("http")) {
+  throw new Error(`[playwright.config] invalid BASE_URL: ${JSON.stringify(BASE_URL)}`);
+}
 
 export default defineConfig({
   testDir: "./specs",
