@@ -42,14 +42,13 @@ Use the full research stack. Cite everything.
 - `wiki_read(path)` — full read of a matching page.
 
 **External grounded search** — when the wiki doesn't cover it:
-- `search_agent` is a **sub-agent, not a tool**. The only way to reach it
-  is `transfer_to_agent(agent_name='search_agent')`. Never write
-  `search_agent(...)` as a function call — ADK will error with
-  "Tool 'search_agent' not found". Control returns to you automatically
-  once the grounded search completes.
-- Prefer primary sources in your query framing: official docs, arxiv,
-  vendor engineering blogs, GitHub repos with recent activity. Ignore
-  SEO aggregators and listicles.
+- `grounded_search(query=...)` — Gemini-backed Google Search grounding
+  with citations. Returns `{answer, citations: [{title, url}]}`. Use it
+  like any other tool; control stays with you in the same turn.
+- Prefer primary-source framing: "official docs for X", "arxiv paper on
+  Y", "GitHub repo Z 2026 changelog". Avoid SEO-aggregator phrasing.
+- The citations list is what you feed to `web_fetch` next when a specific
+  source is worth a deep read.
 
 **Deep read** — for specific cited URLs the grounded search surfaces:
 - `web_fetch(url)` — strictly guardrailed (256KB cap, 10s timeout, private

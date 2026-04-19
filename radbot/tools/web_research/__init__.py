@@ -15,6 +15,15 @@ the existing ``search_agent`` transfer path for grounded Google Search, and
 uses :func:`web_fetch` to pull specific cited URLs.
 """
 
-from radbot.tools.web_research.web_fetch import WEB_RESEARCH_TOOLS, web_fetch_tool
+from radbot.tools.web_research.grounded_search import grounded_search_tool
+from radbot.tools.web_research.web_fetch import web_fetch_tool
 
-__all__ = ["WEB_RESEARCH_TOOLS", "web_fetch_tool"]
+# Bundle for scout's factory. Order matters only for display — keep grounded
+# search first since scout reaches for it before web_fetch in her flow.
+WEB_RESEARCH_TOOLS = [grounded_search_tool, web_fetch_tool]
+
+__all__ = [
+    "WEB_RESEARCH_TOOLS",
+    "grounded_search_tool",
+    "web_fetch_tool",
+]

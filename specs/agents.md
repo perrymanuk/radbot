@@ -126,7 +126,7 @@ YouTube Shorts are filtered out at ingest time in `kideo_tools.py` (both search 
 |------------|-------|--------|
 | Memory | 2 | `create_agent_memory_tools("scout")` |
 | Wiki (read-only) | 3 | `radbot.tools.wiki.WIKI_TOOLS` (`wiki_list`, `wiki_search`, `wiki_read`) — wraps `radbot.mcp_server.tools.wiki` handlers |
-| Web research | 1 | `radbot.tools.web_research.WEB_RESEARCH_TOOLS` (`web_fetch` — guardrailed fetch with strict sanitization; PT19 tracks adding raw search) |
+| Web research | 2 | `radbot.tools.web_research.WEB_RESEARCH_TOOLS` — `grounded_search` (Gemini + Google Search grounding, returns `{answer, citations}`; direct Gemini call, no sub-agent hop) + `web_fetch` (guardrailed URL fetch with strict sanitization). PT19 tracks adding raw search providers (Tavily/Brave). |
 | Telos subset | 11 | `radbot.tools.telos.SCOUT_TELOS_TOOLS` — read (`telos_get_section/entry/full`, `telos_search_journal`, `telos_list_projects`, `telos_get_project`, `telos_list_tasks`) + plan writes (`telos_add_exploration`, `telos_add_task`, `telos_add_milestone`, `telos_add_journal`) |
 | Plan Council | 5 | `radbot.tools.council` — `critique_architecture`, `critique_safety`, `critique_feasibility`, `critique_ux_dx` (on-demand) + `should_convene_council` trigger heuristic. See **Scout Plan Council** below. |
 
@@ -176,14 +176,16 @@ All critics currently run on scout's configured model (Gemini 3.1 Pro). Cross-fa
 Chat sessions can run with either **beto** or **scout** as the root agent. The choice is stored on `chat_sessions.agent_name` (immutable for a session's lifetime, because the ADK session-service partition is keyed by `app_name`) and selected via a UI toggle at create time.
 
 - **beto session** (default) — full orchestrator tree; routes to any sub-agent (casa, planner, comms, axel, kidsvid, scout-as-subagent, search_agent, code_execution_agent). Used for general chat and cross-domain work.
-- **scout session** — skips beto's routing layer for extended back-and-forth planning. Scout is root with her own minimal tree (just `search_agent` as sub-agent for grounded Google). No re-routing tax per turn, full conversation history stays with scout.
+- **scout session** — skips beto's routing layer for extended back-and-forth planning. Scout is root with **no sub-agent tree** — she does grounded Google Search via the `grounded_search` FunctionTool (direct Gemini call with search grounding), not via a search sub-agent. No re-routing tax per turn, full conversation history stays with scout.
 
 Registry: `radbot.agent.agent_core.ROOT_AGENTS` maps `agent_name` → root agent object. `get_root_agent(name)` resolves it, falling back to beto on unknown names.
 
 Scout is a **second Python instance** when acting as root (ADK binds each sub-agent to one parent). `agent_core.py` constructs both:
 
 - `scout_agent = create_research_agent(name="scout", as_subagent=False)` — beto's sub-agent (for quick research detours mid-beto-chat)
-- `scout_root_agent = create_research_agent(name="scout", as_root=True, sub_agents=[scout_search_agent])` — root of scout sessions
+- `scout_root_agent = create_research_agent(name="scout", as_root=True)` — root of scout sessions (no sub-agents — uses `grounded_search` FunctionTool instead)
+
+**Why no search sub-agent on scout-as-root**: the ADK `search_agent` has `disallow_transfer_to_parent=True` because Google Search grounding can't be mixed with function declarations in the same model call. That flag works fine when `search_agent` is a peer of the orchestrator (beto's tree) — control naturally returns up to the root. But when scout is root and `search_agent` is her child, the flag terminates the workflow after search instead of returning to scout for a synthesis turn; the session hangs silently. The `grounded_search` FunctionTool sidesteps this entirely by issuing the grounded call inline in scout's own turn.
 
 ## Built-in Agents
 
