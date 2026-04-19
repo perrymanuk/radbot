@@ -320,18 +320,9 @@ async def setup_agent() -> Optional[RadBotAgent]:
                 from google.adk.sessions import InMemorySessionService
 
                 from radbot.agent.runner import RadbotRunner as Runner
-                from radbot.memory.qdrant_memory import QdrantMemoryService
 
                 # Set up necessary components
                 session_service = InMemorySessionService()
-
-                # Create memory service
-                try:
-                    memory_service = QdrantMemoryService()
-                    logger.debug("Created memory service successfully")
-                except Exception as e:
-                    logger.error(f"Failed to create memory service: {str(e)}")
-                    memory_service = None
 
                 # Get instruction
                 try:

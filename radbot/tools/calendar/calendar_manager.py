@@ -123,11 +123,9 @@ class CalendarManager:
             if self.workspace_service:
                 try:
                     # Try to get the primary calendar to confirm authentication worked
-                    primary_calendar = (
-                        self.workspace_service.calendars()
-                        .get(calendarId="primary")
-                        .execute()
-                    )
+                    self.workspace_service.calendars().get(
+                        calendarId="primary"
+                    ).execute()
                     logger.info(
                         f"Successfully authenticated with Google Workspace as: {email}"
                     )

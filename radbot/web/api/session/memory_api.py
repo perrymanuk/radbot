@@ -131,9 +131,6 @@ async def store_memory(
         setattr(ToolContext, "user_id", user_id)
         setattr(ToolContext, "memory_service", memory_service)
 
-        # Create minimal context dict with required attributes
-        tool_context = {"user_id": user_id, "memory_service": memory_service}
-
         # Use the store_important_information function
         from radbot.tools.memory.memory_tools import store_important_information
 

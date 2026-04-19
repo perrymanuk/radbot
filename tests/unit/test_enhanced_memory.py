@@ -133,7 +133,7 @@ class TestMemoryManager(unittest.TestCase):
 
         # Test with a memory trigger
         message = "memory goal: implement the webhook handler #beto_api"
-        result = self.memory_manager.process_message(message, user_id="test_user")
+        self.memory_manager.process_message(message, user_id="test_user")
 
         # Verify store_important_information was called with correct parameters
         mock_store.assert_called_once()

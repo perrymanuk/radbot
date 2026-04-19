@@ -29,7 +29,7 @@ class TestTasksAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show me all my tasks")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "task",
@@ -49,7 +49,7 @@ class TestTasksAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("List all my projects")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "project",
@@ -77,7 +77,7 @@ class TestTasksAgent:
             result = await ws.send_and_wait_response(
                 f"Create a new task called '{task_name}' with description 'E2E agent test task'"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "created", "added", "task", "done", "got it", task_name
             )
@@ -99,7 +99,7 @@ class TestTasksAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Search for tasks about testing")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Agent should respond with search results or indicate no matches
             assert_response_contains_any(
                 result, "task", "found", "no", "result", "match", "search"

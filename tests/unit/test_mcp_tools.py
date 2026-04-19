@@ -121,7 +121,7 @@ class TestCreateHaMcpEnabledAgent:
         )
 
         mock_factory = MagicMock(return_value=MagicMock())
-        agent = create_ha_mcp_enabled_agent(mock_factory, [], ensure_memory_tools=False)
+        create_ha_mcp_enabled_agent(mock_factory, [], ensure_memory_tools=False)
 
         # Verify create_home_assistant_toolset was called
         mock_create_ha_toolset.assert_called_once()
@@ -139,7 +139,7 @@ class TestCreateHaMcpEnabledAgent:
         )
 
         mock_factory = MagicMock(return_value=MagicMock())
-        agent = create_ha_mcp_enabled_agent(mock_factory, [], ensure_memory_tools=False)
+        create_ha_mcp_enabled_agent(mock_factory, [], ensure_memory_tools=False)
 
         mock_create_ha_toolset.assert_called_once()
 
@@ -156,7 +156,7 @@ class TestCreateHaMcpEnabledAgent:
         )
 
         mock_factory = MagicMock(return_value=MagicMock())
-        agent = create_ha_mcp_enabled_agent(mock_factory, ensure_memory_tools=False)
+        create_ha_mcp_enabled_agent(mock_factory, ensure_memory_tools=False)
 
         mock_create_ha_toolset.assert_called_once()
 

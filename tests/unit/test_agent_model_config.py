@@ -108,7 +108,7 @@ class TestAgentModelConfig(unittest.TestCase):
         mock_research_agent.return_value = mock_instance
 
         # Create a research agent
-        agent = create_research_agent(as_subagent=True)
+        create_research_agent(as_subagent=True)
 
         # Verify the get_agent_model was called with the correct agent name
         mock_config_manager.get_agent_model.assert_called_with("scout_agent")

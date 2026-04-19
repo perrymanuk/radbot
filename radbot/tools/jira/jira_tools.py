@@ -196,7 +196,7 @@ def transition_jira_issue(
     if err:
         return err
 
-    result = client.set_issue_status(issue_key, status_name)
+    client.set_issue_status(issue_key, status_name)
     logger.info("Transitioned %s to '%s'", issue_key, status_name)
     return {
         "status": "success",

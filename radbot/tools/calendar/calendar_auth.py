@@ -495,7 +495,7 @@ def get_workspace_calendar_service(
         # Test with a simple API call to verify permissions
         try:
             # Try to get the primary calendar to verify service works
-            calendar = service.calendars().get(calendarId="primary").execute()
+            service.calendars().get(calendarId="primary").execute()
             logger.info(f"Successfully connected to Google Calendar as: {user_email}")
         except HttpError as e:
             logger.error(

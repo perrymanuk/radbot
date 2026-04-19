@@ -29,7 +29,7 @@ class TestNomadIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("List all Nomad jobs")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "job", "nomad", "running", "status", "no job"
             )
@@ -44,7 +44,7 @@ class TestNomadIntegration:
             result = await ws.send_and_wait_response(
                 "Show me the status of the radbot Nomad job"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "radbot",
@@ -66,7 +66,7 @@ class TestNomadIntegration:
             result = await ws.send_and_wait_response(
                 "Show me the recent logs for the radbot Nomad job"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "log",
@@ -88,7 +88,7 @@ class TestNomadIntegration:
             result = await ws.send_and_wait_response(
                 "Check the health of Nomad services"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "health", "service", "nomad", "healthy", "status"
             )

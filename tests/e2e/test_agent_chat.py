@@ -88,7 +88,7 @@ class TestAgentChat:
                 "Remember that the E2E test secret code is ALPHA123. "
                 "Store this as an important fact."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # The agent should acknowledge storing the information
             # Tool call detection is best-effort since events may not surface tool names
             assert_response_contains_any(
@@ -139,7 +139,7 @@ class TestAgentChat:
             result2 = await ws2.send_and_wait_response(
                 "Search your memory for a cross-session test code. What is it?"
             )
-            text = assert_response_not_empty(result2)
+            assert_response_not_empty(result2)
             # The agent may or may not find it depending on memory service state
             # At minimum it should respond without error
         finally:
@@ -158,7 +158,7 @@ class TestAgentChat:
 
             # Turn 2: follow up
             r2 = await ws.send_and_wait_response("What breed was I considering?")
-            text = assert_response_not_empty(r2)
+            assert_response_not_empty(r2)
             assert_response_contains_any(r2, "golden", "retriever", "dog")
         finally:
             await ws.close()
@@ -188,7 +188,7 @@ class TestAgentChat:
             result = await ws.send_and_wait_response(
                 "Search the web for the latest Python release version number"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should contain some Python version info
             assert_response_contains_any(
                 result, "python", "3.", "release", "version", "latest"

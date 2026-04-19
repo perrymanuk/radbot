@@ -118,7 +118,7 @@ class TestQdrantMemoryService:
 
             old_val = os.environ.pop("QDRANT_COLLECTION", None)
             try:
-                service = QdrantMemoryService(host="localhost", port=6333)
+                QdrantMemoryService(host="localhost", port=6333)
             finally:
                 if old_val is not None:
                     os.environ["QDRANT_COLLECTION"] = old_val
@@ -150,7 +150,7 @@ class TestQdrantMemoryService:
         mock_client_instance.get_collections.return_value = collections_response
 
         # Initialize the service
-        service = QdrantMemoryService(url="https://test.qdrant.io", api_key="test-key")
+        QdrantMemoryService(url="https://test.qdrant.io", api_key="test-key")
 
         # Verify client initialization
         mock_client.assert_called_once_with(

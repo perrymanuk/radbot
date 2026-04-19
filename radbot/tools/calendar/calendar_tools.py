@@ -545,8 +545,8 @@ def create_calendar_event_wrapper(
     try:
         # Parse time inputs to check for format errors
         try:
-            parsed_start = parse_time(start_time)
-            parsed_end = parse_time(end_time)
+            parse_time(start_time)
+            parse_time(end_time)
         except ValueError as e:
             error_message = f"Invalid time format: {str(e)}"
             print(error_message)
@@ -626,7 +626,7 @@ def update_calendar_event_wrapper(
         # Parse time inputs to check for format errors if provided
         if start_time:
             try:
-                parsed_start = parse_time(start_time)
+                parse_time(start_time)
             except ValueError as e:
                 error_message = f"Invalid start_time format: {str(e)}"
                 print(error_message)
@@ -634,7 +634,7 @@ def update_calendar_event_wrapper(
 
         if end_time:
             try:
-                parsed_end = parse_time(end_time)
+                parse_time(end_time)
             except ValueError as e:
                 error_message = f"Invalid end_time format: {str(e)}"
                 print(error_message)

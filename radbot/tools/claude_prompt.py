@@ -297,43 +297,6 @@ def create_claude_prompt_tool() -> FunctionTool:
     Returns:
         FunctionTool instance for the prompt function
     """
-    # Create tool schema
-    prompt_claude_schema = {
-        "name": "prompt_claude",
-        "description": "Send a prompt to Claude CLI and receive a response",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "The prompt to send to Claude",
-                },
-                "system_prompt": {
-                    "type": "string",
-                    "description": "Optional system prompt to set context",
-                },
-                "temperature": {
-                    "type": "number",
-                    "description": "Optional temperature parameter (0.0-1.0)",
-                },
-            },
-            "required": ["prompt"],
-        },
-        "returns": {
-            "type": "object",
-            "properties": {
-                "success": {
-                    "type": "boolean",
-                    "description": "Whether the prompt was successful",
-                },
-                "response": {
-                    "type": "string",
-                    "description": "The textual response from Claude",
-                },
-            },
-        },
-    }
-
     # Create FunctionTool - use ADK 0.4.0+ style since that's what we're using
     try:
         # In ADK 0.4.0, FunctionTool uses 'func' parameter instead of 'function'

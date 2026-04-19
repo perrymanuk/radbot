@@ -30,7 +30,7 @@ class TestAgentRouting:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show me my task list")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should either transfer to tracker or mention tasks
             assert_response_contains_any(
                 result, "task", "project", "todo", "backlog", "no task", "list"
@@ -46,7 +46,7 @@ class TestAgentRouting:
             result = await ws.send_and_wait_response(
                 "What events are on my calendar today?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should mention calendar-related content or confirm planner handled it
             assert_response_contains_any(
                 result,
@@ -96,7 +96,7 @@ class TestAgentRouting:
             result = await ws.send_and_wait_response(
                 "What smart home devices do I have in Home Assistant?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "device",
@@ -118,7 +118,7 @@ class TestAgentRouting:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my recent emails")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "email", "inbox", "message", "mail", "subject", "from"
             )
@@ -134,7 +134,7 @@ class TestAgentRouting:
                 "Research the differences between async and sync programming in Python. "
                 "Give me a brief summary."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "async",
@@ -183,7 +183,7 @@ class TestAgentRouting:
             result = await ws.send_and_wait_response(
                 "Use the shell to run 'echo hello_e2e_test' and show me the output"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "hello",

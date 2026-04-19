@@ -143,7 +143,7 @@ class TestTerminalSessionLifecycle:
 
             # Send a newline — should produce some response
             await ws.send_input("\n")
-            output = await ws.recv_output(timeout=15.0)
+            await ws.recv_output(timeout=15.0)
             # Any output means the PTY I/O round-trip works
             assert ws.get_output(), "No output received after sending input"
         finally:

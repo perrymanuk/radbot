@@ -71,7 +71,6 @@ def add_videos_to_kideo_batch(
         On failure: {"status": "error", "message": "..."}
     """
     # Filter out YouTube Shorts
-    shorts = [u for u in urls if "/shorts/" in u]
     urls = [u for u in urls if "/shorts/" not in u]
     if not urls:
         return {

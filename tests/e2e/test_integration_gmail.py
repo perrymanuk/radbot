@@ -29,7 +29,7 @@ class TestGmailIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my recent emails")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "email",
@@ -54,7 +54,7 @@ class TestGmailIntegration:
             result = await ws.send_and_wait_response(
                 "Search my emails for messages from github"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "email",
@@ -77,7 +77,7 @@ class TestGmailIntegration:
             result = await ws.send_and_wait_response(
                 "What Gmail accounts are configured?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "account", "gmail", "email", "configured", "@"
             )

@@ -30,7 +30,7 @@ class TestLidarrIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Search for Metallica on Lidarr")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "metallica",
@@ -50,7 +50,7 @@ class TestLidarrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for the album Abbey Road on Lidarr"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "abbey road",
@@ -69,7 +69,7 @@ class TestLidarrIntegration:
             result = await ws.send_and_wait_response(
                 "What quality profiles are available on Lidarr?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "profile",
@@ -91,7 +91,7 @@ class TestLidarrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for xyznonexistent98765abc on Lidarr"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "no result",
@@ -115,7 +115,7 @@ class TestLidarrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for Radiohead on Lidarr and add them for download"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "radiohead",
@@ -138,7 +138,7 @@ class TestLidarrIntegration:
                 "Search for the album OK Computer by Radiohead on Lidarr "
                 "and add it for download"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "ok computer",

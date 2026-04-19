@@ -104,7 +104,6 @@ def create_agent(
             memory_tools = [search_past_conversations, store_important_information]
 
             # Add memory tools if they're not already included
-            memory_tool_names = set([tool.__name__ for tool in memory_tools])
             existing_tool_names = set()
             for tool in all_tools:
                 if hasattr(tool, "__name__"):

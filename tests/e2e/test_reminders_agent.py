@@ -28,7 +28,7 @@ class TestRemindersAgent:
             result = await ws.send_and_wait_response(
                 "Remind me in 24 hours to check the e2e test results"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "reminder",
@@ -54,7 +54,7 @@ class TestRemindersAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my pending reminders")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "reminder",

@@ -32,7 +32,7 @@ class TestOverseerrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for The Matrix on Overseerr"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "matrix", "movie", "film", "media", "result"
             )
@@ -47,7 +47,7 @@ class TestOverseerrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for Breaking Bad on Overseerr"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "breaking bad", "tv", "show", "series", "result"
             )
@@ -63,7 +63,7 @@ class TestOverseerrIntegration:
                 "Tell me about the movie The Matrix on Overseerr. "
                 "Include details like genre, year, and rating."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "matrix",
@@ -86,7 +86,7 @@ class TestOverseerrIntegration:
             result = await ws.send_and_wait_response(
                 "Show me my current Overseerr media requests"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "request",
@@ -110,7 +110,7 @@ class TestOverseerrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for xyznonexistent98765abc on Overseerr"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "no result",
@@ -135,7 +135,7 @@ class TestOverseerrIntegration:
                 "I want to add a TV show to be downloaded. "
                 "Search for Severance on Overseerr and request it."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should mention the show and indicate a request was made
             assert_response_contains_any(
                 result,
@@ -159,7 +159,7 @@ class TestOverseerrIntegration:
             result = await ws.send_and_wait_response(
                 "Search for the movie Inception on Overseerr and request it for download"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "inception",

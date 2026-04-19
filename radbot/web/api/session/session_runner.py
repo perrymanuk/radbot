@@ -1214,7 +1214,7 @@ class SessionRunner:
             )
 
             # Create a new session
-            session = await self.session_service.create_session(
+            await self.session_service.create_session(
                 app_name=app_name, user_id=self.user_id, session_id=self.session_id
             )
 

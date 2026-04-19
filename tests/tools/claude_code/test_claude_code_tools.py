@@ -249,7 +249,6 @@ class TestClaudeCodeClient:
             )
             + "\n",
         ]
-        stdout_data = "".join(stream_lines).encode("utf-8")
 
         mock_proc = AsyncMock()
         mock_proc.stdout.readline = AsyncMock(

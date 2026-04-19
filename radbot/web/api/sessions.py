@@ -137,7 +137,7 @@ def register_sessions_router(app):
             user_id = "web_user"
 
             # Create the session in the backend
-            runner = await get_or_create_runner_for_session(session_id, session_manager)
+            await get_or_create_runner_for_session(session_id, session_manager)
 
             # Default name if not provided
             session_name = request.name or f"Session {session_id[:8]}"

@@ -29,7 +29,7 @@ class TestPicnicIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Search for milk on Picnic")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "milk", "product", "picnic", "item", "result"
             )
@@ -42,7 +42,7 @@ class TestPicnicIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show me my Picnic cart")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "cart", "empty", "item", "total", "picnic", "product"
             )
@@ -55,7 +55,7 @@ class TestPicnicIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("When can Picnic deliver?")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "delivery", "slot", "time", "window", "available", "picnic"
             )
@@ -68,7 +68,7 @@ class TestPicnicIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my Picnic order history")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "order", "history", "past", "previous", "picnic", "no order"
             )
@@ -83,7 +83,7 @@ class TestPicnicIntegration:
             result = await ws.send_and_wait_response(
                 "Search for xyznonexistent98765 on Picnic"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "no result",
@@ -109,7 +109,7 @@ class TestPicnicIntegration:
         try:
             # Add
             r1 = await ws.send_and_wait_response("Add milk to my Picnic cart")
-            text1 = assert_response_not_empty(r1)
+            assert_response_not_empty(r1)
             assert_response_contains_any(r1, "added", "cart", "milk", "picnic")
 
             # Remove

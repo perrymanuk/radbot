@@ -89,9 +89,7 @@ async def _create_fileserver_toolset_async() -> List[FunctionTool]:
 
     try:
         # Start the server and get the tools
-        server_process = await start_server_async(
-            exit_stack, root_dir, allow_write, allow_delete
-        )
+        await start_server_async(exit_stack, root_dir, allow_write, allow_delete)
 
         # Create and initialize the client session
         # Use a different command for stdio_client to avoid starting a Python process

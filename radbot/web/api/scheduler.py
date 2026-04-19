@@ -84,7 +84,7 @@ async def create_scheduled_task(body: ScheduledTaskCreate):
 async def trigger_scheduled_task(task_id: str):
     """Manually trigger a scheduled task for testing. Runs the task immediately."""
     try:
-        task_uuid = uuid.UUID(task_id)
+        uuid.UUID(task_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid UUID format")
 

@@ -53,7 +53,6 @@ def create_ha_mcp_enabled_agent(
             memory_tools = [search_past_conversations, store_important_information]
 
             # Check if memory tools are already in tools list
-            memory_tool_names = set([tool.__name__ for tool in memory_tools])
             existing_tool_names = set()
             for tool in tools:
                 if hasattr(tool, "__name__"):

@@ -26,7 +26,7 @@ class TestSchedulerAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my scheduled tasks")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "scheduled",
@@ -57,7 +57,7 @@ class TestSchedulerAgent:
                 f"Schedule a task called '{task_name}' to run every day at 3am "
                 f"(cron: 0 3 * * *) with prompt 'E2E test - do nothing'"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result,
                 "scheduled",
