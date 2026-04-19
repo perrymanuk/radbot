@@ -1,3 +1,6 @@
+// Smoke-test trigger: adding a no-op comment in an e2e file to validate
+// the pipeline path filter + workflow end-to-end. Safe to remove later.
+
 /**
  * Per-scenario rubrics consumed by chat.spec.ts. Each scenario sends a prompt,
  * waits for beto's response, and grades it via the LLM judge against `expect`.
