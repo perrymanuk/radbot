@@ -113,13 +113,97 @@ def build_prompt(
     return "\n".join(lines)
 
 
-def run_claude(prompt: str, timeout: int) -> str:
-    """Invoke `claude -p` with a prompt on stdin and return its stdout.
+def _build_auth_env() -> dict[str, str]:
+    """Reuse the same auth pattern as radbot's claude_code_client.
 
-    Uses stdin (not -p <arg>) to sidestep shell arg-length limits for large
-    prompts. Adds --dangerously-skip-permissions because CI has no TTY to
-    approve Read tool calls.
+    Reads ANTHROPIC_API_KEY from the environment (set by the workflow from
+    the `ANTHROPIC_API_KEY` secret) and routes it by prefix:
+      - `sk-ant-api*`  → keep as ANTHROPIC_API_KEY (standard API-key flow).
+      - anything else  → treat as an OAuth / setup token: unset
+        ANTHROPIC_API_KEY (its presence disables OAuth mode in the CLI),
+        set CLAUDE_CODE_OAUTH_TOKEN, and stash the token at
+        ~/.claude/remote/.oauth_token where the CLI reads it.
+
+    This matches the behavior of `ClaudeCodeClient._run_process` at
+    radbot/tools/claude_code/claude_code_client.py — one user was pasting
+    an OAuth token into the ANTHROPIC_API_KEY secret and getting
+    "Invalid API key" because the CLI was treating it as an SDK key.
     """
+    env = os.environ.copy()
+    token = env.get("ANTHROPIC_API_KEY") or env.get("CLAUDE_CODE_OAUTH_TOKEN")
+    if not token:
+        return env
+
+    if token.startswith("sk-ant-api"):
+        env["ANTHROPIC_API_KEY"] = token
+        env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+    else:
+        # OAuth / setup token path — ANTHROPIC_API_KEY must NOT be set.
+        env.pop("ANTHROPIC_API_KEY", None)
+        env["CLAUDE_CODE_OAUTH_TOKEN"] = token
+        _write_oauth_token_file(token)
+
+    # Running as root in GH Actions runner; required for --dangerously-skip-permissions.
+    try:
+        if os.getuid() == 0:
+            env["IS_SANDBOX"] = "1"
+    except AttributeError:
+        pass
+    return env
+
+
+def _write_oauth_token_file(token: str) -> None:
+    """Stash the OAuth token where the CLI reads it for headless auth."""
+    try:
+        home = pathlib.Path.home()
+        remote_dir = home / ".claude" / "remote"
+        remote_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+        stale_api_key = remote_dir / ".api_key"
+        if stale_api_key.exists():
+            stale_api_key.unlink()
+        token_path = remote_dir / ".oauth_token"
+        token_path.write_text(token)
+        token_path.chmod(0o600)
+    except Exception as e:
+        sys.stderr.write(f"WARN: failed to write OAuth token file: {e}\n")
+
+
+def _ensure_onboarding_complete() -> None:
+    """Pre-set the flags that otherwise cause interactive prompts in CI."""
+    try:
+        home = pathlib.Path.home()
+        claude_json = home / ".claude.json"
+        data: dict[str, Any] = {}
+        if claude_json.exists():
+            try:
+                data = json.loads(claude_json.read_text())
+            except Exception:
+                data = {}
+        if not data.get("hasCompletedOnboarding"):
+            data["hasCompletedOnboarding"] = True
+            claude_json.write_text(json.dumps(data, indent=2))
+            claude_json.chmod(0o600)
+
+        settings_json = home / ".claude" / "settings.json"
+        settings: dict[str, Any] = {}
+        if settings_json.exists():
+            try:
+                settings = json.loads(settings_json.read_text())
+            except Exception:
+                settings = {}
+        if not settings.get("skipDangerousModePermissionPrompt"):
+            settings["skipDangerousModePermissionPrompt"] = True
+            settings_json.parent.mkdir(parents=True, exist_ok=True)
+            settings_json.write_text(json.dumps(settings, indent=2))
+    except Exception as e:
+        sys.stderr.write(f"WARN: onboarding prep failed: {e}\n")
+
+
+def run_claude(prompt: str, timeout: int) -> str:
+    """Invoke `claude -p` with a prompt on stdin and return its stdout."""
+    _ensure_onboarding_complete()
+    env = _build_auth_env()
+
     cmd = [
         "claude",
         "-p",
@@ -137,6 +221,7 @@ def run_claude(prompt: str, timeout: int) -> str:
             text=True,
             timeout=timeout,
             check=False,
+            env=env,
         )
     except FileNotFoundError:
         raise RuntimeError(
@@ -163,9 +248,19 @@ def run_claude(prompt: str, timeout: int) -> str:
 
 def _preflight() -> None:
     """Surface a clear error up-front if the CLI or API key is missing."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    token = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get(
+        "CLAUDE_CODE_OAUTH_TOKEN"
+    )
+    if not token:
         sys.stderr.write(
-            "WARN: ANTHROPIC_API_KEY not set. Claude CLI may fail to auth.\n"
+            "WARN: neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN set. "
+            "Claude CLI will fail to auth.\n"
+        )
+    else:
+        kind = "api_key" if token.startswith("sk-ant-api") else "oauth_token"
+        sys.stderr.write(
+            f"Auth: {kind} ({token[:10]}…), "
+            f"{'ANTHROPIC_API_KEY' if kind == 'api_key' else 'CLAUDE_CODE_OAUTH_TOKEN'} path.\n"
         )
     try:
         ver = subprocess.run(
