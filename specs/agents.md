@@ -128,12 +128,46 @@ YouTube Shorts are filtered out at ingest time in `kideo_tools.py` (both search 
 | Wiki (read-only) | 3 | `radbot.tools.wiki.WIKI_TOOLS` (`wiki_list`, `wiki_search`, `wiki_read`) — wraps `radbot.mcp_server.tools.wiki` handlers |
 | Web research | 1 | `radbot.tools.web_research.WEB_RESEARCH_TOOLS` (`web_fetch` — guardrailed fetch with strict sanitization; PT19 tracks adding raw search) |
 | Telos subset | 11 | `radbot.tools.telos.SCOUT_TELOS_TOOLS` — read (`telos_get_section/entry/full`, `telos_search_journal`, `telos_list_projects`, `telos_get_project`, `telos_list_tasks`) + plan writes (`telos_add_exploration`, `telos_add_task`, `telos_add_milestone`, `telos_add_journal`) |
+| Plan Council | 5 | `radbot.tools.council` — `critique_architecture`, `critique_safety`, `critique_feasibility`, `critique_ux_dx` (on-demand) + `should_convene_council` trigger heuristic. See **Scout Plan Council** below. |
 
 - **Instruction file**: `config/default_configs/instructions/scout.md` (loaded via `config_manager.get_instruction("scout")`; falls back to the Python `RESEARCH_AGENT_INSTRUCTION` only if the file is missing)
 - **Special**: `enable_sequential_thinking=True`; wrapped by `ResearchAgent` class
 - **Session-root capable**: see **Session Roots** below
 - **Telos persona**: scout gets `inject_telos_context` when she runs as a session root (plans must be grounded in identity/mission/goals); the sub-agent instance does not
-- **Output contract**: a plan is always persisted as a Telos exploration (`EX<N>`), with actionable steps split out as `telos_add_task` rows (`PT<N>`). Handoff to execution is external: Perry invokes Claude Code with MCP pointing at radbot, which fetches the exploration + tasks by ref. No transfer_to_agent('axel') for plan execution.
+- **Output contract**: a plan is always persisted as a Telos exploration (`EX<N>`), with actionable steps split out as `telos_add_task` rows (`PT<N>`). The exploration includes a `## Council Review` section capturing verdicts, unresolved disagreements, and iteration count. Handoff to execution is external: Perry invokes Claude Code with MCP pointing at radbot, which fetches the exploration + tasks by ref. No transfer_to_agent('axel') for plan execution.
+
+### Scout Plan Council (2026-04-19)
+
+Adapts Perry's `/devops-initiative-council` skill (3-round structured review with persona-scoped lenses) to scout's plan-drafting workflow. Based on research from GitHub Copilot CLI's "Rubber Duck" cross-family review (closes 74.7% of the Sonnet→Opus SWE-Bench gap), OpenCode's Momus / `@check` strict reviewer pattern, Pi's priority-tagged `report_finding` format, and A-HMAD / Star Chamber multi-critic debate research.
+
+**Panel** (3 core + 1 on-demand):
+
+| Critic | Persona | Lens |
+|---|---|---|
+| `critique_architecture` | **Archie** — "The Architect" | Design coherence, coupling, fit with existing repo |
+| `critique_safety` | **Sentry** — "The Paranoid SRE" | Blast radius, secrets, rollback, prod safety |
+| `critique_feasibility` | **Impl** — "The Senior IC" | Scope realism, test strategy, what breaks at 2am |
+| `critique_ux_dx` (on-demand) | **Echo** — "The UX/DX Advocate" | End-user + developer ergonomics; convened only when a plan visibly touches UI / CLI / API shape / dev tooling |
+
+All critics currently run on scout's configured model (Gemini 3.1 Pro). Cross-family critics via LiteLLM are tracked as PRJ1/PT18 — the biggest single quality lever, but blocked on LiteLLM infra in the hashi-homelab repo.
+
+**Three rounds**:
+
+1. **R1 parallel independent critique** — scout calls all active critics in a single turn (Gemini parallel function calls). Each returns structured JSON: `{verdict, findings: [{priority: P0-P3, area, issue, suggestion}], strengths}`.
+2. **R2 parallel cross-reference** — scout builds a compact markdown digest of R1 findings and calls the same critics again with `prior_round_findings=<digest>`. They escalate, de-escalate, or disagree explicitly.
+3. **R3 synthesis** — scout (not a critic) produces the synthesis: convergent concerns, unresolved disagreements (preserved, not flattened), blockers list (every P0 + P1), approvals.
+
+**Blocker logic**: any unresolved P0 or P1 → plan cannot ship. Scout revises, runs one more quick round on the changed parts. After 2 iterations with persistent blockers → escalate to Perry, don't sink a third round.
+
+**Trigger heuristic** (`should_convene_council(plan)`): convenes if the plan touches ≥ 2 files, mentions risk-surface keywords (auth, schema, deploy, secret, vulnerability, …), or exceeds ~2000 chars. Advisory — scout can override either way. Trivial plans skip the council and write straight to Telos.
+
+**Council output is persisted** with the plan — the exploration's `## Council Review` section captures verdicts, unresolved disagreements, and iteration count so Claude Code (via MCP) sees the plan's review provenance when picking it up.
+
+**Common discipline** baked into every critic's prompt (`personas.py`):
+
+- **Complexity-deferral rule** (OpenCode Momus) — YAGNI / over-abstraction only flagged when it creates concrete failure, security, or operational risk. Otherwise defer.
+- **Honest disagreement > forced consensus** (DevOps Council) — critics disagree explicitly; the synthesis preserves tension.
+- **Priority scale is load-bearing** — P0 cannot ship · P1 must fix before approval · P2 should fix (non-blocking) · P3 nit. Verdict derives strictly from the worst finding (P0→reject, P1→request_changes, P2/P3/none→approve).
 
 **Note**: scout does **not** hand plans off to axel inside the agent tree. Axel's role is narrowed to quick-fix alert remediation (see axel section).
 

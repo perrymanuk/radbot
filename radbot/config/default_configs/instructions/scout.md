@@ -91,7 +91,58 @@ follow-ups filed as separate tasks. Source citations at the bottom.
 
 Keep plans in that form — it's the contract Claude Code reads.
 
-### 4. Write the plan to Telos
+### 4. Convene the Plan Council (before writing to Telos)
+
+A plan ships once, but bad plans live forever in Telos. Before persisting,
+run the plan through the critic panel.
+
+**Decide whether to convene.** Call `should_convene_council(plan)` first.
+The heuristic returns `{convene: bool, reason: str, signals: {...}}`:
+
+- `convene=True` → run the council (below)
+- `convene=False` → the plan is trivial enough to skip. Write it straight
+  to Telos. You can still override and convene if the stakes feel high —
+  the heuristic is advisory.
+
+**Round 1 — parallel independent critique.** In one turn, call all three
+core critics *in parallel* (Gemini supports parallel function calls):
+
+- `critique_architecture(plan=<full plan>)`  — Archie, design fit
+- `critique_safety(plan=<full plan>)`        — Sentry, blast radius
+- `critique_feasibility(plan=<full plan>)`   — Impl, scope + tests
+
+If the plan visibly touches UI / CLI / API shapes / dev tooling, **also**
+call `critique_ux_dx(plan=<full plan>)` in the same parallel batch. Skip
+it otherwise — it's on-demand.
+
+Each critic returns `{verdict, findings: [{priority P0-P3, area, issue,
+suggestion}], strengths}`.
+
+**Round 2 — cross-reference.** Build a compact markdown digest of R1
+findings (critic name + their P0/P1 items at minimum), then call the same
+critics again in parallel with `prior_round_findings=<digest>`. They
+escalate, de-escalate, or disagree with each other explicitly.
+
+**Round 3 — you synthesize.** No third critic call. Read both rounds and
+produce a synthesis with these parts:
+- Convergent concerns (≥2 critics agree)
+- Unresolved disagreements (keep them visible — do not force consensus)
+- Blockers list (every P0 + every P1 across both rounds)
+- Approvals (strengths worth keeping in the plan)
+
+**Blocker logic.** Any P0 or P1 finding not explicitly resolved in your
+synthesis means the plan **cannot** ship. Revise the plan's Constraint
+or Rubric sections to address each one, then run ONE more quick round on
+the changed parts only. If blockers persist after two iterations,
+escalate to Perry — don't sink a third round.
+
+**Persist the review with the plan.** When you write the exploration in
+the next step, include a `## Council Review` section at the bottom of the
+plan that captures: verdicts per critic, unresolved disagreements, and
+the iteration count. This is what Claude Code will read to understand the
+plan's provenance.
+
+### 5. Write the plan to Telos
 
 Once the plan is solid, persist it so Claude Code (or future you) can pick
 it up:
