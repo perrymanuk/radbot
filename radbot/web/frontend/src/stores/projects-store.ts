@@ -3,9 +3,11 @@ import {
   entryKey,
   listProjectEntries,
   listProjectsSummary,
+  patchProjectTask,
   PROJECT_SECTIONS,
   type ProjectSection,
   type ProjectSummary,
+  type ProjectTaskPatch,
   type TelosEntry,
 } from "@/lib/telos-api";
 
@@ -17,7 +19,12 @@ interface ProjectsState {
   error: string | null;
   loaded: boolean;
 
+  editingTaskRef: string | null;
+
   loadAll: () => Promise<void>;
+  updateTask: (refCode: string, patch: ProjectTaskPatch) => Promise<TelosEntry>;
+  openTaskEditor: (refCode: string) => void;
+  closeTaskEditor: () => void;
 }
 
 function indexEntries(sections: Record<string, TelosEntry[]>) {
@@ -43,13 +50,17 @@ function indexEntries(sections: Record<string, TelosEntry[]>) {
   return { entries, childrenByParent };
 }
 
-export const useProjectsStore = create<ProjectsState>((set) => ({
+export const useProjectsStore = create<ProjectsState>((set, get) => ({
   entries: {},
   childrenByParent: {},
   summary: [],
   loading: false,
   error: null,
   loaded: false,
+  editingTaskRef: null,
+
+  openTaskEditor: (refCode) => set({ editingTaskRef: refCode }),
+  closeTaskEditor: () => set({ editingTaskRef: null }),
 
   loadAll: async () => {
     set({ loading: true, error: null });
@@ -64,6 +75,36 @@ export const useProjectsStore = create<ProjectsState>((set) => ({
       set({ error: e instanceof Error ? e.message : String(e) });
     } finally {
       set({ loading: false });
+    }
+  },
+
+  updateTask: async (refCode, patch) => {
+    const key = entryKey("project_tasks", refCode);
+    const prev = get().entries[key];
+    // Optimistic: merge patch into local entry immediately
+    if (prev) {
+      const nextMeta =
+        patch.metadata_merge !== undefined
+          ? { ...(prev.metadata || {}), ...patch.metadata_merge }
+          : prev.metadata;
+      const optimistic: TelosEntry = {
+        ...prev,
+        content: patch.content !== undefined ? patch.content : prev.content,
+        status: patch.status !== undefined ? patch.status : prev.status,
+        metadata: nextMeta,
+      };
+      set({ entries: { ...get().entries, [key]: optimistic } });
+    }
+    try {
+      const updated = await patchProjectTask(refCode, patch);
+      set({ entries: { ...get().entries, [key]: updated } });
+      return updated;
+    } catch (e) {
+      // Revert on error
+      if (prev) {
+        set({ entries: { ...get().entries, [key]: prev } });
+      }
+      throw e;
     }
   },
 }));

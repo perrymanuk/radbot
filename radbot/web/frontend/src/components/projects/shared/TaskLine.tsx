@@ -2,6 +2,8 @@ import type { TelosEntry } from "@/lib/telos-api";
 import RefCode from "./RefCode";
 import StatusIcon, { type TaskStatus } from "./StatusIcon";
 
+export type { TaskStatus };
+
 export function taskBucket(t: TelosEntry): TaskStatus {
   const raw = ((t.metadata || {}).task_status || "").toString().toLowerCase();
   if (raw === "inprogress" || raw === "in_progress" || raw === "in progress")
@@ -15,23 +17,50 @@ export function taskBucket(t: TelosEntry): TaskStatus {
 interface Props {
   task: TelosEntry;
   accent: string;
+  onClick?: (refCode: string) => void;
 }
 
-export default function TaskLine({ task, accent }: Props) {
+export default function TaskLine({ task, accent, onClick }: Props) {
   const bucket = taskBucket(task);
   const lines = (task.content || "").split("\n");
   const title = lines[0] || task.ref_code || "";
   const note = lines.slice(1).join(" ").trim().slice(0, 200);
   const age = formatAge(task.updated_at);
+  const clickable = !!onClick && !!task.ref_code;
+
+  const handleClick = () => {
+    if (clickable) onClick!(task.ref_code!);
+  };
 
   return (
     <div
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={clickable ? handleClick : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleClick();
+              }
+            }
+          : undefined
+      }
       style={{
         display: "flex",
         alignItems: "flex-start",
         gap: 10,
         padding: "9px 14px",
         borderBottom: "1px solid var(--border-soft)",
+        cursor: clickable ? "pointer" : "default",
+        transition: "background 120ms",
+      }}
+      onMouseEnter={(e) => {
+        if (clickable) e.currentTarget.style.background = "color-mix(in oklch, var(--text) 4%, transparent)";
+      }}
+      onMouseLeave={(e) => {
+        if (clickable) e.currentTarget.style.background = "";
       }}
       data-test={`projects-task-${task.ref_code}`}
     >
