@@ -51,9 +51,13 @@ test.describe("admin (authenticated)", () => {
     await page.locator('[data-test="admin-nav-postgresql"]').click();
     // The Content area swaps to the selected panel; assertion is loose because
     // the panel implementation may vary — we just confirm the click registered
-    // by checking the active-state class on the nav item.
-    await expect(page.locator('[data-test="admin-nav-postgresql"]')).toHaveClass(
-      /border-l-radbot-sunset/,
+    // by checking the active-state marker on the nav item. (Styling moved to
+    // inline CSS custom properties in the admin redesign, so the old
+    // `border-l-radbot-sunset` Tailwind class no longer exists; the button
+    // now carries `data-active="true"` when selected.)
+    await expect(page.locator('[data-test="admin-nav-postgresql"]')).toHaveAttribute(
+      "data-active",
+      "true",
     );
   });
 });
