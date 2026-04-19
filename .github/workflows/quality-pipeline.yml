@@ -155,6 +155,7 @@ jobs:
       - name: Check Gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           status=$(curl -s -o /dev/null -w '%{http_code}' \
@@ -164,8 +165,6 @@ jobs:
             gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
             sleep 30
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Check Anthropic
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
