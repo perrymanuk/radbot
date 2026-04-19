@@ -23,6 +23,7 @@ interface Props {
 
 export default function OverviewTab({ project }: Props) {
   const accent = accentFor(project.ref_code || "");
+  const openTaskEditor = useProjectsStore((s) => s.openTaskEditor);
   const tasks = useProjectsStore(
     useShallow((s) => selectTasksForProject(s, project.ref_code!)),
   );
@@ -183,15 +184,43 @@ export default function OverviewTab({ project }: Props) {
               {recent.map((t) => {
                 const bucket = taskBucket(t);
                 const title = (t.content || "").split("\n")[0];
+                const clickable = !!t.ref_code;
+                const onClick = clickable
+                  ? () => openTaskEditor(t.ref_code!)
+                  : undefined;
                 return (
                   <div
                     key={t.entry_id}
+                    role={clickable ? "button" : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    onClick={onClick}
+                    onKeyDown={
+                      clickable
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onClick?.();
+                            }
+                          }
+                        : undefined
+                    }
+                    data-test={`projects-overview-recent-${t.ref_code}`}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 10,
                       padding: "10px 14px",
                       borderBottom: "1px solid var(--border-soft)",
+                      cursor: clickable ? "pointer" : "default",
+                      transition: "background 120ms",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (clickable)
+                        e.currentTarget.style.background =
+                          "color-mix(in oklch, var(--text) 4%, transparent)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (clickable) e.currentTarget.style.background = "";
                     }}
                   >
                     <StatusIcon status={bucket} />
