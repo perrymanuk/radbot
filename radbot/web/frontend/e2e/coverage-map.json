@@ -1,0 +1,37 @@
+{
+  "specs": {
+    "specs/chat.spec.ts": [
+      "radbot/web/frontend/src/pages/ChatPage.tsx",
+      "radbot/web/frontend/src/components/chat/**",
+      "radbot/web/frontend/src/hooks/use-websocket*",
+      "radbot/web/api/chat*.py",
+      "radbot/web/ws/**",
+      "radbot/agent/agent_core.py"
+    ],
+    "specs/admin.spec.ts": [
+      "radbot/web/frontend/src/pages/AdminPage.tsx",
+      "radbot/web/frontend/src/components/admin/**",
+      "radbot/web/frontend/src/stores/admin-store.ts",
+      "radbot/web/frontend/src/lib/admin-api*",
+      "radbot/web/api/admin.py"
+    ],
+    "specs/admin-login.spec.ts": [
+      "radbot/web/frontend/src/pages/AdminPage.tsx",
+      "radbot/web/frontend/src/stores/admin-store.ts",
+      "radbot/web/api/admin.py"
+    ]
+  },
+  "alwaysRun": [
+    "radbot/web/frontend/src/App.tsx",
+    "radbot/web/frontend/src/main.tsx",
+    "radbot/web/frontend/src/stores/app-store.ts",
+    "radbot/web/frontend/src/lib/api.ts",
+    "radbot/web/frontend/src/lib/utils.ts",
+    "radbot/web/frontend/vite.config.ts",
+    "radbot/web/frontend/tailwind.config.ts",
+    "radbot/web/frontend/tsconfig.json",
+    "radbot/web/frontend/package.json",
+    "radbot/web/app.py",
+    "radbot/web/__main__.py"
+  ]
+}

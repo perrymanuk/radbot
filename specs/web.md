@@ -227,3 +227,14 @@ Registered in `pages/AdminPage.tsx` via `NAV_ITEMS` + `PANEL_MAP`.
 
 - `components/chat/AgentCards.tsx` — renders `MediaCard`, `SeasonBreakdownCard`, `HaDeviceCard`, `VideoCard`, `HandoffLine` (parses ` ```radbot:<kind> ` fenced blocks from message text). `<VideoCard />` is kidsvid's kid-video card with an ADD TO KIDEO direct-action button calling `/api/videos`.
 - Terminal refresh: mascot, stats footer, notifications drawer — see commit `9ebfb9f`
+
+### `data-test` attribute convention (for browser e2e)
+
+Stable selectors for Playwright specs use `data-test="kebab-case-region-or-action"`. Naming pattern: `<page-or-feature>-<element>` (e.g. `admin-login-prompt`, `admin-token-input`, `admin-nav-google`, `chat-input`, `chat-send`, `message-assistant`). Prefer these over class/text selectors so frontend restyling doesn't break tests.
+
+Currently seeded:
+- `chat-input`, `chat-send` (`components/chat/ChatInput.tsx`)
+- `message-assistant`, `message-user`, `message-system` + `data-agent` attribute (`components/chat/ChatMessage.tsx`)
+- `admin-login-prompt`, `admin-login-error`, `admin-token-input`, `admin-token-submit`, `admin-dashboard`, `admin-sidebar`, `admin-group-<group>`, `admin-nav-<id>` + `data-status` (`pages/AdminPage.tsx`)
+
+Add a new `data-test` attribute when writing the first spec that needs to assert on the element. Screenshot fixtures live alongside specs at `radbot/web/frontend/e2e/fixtures/screenshot.ts`. See `specs/testing.md` for the full e2e architecture.

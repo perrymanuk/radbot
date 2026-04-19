@@ -1,0 +1,38 @@
+# Declarative manifest of credentials + config to seed into the CI radbot stack.
+# Add a new entry here when an e2e spec gains a dependency on a new integration.
+# `required: true` fails the seeder if the env var is absent (CI must wire the secret).
+# `required: false` skips silently — the spec must tolerate the integration being absent.
+
+credentials:
+  - name: gemini_api_key
+    env: GEMINI_API_KEY
+    credential_type: api_key
+    required: true
+
+  - name: anthropic_api_key
+    env: ANTHROPIC_API_KEY
+    credential_type: api_key
+    required: true
+
+  # Optional integration creds — add as specs need them
+  - name: overseerr_api_key
+    env: OVERSEERR_API_KEY
+    credential_type: api_key
+    required: false
+
+config_sections:
+  - section: agent
+    fields:
+      main_model:
+        value: "gemini-2.5-flash"   # cheap default for CI; specs can override per-test
+      sub_model:
+        value: "gemini-2.5-flash"
+
+  - section: integrations
+    fields:
+      overseerr.url:
+        env: OVERSEERR_URL
+        required: false
+      ntfy.url:
+        env: NTFY_URL
+        required: false

@@ -193,6 +193,8 @@ export default function ChatMessage({ message }: Props) {
         isSystem && "opacity-75",
       )}
       aria-label={`Message from ${id.name}`}
+      data-test={isAssistant ? "message-assistant" : isSystem ? "message-system" : "message-user"}
+      data-agent={id.name}
     >
       {/* Top row: pill · timestamp · actions */}
       <header className="flex items-center gap-2 mb-1.5">

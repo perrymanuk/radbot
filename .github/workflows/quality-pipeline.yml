@@ -1,0 +1,560 @@
+name: Quality Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "radbot/**"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/quality-pipeline.yml"
+      - ".github/actions/bootstrap-radbot-stack/**"
+      - "Makefile"
+      - "docker-compose.yml"
+      - "Dockerfile*"
+      - "pyproject.toml"
+      - "uv.lock"
+
+# Cancel in-progress runs for the same PR when a new commit lands
+concurrency:
+  group: quality-pipeline-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  ANTHROPIC_BUDGET_USD: "2.0"
+  RADBOT_EXPOSED_PORT: "8001"
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────
+  # Gate: opt-in label + author allowlist (public repo, secret-using workflow)
+  # ──────────────────────────────────────────────────────────────────────
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      - id: decide
+        run: |
+          set -e
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+          AUTHOR='${{ github.event.pull_request.user.login }}'
+          SAME_REPO='${{ github.event.pull_request.head.repo.full_name == github.repository }}'
+
+          ALLOW_AUTHORS='["perrymanuk"]'
+
+          has_label=$(echo "$LABELS" | jq -r 'index("run-e2e") != null')
+          allowed=$(echo "$ALLOW_AUTHORS" | jq --arg a "$AUTHOR" 'index($a) != null')
+
+          if [ "$has_label" != "true" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "reason=label 'run-e2e' not present" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$SAME_REPO" != "true" ] && [ "$allowed" != "true" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "reason=author $AUTHOR not in allowlist and PR is from a fork" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          echo "reason=label present, author authorized" >> "$GITHUB_OUTPUT"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Gate: secret-scan (REQUIRED, binary). Runs even if upstream is down.
+  # ──────────────────────────────────────────────────────────────────────
+  secret-scan:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: trufflehog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: HEAD
+          extra_args: --only-verified
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Gate: path-guard (REQUIRED, sets auto_merge_blocked flag for aggregate)
+  # ──────────────────────────────────────────────────────────────────────
+  path-guard:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      auto_merge_blocked: ${{ steps.check.outputs.blocked }}
+      blocked_paths: ${{ steps.check.outputs.paths }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        shell: bash
+        run: |
+          set -e
+          BASE='${{ github.event.pull_request.base.sha }}'
+          changed=$(git diff --name-only "$BASE" HEAD)
+
+          BLOCK_PATTERNS='
+          radbot/credentials/
+          radbot/web/api/admin.py
+          radbot/db/
+          radbot/config/config_loader.py
+          radbot/worker/
+          .github/
+          Makefile
+          Dockerfile
+          docker-compose.yml
+          pyproject.toml
+          uv.lock
+          radbot/web/frontend/package.json
+          radbot/web/frontend/package-lock.json
+          scripts/seed_
+          '
+
+          blocked=()
+          for f in $changed; do
+            for pat in $BLOCK_PATTERNS; do
+              [ -z "$pat" ] && continue
+              if [[ "$f" == "$pat"* ]] || [[ "$f" == *"$pat" ]]; then
+                blocked+=("$f")
+                break
+              fi
+            done
+            # *.sql migrations
+            if [[ "$f" == *.sql ]]; then
+              blocked+=("$f")
+            fi
+          done
+
+          if [ ${#blocked[@]} -gt 0 ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            printf 'paths=%s\n' "${blocked[*]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+            echo "paths=" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Pre-flight: are upstream LLM providers reachable? Cancel (don't fail)
+  # if they're down — provider outage shouldn't block a clean PR.
+  # ──────────────────────────────────────────────────────────────────────
+  upstream-health:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    environment: e2e-secrets
+    steps:
+      - name: Check Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -e
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}")
+          if [ "$status" -ge 500 ] || [ "$status" -eq 000 ]; then
+            echo "Gemini upstream returned $status; cancelling workflow."
+            gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
+            sleep 30
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Anthropic
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -X POST https://api.anthropic.com/v1/messages \
+            -d '{"model":"claude-haiku-4-5","max_tokens":1,"messages":[{"role":"user","content":"ping"}]}')
+          if [ "$status" -ge 500 ] || [ "$status" -eq 000 ]; then
+            echo "Anthropic upstream returned $status; cancelling workflow."
+            gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
+            sleep 30
+          fi
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Cheap deterministic gates
+  # ──────────────────────────────────────────────────────────────────────
+  lint:
+    needs: [guard, upstream-health]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      score: ${{ steps.score.outputs.score }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: make lint
+      - id: score
+        if: always()
+        run: echo "score=${{ job.status == 'success' && '10' || '0' }}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: [guard, upstream-health]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      score: ${{ steps.score.outputs.score }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: radbot/web/frontend/package-lock.json
+      - run: npm ci
+        working-directory: radbot/web/frontend
+      - run: npm run build
+        working-directory: radbot/web/frontend
+      - id: score
+        if: always()
+        run: echo "score=${{ job.status == 'success' && '10' || '0' }}" >> "$GITHUB_OUTPUT"
+
+  unit-tests:
+    needs: [guard, upstream-health]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      score: ${{ steps.score.outputs.score }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uv sync
+      - run: make test-unit && make test-integration
+      - id: score
+        if: always()
+        run: echo "score=${{ job.status == 'success' && '20' || '0' }}" >> "$GITHUB_OUTPUT"
+
+  coverage-delta:
+    needs: [guard, upstream-health]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      score: ${{ steps.score.outputs.score }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check new pages have coverage-map entries
+        run: |
+          set -e
+          BASE='${{ github.event.pull_request.base.sha }}'
+          MAP='radbot/web/frontend/e2e/coverage-map.json'
+          new_pages=$(git diff --name-only --diff-filter=A "$BASE" HEAD \
+                       | grep -E '^radbot/web/frontend/src/pages/.*\.tsx$' || true)
+          if [ -z "$new_pages" ]; then
+            echo "No new pages added; coverage-delta passes."
+            exit 0
+          fi
+          missing=()
+          for page in $new_pages; do
+            if ! grep -q "$page" "$MAP"; then
+              missing+=("$page")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::New pages without coverage-map entries:"
+            printf '  - %s\n' "${missing[@]}"
+            echo "Add each to radbot/web/frontend/e2e/coverage-map.json before merging."
+            exit 1
+          fi
+      - id: score
+        if: always()
+        run: echo "score=${{ job.status == 'success' && '10' || '0' }}" >> "$GITHUB_OUTPUT"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Heavy gate: functional e2e against full Docker stack with real LLMs
+  # ──────────────────────────────────────────────────────────────────────
+  functional-e2e:
+    needs: [guard, upstream-health]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    environment: e2e-secrets
+    timeout-minutes: 30
+    outputs:
+      score: ${{ steps.score.outputs.score }}
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OVERSEERR_API_KEY: ${{ secrets.OVERSEERR_API_KEY }}
+      OVERSEERR_URL: ${{ vars.OVERSEERR_URL }}
+      NTFY_URL: ${{ vars.NTFY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: radbot/web/frontend/package-lock.json
+      - run: uv sync
+      - run: npm ci
+        working-directory: radbot/web/frontend
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: radbot/web/frontend
+      - name: Build frontend
+        run: npm run build
+        working-directory: radbot/web/frontend
+      - name: Bootstrap radbot stack
+        uses: ./.github/actions/bootstrap-radbot-stack
+        with:
+          radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
+          tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          tailscale_oauth_secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+      - name: Run affected Playwright specs
+        working-directory: radbot/web/frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8001
+          RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: npm run test:e2e:affected
+      - name: Collect failure artifacts
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose logs --no-color > artifacts/compose-logs.txt 2>&1 || true
+          docker compose ps > artifacts/compose-ps.txt 2>&1 || true
+          curl -s http://localhost:8001/health > artifacts/health.json 2>&1 || true
+          docker logs radbot-radbot-1 > artifacts/radbot.log 2>&1 || true
+      - name: Upload failure bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functional-e2e-failure-${{ github.run_id }}
+          path: |
+            artifacts/
+            radbot/web/frontend/playwright-report/
+            radbot/web/frontend/test-results/
+          retention-days: 14
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
+      - id: score
+        if: always()
+        run: echo "score=${{ job.status == 'success' && '30' || '0' }}" >> "$GITHUB_OUTPUT"
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Heavy gate: AI visual regression
+  #   1. Boot stack from origin/main, snap @screenshot specs into screens/main
+  #   2. Boot stack from PR head, snap into screens/pr
+  #   3. Anthropic compares both sets, emits 0-20 score
+  # ──────────────────────────────────────────────────────────────────────
+  visual-regression:
+    needs: [guard, upstream-health]
+    if: needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    environment: e2e-secrets
+    timeout-minutes: 45
+    outputs:
+      score: ${{ steps.compare.outputs.score }}
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OVERSEERR_URL: ${{ vars.OVERSEERR_URL }}
+      NTFY_URL: ${{ vars.NTFY_URL }}
+    steps:
+      - uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ── Phase 1: capture main baseline ───────────────────────────────
+      - name: Checkout origin/main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: main
+      - name: Install + build (main)
+        working-directory: main/radbot/web/frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+      - name: Bootstrap stack (main)
+        uses: ./main/.github/actions/bootstrap-radbot-stack
+        with:
+          radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
+          tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          tailscale_oauth_secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
+      - name: Capture screenshots (main)
+        working-directory: main/radbot/web/frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8001
+          RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          SCREENSHOT_DIR: ${{ github.workspace }}/screens/main
+        run: npx playwright test --grep @screenshot
+        continue-on-error: true
+      - name: Tear down stack (main)
+        if: always()
+        working-directory: main
+        run: docker compose down -v
+
+      # ── Phase 2: capture PR head ─────────────────────────────────────
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+      - name: Install + build (pr)
+        working-directory: pr/radbot/web/frontend
+        run: |
+          npm ci
+          npx playwright install chromium
+          npm run build
+      - name: Bootstrap stack (pr)
+        uses: ./pr/.github/actions/bootstrap-radbot-stack
+        with:
+          with_tailscale: "false"  # already joined above; nodeid already authed
+          radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
+      - name: Capture screenshots (pr)
+        working-directory: pr/radbot/web/frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8001
+          RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          SCREENSHOT_DIR: ${{ github.workspace }}/screens/pr
+        run: npx playwright test --grep @screenshot
+        continue-on-error: true
+      - name: Tear down stack (pr)
+        if: always()
+        working-directory: pr
+        run: docker compose down -v
+
+      # ── Phase 3: AI compare ──────────────────────────────────────────
+      - name: Compare screenshots
+        id: compare
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BUDGET_USD: ${{ env.ANTHROPIC_BUDGET_USD }}
+        run: uv run python scripts/visual_regression_compare.py \
+              --before "$GITHUB_WORKSPACE/screens/main" \
+              --after "$GITHUB_WORKSPACE/screens/pr" \
+              --output-json visual-result.json \
+              --max-score 20 >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload screenshot artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-${{ github.run_id }}
+          path: |
+            screens/
+            visual-result.json
+          retention-days: 14
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Aggregate: tally scores, post sticky comment, gate auto-merge
+  # ──────────────────────────────────────────────────────────────────────
+  aggregate:
+    needs:
+      - guard
+      - secret-scan
+      - path-guard
+      - lint
+      - build
+      - unit-tests
+      - coverage-delta
+      - functional-e2e
+      - visual-regression
+    if: always() && needs.guard.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute total score
+        id: tally
+        env:
+          LINT: ${{ needs.lint.outputs.score }}
+          BUILD: ${{ needs.build.outputs.score }}
+          UNIT: ${{ needs.unit-tests.outputs.score }}
+          COVERAGE: ${{ needs.coverage-delta.outputs.score }}
+          FUNCTIONAL: ${{ needs.functional-e2e.outputs.score }}
+          VISUAL: ${{ needs.visual-regression.outputs.score }}
+          BLOCKED: ${{ needs.path-guard.outputs.auto_merge_blocked }}
+          BLOCKED_PATHS: ${{ needs.path-guard.outputs.blocked_paths }}
+          SECRET_SCAN: ${{ needs.secret-scan.result }}
+        run: |
+          set -e
+          score=$(( ${LINT:-0} + ${BUILD:-0} + ${UNIT:-0} + ${COVERAGE:-0} + ${FUNCTIONAL:-0} + ${VISUAL:-0} ))
+          # If any required check failed, total is capped
+          if [ "$SECRET_SCAN" != "success" ]; then
+            score=0
+          fi
+          echo "score=$score" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Quality Pipeline Results"
+            echo
+            echo "| Gate | Score |"
+            echo "|---|---:|"
+            echo "| Lint | ${LINT:-0}/10 |"
+            echo "| Build | ${BUILD:-0}/10 |"
+            echo "| Unit + integration tests | ${UNIT:-0}/20 |"
+            echo "| Coverage delta | ${COVERAGE:-0}/10 |"
+            echo "| Functional e2e | ${FUNCTIONAL:-0}/30 |"
+            echo "| Visual regression | ${VISUAL:-0}/20 |"
+            echo "| **Total** | **$score / 100** |"
+            echo
+            echo "Required: secret-scan=$SECRET_SCAN, path-guard auto_merge_blocked=$BLOCKED"
+            if [ "$BLOCKED" = "true" ]; then
+              echo
+              echo "**Auto-merge disabled** — sensitive paths touched: \`$BLOCKED_PATHS\`"
+            fi
+          } > comment.md
+      - name: Post sticky comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: comment.md
+          edit-mode: replace
+      - name: Set commit status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCORE: ${{ steps.tally.outputs.score }}
+        run: |
+          gh api repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
+            -f state=$([ "$SCORE" -ge 70 ] && echo success || echo failure) \
+            -f context="quality-pipeline/score" \
+            -f description="$SCORE / 100"
+      - name: Auto-merge if eligible
+        if: |
+          needs.path-guard.outputs.auto_merge_blocked != 'true' &&
+          needs.secret-scan.result == 'success' &&
+          contains(github.event.pull_request.labels.*.name, 'auto-merge-eligible')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCORE: ${{ steps.tally.outputs.score }}
+        run: |
+          if [ "$SCORE" -ge 90 ]; then
+            gh pr merge ${{ github.event.pull_request.number }} \
+              --repo ${{ github.repository }} \
+              --auto --squash --delete-branch
+          else
+            echo "Score $SCORE < 90; auto-merge not enabled."
+          fi
+      - name: Fail workflow if score < 70
+        env:
+          SCORE: ${{ steps.tally.outputs.score }}
+        run: |
+          if [ "$SCORE" -lt 70 ]; then
+            echo "::error::Quality score $SCORE is below the 70 minimum."
+            exit 1
+          fi

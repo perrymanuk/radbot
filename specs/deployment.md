@@ -71,6 +71,41 @@ See **`specs/workers.md`** for full architecture, worker protocol, and file inve
 - Separate worker image pipeline with BuildKit + GHA layer caching
 - Image: `ghcr.io/perrymanuk/radbot` (main), `ghcr.io/perrymanuk/radbot-worker` (worker)
 - Update the Nomad job's `image` tag after a new version pushes (manual step)
+- `.github/workflows/quality-pipeline.yml` — PR gate; opt-in via `run-e2e` label. See `specs/testing.md` for the full gate model.
+
+## CI Stack Bootstrap (`bootstrap-radbot-stack` composite action)
+
+Canonical full-stack spin-up for any workflow that needs a running radbot. Lives at `.github/actions/bootstrap-radbot-stack/action.yml`. Steps in order:
+
+1. **Tailscale connect** (optional, `with_tailscale: true` default) — `tailscale/github-action` with OAuth client id/secret + `tag:github-actions`. Required for in-network integrations (Overseerr, ntfy, Lidarr, Picnic).
+2. **Generate `.env`** at repo root from action inputs (`RADBOT_ADMIN_TOKEN`, `RADBOT_CREDENTIAL_KEY`, `RADBOT_EXPOSED_PORT=8001`).
+3. **`docker compose up -d --build --wait`** — same compose file as local dev.
+4. **Seed credentials + config** — `scripts/seed_credentials_from_env.py` and `scripts/seed_config_from_env.py` read `scripts/e2e_seed_manifest.yml` and POST/PUT to the running stack's admin API at `:8001` using the seeded admin token.
+5. **Restart `radbot` container** so it picks up the seeded config:credentials.
+6. **`scripts/wait_for_health.py`** polls `/health` with timeout + retry budget — replaces brittle `sleep N`.
+7. **Snapshot to job summary** — `/health` body + `docker compose ps`.
+
+Required GH **secrets**: `RADBOT_ADMIN_TOKEN`, `RADBOT_CREDENTIAL_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_SECRET`, optional integration keys (`OVERSEERR_API_KEY`, …). All MUST live in the GH `e2e-secrets` deployment environment with required reviewers.
+
+Required GH **variables** (non-secret URLs): `OVERSEERR_URL`, `NTFY_URL`. Format: `https://host[:port]` (full scheme, no trailing slash, no path — clients append `/api/v1/...`).
+
+Manifest schema (`scripts/e2e_seed_manifest.yml`):
+```yaml
+credentials:
+  - { name: gemini_api_key, env: GEMINI_API_KEY, required: true }
+config_sections:
+  - section: agent
+    fields:
+      main_model: { value: "gemini-2.5-flash" }   # literal
+      sub_model: { value: "gemini-2.5-flash" }
+  - section: integrations
+    fields:
+      overseerr.url: { env: OVERSEERR_URL, required: false }
+```
+
+`required: true` fails the workflow if the env var is absent. `required: false` skips silently and the spec must tolerate the integration being absent.
+
+**CI vs prod credential key:** the same `RADBOT_CREDENTIAL_KEY` secret name is currently used in both — the security note in `docs/implementation/ci-security.md` documents the rotation procedure and the planned move to a CI-only Fernet key. Until that's done, treat any GH Actions compromise as equivalent to prod credential compromise.
 
 ## Environment Separation (Dev)
 

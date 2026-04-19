@@ -234,28 +234,38 @@ The Vite dev server binds to all interfaces (`host: true`) for mobile testing on
 
 ### E2E Tests
 
-End-to-end tests live in `tests/e2e/` and cover REST APIs, WebSocket connections, and agent interactions. They can run in two modes:
+End-to-end tests live in `tests/e2e/` (Python API tests) and `radbot/web/frontend/e2e/` (Playwright browser tests). Both run against the same Docker Compose stack.
 
-**In-process mode** (default) — uses ASGI transport, requires local services (PostgreSQL, Qdrant, Gemini API key):
-
-```bash
-make test-e2e
-```
-
-**Docker mode** — runs against the full Docker Compose stack (PostgreSQL + Qdrant + RadBot). The stack's credential store provides the Gemini API key, so no local config is needed:
+**Python API e2e** — REST + WebSocket + agent interactions:
 
 ```bash
-# Automated: start stack, run tests, tear down
-make test-e2e-docker
-
-# Manual: start stack, run tests yourself
-make test-e2e-docker-up
-RADBOT_TEST_URL=http://localhost:8000 RADBOT_ADMIN_TOKEN=changeme \
-  uv run pytest tests/e2e -v --timeout=120
-make test-e2e-docker-down
+make test-e2e   # spins stack, seeds creds from your dev DB, runs pytest, tears down
 ```
 
-Set `RADBOT_TEST_URL` to point tests at any running RadBot instance. Integration tests (HA, Calendar, Gmail, Jira, etc.) auto-skip when their services aren't available.
+**Browser e2e (Playwright)** — drives the React UI, grades chat responses with an LLM judge:
+
+```bash
+# Full suite against Docker stack at :8001
+make test-e2e-browser
+
+# Only specs whose covered files changed vs origin/main (recommended default)
+make test-e2e-browser-affected
+
+# Fast dev loop against Vite :5173 + already-running FastAPI :8000 (no Docker)
+make test-e2e-browser-dev
+```
+
+One-time prereq: `cd radbot/web/frontend && npm install && npx playwright install chromium`. Chat specs require `ANTHROPIC_API_KEY` for the LLM judge — export it locally or add to `.env.local`.
+
+See `docs/implementation/e2e_tests.md` for writing new specs and `specs/testing.md` for the architecture.
+
+### Auto-merge / quality score
+
+PRs labelled `run-e2e` trigger `.github/workflows/quality-pipeline.yml`, which runs six weighted gates (functional e2e, visual regression, unit + integration, lint, build, coverage delta) plus required `secret-scan` and `path-guard`. The aggregate posts a sticky PR comment with the score and sets a commit status `quality-pipeline/score`.
+
+PRs additionally labelled `auto-merge-eligible` with score ≥ 90, secret-scan green, and no hard-block paths touched (credentials, admin API, CI, deps, schemas) auto-merge via `gh pr merge --auto --squash`. The `/ship` Claude Code skill (`/ship` in any Claude Code session inside this repo) orchestrates the full lifecycle: branch → push → CI → auto-merge.
+
+See `specs/testing.md`, `docs/implementation/quality_pipeline.md`, and `docs/implementation/ship_skill.md`.
 
 ## Project Structure
 

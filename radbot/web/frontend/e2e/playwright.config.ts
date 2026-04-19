@@ -1,0 +1,41 @@
+import { defineConfig, devices } from "@playwright/test";
+import * as dotenv from "dotenv";
+import * as path from "path";
+
+dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
+
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
+
+export default defineConfig({
+  testDir: "./specs",
+  globalSetup: "./global-setup.ts",
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 4 : undefined,
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
+
+  use: {
+    baseURL: BASE_URL,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
+    viewport: { width: 1280, height: 900 },
+  },
+
+  projects: [
+    {
+      name: "anonymous",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: /admin\.spec\.ts/,
+    },
+    {
+      name: "admin-authed",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /admin\.spec\.ts/,
+    },
+  ],
+});

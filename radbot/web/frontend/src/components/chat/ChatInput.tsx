@@ -219,6 +219,7 @@ export default function ChatInput() {
           rows={1}
           placeholder={placeholder}
           aria-label="Message composer"
+          data-test="chat-input"
           className={cn(
             "flex-1 resize-none bg-transparent outline-none",
             "font-sans text-[0.875rem] leading-[1.55] text-txt-primary",
@@ -252,6 +253,7 @@ export default function ChatInput() {
             onClick={send}
             disabled={!hasText || isDisabled}
             aria-label="Send message"
+            data-test="chat-send"
             className={cn(
               "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded border transition-all",
               "font-mono text-[0.68rem] font-bold tracking-[0.08em]",

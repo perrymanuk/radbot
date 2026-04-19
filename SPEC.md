@@ -18,7 +18,8 @@
 | Integrations | specs/integrations.md | HA, Overseerr, Lidarr, Picnic, Jira, Gmail, ntfy, Ollama, GitHub, YouTube/CuriosityStream/Kideo |
 | Config | specs/config.md | cfg system, priority chain, DB sections, session mode, admin UI, hot-reload, `RADBOT_MCP_TOKEN` + `RADBOT_WIKI_PATH` env vars |
 | Workers | specs/workers.md | Workspace/terminal workers, PTY server, Nomad jobs, proxy, legacy session-worker notes |
-| Deployment | specs/deployment.md | Docker (main + worker), Nomad, CI/CD, env vars, ai-intel wiki volume mount |
+| Deployment | specs/deployment.md | Docker (main + worker), Nomad, CI/CD, env vars, ai-intel wiki volume mount, `bootstrap-radbot-stack` composite action |
+| Testing | specs/testing.md | Playwright e2e suite, selective-affected runner, LLM judge, screenshot fixtures, quality-pipeline workflow + 6 weighted gates, auto-merge at score ≥ 90, CI security model |
 
 ## Cross-Cutting
 
@@ -34,6 +35,7 @@
 - **Config priority**: DB config > file config > credential store > env vars. See `specs/config.md`.
 - **Error pattern**: Agent tools return `{"status": "success/error", ...}` dicts.
 - **Logging**: Structured JSON via `radbot/logging_config.py`. One INFO per operation, DEBUG for hot loops.
+- **Quality pipeline**: PRs labelled `run-e2e` trigger `.github/workflows/quality-pipeline.yml` — six weighted gates (functional-e2e 30, visual-regression 20, unit-tests 20, lint 10, build 10, coverage-delta 10) plus required `secret-scan` (gitleaks + trufflehog) and `path-guard`. Aggregate posts a sticky PR comment + commit status `quality-pipeline/score`. PRs labelled `auto-merge-eligible` with score ≥ 90, secret-scan green, and no hard-block paths touched call `gh pr merge --auto --squash`. Hard-block paths (always require human merge): `radbot/credentials/`, `radbot/web/api/admin.py`, `radbot/db/`, `radbot/config/config_loader.py`, `radbot/worker/`, `.github/`, `Makefile`, `Dockerfile*`, `pyproject.toml`, `uv.lock`, `*.sql`. Local fast-loop: `make test-e2e-browser-affected`. CI security: GH `e2e-secrets` environment with required reviewers; `tag:github-actions` Tailscale join for in-network integrations; CI uses a separate Fernet credential key from prod (NEVER share `RADBOT_CREDENTIAL_KEY`). See `specs/testing.md` and `docs/implementation/ci-security.md`.
 
 ## Keeping Specs Up To Date
 

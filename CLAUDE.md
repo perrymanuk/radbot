@@ -372,6 +372,9 @@ Exception tracebacks are included in an `"exc"` field when present.
 | `radbot/config/**`, `config_schema.json`, new `config:<section>` | `specs/config.md` |
 | `radbot/worker/**`, terminal proxy, nomad templates | `specs/workers.md` |
 | Dockerfiles, CI workflows, Nomad job, runtime versions | `specs/deployment.md` |
+| `radbot/web/frontend/e2e/**`, `coverage-map.json`, `.github/workflows/quality-pipeline.yml`, `.github/actions/bootstrap-radbot-stack/**`, gates / score weights / auto-merge rules | `specs/testing.md` (and `specs/deployment.md` for composite-action shape changes) |
+| `data-test` attribute conventions on React components | `specs/web.md` § `data-test` attribute convention |
+| `scripts/seed_credentials_from_env.py`, `scripts/seed_config_from_env.py`, `scripts/e2e_seed_manifest.yml`, `scripts/wait_for_health.py`, `scripts/visual_regression_compare.py` | `specs/deployment.md` § CI Stack Bootstrap |
 | Cross-cutting architectural shift | `SPEC.md` quick-ref + the domain spec |
 
 ### Workflow
@@ -396,3 +399,5 @@ Before every commit, review and update these if the changes affect them:
 3. **docs/implementation/** — Add or update implementation docs for new features
 4. **CLAUDE.md** — Update if new conventions, patterns, or architecture decisions
 5. **config_schema.json** — Update if new config sections (`radbot/config/schema/`)
+
+For routine PRs (anything not touching the hard-block paths in `specs/testing.md` § Hard-block paths), prefer the `/ship` skill — it runs the cheap local gates, opens a PR with `run-e2e` + `auto-merge-eligible` labels applied, watches the quality-pipeline workflow, and merges automatically when the score crosses 90. See `docs/implementation/ship_skill.md`. The skill does NOT bypass branch protection or path-guard — those still require human merge.

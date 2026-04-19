@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-affected test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -43,10 +43,13 @@ help:
 	@echo "  make docker-clean   # Stop all services and remove volumes"
 	@echo ""
 	@echo "e2e test targets (Docker-based):"
-	@echo "  make test-e2e        # Start stack, seed credentials, run e2e tests, tear down"
-	@echo "  make test-e2e-up     # Start docker stack for manual test runs"
-	@echo "  make test-e2e-down   # Tear down docker stack"
-	@echo "  make seed-docker     # Seed running docker stack with local dev credentials"
+	@echo "  make test-e2e                     # API e2e: pytest tests/e2e against Docker stack"
+	@echo "  make test-e2e-browser             # Browser e2e: Playwright against Docker stack at :8001"
+	@echo "  make test-e2e-browser-affected    # Same, but only specs whose covered files changed"
+	@echo "  make test-e2e-browser-dev         # Browser e2e against Vite dev server (no Docker)"
+	@echo "  make test-e2e-up                  # Start docker stack for manual test runs"
+	@echo "  make test-e2e-down                # Tear down docker stack"
+	@echo "  make seed-docker                  # Seed running docker stack with local dev credentials"
 
 # Set help as the default target
 .DEFAULT_GOAL := help
@@ -68,7 +71,9 @@ test-unit:
 test-integration:
 	$(PYTEST) tests/integration
 
-test-e2e:
+# Internal helper: bring stack up, seed dev credentials, restart, wait healthy.
+# Used by test-e2e and test-e2e-browser to share the bootstrap step.
+_test-e2e-prepare:
 	docker compose up -d --build --wait
 	RADBOT_ENV=dev $(PYTHON) scripts/seed_docker_credentials.py \
 		--target-url http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
@@ -76,16 +81,45 @@ test-e2e:
 		--rewrite-localhost || true
 	@echo "Restarting radbot to pick up seeded credentials..."
 	docker compose restart radbot
-	@for i in $$(seq 1 12); do \
-		curl -sf http://localhost:$${RADBOT_EXPOSED_PORT:-8001}/health > /dev/null 2>&1 && break; \
-		sleep 5; \
-	done
+	$(PYTHON) scripts/wait_for_health.py \
+		--url http://localhost:$${RADBOT_EXPOSED_PORT:-8001}/health \
+		--timeout 60 --interval 2
+
+test-e2e: _test-e2e-prepare
 	RADBOT_TEST_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
 	RADBOT_ADMIN_TOKEN=$$(grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
 	$(PYTEST) tests/e2e -v --timeout=120 ; \
 	EXIT_CODE=$$? ; \
 	docker compose down ; \
 	exit $$EXIT_CODE
+
+# Browser e2e (Playwright) — runs against the same Docker stack as test-e2e.
+# Requires `npx playwright install chromium` once after `npm install`.
+test-e2e-browser: _test-e2e-prepare
+	cd radbot/web/frontend && npm run build
+	cd radbot/web/frontend && PLAYWRIGHT_BASE_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
+		RADBOT_ADMIN_TOKEN=$$(cd ../../../ && grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
+		npm run test:e2e ; \
+	EXIT_CODE=$$? ; \
+	cd ../../.. && docker compose down ; \
+	exit $$EXIT_CODE
+
+# Browser e2e — only the specs whose covered files changed vs origin/main.
+test-e2e-browser-affected: _test-e2e-prepare
+	cd radbot/web/frontend && npm run build
+	cd radbot/web/frontend && PLAYWRIGHT_BASE_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
+		RADBOT_ADMIN_TOKEN=$$(cd ../../../ && grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
+		BASE_REF=$${BASE_REF:-origin/main} \
+		npm run test:e2e:affected ; \
+	EXIT_CODE=$$? ; \
+	cd ../../.. && docker compose down ; \
+	exit $$EXIT_CODE
+
+# Fast dev-loop: requires `make dev-frontend` (Vite :5173) + `make run-web-custom`
+# (FastAPI :8000) already running. Skips Docker build entirely.
+test-e2e-browser-dev:
+	cd radbot/web/frontend && PLAYWRIGHT_BASE_URL=$${PLAYWRIGHT_BASE_URL:-http://localhost:5173} \
+		npm run test:e2e
 
 test-e2e-up:
 	docker compose up -d --wait

@@ -134,7 +134,10 @@ export default function AdminPage() {
   if (!authenticated) return <AuthOverlay />;
 
   return (
-    <div className="h-screen flex flex-col bg-bg-primary text-txt-primary font-sans">
+    <div
+      className="h-screen flex flex-col bg-bg-primary text-txt-primary font-sans"
+      data-test="admin-dashboard"
+    >
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
@@ -159,11 +162,14 @@ function AuthOverlay() {
   };
 
   return (
-    <div className="fixed inset-0 bg-bg-primary z-[1000] flex items-center justify-center">
+    <div
+      className="fixed inset-0 bg-bg-primary z-[1000] flex items-center justify-center"
+      data-test="admin-login-prompt"
+    >
       <form onSubmit={handleSubmit} className="bg-bg-secondary border border-border rounded-xl p-8 w-[380px]">
         <h2 className="text-xl font-semibold mb-1">Admin Access</h2>
         <p className="text-txt-secondary text-sm mb-6">Enter your admin token</p>
-        {error && <div className="text-terminal-red text-sm mb-3">{error}</div>}
+        {error && <div className="text-terminal-red text-sm mb-3" data-test="admin-login-error">{error}</div>}
         <input
           type="text"
           name="username"
@@ -182,10 +188,12 @@ function AuthOverlay() {
           placeholder="Token"
           className="w-full p-2.5 border border-border rounded-md bg-bg-primary text-txt-primary text-sm mb-4 outline-none focus:border-radbot-sunset"
           autoFocus
+          data-test="admin-token-input"
         />
         <button
           type="submit"
           className="w-full py-2.5 bg-radbot-sunset text-bg-primary rounded-md font-medium text-sm hover:bg-radbot-sunset/80 transition-colors cursor-pointer"
+          data-test="admin-token-submit"
         >
           Authenticate
         </button>
@@ -258,9 +266,12 @@ function Sidebar() {
   });
 
   return (
-    <div className="w-[220px] min-w-[220px] bg-bg-secondary border-r border-border overflow-y-auto py-2 flex-shrink-0">
+    <div
+      className="w-[220px] min-w-[220px] bg-bg-secondary border-r border-border overflow-y-auto py-2 flex-shrink-0"
+      data-test="admin-sidebar"
+    >
       {Array.from(groups.entries()).map(([group, items]) => (
-        <div key={group}>
+        <div key={group} data-test={`admin-group-${group.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
           <div className="text-[0.65rem] font-bold tracking-wider uppercase text-txt-secondary/60 px-4 pt-3 pb-1">
             {group}
           </div>
@@ -270,6 +281,8 @@ function Sidebar() {
               <div
                 key={item.id}
                 onClick={() => setActivePanel(item.id)}
+                data-test={`admin-nav-${item.id}`}
+                data-status={s?.status ?? "unknown"}
                 className={cn(
                   "flex items-center gap-2 px-4 py-1.5 cursor-pointer text-sm text-txt-secondary transition-all border-l-[3px] border-transparent",
                   "hover:bg-bg-tertiary hover:text-txt-primary",

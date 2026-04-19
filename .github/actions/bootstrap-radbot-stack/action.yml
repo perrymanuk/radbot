@@ -1,0 +1,100 @@
+name: Bootstrap radbot stack
+description: >
+  Bring up the full radbot Docker stack on a GH runner, seed credentials and
+  config from environment variables, restart the radbot container to pick up
+  the new credentials, and wait for /health. Optionally joins the user's
+  Tailnet first so seeded URLs to in-network services resolve.
+  Canonical full-stack spin-up — used by every workflow that needs the stack.
+
+inputs:
+  with_tailscale:
+    description: "Connect to Tailscale before bringing up the stack (set false if no in-network integrations are exercised)"
+    required: false
+    default: "true"
+  exposed_port:
+    description: "Host port to expose radbot on (matches RADBOT_EXPOSED_PORT in docker-compose)"
+    required: false
+    default: "8001"
+  tailscale_oauth_client_id:
+    description: "Tailscale OAuth client ID (required if with_tailscale=true)"
+    required: false
+  tailscale_oauth_secret:
+    description: "Tailscale OAuth secret (required if with_tailscale=true)"
+    required: false
+  radbot_admin_token:
+    description: "Admin bearer token for the radbot stack"
+    required: true
+  radbot_credential_key:
+    description: "Fernet credential-store encryption key"
+    required: true
+
+outputs:
+  base_url:
+    description: "Base URL of the bootstrapped radbot stack (http://localhost:<exposed_port>)"
+    value: "http://localhost:${{ inputs.exposed_port }}"
+
+runs:
+  using: composite
+  steps:
+    - name: Connect to Tailscale
+      if: ${{ inputs.with_tailscale == 'true' }}
+      uses: tailscale/github-action@84a3f23bb4d843bcf4da6cf824ec1be473daf4de  # v3.4.0 — replace with the actual SHA you want pinned
+      with:
+        oauth-client-id: ${{ inputs.tailscale_oauth_client_id }}
+        oauth-secret: ${{ inputs.tailscale_oauth_secret }}
+        tags: tag:github-actions
+        args: --accept-dns=true
+
+    - name: Generate .env for stack bootstrap
+      shell: bash
+      run: |
+        cat > .env <<EOF
+        RADBOT_ADMIN_TOKEN=${{ inputs.radbot_admin_token }}
+        RADBOT_CREDENTIAL_KEY=${{ inputs.radbot_credential_key }}
+        RADBOT_EXPOSED_PORT=${{ inputs.exposed_port }}
+        EOF
+
+    - name: Bring up Docker stack
+      shell: bash
+      run: docker compose up -d --build --wait
+
+    - name: Seed credentials from GH secrets
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ env.GEMINI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
+        OVERSEERR_API_KEY: ${{ env.OVERSEERR_API_KEY }}
+        OVERSEERR_URL: ${{ env.OVERSEERR_URL }}
+        NTFY_URL: ${{ env.NTFY_URL }}
+      run: |
+        uv run python scripts/seed_credentials_from_env.py \
+          --target-url "http://localhost:${{ inputs.exposed_port }}" \
+          --admin-token "${{ inputs.radbot_admin_token }}"
+        uv run python scripts/seed_config_from_env.py \
+          --target-url "http://localhost:${{ inputs.exposed_port }}" \
+          --admin-token "${{ inputs.radbot_admin_token }}"
+
+    - name: Restart radbot to pick up seeded config
+      shell: bash
+      run: docker compose restart radbot
+
+    - name: Wait for /health
+      shell: bash
+      run: |
+        uv run python scripts/wait_for_health.py \
+          --url "http://localhost:${{ inputs.exposed_port }}/health" \
+          --timeout 90 \
+          --interval 2
+
+    - name: Snapshot stack state
+      shell: bash
+      run: |
+        echo "## Bootstrap snapshot" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        curl -s "http://localhost:${{ inputs.exposed_port }}/health" >> "$GITHUB_STEP_SUMMARY" || true
+        echo '' >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        echo "Containers:" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        docker compose ps >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
