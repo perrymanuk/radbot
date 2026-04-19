@@ -330,8 +330,16 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           BASE_REF: origin/${{ github.event.pull_request.base.ref }}
-        run: npm run test:e2e:affected
+        run: |
+          # Bypass the sh -c wrapper from the npm script — env propagation is
+          # finicky through nested wrappers, and we want playwright to see
+          # PLAYWRIGHT_BASE_URL directly.
+          echo "PLAYWRIGHT_BASE_URL=$PLAYWRIGHT_BASE_URL"
+          SPECS=$(node e2e/select-affected.mjs)
+          echo "Affected specs: '$SPECS'"
+          npx playwright test $SPECS
       - name: Collect failure artifacts
         if: failure()
         run: |
