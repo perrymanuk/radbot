@@ -777,6 +777,13 @@ async def terminal_page(request: Request):
     return await index(request)
 
 
+@app.get("/projects")
+@app.get("/projects/{ref_code}")
+async def projects_page(request: Request, ref_code: str | None = None):
+    """Serve React SPA for the projects page (react-router handles the ref_code)."""
+    return await index(request)
+
+
 @app.get("/healthz")
 async def healthz_check():
     """Healthz endpoint."""
