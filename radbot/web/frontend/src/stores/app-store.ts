@@ -19,7 +19,11 @@ interface AppState {
   setSessionId: (id: string) => void;
   loadSessions: () => Promise<void>;
   switchSession: (id: string) => void;
-  createNewSession: (name?: string, description?: string) => Promise<void>;
+  createNewSession: (
+    name?: string,
+    description?: string,
+    agentName?: import("@/types").SessionAgent,
+  ) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   updateSession: (id: string, data: { name?: string; description?: string }) => Promise<void>;
 
@@ -131,13 +135,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().refreshSessionStats();
   },
 
-  createNewSession: async (name, description) => {
+  createNewSession: async (name, description, agentName = "beto") => {
     try {
-      const session = await api.createSession(name, description);
+      const session = await api.createSession(name, description, agentName);
       get().switchSession(session.id);
       get().loadSessions();
     } catch {
-      // Fallback: generate locally
+      // Fallback: generate locally (no agent routing on the fallback — beto only)
       const id = uuid();
       get().switchSession(id);
     }

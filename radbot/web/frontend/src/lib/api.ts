@@ -1,5 +1,6 @@
 import type {
   Session,
+  SessionAgent,
   AgentEvent,
   AgentInfo,
   Message,
@@ -20,7 +21,11 @@ export async function fetchSessions(): Promise<Session[]> {
   return data.sessions;
 }
 
-export async function createSession(name?: string, description?: string): Promise<Session> {
+export async function createSession(
+  name?: string,
+  description?: string,
+  agentName: SessionAgent = "beto",
+): Promise<Session> {
   const sessionId = crypto.randomUUID();
   return json("/api/sessions/create", {
     method: "POST",
@@ -29,6 +34,7 @@ export async function createSession(name?: string, description?: string): Promis
       session_id: sessionId,
       name: name || `Session ${sessionId.slice(0, 8)}`,
       ...(description && { description }),
+      agent_name: agentName,
     }),
   });
 }

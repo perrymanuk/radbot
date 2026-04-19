@@ -18,9 +18,18 @@ FastAPI backend (`radbot/web/`) + React SPA frontend (`radbot/web/frontend/`).
 This was changed in commit `12e4901` (2026-03-23) to fix `AttributeError` on session_service access when chat was incorrectly routed through `SessionProxy`.
 
 ```
-Chat:     Browser ◄──WS──► FastAPI app.py ──► SessionRunner ──► ADK Runner ──► root_agent
+Chat:     Browser ◄──WS──► FastAPI app.py ──► SessionRunner ──► ADK Runner ──► root_agent (beto | scout)
 Terminal: Browser ◄──WS──► FastAPI terminal.py ──► WorkspaceProxy ──► Nomad Worker (PTY only)
 ```
+
+### Per-Session Root Agent (2026-04-19)
+
+Chat sessions choose their root agent at creation time; the choice is stored on `chat_sessions.agent_name` (values: `beto` | `scout`, default `beto`). `SessionRunner.__init__(user_id, session_id, agent_name)` resolves the root via `radbot.agent.agent_core.get_root_agent(agent_name)` (registry: `ROOT_AGENTS = {"beto": root_agent, "scout": scout_root_agent}`), and derives ADK `app_name` from the selected root's `name`. Unknown names fall back to beto.
+
+- `agent_name` is **immutable** for a session's lifetime — the ADK session-service partition is keyed by `app_name`, so changing it would strand the session.
+- `POST /api/sessions/create` rejects unknown `agent_name` values with 400.
+- `SessionManager.get_or_create_runner(session_id, ...)` looks up the agent from the DB row before constructing the runner; callers don't have to pass it for existing sessions.
+- See `specs/agents.md` § Session Roots for the agent-tree shape of each root.
 
 See `specs/workers.md` for worker/terminal architecture.
 

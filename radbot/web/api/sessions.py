@@ -13,7 +13,6 @@ from pydantic import BaseModel
 
 from radbot.web.api.session import (
     SessionManager,
-    get_or_create_runner_for_session,
     get_session_manager,
 )
 from radbot.web.db import chat_operations
@@ -36,6 +35,7 @@ class SessionMetadata(BaseModel):
     created_at: str
     last_message_at: Optional[str] = None
     preview: Optional[str] = None
+    agent_name: str = "beto"
 
 
 class CreateSessionRequest(BaseModel):
@@ -45,6 +45,7 @@ class CreateSessionRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     user_id: Optional[str] = None
+    agent_name: Optional[str] = None  # "beto" (default) or "scout"
 
 
 class UpdateSessionRequest(BaseModel):
@@ -105,6 +106,7 @@ def register_sessions_router(app):
                     created_at=db_session["created_at"],
                     last_message_at=db_session["last_message_at"],
                     preview=db_session["preview"] or "New session",
+                    agent_name=db_session.get("agent_name") or "beto",
                 )
                 sessions.append(session_meta)
 
@@ -136,22 +138,33 @@ def register_sessions_router(app):
             session_id = request.session_id or str(uuid.uuid4())
             user_id = "web_user"
 
-            # Create the session in the backend
-            runner = await get_or_create_runner_for_session(session_id, session_manager)
-
             # Default name if not provided
             session_name = request.name or f"Session {session_id[:8]}"
+            # Guard against typos / unknown agents — refuse explicitly instead
+            # of silently routing to beto.
+            agent_name = (request.agent_name or "beto").strip()
+            if agent_name not in {"beto", "scout"}:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unknown agent_name '{agent_name}'. Allowed: beto, scout.",
+                )
 
-            # Create in database
+            # Insert the DB row FIRST so the runner (which reads agent_name
+            # from the DB row) gets the right root agent on first touch.
             success = chat_operations.create_or_update_session(
                 session_id=session_id, name=session_name, user_id=user_id,
-                description=request.description,
+                description=request.description, agent_name=agent_name,
             )
 
             if not success:
                 raise HTTPException(
                     status_code=500, detail="Failed to create session in database"
                 )
+
+            # Now spin up the runner — it'll pick up agent_name from the row
+            await session_manager.get_or_create_runner(
+                session_id, user_id=user_id, agent_name=agent_name
+            )
 
             # Get current timestamp
             import datetime
@@ -164,6 +177,7 @@ def register_sessions_router(app):
                 name=session_name,
                 created_at=created_at,
                 preview="New session started",
+                agent_name=agent_name,
             )
         except HTTPException:
             raise
@@ -216,6 +230,7 @@ def register_sessions_router(app):
                 created_at=db_session["created_at"],
                 last_message_at=db_session.get("last_message_at"),
                 preview=db_session.get("preview", "Session updated"),
+                agent_name=db_session.get("agent_name") or "beto",
             )
         except HTTPException:
             raise
@@ -299,6 +314,7 @@ def register_sessions_router(app):
                 "created_at": db_session["created_at"],
                 "last_message_at": db_session.get("last_message_at"),
                 "preview": db_session.get("preview", "Session data"),
+                "agent_name": db_session.get("agent_name") or "beto",
             }
         except HTTPException:
             raise
