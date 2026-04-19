@@ -58,6 +58,14 @@ runs:
       shell: bash
       run: docker compose up -d --build --wait
 
+    - name: Wait for /health (initial)
+      shell: bash
+      run: |
+        uv run python scripts/wait_for_health.py \
+          --url "http://localhost:${{ inputs.exposed_port }}/health" \
+          --timeout 60 \
+          --interval 2
+
     - name: Seed credentials from GH secrets
       shell: bash
       env:

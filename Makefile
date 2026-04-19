@@ -134,14 +134,14 @@ seed-docker:
 		--rewrite-localhost
 
 lint:
-	flake8 radbot tests
-	mypy radbot tests
-	black --check radbot tests
-	isort --check radbot tests
+	$(UV) run flake8 radbot tests
+	$(UV) run mypy radbot tests
+	$(UV) run black --check radbot tests
+	$(UV) run isort --check radbot tests
 
 format:
-	black radbot tests
-	isort radbot tests
+	$(UV) run black radbot tests
+	$(UV) run isort radbot tests
 
 run-cli:
 	$(PYTHON) -m radbot.cli.main
