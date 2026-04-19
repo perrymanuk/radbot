@@ -183,6 +183,27 @@ on unknown paths, so it's safe to leave enabled on every machine. Lives
 in `~/.claude/settings.json` under `hooks.SessionStart` — **user-level,
 never committed to any repo**, so work-repo privacy is preserved.
 
+The `SessionStart` value is an array of matcher-scoped blocks:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {"type": "command", "command": "~/.claude/hooks/radbot-project-context.sh"}
+        ]
+      }
+    ]
+  }
+}
+```
+
+Matcher `""` = match everything. Putting command entries directly in the
+outer array (skipping the matcher wrapper) is a shape error Claude Code
+rejects with `hooks: Expected array, but received undefined`.
+
 > Note: `GET /api/projects/match?cwd=...` and
 > `GET /api/projects/{name}/context.md` are companion REST endpoints to
 > the MCP tools of the same names. They're thin wrappers around the MCP
