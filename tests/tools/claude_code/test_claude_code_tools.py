@@ -4,9 +4,7 @@ Unit tests for Claude Code + GitHub integration tools.
 Tests use mocked subprocess/httpx to avoid needing actual services.
 """
 
-import asyncio
 import json
-import subprocess
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

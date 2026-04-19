@@ -6,7 +6,7 @@ agent for technical research and design collaboration.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

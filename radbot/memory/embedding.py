@@ -7,7 +7,7 @@ Uses the google-genai package (not google-generativeai) for Gemini embeddings.
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List
 
 from dotenv import load_dotenv
 

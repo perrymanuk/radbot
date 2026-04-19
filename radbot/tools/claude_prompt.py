@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import subprocess
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 

@@ -7,7 +7,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import yaml
 
@@ -28,8 +28,6 @@ T = TypeVar("T")
 
 class ConfigError(Exception):
     """Exception raised for configuration errors."""
-
-    pass
 
 
 class ConfigLoader:

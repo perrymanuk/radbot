@@ -321,7 +321,6 @@ def retag_untagged_kideo_videos() -> Dict[str, Any]:
         On failure: {"status": "error", "message": "..."}
     """
     from radbot.tools.youtube.kideo_client import list_videos, set_video_tags
-    from radbot.tools.youtube.tag_generator import generate_tags
 
     videos = list_videos(status="ready")
     untagged = [v for v in videos if not v.get("tags")]

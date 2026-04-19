@@ -6,14 +6,12 @@ runners, and handling agent creation with specific capabilities.
 """
 
 import logging
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 # Import ADK components
 from google.adk.agents import Agent
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-from google.protobuf.json_format import MessageToDict
 
 from radbot.agent.runner import RadbotRunner as Runner
 
@@ -28,7 +26,6 @@ from radbot.agent.agent_base import RadBotAgent
 from radbot.agent.agent_factory import AgentFactory
 
 # Import our configuration modules
-from radbot.config import config_manager
 from radbot.config.settings import ConfigManager
 
 

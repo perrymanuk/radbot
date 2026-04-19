@@ -6,13 +6,11 @@ including tools from Home Assistant, FileServer, and other MCP integrations.
 """
 
 import logging
-import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Import necessary modules
-from radbot.config.config_loader import config_loader
 from radbot.tools.mcp.mcp_core import get_available_mcp_tools
 
 

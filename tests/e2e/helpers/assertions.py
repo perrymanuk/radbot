@@ -1,6 +1,6 @@
 """Non-deterministic response assertion helpers for agent chat tests."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import pytest
 

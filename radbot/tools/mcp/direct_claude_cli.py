@@ -7,15 +7,13 @@ without relying on the more complex MCP client infrastructure. This can be more 
 for basic command execution needs.
 """
 
-import asyncio
 import json
 import logging
 import os
 import subprocess
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-import google.adk.tools as adk_tools
 from google.adk.tools import FunctionTool
 
 from radbot.config.config_loader import config_loader

@@ -8,11 +8,8 @@ are on specialized sub-agents created by specialized_agent_factory.py.
 
 import importlib
 import logging
-from typing import Any, List
 
 from google.adk.agents.callback_context import CallbackContext
-
-from radbot.config import config_manager
 
 logger = logging.getLogger(__name__)
 

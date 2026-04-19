@@ -6,7 +6,6 @@ capabilities via MCP Server integration.
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

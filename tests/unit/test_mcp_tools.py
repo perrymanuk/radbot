@@ -6,8 +6,6 @@ Tests the functionality of the Home Assistant MCP integration tools.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from radbot.tools.mcp.mcp_tools import (
     create_ha_mcp_enabled_agent,
     create_home_assistant_toolset,

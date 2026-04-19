@@ -6,7 +6,7 @@ This module provides API endpoints for managing multiple chat sessions.
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel

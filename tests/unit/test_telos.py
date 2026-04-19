@@ -14,8 +14,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from radbot.tools.telos import loader as telos_loader
 from radbot.tools.telos.callback import (
     _BOOTSTRAP_STATE_KEY,

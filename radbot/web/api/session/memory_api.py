@@ -5,9 +5,8 @@ This module provides the Memory API for storing and retrieving memories.
 """
 
 import logging
-from typing import Any, Dict
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from radbot.web.api.session.session_manager import SessionManager, get_session_manager
@@ -132,7 +131,6 @@ async def store_memory(
         setattr(ToolContext, "memory_service", memory_service)
 
         # Use the store_important_information function
-        from radbot.tools.memory.memory_tools import store_important_information
 
         # Prepare metadata
         metadata = {

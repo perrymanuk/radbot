@@ -6,9 +6,9 @@ that use the ADK built-in google_search tool.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
-from google.adk.agents import Agent, LlmAgent
+from google.adk.agents import Agent
 from google.adk.tools import google_search
 
 from radbot.config import config_manager

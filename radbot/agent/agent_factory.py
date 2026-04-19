@@ -6,11 +6,10 @@ root agents, sub-agents, and web agents.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 # Import necessary components
 from google.adk.agents import Agent
-from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -149,8 +148,6 @@ class AgentFactory:
 
         # Initialize memory service for the web UI and store API keys
         try:
-            import os
-
             from radbot.memory.qdrant_memory import QdrantMemoryService
 
             memory_service = QdrantMemoryService()

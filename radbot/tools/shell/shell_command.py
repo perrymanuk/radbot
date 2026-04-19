@@ -18,9 +18,8 @@ Security measures include:
 """
 
 import logging
-import shlex
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # --- Security Configuration ---
 # CRITICAL: Define the *only* commands the agent is allowed to run in strict mode.

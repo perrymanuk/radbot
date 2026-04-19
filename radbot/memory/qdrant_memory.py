@@ -2,13 +2,11 @@
 Custom memory service implementation using Qdrant as the vector database.
 """
 
-import json
 import logging
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-import numpy as np
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
 

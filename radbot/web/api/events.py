@@ -6,9 +6,9 @@ Events include tool calls, agent transfers, planner events, and model responses.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, Path
 
 from radbot.web.api.session import SessionRunner, get_or_create_runner_for_session
 

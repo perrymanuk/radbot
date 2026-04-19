@@ -21,7 +21,6 @@ from radbot.tools.telos.markdown_io import (
     render_telos_markdown,
 )
 from radbot.tools.telos.models import (
-    IDENTITY_REF,
     REF_PREFIX,
     SECTION_HEADERS,
     STATUS_VALUES,

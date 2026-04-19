@@ -6,7 +6,6 @@ import os
 import shutil
 import tempfile
 import unittest
-from pathlib import Path
 
 from radbot.filesystem.security import (
     create_parent_directory,

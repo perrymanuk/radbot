@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
 
-from radbot.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection
 
 logger = logging.getLogger(__name__)
 

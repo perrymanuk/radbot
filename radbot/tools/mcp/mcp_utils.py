@@ -4,11 +4,8 @@ Utility functions for working with the Model Context Protocol (MCP).
 This module provides helper functions for testing and debugging MCP connections.
 """
 
-import json
 import logging
-import os
-import re
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from dotenv import load_dotenv
 from google.adk.tools import FunctionTool

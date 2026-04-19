@@ -10,8 +10,7 @@ agent initialization code when adding new MCP servers.
 import asyncio
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from radbot.config.config_loader import config_loader
 from radbot.tools.mcp.mcp_client_factory import MCPClientError, MCPClientFactory

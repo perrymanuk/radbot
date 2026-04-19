@@ -18,7 +18,7 @@ import logging
 from typing import List, Tuple
 
 from . import db as telos_db
-from .models import IDENTITY_REF, Entry, Section
+from .models import Entry, Section
 
 logger = logging.getLogger(__name__)
 

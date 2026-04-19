@@ -15,7 +15,7 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -86,8 +86,6 @@ async def alertmanager_webhook(request: Request):
 def _require_admin(request: Request):
     """Verify admin bearer token. Reuses the admin auth logic."""
     import os
-
-    from radbot.credentials.store import get_credential_store
 
     expected = os.environ.get("RADBOT_ADMIN_TOKEN", "")
     if not expected:

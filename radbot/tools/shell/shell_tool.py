@@ -6,7 +6,7 @@ It supports both subprocess and Claude CLI MCP backends for command execution.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
 

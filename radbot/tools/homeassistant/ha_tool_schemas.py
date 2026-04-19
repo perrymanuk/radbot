@@ -6,7 +6,7 @@ the Google Agent Development Kit (ADK).
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 # Import necessary components for ADK integration
 try:

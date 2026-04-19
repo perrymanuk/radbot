@@ -9,7 +9,6 @@ The new workflow-based LlmAgent builds its internal routing mesh in
 model_post_init — agents added after construction won't be routable.
 """
 
-import logging
 import os
 from datetime import date
 from typing import Any, List, Optional

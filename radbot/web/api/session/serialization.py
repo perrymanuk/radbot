@@ -6,7 +6,6 @@ This module provides serialization utilities for the session management.
 
 import json
 import logging
-from typing import Any
 
 # Set up logging
 logger = logging.getLogger(__name__)

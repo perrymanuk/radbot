@@ -1,6 +1,5 @@
 """WebSocket basic connectivity e2e tests."""
 
-import json
 import uuid
 
 import pytest

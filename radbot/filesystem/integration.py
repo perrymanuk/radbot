@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional
 from google.adk.tools import FunctionTool
 
 from radbot.filesystem.security import (
-    get_allowed_directories,
     set_allowed_directories,
 )
 from radbot.filesystem.tools import (

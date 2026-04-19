@@ -6,7 +6,7 @@ tool management, message processing, and agent configuration.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 
 from google.genai.types import Content, Part
 from google.protobuf.json_format import MessageToDict

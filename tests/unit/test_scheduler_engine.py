@@ -12,8 +12,7 @@ Tests cover:
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest import mock
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

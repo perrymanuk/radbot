@@ -6,13 +6,11 @@ runner, and session management.
 """
 
 import logging
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
 
 from radbot.agent.runner import RadbotRunner as Runner
 
@@ -29,7 +27,6 @@ load_dotenv()
 from radbot.config import config_manager
 
 # Import our ADK configuration setup to handle Vertex AI settings
-from radbot.config.adk_config import setup_vertex_environment
 from radbot.config.settings import ConfigManager
 
 # Fallback instruction if configuration loading fails

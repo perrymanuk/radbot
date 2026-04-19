@@ -1,7 +1,5 @@
 """Tasks API e2e tests."""
 
-import uuid
-
 import pytest
 import pytest_asyncio
 

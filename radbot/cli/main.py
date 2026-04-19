@@ -8,7 +8,6 @@ import asyncio
 import logging
 import os
 import sys
-import uuid
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -241,12 +240,10 @@ async def setup_agent() -> Optional[RadBotAgent]:
 
     try:
         # Import the Home Assistant agent factory and memory agent factory
-        from radbot.agent.agent import AgentFactory
         from radbot.agent.home_assistant_agent_factory import (
             create_home_assistant_agent_factory,
         )
         from radbot.agent.memory_agent_factory import create_memory_enabled_agent
-        from radbot.tools.mcp.mcp_tools import create_ha_mcp_enabled_agent
 
         # Configure basic tools
         basic_tools = [get_current_time]

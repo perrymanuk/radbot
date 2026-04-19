@@ -8,7 +8,7 @@ reminders that fire at a specific datetime.
 import logging
 import traceback
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from google.adk.tools import FunctionTool
 

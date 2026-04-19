@@ -5,12 +5,11 @@ This module provides factory functions for creating research agents.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
 # Import ADK components
-from google.adk.tools import FunctionTool
 
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent

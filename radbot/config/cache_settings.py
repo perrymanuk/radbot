@@ -3,7 +3,7 @@ Configuration settings for the prompt caching system.
 """
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 def get_cache_config() -> Dict[str, Any]:

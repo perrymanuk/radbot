@@ -8,10 +8,8 @@ from typing import Any, Dict, List, Optional, Union
 from radbot.tools.calendar.calendar_auth import (
     get_calendar_service,
     get_workspace_calendar_service,
-    validate_calendar_access,
 )
 from radbot.tools.calendar.calendar_operations import (
-    check_calendar_access,
     create_event,
     delete_event,
     get_calendar_availability,

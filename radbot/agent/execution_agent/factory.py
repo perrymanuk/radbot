@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Union
 
 from google.adk.agents import Agent
 
-from radbot.agent.execution_agent.agent import AxelExecutionAgent, ExecutionAgent
+from radbot.agent.execution_agent.agent import ExecutionAgent
 from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager

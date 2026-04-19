@@ -11,7 +11,7 @@ import os.path
 import random
 import socket
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional
 
 import google.auth
 import httplib2

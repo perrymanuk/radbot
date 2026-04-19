@@ -3,14 +3,9 @@ Unit tests for the memory system.
 """
 
 import enum
-import tempfile
-import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-import pytest
-from qdrant_client import QdrantClient, models
+from qdrant_client import models
 
 
 # Patch the PayloadSchemaType in models before importing the modules that use it

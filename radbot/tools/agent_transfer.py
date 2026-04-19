@@ -5,9 +5,8 @@ This module provides tools for transferring control between agents
 in a multi-agent system.
 """
 
-import inspect
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.agents import Agent
 

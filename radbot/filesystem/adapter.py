@@ -7,7 +7,7 @@ that was using the previous MCP fileserver implementation.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from google.adk.tools import FunctionTool
 

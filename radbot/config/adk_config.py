@@ -4,13 +4,9 @@ Configuration module for ADK to handle VertexAI settings from config.yaml.
 This module provides functions to create a properly configured GenAI client.
 """
 
-import inspect
 import logging
 import os
-from typing import Any, Dict, Optional
-
-import google.api_core.client_options as client_options
-import google.auth
+from typing import Optional
 
 # ADK and GenAI imports
 from google.genai.client import Client

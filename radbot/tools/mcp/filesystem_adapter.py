@@ -6,8 +6,7 @@ using the new direct filesystem implementation internally.
 """
 
 import logging
-import os
-from typing import List, Optional
+from typing import List
 
 from google.adk.tools import FunctionTool
 

@@ -9,7 +9,6 @@ import logging
 import re
 from datetime import datetime
 from html import escape
-from typing import Any, Optional
 
 # Set up logging
 logger = logging.getLogger(__name__)

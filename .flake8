@@ -8,15 +8,12 @@ max-line-length = 120
 # Codes we explicitly ignore project-wide:
 #   E203 — whitespace before ':' (conflicts with black)
 #   E402 — module-level import not at top (justified by lazy / conditional imports)
-#   F401 — imported but unused (re-exports in __init__.py + intentional API surface)
-extend-ignore = E203,E402,F401
+extend-ignore = E203,E402
 
 # Per-file overrides for files where wholesale ignores would hide real bugs.
 per-file-ignores =
     # __init__.py files: explicit re-exports
-    radbot/__init__.py:F401
-    radbot/agent/__init__.py:F401
-    radbot/tools/__init__.py:F401
+    **/__init__.py:F401
     # Long prompt strings inside triple-quoted blocks where per-line noqa
     # isn't syntactically possible (comment would become part of the string).
     radbot/agent/research_agent/instructions.py:E501

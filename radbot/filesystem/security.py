@@ -7,7 +7,7 @@ ensuring that paths are safely within allowed directories.
 
 import logging
 import os
-from typing import List, Optional
+from typing import List
 
 logger = logging.getLogger(__name__)
 

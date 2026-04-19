@@ -6,7 +6,7 @@ and enhanced memory agent components.
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from radbot.memory.enhanced_memory.memory_detector import MemoryDetector
 from radbot.memory.enhanced_memory.memory_manager import EnhancedMemoryManager

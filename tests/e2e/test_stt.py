@@ -4,7 +4,6 @@ Auto-skipped if Google Cloud STT is not available.
 """
 
 import io
-import struct
 import wave
 
 import pytest

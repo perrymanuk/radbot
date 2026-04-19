@@ -6,8 +6,7 @@ entities through the REST API.
 """
 
 import logging
-import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 # Import the client singleton
 from radbot.tools.homeassistant.ha_client_singleton import get_ha_client

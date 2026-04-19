@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
 
-from radbot.config.config_loader import config_loader
 from radbot.db.connection import get_db_connection
 
 logger = logging.getLogger(__name__)

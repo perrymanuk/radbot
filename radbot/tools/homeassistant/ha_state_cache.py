@@ -8,7 +8,7 @@ to find entities by name, domain, or attributes.
 import logging
 import time
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 from radbot.tools.homeassistant.ha_client_singleton import get_ha_client
 

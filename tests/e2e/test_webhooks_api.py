@@ -1,7 +1,5 @@
 """Webhooks API e2e tests."""
 
-import uuid
-
 import pytest
 
 pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session")]

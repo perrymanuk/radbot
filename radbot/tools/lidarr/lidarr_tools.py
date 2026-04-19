@@ -7,7 +7,7 @@ All tools return ``{"status": "success", ...}`` or
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from google.adk.tools import FunctionTool
 

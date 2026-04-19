@@ -6,9 +6,9 @@ that use the ADK code execution capability via generate_content_config.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Optional
 
-from google.adk.agents import Agent, LlmAgent
+from google.adk.agents import Agent
 from google.adk.code_executors import BuiltInCodeExecutor
 
 from radbot.config import config_manager

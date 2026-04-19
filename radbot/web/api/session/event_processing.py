@@ -5,7 +5,6 @@ This module provides functions for processing ADK events.
 """
 
 import logging
-from typing import Any, Dict
 
 # Import serialization function
 from radbot.web.api.session.serialization import _safely_serialize

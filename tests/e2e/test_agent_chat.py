@@ -12,7 +12,6 @@ from tests.e2e.helpers.assertions import (
     assert_response_contains,
     assert_response_contains_any,
     assert_response_not_empty,
-    assert_tool_was_called,
 )
 from tests.e2e.helpers.ws_client import WSTestClient
 

@@ -7,19 +7,15 @@ Radbot framework.
 """
 
 import asyncio
-import contextlib
-import inspect
 import json
 import logging
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 # Import from MCP SDK
 try:
-    import httpx
     from mcp import ClientSession
     from mcp.client.sse import sse_client
-    from mcp.types import Tool
 except ImportError:
     raise ImportError(
         "MCP Python SDK not installed. "

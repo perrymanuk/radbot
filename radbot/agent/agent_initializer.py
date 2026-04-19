@@ -17,12 +17,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Import ADK components
+# Import ADK components. These imports are re-exported for downstream
+# modules (agent_core.py, agent.py) — listed in __all__ so flake8
+# doesn't flag them as unused.
 from google.adk.agents import Agent
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import types
 
 from radbot.config import config_manager
+
+__all__ = ["Agent", "CallbackContext", "config_manager", "logger", "types"]
 
 # Log basic info
 logger.debug(f"Config manager loaded. Model config: {config_manager.model_config}")

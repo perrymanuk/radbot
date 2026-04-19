@@ -19,7 +19,7 @@ from typing import List, Optional
 
 from . import db as telos_db
 from .markdown_io import parse_telos_markdown, render_telos_markdown
-from .models import IDENTITY_REF, Entry, Section
+from .models import IDENTITY_REF, Section
 
 logger = logging.getLogger(__name__)
 

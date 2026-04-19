@@ -10,18 +10,17 @@ import os
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import uvicorn
 from fastapi import (
     Depends,
     FastAPI,
-    HTTPException,
     Request,
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
@@ -324,7 +323,6 @@ async def initialize_app_startup():
             from agent import root_agent
             from radbot.agent.agent_core import (
                 initialize_memory_service,
-                memory_service,
             )
 
             initialize_memory_service()

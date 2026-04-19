@@ -6,7 +6,7 @@ These tools allow agents to interact with the memory system.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.tools.tool_context import ToolContext
 from qdrant_client import models
