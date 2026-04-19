@@ -285,3 +285,52 @@ export async function telosResolvePrediction(
     body: JSON.stringify({ outcome, actual_value: actualValue ?? null }),
   });
 }
+
+// ── MCP bridge ───────────────────────────────────────────
+
+export interface McpStatus {
+  auth_configured: boolean;
+  token_source: "credential_store" | "env" | "";
+  token_masked: string;
+  wiki_path: string;
+  wiki_mounted: boolean;
+  sse_url: string;
+  setup_url: string;
+}
+
+export interface McpProject {
+  name: string;
+  path_patterns: string[];
+  wiki_path: string | null;
+}
+
+export async function getMcpStatus(token: string): Promise<McpStatus> {
+  return adminFetch("/api/mcp/status", { token });
+}
+
+export async function revealMcpToken(token: string): Promise<{ token: string; source: string }> {
+  return adminFetch("/api/mcp/token/reveal", { token });
+}
+
+export async function rotateMcpToken(token: string): Promise<{ token: string; source: string }> {
+  return adminFetch("/api/mcp/token/rotate", { token, method: "POST" });
+}
+
+export async function listMcpProjects(token: string): Promise<McpProject[]> {
+  return adminFetch("/api/mcp/projects", { token });
+}
+
+export async function upsertMcpProject(token: string, project: McpProject): Promise<McpProject> {
+  return adminFetch("/api/mcp/projects", {
+    token,
+    method: "POST",
+    body: JSON.stringify(project),
+  });
+}
+
+export async function deleteMcpProject(token: string, name: string): Promise<{ deleted: string }> {
+  return adminFetch(`/api/mcp/projects/${encodeURIComponent(name)}`, {
+    token,
+    method: "DELETE",
+  });
+}

@@ -17,6 +17,7 @@ import { CredentialsPanel } from "@/components/admin/panels/CredentialsPanel";
 import { RawConfigPanel } from "@/components/admin/panels/RawConfigPanel";
 import { CostTrackingPanel } from "@/components/admin/panels/TelemetryPanels";
 import { TelosPanel } from "@/components/admin/panels/TelosPanel";
+import { McpBridgePanel } from "@/components/admin/panels/McpBridgePanel";
 
 // ── Navigation definition ──────────────────────────────────
 interface NavItem {
@@ -65,6 +66,7 @@ const NAV_ITEMS: NavItem[] = [
   // Security
   { id: "sanitization", label: "Sanitization", group: "Security" },
   // Advanced
+  { id: "mcp_bridge", label: "MCP Bridge", group: "Advanced" },
   { id: "mcp_servers", label: "MCP Servers", group: "Advanced" },
   { id: "credentials", label: "Credentials", group: "Advanced" },
   { id: "raw_config", label: "Raw Config", group: "Advanced" },
@@ -100,6 +102,7 @@ const PANEL_MAP: Record<string, React.ComponentType> = {
   github_app: GitHubAppPanel,
   claude_code: ClaudeCodePanel,
   sanitization: SanitizationPanel,
+  mcp_bridge: McpBridgePanel,
   mcp_servers: MCPServersPanel,
   credentials: CredentialsPanel,
   raw_config: RawConfigPanel,

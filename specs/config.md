@@ -23,6 +23,8 @@ admin_token:       # Admin API bearer token
 |---------|---------|
 | `RADBOT_CREDENTIAL_KEY` | Fernet key for encrypted credentials in DB |
 | `RADBOT_ADMIN_TOKEN` | Bearer token for `/admin/` API |
+| `RADBOT_MCP_TOKEN` | Bootstrap bearer token for the MCP bridge HTTP transport. Credential-store entry `mcp_token` wins over this; rotating from the admin UI leaves the env var untouched but irrelevant |
+| `RADBOT_WIKI_PATH` | Filesystem root for the ai-intel wiki that `mcp_server.tools.wiki` operates on (default `/mnt/ai-intel`; Nomad bind-mounts `${var.shared_dir}ai-intel` here) |
 | `RADBOT_CONFIG_FILE` | Path to `config.yaml` (alias: `RADBOT_CONFIG`, default: auto-discovered) |
 | `RADBOT_ENV` | `dev` → loads `config.dev.yaml` before `config.yaml` in each search directory |
 | `RADBOT_MAIN_MODEL` / `RADBOT_SUB_MODEL` | Model overrides (if no DB/file entry exists) |

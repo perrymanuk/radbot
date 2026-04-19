@@ -164,6 +164,10 @@ Autonomous coding workflow powered by Claude Code CLI and GitHub App authenticat
 *   **`get_current_time`**: Current time for any city (defaults to UTC)
 *   **`get_weather`**: Weather reports by city
 
+### MCP Bridge
+
+Exposes radbot itself as an MCP server for external clients (primarily Claude Code on laptop/desktop). 16 tools covering Telos read, wiki read/write (ai-intel vault over a shared mount), project registry, todo/scheduler lists, and Qdrant memory search — all returning markdown. `GET /setup/claude-code.md` is an unauth'd bootstrap that walks a new machine through settings + SessionStart-hook install. See `docs/implementation/mcp_bridge.md`.
+
 ### Configuration
 
 Credentials and settings stored in an encrypted PostgreSQL credential store with an admin UI at `/admin`.
