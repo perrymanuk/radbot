@@ -86,17 +86,29 @@ curl -sf \\
 
 Make it executable: `chmod +x ~/.claude/hooks/radbot-project-context.sh`
 
-Then merge into `~/.claude/settings.json`:
+Then merge into `~/.claude/settings.json`. Claude Code's hook shape is
+`[{{matcher, hooks: [...]}}]` — do **not** put command entries directly
+in the outer `SessionStart` array:
 
 ```json
 {{
   "hooks": {{
     "SessionStart": [
-      {{"type": "command", "command": "~/.claude/hooks/radbot-project-context.sh"}}
+      {{
+        "matcher": "",
+        "hooks": [
+          {{"type": "command", "command": "~/.claude/hooks/radbot-project-context.sh"}}
+        ]
+      }}
     ]
   }}
 }}
 ```
+
+If the user already has entries under `hooks.SessionStart`, add a new
+matcher block to the outer array (or append your command to an existing
+block's inner `hooks` list if its matcher is `""`). An empty matcher
+matches every session start.
 
 ## 4. (Optional) Mount the ai-intel wiki locally
 
