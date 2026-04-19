@@ -4,7 +4,10 @@
 # `required: false` skips silently — the spec must tolerate the integration being absent.
 
 credentials:
-  - name: gemini_api_key
+  # NOTE: stored as `google_api_key` to match what `get_google_api_key()` in
+  # radbot/config/adk_config.py reads from the credential store. The env var
+  # is named GEMINI_API_KEY for clarity at the GH-secret level.
+  - name: google_api_key
     env: GEMINI_API_KEY
     credential_type: api_key
     required: true
