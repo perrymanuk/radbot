@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
 import {
   bucketTasks,
@@ -16,11 +17,11 @@ interface Props {
 }
 
 export default function MilestonesTab({ project }: Props) {
-  const milestones = useProjectsStore((s) =>
-    selectMilestonesForProject(s, project.ref_code!),
+  const milestones = useProjectsStore(
+    useShallow((s) => selectMilestonesForProject(s, project.ref_code!)),
   );
-  const unmilestoned = useProjectsStore((s) =>
-    selectUnmilestonedTasks(s, project.ref_code!),
+  const unmilestoned = useProjectsStore(
+    useShallow((s) => selectUnmilestonedTasks(s, project.ref_code!)),
   );
 
   return (
@@ -72,8 +73,8 @@ function taskBucket(t: TelosEntry): string {
 function MilestoneCard({ milestone }: { milestone: TelosEntry }) {
   const [expanded, setExpanded] = useState(true);
   const [showDone, setShowDone] = useState(false);
-  const tasks = useProjectsStore((s) =>
-    selectTasksForMilestone(s, milestone.ref_code!),
+  const tasks = useProjectsStore(
+    useShallow((s) => selectTasksForMilestone(s, milestone.ref_code!)),
   );
   const buckets = bucketTasks(tasks);
   const total = tasks.length;

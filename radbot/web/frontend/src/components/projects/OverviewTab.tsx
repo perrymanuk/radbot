@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
 import {
   selectGoalsForProject,
@@ -13,14 +14,14 @@ interface Props {
 }
 
 export default function OverviewTab({ project }: Props) {
-  const goals = useProjectsStore((s) =>
-    selectGoalsForProject(s, project.ref_code!),
+  const goals = useProjectsStore(
+    useShallow((s) => selectGoalsForProject(s, project.ref_code!)),
   );
-  const milestones = useProjectsStore((s) =>
-    selectMilestonesForProject(s, project.ref_code!),
+  const milestones = useProjectsStore(
+    useShallow((s) => selectMilestonesForProject(s, project.ref_code!)),
   );
-  const tasks = useProjectsStore((s) =>
-    selectTasksForProject(s, project.ref_code!),
+  const tasks = useProjectsStore(
+    useShallow((s) => selectTasksForProject(s, project.ref_code!)),
   );
   const buckets = bucketTasks(tasks);
   const total = tasks.length;
