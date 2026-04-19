@@ -6,6 +6,12 @@ dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
 
+// CI debug: surface what we resolved before workers fork.
+// eslint-disable-next-line no-console
+console.error(
+  `[playwright.config] BASE_URL=${BASE_URL} (PLAYWRIGHT_BASE_URL=${process.env.PLAYWRIGHT_BASE_URL ?? "<unset>"})`,
+);
+
 export default defineConfig({
   testDir: "./specs",
   globalSetup: "./global-setup.ts",
