@@ -8,6 +8,8 @@ export interface Message {
 }
 
 // ── Sessions ──────────────────────────────────────────────
+export type SessionAgent = "beto" | "scout";
+
 export interface Session {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export interface Session {
   created_at: string;
   last_message_at?: string | null;
   preview?: string | null;
+  agent_name?: SessionAgent;
 }
 
 // ── Agent Events ──────────────────────────────────────────

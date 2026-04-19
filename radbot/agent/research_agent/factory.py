@@ -18,15 +18,61 @@ from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
 
 
+def _build_scout_toolkit() -> List[Any]:
+    """Assemble scout's full research + planning toolkit.
+
+    Used in both session modes (sub-agent under beto, root of a scout session),
+    so scout behaves consistently whichever way she's reached.
+    """
+    toolkit: List[Any] = []
+
+    # Agent-scoped memory
+    try:
+        from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
+
+        toolkit.extend(create_agent_memory_tools("scout"))
+    except Exception as e:  # memory is important but should not block startup
+        logger.warning("Scout: memory tools unavailable: %s", e)
+
+    # Wiki read-only
+    try:
+        from radbot.tools.wiki import WIKI_TOOLS
+
+        toolkit.extend(WIKI_TOOLS)
+    except Exception as e:
+        logger.warning("Scout: wiki tools unavailable: %s", e)
+
+    # Guardrailed web fetch
+    try:
+        from radbot.tools.web_research import WEB_RESEARCH_TOOLS
+
+        toolkit.extend(WEB_RESEARCH_TOOLS)
+    except Exception as e:
+        logger.warning("Scout: web_research tools unavailable: %s", e)
+
+    # Telos subset — read + plan writes (add_exploration, add_task, add_milestone,
+    # add_journal). No identity / goal mutation, no project meta-management.
+    try:
+        from radbot.tools.telos import SCOUT_TELOS_TOOLS
+
+        toolkit.extend(SCOUT_TELOS_TOOLS)
+    except Exception as e:
+        logger.warning("Scout: Telos subset unavailable: %s", e)
+
+    return toolkit
+
+
 def create_research_agent(
     name: str = "scout",
     model: Optional[str] = None,
     custom_instruction: Optional[str] = None,
     tools: Optional[List[Any]] = None,
     as_subagent: bool = True,
+    as_root: bool = False,
+    sub_agents: Optional[List[Any]] = None,
     enable_google_search: bool = False,
     enable_code_execution: bool = False,
-    app_name: str = "beto",
+    app_name: Optional[str] = None,
 ) -> Union[ResearchAgent, Any]:
     """
     Create a research agent with the specified configuration.
@@ -56,40 +102,48 @@ def create_research_agent(
         model = config_manager.get_agent_model("scout_agent")
         logger.info(f"Using model from config for scout_agent: {model}")
 
+    # app_name rules (ADK 2.0 requires match with root agent name):
+    #  - as_root=True  → "scout" (scout IS the root of her own session)
+    #  - as_root=False → "beto"  (scout is beto's sub-agent, shares beto's session partition)
+    if app_name is None:
+        app_name = "scout" if as_root else "beto"
+
+    # Resolve scout's instruction. Prefer `config/default_configs/instructions/scout.md`
+    # (same pattern every other domain agent uses); fall back to the
+    # Python-embedded prompt only when the file is missing.
+    instruction = custom_instruction
+    if instruction is None:
+        try:
+            instruction = config_manager.get_instruction("scout")
+            logger.info("Scout: loaded instruction from scout.md")
+        except FileNotFoundError:
+            logger.warning("Scout: scout.md not found, falling back to embedded instruction")
+
+    # Assemble scout's toolkit (same in both modes for behavioral consistency).
+    # Caller-supplied `tools` are appended after the standard toolkit.
+    toolkit = _build_scout_toolkit()
+    if tools:
+        toolkit.extend(tools)
+
     # Create the research agent with explicit name and app_name
     research_agent = ResearchAgent(
         name=name,
         model=model,
-        instruction=custom_instruction,  # Will use default if None
-        tools=tools,
+        instruction=instruction,  # None → ResearchAgent falls back to embedded default
+        tools=toolkit,
         enable_sequential_thinking=True,
         enable_google_search=enable_google_search,
         enable_code_execution=enable_code_execution,
-        app_name=app_name,  # Should match parent agent name
+        app_name=app_name,  # Should match the root agent's name
     )
 
-    # Get the ADK agent
     adk_agent = research_agent.get_adk_agent()
 
-    # Add agent-scoped memory tools to scout
-    try:
-        from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
-
-        memory_tools = create_agent_memory_tools("scout")
-        current_tools = list(adk_agent.tools) if adk_agent.tools else []
-        current_tools.extend(memory_tools)
-        adk_agent.tools = current_tools
-        logger.info("Added agent-scoped memory tools to Scout")
-    except Exception as e:
-        logger.warning(f"Failed to add memory tools to Scout: {e}")
+    logger.info("Scout toolkit loaded (%d tools)", len(toolkit))
 
     # Note: transfer_to_agent is NOT added here explicitly — ADK auto-injects it
     # for any agent that is part of a sub_agents tree. Adding it explicitly causes
     # a "Duplicate function declaration" error from the Gemini API.
-
-    # Scout relies on transfer_to_agent to navigate the agent tree.
-    # No sub-agents needed here — search_agent, code_execution_agent, and axel
-    # are siblings under beto, and ADK's transfer_to_agent can find them by name.
 
     # Append completion instructions (task or transfer depending on V1/V2 mode)
     if hasattr(adk_agent, "instruction") and adk_agent.instruction:
@@ -100,15 +154,49 @@ def create_research_agent(
             v2_active = False
         adk_agent.instruction += TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
 
-    # Return either the ResearchAgent wrapper or the underlying ADK agent
+    # Root-mode wiring: attach sub-agents (search_agent sits under scout for
+    # grounded Google) and the persona/sanitize/telemetry callback stack that
+    # beto uses — scout is responsible for her own session hygiene when she's
+    # the root.
+    if as_root:
+        if sub_agents:
+            adk_agent.sub_agents = list(sub_agents)
+
+        try:
+            from radbot.callbacks.empty_content_callback import (
+                handle_empty_response_after_model,
+                scrub_empty_content_before_model,
+            )
+            from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
+            from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
+            from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+            from radbot.tools.telos import inject_telos_context
+
+            adk_agent.before_model_callback = [
+                scrub_empty_content_before_model,
+                sanitize_before_model_callback,
+                sanitize_tool_schemas_before_model,
+                inject_telos_context,
+            ]
+            adk_agent.after_model_callback = [
+                handle_empty_response_after_model,
+                telemetry_after_model_callback,
+            ]
+            logger.info("Scout root callbacks attached (sanitize + telos + telemetry)")
+        except Exception as e:
+            logger.warning("Failed to attach root callbacks to Scout: %s", e)
+
+        # Root-mode must return the bare ADK agent — the Runner expects a
+        # ``BaseAgent``, not the ResearchAgent wrapper.
+        return adk_agent
+
+    # Sub-agent mode — preserve the existing return-type switch
     if as_subagent:
         return research_agent
-    else:
-        # Double-check agent name before returning
-        if hasattr(adk_agent, "name") and adk_agent.name != name:
-            logger.warning(
-                f"ADK Agent name mismatch: '{adk_agent.name}' not '{name}' - fixing"
-            )
-            adk_agent.name = name
 
-        return adk_agent
+    if hasattr(adk_agent, "name") and adk_agent.name != name:
+        logger.warning(
+            f"ADK Agent name mismatch: '{adk_agent.name}' not '{name}' - fixing"
+        )
+        adk_agent.name = name
+    return adk_agent

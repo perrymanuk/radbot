@@ -970,3 +970,24 @@ TELOS_TOOLS = [
     telos_archive_task_tool,
     telos_add_exploration_tool,
 ]
+
+
+# Scoped subset for scout. Covers the "ground a plan in the user's goals,
+# explore past journal entries, and write the finished plan as an exploration
+# plus actionable project_tasks" workflow. Excludes identity/goal mutation,
+# archiving, and project meta-management — those stay on beto.
+SCOUT_TELOS_TOOLS = [
+    # read: ground plans in the user's persona + project context
+    telos_get_section_tool,
+    telos_get_entry_tool,
+    telos_get_full_tool,
+    telos_search_journal_tool,
+    telos_list_projects_tool,
+    telos_get_project_tool,
+    telos_list_tasks_tool,
+    # plan writes
+    telos_add_exploration_tool,
+    telos_add_task_tool,
+    telos_add_milestone_tool,
+    telos_add_journal_tool,
+]

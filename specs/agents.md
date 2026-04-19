@@ -39,7 +39,7 @@ Beto owns **all project/task management directly** via Telos tools (projects, mi
 | **comms** | `agent/comms_agent/factory.py` | `resolve_agent_model("comms_agent")` | 12 | Email (Gmail), Jira |
 | **axel** | `agent/execution_agent/factory.py` | `config_manager.get_agent_model("axel_agent_model")` | 17+ MCP | Shell, files, code exec, Claude Code, Nomad, MCP |
 | **kidsvid** | `agent/youtube_agent/factory.py` | `resolve_agent_model("kidsvid_agent")` | 18 | Children's video curation (YouTube + CuriosityStream + Kideo + video card) |
-| **scout** | `agent/research_agent/factory.py` | `config_manager.get_agent_model("scout_agent")` | 2 | Research, design collaboration (sequential thinking) |
+| **scout** | `agent/research_agent/factory.py` | `config_manager.get_agent_model("scout_agent")` (`gemini-3.1-pro-preview`) | 17 | Research + planning; writes plans to Telos (exploration + project_tasks). Selectable as session root (see "Session Roots" below). |
 | **search_agent** | `tools/adk_builtin/search_tool.py` | Gemini 2+ (hardcoded) | 1 | Google Search grounding |
 | **code_execution_agent** | `tools/adk_builtin/code_execution_tool.py` | Gemini 2+ (hardcoded) | 0* | Python code execution |
 
@@ -120,11 +120,36 @@ Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsv
 
 YouTube Shorts are filtered out at ingest time in `kideo_tools.py` (both search and Kideo submission paths).
 
-### scout — Research & Design
+### scout — Research & Planning
 
-- **Tools**: 2 memory (`search_agent_memory`, `store_agent_memory`)
+| Tool Group | Count | Source |
+|------------|-------|--------|
+| Memory | 2 | `create_agent_memory_tools("scout")` |
+| Wiki (read-only) | 3 | `radbot.tools.wiki.WIKI_TOOLS` (`wiki_list`, `wiki_search`, `wiki_read`) — wraps `radbot.mcp_server.tools.wiki` handlers |
+| Web research | 1 | `radbot.tools.web_research.WEB_RESEARCH_TOOLS` (`web_fetch` — guardrailed fetch with strict sanitization; PT19 tracks adding raw search) |
+| Telos subset | 11 | `radbot.tools.telos.SCOUT_TELOS_TOOLS` — read (`telos_get_section/entry/full`, `telos_search_journal`, `telos_list_projects`, `telos_get_project`, `telos_list_tasks`) + plan writes (`telos_add_exploration`, `telos_add_task`, `telos_add_milestone`, `telos_add_journal`) |
+
+- **Instruction file**: `config/default_configs/instructions/scout.md` (loaded via `config_manager.get_instruction("scout")`; falls back to the Python `RESEARCH_AGENT_INSTRUCTION` only if the file is missing)
 - **Special**: `enable_sequential_thinking=True`; wrapped by `ResearchAgent` class
-- Commonly used for rubber-ducking, architecture, and spec collaboration. Axel can transfer to scout for research, and vice versa.
+- **Session-root capable**: see **Session Roots** below
+- **Telos persona**: scout gets `inject_telos_context` when she runs as a session root (plans must be grounded in identity/mission/goals); the sub-agent instance does not
+- **Output contract**: a plan is always persisted as a Telos exploration (`EX<N>`), with actionable steps split out as `telos_add_task` rows (`PT<N>`). Handoff to execution is external: Perry invokes Claude Code with MCP pointing at radbot, which fetches the exploration + tasks by ref. No transfer_to_agent('axel') for plan execution.
+
+**Note**: scout does **not** hand plans off to axel inside the agent tree. Axel's role is narrowed to quick-fix alert remediation (see axel section).
+
+## Session Roots (2026-04-19)
+
+Chat sessions can run with either **beto** or **scout** as the root agent. The choice is stored on `chat_sessions.agent_name` (immutable for a session's lifetime, because the ADK session-service partition is keyed by `app_name`) and selected via a UI toggle at create time.
+
+- **beto session** (default) — full orchestrator tree; routes to any sub-agent (casa, planner, comms, axel, kidsvid, scout-as-subagent, search_agent, code_execution_agent). Used for general chat and cross-domain work.
+- **scout session** — skips beto's routing layer for extended back-and-forth planning. Scout is root with her own minimal tree (just `search_agent` as sub-agent for grounded Google). No re-routing tax per turn, full conversation history stays with scout.
+
+Registry: `radbot.agent.agent_core.ROOT_AGENTS` maps `agent_name` → root agent object. `get_root_agent(name)` resolves it, falling back to beto on unknown names.
+
+Scout is a **second Python instance** when acting as root (ADK binds each sub-agent to one parent). `agent_core.py` constructs both:
+
+- `scout_agent = create_research_agent(name="scout", as_subagent=False)` — beto's sub-agent (for quick research detours mid-beto-chat)
+- `scout_root_agent = create_research_agent(name="scout", as_root=True, sub_agents=[scout_search_agent])` — root of scout sessions
 
 ## Built-in Agents
 
