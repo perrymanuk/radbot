@@ -68,16 +68,22 @@ class ConfigManager:
         # Merge with config values, prioritizing environment variables
         merged_agent_models = {**agent_models, **agent_models_from_env}
 
+        # Env vars take precedence over file config (matches the documented
+        # priority chain in CLAUDE.md and the behavior expected by the unit
+        # tests). config_loader caches a default at import-time, so reading
+        # from agent_config first would cause runtime env overrides to lose.
         return {
             # Primary model for main agent
-            "main_model": agent_config.get("main_model")
+            "main_model": os.getenv("RADBOT_MAIN_MODEL")
+            or agent_config.get("main_model")
             or agent_config.get("model")
-            or os.getenv("RADBOT_MAIN_MODEL", "gemini-2.5-flash"),
+            or "gemini-2.5-flash",
             # Also check GEMINI_MODEL env var for compatibility
             "gemini_model": os.getenv("GEMINI_MODEL"),
             # Model for simpler sub-agents
-            "sub_agent_model": agent_config.get("sub_agent_model")
-            or os.getenv("RADBOT_SUB_MODEL", "gemini-2.5-flash"),
+            "sub_agent_model": os.getenv("RADBOT_SUB_MODEL")
+            or agent_config.get("sub_agent_model")
+            or "gemini-2.5-flash",
             # Agent-specific models
             "agent_models": merged_agent_models,
             # Use Vertex AI flag
