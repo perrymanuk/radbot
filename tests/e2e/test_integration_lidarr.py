@@ -7,7 +7,11 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import PERSONALITY_NOT_FOUND, assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    PERSONALITY_NOT_FOUND,
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -25,12 +29,15 @@ class TestLidarrIntegration:
         session_id = str(uuid.uuid4())
         ws = await WSTestClient.connect(live_server, session_id)
         try:
-            result = await ws.send_and_wait_response(
-                "Search for Metallica on Lidarr"
-            )
+            result = await ws.send_and_wait_response("Search for Metallica on Lidarr")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "metallica", "artist", "metal", "band", "result",
+                result,
+                "metallica",
+                "artist",
+                "metal",
+                "band",
+                "result",
             )
         finally:
             await ws.close()
@@ -45,7 +52,11 @@ class TestLidarrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "abbey road", "beatles", "album", "result",
+                result,
+                "abbey road",
+                "beatles",
+                "album",
+                "result",
             )
         finally:
             await ws.close()
@@ -60,8 +71,14 @@ class TestLidarrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "profile", "quality", "lossless", "standard",
-                "any", "flac", "mp3",
+                result,
+                "profile",
+                "quality",
+                "lossless",
+                "standard",
+                "any",
+                "flac",
+                "mp3",
             )
         finally:
             await ws.close()
@@ -76,8 +93,15 @@ class TestLidarrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "no result", "not found", "couldn't find", "no match",
-                "nothing", "0 result", "zero", *PERSONALITY_NOT_FOUND,
+                result,
+                "no result",
+                "not found",
+                "couldn't find",
+                "no match",
+                "nothing",
+                "0 result",
+                "zero",
+                *PERSONALITY_NOT_FOUND,
             )
         finally:
             await ws.close()
@@ -93,8 +117,13 @@ class TestLidarrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "radiohead", "added", "already", "monitoring",
-                "library", "artist",
+                result,
+                "radiohead",
+                "added",
+                "already",
+                "monitoring",
+                "library",
+                "artist",
             )
         finally:
             await ws.close()
@@ -111,8 +140,13 @@ class TestLidarrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "ok computer", "radiohead", "added", "already",
-                "album", "download",
+                result,
+                "ok computer",
+                "radiohead",
+                "added",
+                "already",
+                "album",
+                "download",
             )
         finally:
             await ws.close()

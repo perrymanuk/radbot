@@ -271,7 +271,10 @@ async def initialize_app_startup():
         # Initialize session workers schema
         logger.debug("Initializing session workers database schema...")
         try:
-            from radbot.worker.db import init_session_workers_schema, init_workspace_workers_schema
+            from radbot.worker.db import (
+                init_session_workers_schema,
+                init_workspace_workers_schema,
+            )
 
             init_session_workers_schema()
             init_workspace_workers_schema()
@@ -622,7 +625,9 @@ class ConnectionManager:
                 del self.active_connections[session_id]
             else:
                 self.active_connections[session_id] = [
-                    ws for ws in self.active_connections[session_id] if ws is not websocket
+                    ws
+                    for ws in self.active_connections[session_id]
+                    if ws is not websocket
                 ]
                 if not self.active_connections[session_id]:
                     del self.active_connections[session_id]
@@ -643,7 +648,9 @@ class ConnectionManager:
             async with self._lock:
                 if session_id in self.active_connections:
                     self.active_connections[session_id] = [
-                        ws for ws in self.active_connections[session_id] if ws not in dead
+                        ws
+                        for ws in self.active_connections[session_id]
+                        if ws not in dead
                     ]
                     if not self.active_connections[session_id]:
                         del self.active_connections[session_id]
@@ -1282,7 +1289,10 @@ async def websocket_endpoint(
                     # WebSocket clients can always find the text in events.
                     if response:
                         for ev in reversed(events):
-                            if ev.get("type") == "model_response" or ev.get("category") == "model_response":
+                            if (
+                                ev.get("type") == "model_response"
+                                or ev.get("category") == "model_response"
+                            ):
                                 if not ev.get("text"):
                                     ev["text"] = response
                                 break

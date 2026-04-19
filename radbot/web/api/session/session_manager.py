@@ -68,16 +68,12 @@ class SessionManager:
             self.sessions[session_id] = runner
             return runner
 
-    async def get_runner(
-        self, session_id: str
-    ) -> Optional[SessionRunner]:
+    async def get_runner(self, session_id: str) -> Optional[SessionRunner]:
         """Get runner for a session."""
         async with self.lock:
             return self.sessions.get(session_id)
 
-    async def set_runner(
-        self, session_id: str, runner: SessionRunner
-    ):
+    async def set_runner(self, session_id: str, runner: SessionRunner):
         """Set runner for a session."""
         async with self.lock:
             self.sessions[session_id] = runner

@@ -117,7 +117,10 @@ def telos_get_entry(section: str, ref_code: str) -> Dict[str, Any]:
     def _do():
         entry = telos_db.get_entry(sec, ref_code)
         if not entry:
-            return {"status": "error", "message": f"No entry {ref_code} in {sec.value}."}
+            return {
+                "status": "error",
+                "message": f"No entry {ref_code} in {sec.value}.",
+            }
         return {"status": "success", "entry": _serialize_entry(entry)}
 
     return _wrap(f"get entry {section}:{ref_code}", _do)
@@ -482,7 +485,10 @@ def telos_update_entry(
             kwargs["status"] = status
         row = telos_db.update_entry(sec, ref_code, **kwargs)
         if not row:
-            return {"status": "error", "message": f"No entry {ref_code} in {sec.value}."}
+            return {
+                "status": "error",
+                "message": f"No entry {ref_code} in {sec.value}.",
+            }
         return {"status": "success", "entry": _serialize_entry(row)}
 
     return _wrap(f"update {section}:{ref_code}", _do)
@@ -532,9 +538,8 @@ def telos_complete_goal(ref_code: str, resolution: str = "") -> Dict[str, Any]:
         )
         if not updated:
             return {"status": "error", "message": f"No goal {ref_code}."}
-        journal_body = (
-            f"Completed {ref_code}: {updated.content}"
-            + (f" — {resolution}" if resolution else "")
+        journal_body = f"Completed {ref_code}: {updated.content}" + (
+            f" — {resolution}" if resolution else ""
         )
         telos_db.add_entry(
             Section.JOURNAL,

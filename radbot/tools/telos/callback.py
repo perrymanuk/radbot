@@ -90,9 +90,7 @@ def _append_to_system_instruction(llm_request: Any, text: str) -> None:
         return
     # Content-like: try to extract text from parts.
     existing_text = _content_to_text(existing)
-    config.system_instruction = (
-        f"{existing_text}\n\n{text}" if existing_text else text
-    )
+    config.system_instruction = f"{existing_text}\n\n{text}" if existing_text else text
 
 
 def _content_to_text(content: Any) -> str:

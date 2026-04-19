@@ -7,7 +7,11 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import PERSONALITY_NOT_FOUND, assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    PERSONALITY_NOT_FOUND,
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -29,7 +33,9 @@ class TestOverseerrIntegration:
                 "Search for The Matrix on Overseerr"
             )
             text = assert_response_not_empty(result)
-            assert_response_contains_any(result, "matrix", "movie", "film", "media", "result")
+            assert_response_contains_any(
+                result, "matrix", "movie", "film", "media", "result"
+            )
         finally:
             await ws.close()
 
@@ -42,7 +48,9 @@ class TestOverseerrIntegration:
                 "Search for Breaking Bad on Overseerr"
             )
             text = assert_response_not_empty(result)
-            assert_response_contains_any(result, "breaking bad", "tv", "show", "series", "result")
+            assert_response_contains_any(
+                result, "breaking bad", "tv", "show", "series", "result"
+            )
         finally:
             await ws.close()
 
@@ -57,8 +65,15 @@ class TestOverseerrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "matrix", "genre", "sci-fi", "science fiction",
-                "1999", "action", "rating", "tmdb",
+                result,
+                "matrix",
+                "genre",
+                "sci-fi",
+                "science fiction",
+                "1999",
+                "action",
+                "rating",
+                "tmdb",
             )
         finally:
             await ws.close()
@@ -73,8 +88,16 @@ class TestOverseerrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "request", "media", "movie", "tv", "no request",
-                "pending", "approved", "available", "none",
+                result,
+                "request",
+                "media",
+                "movie",
+                "tv",
+                "no request",
+                "pending",
+                "approved",
+                "available",
+                "none",
             )
         finally:
             await ws.close()
@@ -89,8 +112,15 @@ class TestOverseerrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "no result", "not found", "couldn't find", "no match",
-                "nothing", "0 result", "zero", *PERSONALITY_NOT_FOUND,
+                result,
+                "no result",
+                "not found",
+                "couldn't find",
+                "no match",
+                "nothing",
+                "0 result",
+                "zero",
+                *PERSONALITY_NOT_FOUND,
             )
         finally:
             await ws.close()
@@ -108,8 +138,14 @@ class TestOverseerrIntegration:
             text = assert_response_not_empty(result)
             # Should mention the show and indicate a request was made
             assert_response_contains_any(
-                result, "severance", "request", "submitted", "already",
-                "available", "approved", "added",
+                result,
+                "severance",
+                "request",
+                "submitted",
+                "already",
+                "available",
+                "approved",
+                "added",
             )
         finally:
             await ws.close()
@@ -125,8 +161,15 @@ class TestOverseerrIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "inception", "request", "submitted", "already",
-                "available", "approved", "added", "movie",
+                result,
+                "inception",
+                "request",
+                "submitted",
+                "already",
+                "available",
+                "approved",
+                "added",
+                "movie",
             )
         finally:
             await ws.close()

@@ -274,7 +274,9 @@ class SessionRunner:
             for attempt in range(MAX_RETRIES):
                 events = []
                 async for event in self.runner.run_async(
-                    user_id=self.user_id, session_id=session.id, new_message=user_message,
+                    user_id=self.user_id,
+                    session_id=session.id,
+                    new_message=user_message,
                     run_config=run_config,
                 ):
                     events.append(event)
@@ -283,7 +285,12 @@ class SessionRunner:
                 # Function call parts (transfer_to_agent etc.) don't count — we need real text.
                 has_text = False
                 for ev in events:
-                    if hasattr(ev, "content") and ev.content and hasattr(ev.content, "parts") and ev.content.parts:
+                    if (
+                        hasattr(ev, "content")
+                        and ev.content
+                        and hasattr(ev.content, "parts")
+                        and ev.content.parts
+                    ):
                         for part in ev.content.parts:
                             if hasattr(part, "text") and part.text:
                                 has_text = True
@@ -300,15 +307,23 @@ class SessionRunner:
                 logger.warning(
                     "No text in model response on attempt %d/%d (got %d events with function calls only) "
                     "— resetting session and retrying",
-                    attempt + 1, MAX_RETRIES, len(events),
+                    attempt + 1,
+                    MAX_RETRIES,
+                    len(events),
                 )
                 try:
-                    app_name = self.runner.app_name if hasattr(self.runner, "app_name") else "beto"
+                    app_name = (
+                        self.runner.app_name
+                        if hasattr(self.runner, "app_name")
+                        else "beto"
+                    )
                     await self.session_service.delete_session(
                         app_name=app_name, user_id=self.user_id, session_id=session.id
                     )
                     session = await self.session_service.create_session(
-                        app_name=app_name, user_id=self.user_id, session_id=self.session_id
+                        app_name=app_name,
+                        user_id=self.user_id,
+                        session_id=self.session_id,
                     )
                     # Don't reload history on retry — it may contain the
                     # poisoned empty-content event that caused the failure.
@@ -320,7 +335,9 @@ class SessionRunner:
                 await asyncio.sleep(0.5 * (attempt + 1))
 
             # Process events
-            logger.debug(f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}")
+            logger.debug(
+                f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}"
+            )
 
             # Log detailed information about each event
             for i, event in enumerate(events):
@@ -430,7 +447,9 @@ class SessionRunner:
                     if to_agent:
                         handoffs.append(
                             {
-                                "from": (event_data.get("from_agent") or "BETO").upper(),
+                                "from": (
+                                    event_data.get("from_agent") or "BETO"
+                                ).upper(),
                                 "to": str(to_agent).upper(),
                             }
                         )
@@ -574,9 +593,7 @@ class SessionRunner:
                     if key in seen or h["from"] == h["to"]:
                         continue
                     seen.add(key)
-                    chips.append(
-                        f"```radbot:handoff\n{json.dumps(h)}\n```"
-                    )
+                    chips.append(f"```radbot:handoff\n{json.dumps(h)}\n```")
                 if chips:
                     final_response = "\n".join(chips) + "\n\n" + final_response
 
@@ -1227,7 +1244,9 @@ class SessionRunner:
                                         if hasattr(declaration, "name"):
                                             tool_name = declaration.name
                                     except Exception:
-                                        logger.debug("Failed to get declaration name for MCP tool")
+                                        logger.debug(
+                                            "Failed to get declaration name for MCP tool"
+                                        )
                                 # Fallback to string representation
                                 if not tool_name:
                                     tool_name = str(claude_prompt_tool)

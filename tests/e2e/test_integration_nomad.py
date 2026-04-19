@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -43,8 +46,14 @@ class TestNomadIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "radbot", "status", "running", "allocation",
-                "healthy", "not found", "job",
+                result,
+                "radbot",
+                "status",
+                "running",
+                "allocation",
+                "healthy",
+                "not found",
+                "job",
             )
         finally:
             await ws.close()
@@ -59,8 +68,14 @@ class TestNomadIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "log", "radbot", "output", "stderr", "stdout",
-                "not found", "error",
+                result,
+                "log",
+                "radbot",
+                "output",
+                "stderr",
+                "stdout",
+                "not found",
+                "error",
             )
         finally:
             await ws.close()

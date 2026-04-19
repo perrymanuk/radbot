@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -28,8 +31,17 @@ class TestGmailIntegration:
             result = await ws.send_and_wait_response("Show my recent emails")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "email", "inbox", "message", "mail", "no email", "subject",
-                "comms", "authenticate", "auth", "gmail",
+                result,
+                "email",
+                "inbox",
+                "message",
+                "mail",
+                "no email",
+                "subject",
+                "comms",
+                "authenticate",
+                "auth",
+                "gmail",
             )
         finally:
             await ws.close()
@@ -44,8 +56,15 @@ class TestGmailIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "email", "github", "message", "found", "no result",
-                "subject", "from", "mail",
+                result,
+                "email",
+                "github",
+                "message",
+                "found",
+                "no result",
+                "subject",
+                "from",
+                "mail",
             )
         finally:
             await ws.close()

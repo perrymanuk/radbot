@@ -133,9 +133,7 @@ def get_jira_issue(issue_key: str) -> Dict[str, Any]:
     fields = issue.get("fields", {})
     formatted["description"] = fields.get("description")
     formatted["labels"] = fields.get("labels", [])
-    formatted["components"] = [
-        c.get("name") for c in (fields.get("components") or [])
-    ]
+    formatted["components"] = [c.get("name") for c in (fields.get("components") or [])]
     formatted["fix_versions"] = [
         v.get("name") for v in (fields.get("fixVersions") or [])
     ]

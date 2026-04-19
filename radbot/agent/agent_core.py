@@ -142,7 +142,9 @@ specialized_agents = create_specialized_agents()
 logger.debug(f"Created {len(specialized_agents)} specialized agents")
 
 # Assemble the complete sub-agents list
-all_sub_agents = [a for a in [search_agent, code_execution_agent, scout_agent] if a is not None]
+all_sub_agents = [
+    a for a in [search_agent, code_execution_agent, scout_agent] if a is not None
+]
 all_sub_agents.extend(specialized_agents)
 
 # Attach callbacks to all sub-agents before construction.
@@ -180,7 +182,10 @@ root_agent = Agent(
         # Attached to beto ONLY — sub-agents don't need user persona context.
         inject_telos_context,
     ],
-    after_model_callback=[handle_empty_response_after_model, telemetry_after_model_callback],
+    after_model_callback=[
+        handle_empty_response_after_model,
+        telemetry_after_model_callback,
+    ],
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
 

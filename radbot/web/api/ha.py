@@ -99,7 +99,9 @@ def _to_card(state_obj: Dict[str, Any]) -> Dict[str, Any]:
 async def get_entity_state(entity_id: str = Path(...)) -> Dict[str, Any]:
     client = get_ha_client()
     if client is None:
-        raise HTTPException(503, "Home Assistant not configured — set it up via /admin/")
+        raise HTTPException(
+            503, "Home Assistant not configured — set it up via /admin/"
+        )
     state = client.get_state(entity_id)
     if state is None:
         raise HTTPException(404, f"Entity '{entity_id}' not found")
@@ -118,7 +120,9 @@ async def call_service(body: ServiceCallBody) -> Dict[str, Any]:
     """Call an HA service (e.g. domain='light', service='toggle')."""
     client = get_ha_client()
     if client is None:
-        raise HTTPException(503, "Home Assistant not configured — set it up via /admin/")
+        raise HTTPException(
+            503, "Home Assistant not configured — set it up via /admin/"
+        )
     try:
         result = client.call_service(
             body.domain, body.service, body.entity_id, body.data or None

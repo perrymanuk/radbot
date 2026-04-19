@@ -134,7 +134,9 @@ def create_workspace(
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute(sql, (owner, repo, branch, local_path, name, description))
+                cursor.execute(
+                    sql, (owner, repo, branch, local_path, name, description)
+                )
                 conn.commit()
                 row = cursor.fetchone()
                 return dict(row) if row else {}
@@ -275,7 +277,9 @@ def create_scratch_workspace(
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 # Use a unique repo name to avoid UNIQUE constraint
                 repo_name = f"scratch-{uuid.uuid4().hex[:8]}"
-                cursor.execute(sql, (repo_name, scratch_dir, workspace_name, description))
+                cursor.execute(
+                    sql, (repo_name, scratch_dir, workspace_name, description)
+                )
                 conn.commit()
                 row = cursor.fetchone()
                 return dict(row) if row else {}

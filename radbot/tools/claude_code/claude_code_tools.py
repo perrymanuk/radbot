@@ -288,14 +288,16 @@ def list_workspaces() -> Dict[str, Any]:
         # Serialize datetime/uuid fields
         formatted = []
         for ws in workspaces:
-            formatted.append({
-                "owner": ws.get("owner"),
-                "repo": ws.get("repo"),
-                "branch": ws.get("branch"),
-                "local_path": ws.get("local_path"),
-                "last_session_id": ws.get("last_session_id"),
-                "last_used_at": str(ws.get("last_used_at", "")),
-            })
+            formatted.append(
+                {
+                    "owner": ws.get("owner"),
+                    "repo": ws.get("repo"),
+                    "branch": ws.get("branch"),
+                    "local_path": ws.get("local_path"),
+                    "last_session_id": ws.get("last_session_id"),
+                    "last_used_at": str(ws.get("last_used_at", "")),
+                }
+            )
         return {
             "status": "success",
             "workspaces": formatted,
@@ -313,13 +315,14 @@ def list_workspaces() -> Dict[str, Any]:
 def _update_workspace_session(work_folder: str, session_id: str) -> None:
     """Update the session_id on the workspace matching work_folder."""
     try:
-        from radbot.tools.claude_code.db import list_active_workspaces, update_session_id
+        from radbot.tools.claude_code.db import (
+            list_active_workspaces,
+            update_session_id,
+        )
 
         for ws in list_active_workspaces():
             if ws.get("local_path") == work_folder:
-                update_session_id(
-                    ws["owner"], ws["repo"], ws["branch"], session_id
-                )
+                update_session_id(ws["owner"], ws["repo"], ws["branch"], session_id)
                 return
     except Exception as e:
         logger.debug(f"Failed to update workspace session_id: {e}")

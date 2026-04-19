@@ -160,31 +160,29 @@ async def projects_summary() -> Dict[str, Any]:
         if not p.ref_code:
             continue
         p_milestones = [
-            m for m in milestones
+            m
+            for m in milestones
             if (m.metadata or {}).get("parent_project") == p.ref_code
         ]
         p_tasks = [
-            t for t in tasks
-            if (t.metadata or {}).get("parent_project") == p.ref_code
+            t for t in tasks if (t.metadata or {}).get("parent_project") == p.ref_code
         ]
-        done = [
-            t for t in p_tasks
-            if (t.metadata or {}).get("task_status") == "done"
-        ]
-        active = [
-            t for t in p_tasks
-            if (t.metadata or {}).get("task_status") != "done"
-        ]
-        items.append({
-            "ref_code": p.ref_code,
-            "title": (p.content or "").splitlines()[0][:160] if p.content else p.ref_code,
-            "status": p.status,
-            "milestone_count": len(p_milestones),
-            "active_task_count": len(active),
-            "done_task_count": len(done),
-            "sort_order": p.sort_order,
-            "updated_at": p.updated_at.isoformat() if p.updated_at else None,
-        })
+        done = [t for t in p_tasks if (t.metadata or {}).get("task_status") == "done"]
+        active = [t for t in p_tasks if (t.metadata or {}).get("task_status") != "done"]
+        items.append(
+            {
+                "ref_code": p.ref_code,
+                "title": (
+                    (p.content or "").splitlines()[0][:160] if p.content else p.ref_code
+                ),
+                "status": p.status,
+                "milestone_count": len(p_milestones),
+                "active_task_count": len(active),
+                "done_task_count": len(done),
+                "sort_order": p.sort_order,
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+            }
+        )
     items.sort(key=lambda x: (x["status"] != "active", x["sort_order"], x["ref_code"]))
     return {"projects": items}
 

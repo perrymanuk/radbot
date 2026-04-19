@@ -14,7 +14,9 @@ def _fake_request(headers: dict[str, str] | None = None) -> Request:
         "type": "http",
         "method": "GET",
         "path": "/mcp/sse",
-        "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
+        "headers": [
+            (k.lower().encode(), v.encode()) for k, v in (headers or {}).items()
+        ],
     }
     return Request(scope)
 

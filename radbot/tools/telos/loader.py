@@ -111,9 +111,12 @@ def _render_anchor(*, identity, missions, counts) -> str:
         lines = lines[:-1]
         text = "\n".join(lines)
         if len(text.encode("utf-8")) > ANCHOR_CAP_BYTES:
-            text = text.encode("utf-8")[: ANCHOR_CAP_BYTES - 1].decode(
-                "utf-8", errors="ignore"
-            ) + "…"
+            text = (
+                text.encode("utf-8")[: ANCHOR_CAP_BYTES - 1].decode(
+                    "utf-8", errors="ignore"
+                )
+                + "…"
+            )
     return text
 
 
@@ -159,7 +162,11 @@ def _render_full_block(
     body = _assemble(header, sections)
 
     # If over budget, drop journal entries from the tail first.
-    if len(body.encode("utf-8")) > FULL_BLOCK_CAP_BYTES and sections and sections[-1][0] == "RECENT JOURNAL":
+    if (
+        len(body.encode("utf-8")) > FULL_BLOCK_CAP_BYTES
+        and sections
+        and sections[-1][0] == "RECENT JOURNAL"
+    ):
         journal_lines = sections[-1][1]
         while journal_lines and len(body.encode("utf-8")) > FULL_BLOCK_CAP_BYTES:
             journal_lines.pop()
@@ -173,9 +180,12 @@ def _render_full_block(
     # The ellipsis "…" is U+2026 = 3 bytes in UTF-8, so reserve 3 bytes for it
     # to keep the total ≤ FULL_BLOCK_CAP_BYTES.
     if len(body.encode("utf-8")) > FULL_BLOCK_CAP_BYTES:
-        body = body.encode("utf-8")[: FULL_BLOCK_CAP_BYTES - 3].decode(
-            "utf-8", errors="ignore"
-        ) + "…"
+        body = (
+            body.encode("utf-8")[: FULL_BLOCK_CAP_BYTES - 3].decode(
+                "utf-8", errors="ignore"
+            )
+            + "…"
+        )
 
     return body
 

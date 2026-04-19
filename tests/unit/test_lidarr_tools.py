@@ -62,7 +62,10 @@ class TestSearchLidarrArtist:
         assert result["status"] == "success"
         assert result["total"] == 2
         assert result["results"][0]["artist_name"] == "Metallica"
-        assert result["results"][0]["foreign_artist_id"] == "65f4f0c5-ef9e-490c-aee3-909e7ae6b2ab"
+        assert (
+            result["results"][0]["foreign_artist_id"]
+            == "65f4f0c5-ef9e-490c-aee3-909e7ae6b2ab"
+        )
         assert result["results"][0]["already_in_library"] is False
 
     def test_returns_error_when_unconfigured(self):

@@ -307,7 +307,10 @@ class ClaudeCodeClient:
                     if event_type == "assistant" or event_type == "result":
                         # assistant events have content blocks
                         for block in event.get("content", []):
-                            if block.get("type") == "text" and total_chars < _MAX_OUTPUT_CHARS:
+                            if (
+                                block.get("type") == "text"
+                                and total_chars < _MAX_OUTPUT_CHARS
+                            ):
                                 text = block.get("text", "")
                                 output_parts.append(text)
                                 total_chars += len(text)
@@ -336,7 +339,9 @@ class ClaudeCodeClient:
                 "stderr": f"Process timed out after {timeout}s",
             }
 
-        stderr_text = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+        stderr_text = (
+            stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+        )
         output_text = "\n".join(output_parts) if output_parts else ""
         return_code = proc.returncode or 0
 

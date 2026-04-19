@@ -16,7 +16,13 @@ from tests.e2e.helpers.assertions import (
 )
 from tests.e2e.helpers.ws_client import WSTestClient
 
-pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session"), pytest.mark.slow, pytest.mark.requires_gemini, pytest.mark.timeout(120)]
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.slow,
+    pytest.mark.requires_gemini,
+    pytest.mark.timeout(120),
+]
 
 
 class TestAgentChat:
@@ -86,10 +92,26 @@ class TestAgentChat:
             # The agent should acknowledge storing the information
             # Tool call detection is best-effort since events may not surface tool names
             assert_response_contains_any(
-                result, "stored", "remembered", "noted", "saved", "remember",
-                "got it", "got that", "locked", "recorded", "will remember",
-                "confirmed", "acknowledged", "banked", "stashed", "filed",
-                "memory", "store", "vault", "brain",
+                result,
+                "stored",
+                "remembered",
+                "noted",
+                "saved",
+                "remember",
+                "got it",
+                "got that",
+                "locked",
+                "recorded",
+                "will remember",
+                "confirmed",
+                "acknowledged",
+                "banked",
+                "stashed",
+                "filed",
+                "memory",
+                "store",
+                "vault",
+                "brain",
             )
         finally:
             await ws.close()
@@ -129,7 +151,9 @@ class TestAgentChat:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             # Turn 1: establish context
-            r1 = await ws.send_and_wait_response("I'm thinking about getting a dog. A golden retriever.")
+            r1 = await ws.send_and_wait_response(
+                "I'm thinking about getting a dog. A golden retriever."
+            )
             assert_response_not_empty(r1)
 
             # Turn 2: follow up

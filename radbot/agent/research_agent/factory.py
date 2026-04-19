@@ -95,10 +95,13 @@ def create_research_agent(
     if hasattr(adk_agent, "instruction") and adk_agent.instruction:
         try:
             from google.adk.features import FeatureName, is_feature_enabled
+
             v2_active = not is_feature_enabled(FeatureName.V1_LLM_AGENT)
         except Exception:
             v2_active = False
-        adk_agent.instruction += TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
+        adk_agent.instruction += (
+            TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
+        )
 
     # Return either the ResearchAgent wrapper or the underlying ADK agent
     if as_subagent:

@@ -11,23 +11,34 @@ from radbot.tools.homeassistant.ha_websocket_client import (
     _derive_ws_url,
 )
 
-
 # ---------------------------------------------------------------------------
 # URL derivation
 # ---------------------------------------------------------------------------
 
+
 class TestDeriveWsUrl:
     def test_http_to_ws(self):
-        assert _derive_ws_url("http://ha.local:8123") == "ws://ha.local:8123/api/websocket"
+        assert (
+            _derive_ws_url("http://ha.local:8123") == "ws://ha.local:8123/api/websocket"
+        )
 
     def test_https_to_wss(self):
-        assert _derive_ws_url("https://ha.example.com") == "wss://ha.example.com/api/websocket"
+        assert (
+            _derive_ws_url("https://ha.example.com")
+            == "wss://ha.example.com/api/websocket"
+        )
 
     def test_trailing_slash_stripped(self):
-        assert _derive_ws_url("http://ha.local:8123/") == "ws://ha.local:8123/api/websocket"
+        assert (
+            _derive_ws_url("http://ha.local:8123/")
+            == "ws://ha.local:8123/api/websocket"
+        )
 
     def test_already_has_api_websocket(self):
-        assert _derive_ws_url("ws://ha.local/api/websocket") == "ws://ha.local/api/websocket"
+        assert (
+            _derive_ws_url("ws://ha.local/api/websocket")
+            == "ws://ha.local/api/websocket"
+        )
 
     def test_no_scheme(self):
         result = _derive_ws_url("ha.local:8123")
@@ -37,6 +48,7 @@ class TestDeriveWsUrl:
 # ---------------------------------------------------------------------------
 # Helpers to build mock websocket
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_ws(responses):
     """Create a mock websocket that yields *responses* on recv()."""
@@ -61,12 +73,15 @@ def _patch_connect(ws):
 # Connection / auth
 # ---------------------------------------------------------------------------
 
+
 class TestConnect:
     def test_successful_auth(self):
-        ws = _make_mock_ws([
-            {"type": "auth_required"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-        ])
+        ws = _make_mock_ws(
+            [
+                {"type": "auth_required"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+            ]
+        )
         with _patch_connect(ws):
             client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "tok")
             asyncio.run(client.connect())
@@ -75,10 +90,12 @@ class TestConnect:
             assert sent["access_token"] == "tok"
 
     def test_auth_invalid_raises(self):
-        ws = _make_mock_ws([
-            {"type": "auth_required"},
-            {"type": "auth_invalid", "message": "bad token"},
-        ])
+        ws = _make_mock_ws(
+            [
+                {"type": "auth_required"},
+                {"type": "auth_invalid", "message": "bad token"},
+            ]
+        )
         with _patch_connect(ws):
             client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "bad")
             with pytest.raises(RuntimeError, match="Authentication failed"):
@@ -96,28 +113,35 @@ class TestConnect:
 # send_command
 # ---------------------------------------------------------------------------
 
+
 class TestSendCommand:
     def test_successful_command(self):
         result_payload = [{"id": 1, "url_path": "dash"}]
-        ws = _make_mock_ws([
-            {"type": "auth_required"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-            {"id": 1, "type": "result", "success": True, "result": result_payload},
-        ])
+        ws = _make_mock_ws(
+            [
+                {"type": "auth_required"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {"id": 1, "type": "result", "success": True, "result": result_payload},
+            ]
+        )
         with _patch_connect(ws):
             client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "tok")
             result = asyncio.run(client.send_command("lovelace/dashboards/list"))
             assert result == result_payload
 
     def test_error_response_raises(self):
-        ws = _make_mock_ws([
-            {"type": "auth_required"},
-            {"type": "auth_ok", "ha_version": "2025.1.0"},
-            {
-                "id": 1, "type": "result", "success": False,
-                "error": {"code": "not_found", "message": "Dashboard not found"},
-            },
-        ])
+        ws = _make_mock_ws(
+            [
+                {"type": "auth_required"},
+                {"type": "auth_ok", "ha_version": "2025.1.0"},
+                {
+                    "id": 1,
+                    "type": "result",
+                    "success": False,
+                    "error": {"code": "not_found", "message": "Dashboard not found"},
+                },
+            ]
+        )
         with _patch_connect(ws):
             client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "tok")
             with pytest.raises(RuntimeError, match="Dashboard not found"):
@@ -137,27 +161,38 @@ class TestSendCommand:
             ws.close = AsyncMock()
             if call_count == 1:
                 # First connection: auth succeeds, command send raises ConnectionClosed
-                ws.recv = AsyncMock(side_effect=[
-                    json.dumps({"type": "auth_required"}),
-                    json.dumps({"type": "auth_ok", "ha_version": "2025.1.0"}),
-                ])
-                ws.send = AsyncMock(side_effect=[
-                    None,  # auth send OK
-                    ConnectionClosed(None, None),  # command send fails
-                ])
+                ws.recv = AsyncMock(
+                    side_effect=[
+                        json.dumps({"type": "auth_required"}),
+                        json.dumps({"type": "auth_ok", "ha_version": "2025.1.0"}),
+                    ]
+                )
+                ws.send = AsyncMock(
+                    side_effect=[
+                        None,  # auth send OK
+                        ConnectionClosed(None, None),  # command send fails
+                    ]
+                )
             else:
                 # Second connection: auth + command succeed
                 # msg_id will be 1 (same as first attempt, since retry
                 # does NOT re-increment the counter)
-                ws.recv = AsyncMock(side_effect=[
-                    json.dumps({"type": "auth_required"}),
-                    json.dumps({"type": "auth_ok", "ha_version": "2025.1.0"}),
-                    json.dumps({"id": 2, "type": "result", "success": True, "result": []}),
-                ])
+                ws.recv = AsyncMock(
+                    side_effect=[
+                        json.dumps({"type": "auth_required"}),
+                        json.dumps({"type": "auth_ok", "ha_version": "2025.1.0"}),
+                        json.dumps(
+                            {"id": 2, "type": "result", "success": True, "result": []}
+                        ),
+                    ]
+                )
                 ws.send = AsyncMock()
             return ws
 
-        with patch("radbot.tools.homeassistant.ha_websocket_client.websockets.connect", side_effect=fake_connect):
+        with patch(
+            "radbot.tools.homeassistant.ha_websocket_client.websockets.connect",
+            side_effect=fake_connect,
+        ):
             client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "tok")
             result = asyncio.run(client.send_command("lovelace/dashboards/list"))
             assert result == []
@@ -167,6 +202,7 @@ class TestSendCommand:
 # ---------------------------------------------------------------------------
 # Dashboard convenience methods
 # ---------------------------------------------------------------------------
+
 
 class TestDashboardMethods:
     def test_list_dashboards(self):
@@ -205,7 +241,9 @@ class TestDashboardMethods:
         client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "tok")
         client.send_command = AsyncMock(return_value={"views": [{"title": "Main"}]})
         asyncio.run(client.get_dashboard_config("energy"))
-        client.send_command.assert_called_once_with("lovelace/config", url_path="energy")
+        client.send_command.assert_called_once_with(
+            "lovelace/config", url_path="energy"
+        )
 
     def test_save_dashboard_config(self):
         client = HomeAssistantWebSocketClient("ws://fake/api/websocket", "tok")

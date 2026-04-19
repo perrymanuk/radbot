@@ -56,14 +56,18 @@ def _format_cart_item(item: Dict[str, Any]) -> Dict[str, Any]:
         for sub in items:
             sub_items = sub.get("items", [])
             for product in sub_items:
-                result["products"].append({
-                    "product_id": product.get("id", ""),
-                    "name": product.get("name", ""),
-                    "price": product.get("price", 0),
-                    "quantity": product.get("decorators", [{}])[0].get("quantity", 1)
-                    if product.get("decorators")
-                    else 1,
-                })
+                result["products"].append(
+                    {
+                        "product_id": product.get("id", ""),
+                        "name": product.get("name", ""),
+                        "price": product.get("price", 0),
+                        "quantity": (
+                            product.get("decorators", [{}])[0].get("quantity", 1)
+                            if product.get("decorators")
+                            else 1
+                        ),
+                    }
+                )
     return result
 
 
@@ -225,19 +229,24 @@ def get_picnic_delivery_slots() -> Dict[str, Any]:
 
     raw_slots = client.get_delivery_slots()
     if isinstance(raw_slots, str):
-        return {"status": "error", "message": f"Unexpected API response: {raw_slots[:200]}"}
+        return {
+            "status": "error",
+            "message": f"Unexpected API response: {raw_slots[:200]}",
+        }
     slots = []
     for day in raw_slots:
         if not isinstance(day, dict):
             continue
         for slot in day.get("slot_list", []):
-            slots.append({
-                "slot_id": slot.get("slot_id", ""),
-                "window_start": slot.get("window_start", ""),
-                "window_end": slot.get("window_end", ""),
-                "is_available": slot.get("is_available", False),
-                "minimum_order_value": slot.get("minimum_order_value", 0),
-            })
+            slots.append(
+                {
+                    "slot_id": slot.get("slot_id", ""),
+                    "window_start": slot.get("window_start", ""),
+                    "window_end": slot.get("window_end", ""),
+                    "is_available": slot.get("is_available", False),
+                    "minimum_order_value": slot.get("minimum_order_value", 0),
+                }
+            )
     return {
         "status": "success",
         "slots": slots,
@@ -284,6 +293,7 @@ def _extract_picnic_id_from_description(description: str) -> Optional[str]:
     if not description:
         return None
     import re
+
     match = re.search(r"Picnic ID:\s*(\S+)", description)
     return match.group(1) if match else None
 
@@ -296,6 +306,7 @@ def _extract_usual_qty_from_description(description: str) -> int:
     if not description:
         return 1
     import re
+
     match = re.search(r"Usual qty:\s*(\d+)", description)
     return int(match.group(1)) if match else 1
 
@@ -382,7 +393,9 @@ def submit_shopping_list_to_picnic(
         title = task.get("title", "")
         description = task.get("description", "") or ""
         related_info = task.get("related_info", {}) or {}
-        quantity = related_info.get("quantity", 1) if isinstance(related_info, dict) else 1
+        quantity = (
+            related_info.get("quantity", 1) if isinstance(related_info, dict) else 1
+        )
 
         if not title:
             continue
@@ -395,16 +408,22 @@ def submit_shopping_list_to_picnic(
                 qty = 1
             try:
                 client.add_product(stored_id, count=qty)
-                matched.append({
-                    "task": title,
-                    "product_name": title,
-                    "product_id": stored_id,
-                    "quantity": qty,
-                    "source": "stored_id",
-                })
+                matched.append(
+                    {
+                        "task": title,
+                        "product_name": title,
+                        "product_id": stored_id,
+                        "quantity": qty,
+                        "source": "stored_id",
+                    }
+                )
                 continue
             except Exception as e:
-                logger.debug("Stored product ID %s failed, falling back to search: %s", stored_id, e)
+                logger.debug(
+                    "Stored product ID %s failed, falling back to search: %s",
+                    stored_id,
+                    e,
+                )
 
         # Fall back to search
         try:
@@ -415,14 +434,16 @@ def submit_shopping_list_to_picnic(
                 product_id = best.get("id", "")
                 if product_id:
                     client.add_product(product_id, count=max(1, int(quantity)))
-                    matched.append({
-                        "task": title,
-                        "product_name": best.get("name", ""),
-                        "product_id": product_id,
-                        "price": best.get("price", 0),
-                        "quantity": quantity,
-                        "source": "search",
-                    })
+                    matched.append(
+                        {
+                            "task": title,
+                            "product_name": best.get("name", ""),
+                            "product_id": product_id,
+                            "price": best.get("price", 0),
+                            "quantity": quantity,
+                            "source": "search",
+                        }
+                    )
                 else:
                     unmatched.append(title)
             else:
@@ -466,7 +487,11 @@ def get_picnic_lists() -> Dict[str, Any]:
         return err
 
     raw_lists = client.get_lists()
-    logger.debug("Picnic /lists raw response type=%s: %s", type(raw_lists).__name__, repr(raw_lists)[:2000])
+    logger.debug(
+        "Picnic /lists raw response type=%s: %s",
+        type(raw_lists).__name__,
+        repr(raw_lists)[:2000],
+    )
 
     # Handle API error responses
     if isinstance(raw_lists, dict) and "error" in raw_lists:
@@ -514,7 +539,12 @@ def get_picnic_list_details(
         return {"status": "error", "message": "list_id is required"}
 
     raw_list = client.get_list(list_id)
-    logger.debug("Picnic /lists/%s raw response type=%s: %s", list_id, type(raw_list).__name__, repr(raw_list)[:2000])
+    logger.debug(
+        "Picnic /lists/%s raw response type=%s: %s",
+        list_id,
+        type(raw_list).__name__,
+        repr(raw_list)[:2000],
+    )
     items = _extract_list_items(raw_list)
     return {
         "status": "success",
@@ -541,7 +571,11 @@ def get_picnic_order_history() -> Dict[str, Any]:
         return err
 
     raw = client.get_deliveries()
-    logger.debug("Picnic /deliveries/summary raw response type=%s: %s", type(raw).__name__, repr(raw)[:3000])
+    logger.debug(
+        "Picnic /deliveries/summary raw response type=%s: %s",
+        type(raw).__name__,
+        repr(raw)[:3000],
+    )
     deliveries = []
     if isinstance(raw, list):
         for d in raw[:20]:  # Limit to last 20
@@ -576,10 +610,13 @@ def get_picnic_delivery_details(
         return {"status": "error", "message": "delivery_id is required"}
 
     raw = client.get_delivery(delivery_id)
-    logger.debug("Picnic /deliveries/%s raw response type=%s keys=%s: %s",
-                 delivery_id, type(raw).__name__,
-                 list(raw.keys()) if isinstance(raw, dict) else "N/A",
-                 repr(raw)[:3000])
+    logger.debug(
+        "Picnic /deliveries/%s raw response type=%s keys=%s: %s",
+        delivery_id,
+        type(raw).__name__,
+        list(raw.keys()) if isinstance(raw, dict) else "N/A",
+        repr(raw)[:3000],
+    )
 
     summary = _format_delivery_summary(raw)
     items = _extract_delivery_items(raw)
@@ -652,12 +689,14 @@ def _collect_products(entries: list, out: List[Dict[str, Any]]) -> None:
         # If this item has a name + (id or price), treat it as a product
         if item.get("name") and (item.get("id") or "price" in item):
             price_cents = item.get("price", 0)
-            out.append({
-                "product_id": item.get("id", ""),
-                "name": item.get("name", ""),
-                "price_euros": _cents_to_euros(price_cents),
-                "unit_quantity": item.get("unit_quantity", ""),
-            })
+            out.append(
+                {
+                    "product_id": item.get("id", ""),
+                    "name": item.get("name", ""),
+                    "price_euros": _cents_to_euros(price_cents),
+                    "unit_quantity": item.get("unit_quantity", ""),
+                }
+            )
         # Recurse into nested item lists (cart-style grouping)
         for sub_key in ("items", "products"):
             sub = item.get(sub_key)
@@ -738,19 +777,21 @@ def _extract_delivery_items(raw: Dict[str, Any]) -> List[Dict[str, Any]]:
                     continue
                 # Get quantity from decorators
                 quantity = 1
-                for dec in (article.get("decorators") or []):
+                for dec in article.get("decorators") or []:
                     if isinstance(dec, dict) and dec.get("type") == "QUANTITY":
                         quantity = dec.get("quantity", 1)
                         break
                 # display_price on the ORDER_LINE is the line total
                 line_price = line.get("display_price", line.get("price", 0))
-                items.append({
-                    "product_id": article.get("id", ""),
-                    "name": article.get("name", ""),
-                    "unit_quantity": article.get("unit_quantity", ""),
-                    "quantity": quantity,
-                    "line_price_euros": _cents_to_euros(line_price),
-                })
+                items.append(
+                    {
+                        "product_id": article.get("id", ""),
+                        "name": article.get("name", ""),
+                        "unit_quantity": article.get("unit_quantity", ""),
+                        "quantity": quantity,
+                        "line_price_euros": _cents_to_euros(line_price),
+                    }
+                )
     return items
 
 

@@ -135,7 +135,12 @@ class TestSingleton:
 
         with patch(
             "radbot.tools.picnic.picnic_client._get_config",
-            return_value={"enabled": False, "username": "u", "password": "p", "country_code": "DE"},
+            return_value={
+                "enabled": False,
+                "username": "u",
+                "password": "p",
+                "country_code": "DE",
+            },
         ):
             assert get_picnic_client() is None
 
@@ -144,7 +149,12 @@ class TestSingleton:
 
         with patch(
             "radbot.tools.picnic.picnic_client._get_config",
-            return_value={"enabled": True, "username": None, "password": None, "country_code": "DE"},
+            return_value={
+                "enabled": True,
+                "username": None,
+                "password": None,
+                "country_code": "DE",
+            },
         ):
             assert get_picnic_client() is None
 
@@ -153,7 +163,12 @@ class TestSingleton:
 
         with patch(
             "radbot.tools.picnic.picnic_client._get_config",
-            return_value={"enabled": True, "username": "u", "password": "p", "country_code": "DE"},
+            return_value={
+                "enabled": True,
+                "username": "u",
+                "password": "p",
+                "country_code": "DE",
+            },
         ):
             with patch(
                 "radbot.tools.picnic.picnic_client.PicnicClientWrapper",
@@ -169,7 +184,12 @@ class TestSingleton:
 
         with patch(
             "radbot.tools.picnic.picnic_client._get_config",
-            return_value={"enabled": True, "username": "u", "password": "p", "country_code": "DE"},
+            return_value={
+                "enabled": True,
+                "username": "u",
+                "password": "p",
+                "country_code": "DE",
+            },
         ):
             with patch(
                 "radbot.tools.picnic.picnic_client.PicnicClientWrapper",
@@ -190,7 +210,12 @@ class TestSingleton:
 
         with patch(
             "radbot.tools.picnic.picnic_client._get_config",
-            return_value={"enabled": True, "username": "u", "password": "p", "country_code": "DE"},
+            return_value={
+                "enabled": True,
+                "username": "u",
+                "password": "p",
+                "country_code": "DE",
+            },
         ):
             with patch(
                 "radbot.tools.picnic.picnic_client.PicnicClientWrapper",

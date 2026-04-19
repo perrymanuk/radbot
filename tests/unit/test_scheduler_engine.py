@@ -17,7 +17,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # SchedulerEngine tests
 # ---------------------------------------------------------------------------
@@ -73,9 +72,11 @@ class TestSchedulerEngineLifecycle:
         engine = SchedulerEngine.create_instance()
         engine._scheduler = MagicMock()
 
-        with patch("radbot.tools.scheduler.engine.SchedulerEngine.register_job"), \
-             patch("radbot.tools.scheduler.db.list_tasks", return_value=[]), \
-             patch("radbot.tools.reminders.db.list_reminders", return_value=[]):
+        with (
+            patch("radbot.tools.scheduler.engine.SchedulerEngine.register_job"),
+            patch("radbot.tools.scheduler.db.list_tasks", return_value=[]),
+            patch("radbot.tools.reminders.db.list_reminders", return_value=[]),
+        ):
             await engine.start()
 
         assert engine._started is True
@@ -88,8 +89,10 @@ class TestSchedulerEngineLifecycle:
         engine = SchedulerEngine.create_instance()
         engine._scheduler = MagicMock()
 
-        with patch("radbot.tools.scheduler.db.list_tasks", return_value=[]), \
-             patch("radbot.tools.reminders.db.list_reminders", return_value=[]):
+        with (
+            patch("radbot.tools.scheduler.db.list_tasks", return_value=[]),
+            patch("radbot.tools.reminders.db.list_reminders", return_value=[]),
+        ):
             await engine.start()
             await engine.start()  # second call should be no-op
 
@@ -266,7 +269,9 @@ class TestSchedulerEngineRegisterReminder:
 
         engine._scheduler.add_job.assert_called_once()
         call_kwargs = engine._scheduler.add_job.call_args
-        assert call_kwargs.kwargs["id"] == "reminder_aaaa1111-1111-1111-1111-111111111111"
+        assert (
+            call_kwargs.kwargs["id"] == "reminder_aaaa1111-1111-1111-1111-111111111111"
+        )
         assert call_kwargs.kwargs["replace_existing"] is True
 
     def test_register_reminder_handles_naive_datetime(self):
@@ -353,9 +358,13 @@ class TestSchedulerEngineLoadFromDB:
             },
         ]
 
-        with patch("radbot.tools.scheduler.db.list_tasks", return_value=tasks) as mock_list, \
-             patch("radbot.tools.reminders.db.list_reminders", return_value=[]), \
-             patch.object(engine, "register_job") as mock_register:
+        with (
+            patch(
+                "radbot.tools.scheduler.db.list_tasks", return_value=tasks
+            ) as mock_list,
+            patch("radbot.tools.reminders.db.list_reminders", return_value=[]),
+            patch.object(engine, "register_job") as mock_register,
+        ):
             await engine.start()
 
         mock_list.assert_called_once_with(enabled_only=True)
@@ -379,9 +388,11 @@ class TestSchedulerEngineLoadFromDB:
             },
         ]
 
-        with patch("radbot.tools.scheduler.db.list_tasks", return_value=[]), \
-             patch("radbot.tools.reminders.db.list_reminders", return_value=reminders), \
-             patch.object(engine, "register_reminder") as mock_register:
+        with (
+            patch("radbot.tools.scheduler.db.list_tasks", return_value=[]),
+            patch("radbot.tools.reminders.db.list_reminders", return_value=reminders),
+            patch.object(engine, "register_reminder") as mock_register,
+        ):
             await engine.start()
 
         mock_register.assert_called_once_with(reminders[0])
@@ -402,10 +413,12 @@ class TestSchedulerEngineLoadFromDB:
             },
         ]
 
-        with patch("radbot.tools.scheduler.db.list_tasks", return_value=[]), \
-             patch("radbot.tools.reminders.db.list_reminders", return_value=reminders), \
-             patch("radbot.tools.reminders.db.mark_completed") as mock_mark, \
-             patch.object(engine, "register_reminder") as mock_register:
+        with (
+            patch("radbot.tools.scheduler.db.list_tasks", return_value=[]),
+            patch("radbot.tools.reminders.db.list_reminders", return_value=reminders),
+            patch("radbot.tools.reminders.db.mark_completed") as mock_mark,
+            patch.object(engine, "register_reminder") as mock_register,
+        ):
             await engine.start()
 
         mock_mark.assert_called_once_with("r-past")
@@ -430,9 +443,11 @@ class TestSchedulerEngineLoadFromDB:
             },
         ]
 
-        with patch("radbot.tools.scheduler.db.list_tasks", return_value=[]), \
-             patch("radbot.tools.reminders.db.list_reminders", return_value=reminders), \
-             patch.object(engine, "register_reminder") as mock_register:
+        with (
+            patch("radbot.tools.scheduler.db.list_tasks", return_value=[]),
+            patch("radbot.tools.reminders.db.list_reminders", return_value=reminders),
+            patch.object(engine, "register_reminder") as mock_register,
+        ):
             await engine.start()
 
         # Should be registered since it's in the future
@@ -446,8 +461,15 @@ class TestSchedulerEngineLoadFromDB:
         engine = SchedulerEngine.create_instance()
         engine._scheduler = MagicMock()
 
-        with patch("radbot.tools.scheduler.db.list_tasks", side_effect=Exception("DB down")), \
-             patch("radbot.tools.reminders.db.list_reminders", side_effect=Exception("DB down")):
+        with (
+            patch(
+                "radbot.tools.scheduler.db.list_tasks", side_effect=Exception("DB down")
+            ),
+            patch(
+                "radbot.tools.reminders.db.list_reminders",
+                side_effect=Exception("DB down"),
+            ),
+        ):
             await engine.start()
 
         # Should still start even if DB fails
@@ -519,7 +541,9 @@ class TestCreateReminder:
     """create_reminder tool function."""
 
     @patch("radbot.tools.reminders.reminder_tools.reminder_db")
-    @patch("radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None)
+    @patch(
+        "radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None
+    )
     def test_create_with_delay_minutes(self, mock_engine, mock_db):
         from radbot.tools.reminders.reminder_tools import create_reminder
 
@@ -541,7 +565,9 @@ class TestCreateReminder:
         assert call_kwargs.kwargs["message"] == "Test reminder"
 
     @patch("radbot.tools.reminders.reminder_tools.reminder_db")
-    @patch("radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None)
+    @patch(
+        "radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None
+    )
     def test_create_with_remind_at_iso(self, mock_engine, mock_db):
         from radbot.tools.reminders.reminder_tools import create_reminder
 
@@ -577,7 +603,10 @@ class TestCreateReminder:
         result = create_reminder(message="No time specified")
 
         assert result["status"] == "error"
-        assert "remind_at" in result["message"].lower() or "delay_minutes" in result["message"].lower()
+        assert (
+            "remind_at" in result["message"].lower()
+            or "delay_minutes" in result["message"].lower()
+        )
         mock_db.create_reminder.assert_not_called()
 
     @patch("radbot.tools.reminders.reminder_tools.reminder_db")
@@ -590,13 +619,17 @@ class TestCreateReminder:
         assert "invalid" in result["message"].lower()
 
     @patch("radbot.tools.reminders.reminder_tools.reminder_db")
-    @patch("radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None)
+    @patch(
+        "radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None
+    )
     def test_create_with_timezone_handling(self, mock_engine, mock_db):
         from radbot.tools.reminders.reminder_tools import create_reminder
 
         fake_id = uuid.uuid4()
         # Naive datetime string (no offset) — should apply timezone_name
-        future_naive = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+        future_naive = (datetime.now() + timedelta(days=1)).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
         mock_db.create_reminder.return_value = {
             "reminder_id": fake_id,
             "message": "TZ test",
@@ -619,7 +652,9 @@ class TestCreateReminder:
     def test_create_rejects_invalid_timezone(self, mock_db):
         from radbot.tools.reminders.reminder_tools import create_reminder
 
-        future_naive = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%S")
+        future_naive = (datetime.now() + timedelta(days=1)).strftime(
+            "%Y-%m-%dT%H:%M:%S"
+        )
 
         result = create_reminder(
             message="Bad tz",
@@ -702,7 +737,9 @@ class TestDeleteReminder:
     """delete_reminder tool function."""
 
     @patch("radbot.tools.reminders.reminder_tools.reminder_db")
-    @patch("radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None)
+    @patch(
+        "radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None
+    )
     def test_delete_existing_reminder(self, mock_engine, mock_db):
         from radbot.tools.reminders.reminder_tools import delete_reminder
 
@@ -715,7 +752,9 @@ class TestDeleteReminder:
         assert result["reminder_id"] == rid
 
     @patch("radbot.tools.reminders.reminder_tools.reminder_db")
-    @patch("radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None)
+    @patch(
+        "radbot.tools.scheduler.engine.SchedulerEngine.get_instance", return_value=None
+    )
     def test_delete_nonexistent_reminder(self, mock_engine, mock_db):
         from radbot.tools.reminders.reminder_tools import delete_reminder
 

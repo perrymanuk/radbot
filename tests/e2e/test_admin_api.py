@@ -19,7 +19,9 @@ class TestAdminAPI:
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
 
-    async def test_store_and_delete_credential(self, client, admin_headers, admin_token):
+    async def test_store_and_delete_credential(
+        self, client, admin_headers, admin_token
+    ):
         """POST then DELETE a test credential."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
@@ -166,7 +168,9 @@ class TestAdminAPI:
         """POST /admin/api/test/google should test Google API connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/google", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/google", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "status" in data
@@ -175,12 +179,16 @@ class TestAdminAPI:
         """POST /admin/api/test/qdrant should test Qdrant connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/qdrant", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/qdrant", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "status" in data
 
-    async def test_admin_status_has_integrations(self, client, admin_headers, admin_token):
+    async def test_admin_status_has_integrations(
+        self, client, admin_headers, admin_token
+    ):
         """GET /admin/api/status should include per-integration status entries."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
@@ -195,7 +203,9 @@ class TestAdminAPI:
         """POST /admin/api/test/home-assistant should test HA connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/home-assistant", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/home-assistant", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -203,7 +213,9 @@ class TestAdminAPI:
         """POST /admin/api/test/overseerr should test Overseerr connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/overseerr", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/overseerr", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -227,7 +239,9 @@ class TestAdminAPI:
         """POST /admin/api/test/picnic should test Picnic connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/picnic", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/picnic", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -235,7 +249,9 @@ class TestAdminAPI:
         """POST /admin/api/test/nomad should test Nomad connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/nomad", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/nomad", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -243,7 +259,9 @@ class TestAdminAPI:
         """POST /admin/api/test/github should test GitHub App connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/github", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/github", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -251,7 +269,9 @@ class TestAdminAPI:
         """POST /admin/api/test/calendar should test Google Calendar connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/calendar", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/calendar", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -259,7 +279,9 @@ class TestAdminAPI:
         """POST /admin/api/test/gmail/default should test Gmail connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/gmail/default", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/gmail/default", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()
 
@@ -267,6 +289,8 @@ class TestAdminAPI:
         """POST /admin/api/test/claude-code should test Claude Code connectivity."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")
-        resp = await client.post("/admin/api/test/claude-code", headers=admin_headers, json={})
+        resp = await client.post(
+            "/admin/api/test/claude-code", headers=admin_headers, json={}
+        )
         assert resp.status_code == 200
         assert "status" in resp.json()

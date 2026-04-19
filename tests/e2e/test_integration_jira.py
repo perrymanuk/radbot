@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -43,8 +46,14 @@ class TestJiraIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "issue", "jira", "result", "found", "no issue",
-                "deployment", "search",
+                result,
+                "issue",
+                "jira",
+                "result",
+                "found",
+                "no issue",
+                "deployment",
+                "search",
             )
         finally:
             await ws.close()
@@ -85,8 +94,15 @@ class TestJiraIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "issue", "description", "status", "priority",
-                "summary", "assignee", "type", "key",
+                result,
+                "issue",
+                "description",
+                "status",
+                "priority",
+                "summary",
+                "assignee",
+                "type",
+                "key",
             )
         finally:
             await ws.close()

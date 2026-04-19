@@ -116,7 +116,7 @@ def get_categories() -> List[str]:
             "requests": [
                 {
                     "indexName": _ALGOLIA_INDEX,
-                    "params": "query=&hitsPerPage=0&facets=[\"categories\"]",
+                    "params": 'query=&hitsPerPage=0&facets=["categories"]',
                 },
             ]
         },

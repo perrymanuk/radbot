@@ -69,7 +69,13 @@ def _create_write_file_tool() -> FunctionTool:
         """
         try:
             return write_file(path, content, overwrite)
-        except (PermissionError, FileNotFoundError, FileExistsError, ValueError, IOError) as e:
+        except (
+            PermissionError,
+            FileNotFoundError,
+            FileExistsError,
+            ValueError,
+            IOError,
+        ) as e:
             return {"status": "error", "error": str(e)}
 
     return FunctionTool(func=write_file_func)

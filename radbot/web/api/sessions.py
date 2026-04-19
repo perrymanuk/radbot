@@ -144,7 +144,9 @@ def register_sessions_router(app):
 
             # Create in database
             success = chat_operations.create_or_update_session(
-                session_id=session_id, name=session_name, user_id=user_id,
+                session_id=session_id,
+                name=session_name,
+                user_id=user_id,
                 description=request.description,
             )
 
@@ -181,14 +183,17 @@ def register_sessions_router(app):
     ):
         """Update a session's name and/or description."""
         if not request or (not request.name and request.description is None):
-            raise HTTPException(status_code=400, detail="Name or description is required")
+            raise HTTPException(
+                status_code=400, detail="Name or description is required"
+            )
 
         logger.debug("Updating session %s", session_id)
 
         try:
             # Update in database — don't require runner to exist (session may be in DB only)
             success = chat_operations.create_or_update_session(
-                session_id=session_id, name=request.name,
+                session_id=session_id,
+                name=request.name,
                 description=request.description,
             )
 

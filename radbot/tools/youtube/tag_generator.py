@@ -132,9 +132,7 @@ Rules:
         raw = response.text.strip()
         # Parse comma-separated tags
         tags = [
-            tag.strip().lower().strip('"\'')
-            for tag in raw.split(",")
-            if tag.strip()
+            tag.strip().lower().strip("\"'") for tag in raw.split(",") if tag.strip()
         ]
         # Remove any tags that are too long or empty
         tags = [t for t in tags if 0 < len(t) <= 50]

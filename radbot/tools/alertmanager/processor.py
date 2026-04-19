@@ -30,7 +30,10 @@ async def _notify(
         client = get_ntfy_client()
         if client:
             await client.publish(
-                title=title, message=message, priority=priority, tags=tags,
+                title=title,
+                message=message,
+                priority=priority,
+                tags=tags,
                 skip_notification=True,
             )
     except Exception as e:
@@ -232,7 +235,8 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
     recent_count = count_recent_remediations(alertname, window)
     if recent_count >= max_remediations:
         update_alert_status(
-            alert_id, "failed",
+            alert_id,
+            "failed",
             remediation_result=f"Rate limit exceeded: {recent_count}/{max_remediations} in {window}min",
         )
         await _notify(
@@ -299,7 +303,8 @@ Investigate and fix this alert:
     workspace = _ensure_workspace()
     if not workspace:
         update_alert_status(
-            alert_id, "failed",
+            alert_id,
+            "failed",
             remediation_result="Could not prepare hashi-homelab workspace",
         )
         await _notify(
@@ -382,15 +387,17 @@ Investigate and fix this alert:
     # ── Broadcast result ──────────────────────────────────────
     from datetime import datetime
 
-    await _broadcast({
-        "type": "alert_result",
-        "alert_id": alert_id,
-        "alertname": alertname,
-        "severity": severity,
-        "prompt": prompt[:500],
-        "response": response_text[:1000],
-        "timestamp": datetime.now().isoformat(),
-    })
+    await _broadcast(
+        {
+            "type": "alert_result",
+            "alert_id": alert_id,
+            "alertname": alertname,
+            "severity": severity,
+            "prompt": prompt[:500],
+            "response": response_text[:1000],
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
 
 
 async def _reconcile_to_repo(
@@ -454,7 +461,10 @@ def _extract_action_summary(response: str) -> str:
     # Try to find a summary line
     for line in lines:
         lower = line.lower()
-        if any(kw in lower for kw in ("restarted", "updated", "fixed", "cloned", "pushed", "changed")):
+        if any(
+            kw in lower
+            for kw in ("restarted", "updated", "fixed", "cloned", "pushed", "changed")
+        ):
             return line.strip()[:200]
     # Fall back to first non-empty line
     for line in lines:

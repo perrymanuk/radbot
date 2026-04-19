@@ -68,7 +68,9 @@ def _prompt_list(label: str, min_count: int = 0) -> List[str]:
         if not stripped:
             if len(items) >= min_count:
                 break
-            print(f"  need at least {min_count}; keep going (or empty line to abort step).")
+            print(
+                f"  need at least {min_count}; keep going (or empty line to abort step)."
+            )
             continue
         items.append(stripped)
     return items
@@ -182,17 +184,15 @@ def onboard() -> int:
         print(f"  ✓ {len(wisdom)} wisdom entry/entries saved.")
 
     # 8. Taste.
-    print("\n[8/9] Taste — best book / movie / anything worth knowing about your taste.")
+    print(
+        "\n[8/9] Taste — best book / movie / anything worth knowing about your taste."
+    )
     book = _prompt_line("Best book")
     if book:
-        telos_db.add_entry(
-            Section.BEST_BOOKS, book, metadata={"sentiment": "love"}
-        )
+        telos_db.add_entry(Section.BEST_BOOKS, book, metadata={"sentiment": "love"})
     movie = _prompt_line("Best movie")
     if movie:
-        telos_db.add_entry(
-            Section.BEST_MOVIES, movie, metadata={"sentiment": "love"}
-        )
+        telos_db.add_entry(Section.BEST_MOVIES, movie, metadata={"sentiment": "love"})
 
     # 9. History (optional).
     print("\n[9/9] History — background that shapes how you think. Optional.")
@@ -226,7 +226,9 @@ def cmd_import(path: str, replace: bool = False) -> int:
         print("Parsed zero entries — input may not be canonical Telos markdown.")
         return 1
     if replace:
-        if not _confirm(f"REPLACE all existing Telos entries and load {len(entries)} from {path}?"):
+        if not _confirm(
+            f"REPLACE all existing Telos entries and load {len(entries)} from {path}?"
+        ):
             print("Aborted.")
             return 1
         telos_db.reset_all()
@@ -293,9 +295,7 @@ def cmd_reset(section: Optional[str] = None) -> int:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    logging.basicConfig(
-        level=logging.WARNING, format="%(levelname)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
     parser = argparse.ArgumentParser(
         prog="python -m radbot.tools.telos.cli",

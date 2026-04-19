@@ -114,9 +114,7 @@ def search_videos(
                 "channel_title": snippet.get("channelTitle"),
                 "channel_id": snippet.get("channelId"),
                 "published_at": snippet.get("publishedAt"),
-                "thumbnail": snippet.get("thumbnails", {})
-                .get("high", {})
-                .get("url"),
+                "thumbnail": snippet.get("thumbnails", {}).get("high", {}).get("url"),
                 "url": f"https://www.youtube.com/watch?v={item['id'].get('videoId')}",
             }
         )
@@ -168,9 +166,7 @@ def get_video_details(video_ids: List[str]) -> List[Dict[str, Any]]:
                 "view_count": int(stats.get("viewCount", 0)),
                 "like_count": int(stats.get("likeCount", 0)),
                 "url": f"https://www.youtube.com/watch?v={item['id']}",
-                "thumbnail": snippet.get("thumbnails", {})
-                .get("high", {})
-                .get("url"),
+                "thumbnail": snippet.get("thumbnails", {}).get("high", {}).get("url"),
             }
         )
 

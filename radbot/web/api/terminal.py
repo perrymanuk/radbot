@@ -75,9 +75,13 @@ async def _maybe_spawn_worker(workspace_id: str) -> None:
             try:
                 url = await proxy.ensure_worker()
                 if url:
-                    logger.info("Pre-spawned worker for workspace %s at %s", workspace_id, url)
+                    logger.info(
+                        "Pre-spawned worker for workspace %s at %s", workspace_id, url
+                    )
                 else:
-                    logger.warning("Failed to pre-spawn worker for workspace %s", workspace_id)
+                    logger.warning(
+                        "Failed to pre-spawn worker for workspace %s", workspace_id
+                    )
             except Exception as e:
                 logger.warning("Background worker spawn failed: %s", e)
 
@@ -565,6 +569,7 @@ async def _proxy_terminal_ws(
 
     try:
         async with websockets.connect(ws_url) as worker_ws:
+
             async def browser_to_worker():
                 try:
                     while True:

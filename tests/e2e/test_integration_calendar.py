@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -30,8 +33,18 @@ class TestCalendarIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "event", "calendar", "no event", "schedule", "nothing", "free",
-                "week", "agenda", "planner", "nada", "chillin",
+                result,
+                "event",
+                "calendar",
+                "no event",
+                "schedule",
+                "nothing",
+                "free",
+                "week",
+                "agenda",
+                "planner",
+                "nada",
+                "chillin",
             )
         finally:
             await ws.close()
@@ -46,8 +59,15 @@ class TestCalendarIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "free", "busy", "available", "calendar", "event",
-                "tomorrow", "afternoon", "schedule",
+                result,
+                "free",
+                "busy",
+                "available",
+                "calendar",
+                "event",
+                "tomorrow",
+                "afternoon",
+                "schedule",
             )
         finally:
             await ws.close()
@@ -85,8 +105,15 @@ class TestCalendarIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "event", "meeting", "calendar", "no", "found",
-                "schedule", "week", "nothing",
+                result,
+                "event",
+                "meeting",
+                "calendar",
+                "no",
+                "found",
+                "schedule",
+                "week",
+                "nothing",
             )
         finally:
             await ws.close()

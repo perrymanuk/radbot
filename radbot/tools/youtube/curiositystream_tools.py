@@ -88,9 +88,7 @@ def list_curiositystream_categories() -> Dict[str, Any]:
 
 # Wrap as FunctionTools
 search_curiositystream_tool = FunctionTool(search_curiositystream)
-list_curiositystream_categories_tool = FunctionTool(
-    list_curiositystream_categories
-)
+list_curiositystream_categories_tool = FunctionTool(list_curiositystream_categories)
 
 CURIOSITYSTREAM_TOOLS = [
     search_curiositystream_tool,

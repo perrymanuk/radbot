@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -29,7 +32,9 @@ class TestHomeAssistantIntegration:
                 "Search for sensor entities in Home Assistant"
             )
             text = assert_response_not_empty(result)
-            assert_response_contains_any(result, "sensor", "entity", "entities", "home assistant")
+            assert_response_contains_any(
+                result, "sensor", "entity", "entities", "home assistant"
+            )
         finally:
             await ws.close()
 
@@ -74,9 +79,19 @@ class TestHomeAssistantIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "not found", "error", "doesn't exist", "unknown",
-                "no entity", "couldn't find", "unavailable",
-                "mia", "can't", "unable", "no", "sorry",
+                result,
+                "not found",
+                "error",
+                "doesn't exist",
+                "unknown",
+                "no entity",
+                "couldn't find",
+                "unavailable",
+                "mia",
+                "can't",
+                "unable",
+                "no",
+                "sorry",
             )
         finally:
             await ws.close()
@@ -92,8 +107,15 @@ class TestHomeAssistantIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "toggled", "turned", "on", "off", "light", "office",
-                "state", "changed",
+                result,
+                "toggled",
+                "turned",
+                "on",
+                "off",
+                "light",
+                "office",
+                "state",
+                "changed",
             )
         finally:
             await ws.close()

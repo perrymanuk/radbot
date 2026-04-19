@@ -95,7 +95,9 @@ class TestAlertsManagement:
 
 
 class TestAlertsPolicyCRUD:
-    async def test_policy_lifecycle(self, client, admin_headers, admin_token, cleanup, test_prefix):
+    async def test_policy_lifecycle(
+        self, client, admin_headers, admin_token, cleanup, test_prefix
+    ):
         """Create, list, update, and delete a remediation policy."""
         if not admin_token:
             pytest.skip("RADBOT_ADMIN_TOKEN not set")

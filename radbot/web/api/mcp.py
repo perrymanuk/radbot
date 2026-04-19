@@ -137,7 +137,9 @@ async def mcp_token_reveal() -> dict[str, str]:
     """Return the current token in cleartext (explicit admin action)."""
     token, source = _get_current_token()
     if not token:
-        raise HTTPException(404, "No MCP token configured (set RADBOT_MCP_TOKEN or rotate).")
+        raise HTTPException(
+            404, "No MCP token configured (set RADBOT_MCP_TOKEN or rotate)."
+        )
     return {"token": token, "source": source}
 
 
@@ -149,7 +151,8 @@ async def mcp_token_rotate() -> dict[str, str]:
     store = get_credential_store()
     if not store.available:
         raise HTTPException(
-            503, "Credential store unavailable — cannot rotate (set RADBOT_CREDENTIAL_KEY)"
+            503,
+            "Credential store unavailable — cannot rotate (set RADBOT_CREDENTIAL_KEY)",
         )
 
     new_token = secrets.token_urlsafe(32)

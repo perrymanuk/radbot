@@ -218,6 +218,7 @@ class TestAgentConfigIntegration:
         # Create mock agent and session service
         # ADK 2.0 validates root_agent is a BaseAgent instance
         from google.adk.agents import BaseAgent
+
         mock_agent = MagicMock(spec=BaseAgent)
         mock_session_service = MagicMock(spec=InMemorySessionService)
 

@@ -1,4 +1,3 @@
-
 """
 Health check endpoints for RadBot monitoring.
 """
@@ -29,8 +28,16 @@ class HealthResponse(BaseModel):
     version: str = "0.1.0"
 
 
-@router.get("/health/ready", response_model=HealthResponse, responses={503: {"model": HealthResponse}})
-@router.get("/health/detailed", response_model=HealthResponse, responses={503: {"model": HealthResponse}})
+@router.get(
+    "/health/ready",
+    response_model=HealthResponse,
+    responses={503: {"model": HealthResponse}},
+)
+@router.get(
+    "/health/detailed",
+    response_model=HealthResponse,
+    responses={503: {"model": HealthResponse}},
+)
 async def detailed_health_check(response: Response):
     """
     Perform a deep health check of all critical components.
@@ -38,7 +45,7 @@ async def detailed_health_check(response: Response):
     """
     components = {}
     overall_status = "ok"
-    
+
     # 1. Check Database (Critical)
     try:
         with get_db_connection() as conn:
@@ -54,13 +61,20 @@ async def detailed_health_check(response: Response):
     # 2. Check Agent Initialization (Critical)
     try:
         from radbot.agent.agent_core import root_agent
+
         if root_agent:
-            components["agent"] = ComponentStatus(status="ok", details={"name": root_agent.name})
+            components["agent"] = ComponentStatus(
+                status="ok", details={"name": root_agent.name}
+            )
         else:
-            components["agent"] = ComponentStatus(status="error", message="Root agent not initialized")
+            components["agent"] = ComponentStatus(
+                status="error", message="Root agent not initialized"
+            )
             overall_status = "error"
     except ImportError:
-        components["agent"] = ComponentStatus(status="error", message="Agent module not found")
+        components["agent"] = ComponentStatus(
+            status="error", message="Agent module not found"
+        )
         overall_status = "error"
     except Exception as e:
         components["agent"] = ComponentStatus(status="error", message=str(e))
@@ -69,15 +83,18 @@ async def detailed_health_check(response: Response):
     # 3. Check Memory Service (Qdrant) (Non-critical for startup, but important)
     try:
         from radbot.agent.agent_core import memory_service
+
         if memory_service and hasattr(memory_service, "client"):
             # Simple check: get collections
             collections = memory_service.client.get_collections()
             components["memory"] = ComponentStatus(
                 status="ok",
-                details={"collections": [c.name for c in collections.collections]}
+                details={"collections": [c.name for c in collections.collections]},
             )
         else:
-            components["memory"] = ComponentStatus(status="warning", message="Memory service not initialized")
+            components["memory"] = ComponentStatus(
+                status="warning", message="Memory service not initialized"
+            )
     except Exception as e:
         logger.warning(f"Health check failed for memory service: {e}")
         components["memory"] = ComponentStatus(status="error", message=str(e))
@@ -89,5 +106,5 @@ async def detailed_health_check(response: Response):
     # Determine final status code
     if overall_status != "ok":
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    
+
     return HealthResponse(status=overall_status, components=components)

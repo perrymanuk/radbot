@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -82,8 +85,18 @@ class TestPicnicIntegration:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "no result", "not found", "couldn't find", "no product", "nothing",
-                "ghost", "nada", "zero", "can't", "no", "sorry",
+                result,
+                "no result",
+                "not found",
+                "couldn't find",
+                "no product",
+                "nothing",
+                "ghost",
+                "nada",
+                "zero",
+                "can't",
+                "no",
+                "sorry",
             )
         finally:
             await ws.close()

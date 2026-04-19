@@ -31,7 +31,14 @@ class TestTasksAgent:
             result = await ws.send_and_wait_response("Show me all my tasks")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "task", "project", "todo", "backlog", "no task", "list", "nothing"
+                result,
+                "task",
+                "project",
+                "todo",
+                "backlog",
+                "no task",
+                "list",
+                "nothing",
             )
         finally:
             await ws.close()
@@ -44,13 +51,24 @@ class TestTasksAgent:
             result = await ws.send_and_wait_response("List all my projects")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "project", "no project", "list", "none", "here",
-                "sorry", "couldn't", "apologize", "error", "no",
+                result,
+                "project",
+                "no project",
+                "list",
+                "none",
+                "here",
+                "sorry",
+                "couldn't",
+                "apologize",
+                "error",
+                "no",
             )
         finally:
             await ws.close()
 
-    async def test_agent_create_and_complete_task(self, live_server, client, test_prefix):
+    async def test_agent_create_and_complete_task(
+        self, live_server, client, test_prefix
+    ):
         """Create a task via agent then verify it exists via REST."""
         session_id = str(uuid.uuid4())
         ws = await WSTestClient.connect(live_server, session_id)

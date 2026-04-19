@@ -70,9 +70,9 @@ class TestNomadJobSubmission:
         assert resp.status_code == 200
         status = resp.json()
         nomad_status = status.get("nomad", {})
-        assert nomad_status.get("status") == "ok", (
-            f"Nomad not available: {nomad_status}"
-        )
+        assert (
+            nomad_status.get("status") == "ok"
+        ), f"Nomad not available: {nomad_status}"
 
     async def test_job_template_produces_valid_spec(self):
         """The Nomad job template should produce a parseable spec."""
@@ -149,6 +149,7 @@ class TestWorkerDBTracking:
     def _ensure_schema(self):
         """Ensure the session_workers table exists before each test."""
         from radbot.worker.db import init_session_workers_schema
+
         init_session_workers_schema()
 
     async def test_upsert_and_get_worker(self):
@@ -224,7 +225,12 @@ class TestWorkerDBTracking:
 
     async def test_touch_worker(self):
         """Touching a worker updates last_active_at."""
-        from radbot.worker.db import delete_worker, get_worker, touch_worker, upsert_worker
+        from radbot.worker.db import (
+            delete_worker,
+            get_worker,
+            touch_worker,
+            upsert_worker,
+        )
 
         sid = str(uuid.uuid4())
         try:

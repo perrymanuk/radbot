@@ -22,8 +22,9 @@ class _JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         entry = {
-            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc)
-            .isoformat(timespec="milliseconds"),
+            "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(
+                timespec="milliseconds"
+            ),
             "level": record.levelname,
             "logger": record.name,
             "msg": record.getMessage(),
@@ -46,8 +47,10 @@ def setup_logging(*, level: str | None = None) -> None:
 
     root = logging.getLogger()
     # Avoid adding duplicate handlers if called more than once.
-    if any(isinstance(h, logging.StreamHandler) and
-           isinstance(h.formatter, _JSONFormatter) for h in root.handlers):
+    if any(
+        isinstance(h, logging.StreamHandler) and isinstance(h.formatter, _JSONFormatter)
+        for h in root.handlers
+    ):
         root.setLevel(resolved_level)
         return
 

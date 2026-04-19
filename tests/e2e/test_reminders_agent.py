@@ -30,9 +30,20 @@ class TestRemindersAgent:
             )
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "reminder", "remind", "set", "created", "will remind",
-                "scheduled", "noted", "got it", "hit you up", "tomorrow",
-                "hours", "24", "check",
+                result,
+                "reminder",
+                "remind",
+                "set",
+                "created",
+                "will remind",
+                "scheduled",
+                "noted",
+                "got it",
+                "hit you up",
+                "tomorrow",
+                "hours",
+                "24",
+                "check",
             )
         finally:
             await ws.close()
@@ -45,8 +56,17 @@ class TestRemindersAgent:
             result = await ws.send_and_wait_response("Show my pending reminders")
             text = assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "reminder", "pending", "no reminder", "none", "list", "upcoming",
-                "nada", "nothing", "zero", "planner",
+                result,
+                "reminder",
+                "pending",
+                "no reminder",
+                "none",
+                "list",
+                "upcoming",
+                "nada",
+                "nothing",
+                "zero",
+                "planner",
             )
         finally:
             await ws.close()

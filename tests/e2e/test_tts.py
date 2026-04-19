@@ -5,7 +5,11 @@ Auto-skipped if Google Cloud TTS is not available.
 
 import pytest
 
-pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session"), pytest.mark.requires_tts]
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.requires_tts,
+]
 
 
 class TestTTSAPI:

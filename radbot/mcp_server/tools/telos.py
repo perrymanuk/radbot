@@ -81,7 +81,12 @@ def tools() -> list[mcp_types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string"},
-                    "limit": {"type": "integer", "default": 20, "minimum": 1, "maximum": 100},
+                    "limit": {
+                        "type": "integer",
+                        "default": 20,
+                        "minimum": 1,
+                        "maximum": 100,
+                    },
                 },
                 "required": ["query"],
                 "additionalProperties": False,
@@ -90,23 +95,25 @@ def tools() -> list[mcp_types.Tool]:
     ]
 
 
-async def call(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "telos_get_full":
         return [_render_full()]
     if name == "telos_get_section":
-        return [_render_section(
-            arguments["section"],
-            bool(arguments.get("include_inactive", False)),
-        )]
+        return [
+            _render_section(
+                arguments["section"],
+                bool(arguments.get("include_inactive", False)),
+            )
+        ]
     if name == "telos_get_entry":
         return [_render_entry(arguments["section"], arguments["ref_code"])]
     if name == "telos_search_journal":
-        return [_render_journal_search(
-            arguments["query"],
-            int(arguments.get("limit", 20)),
-        )]
+        return [
+            _render_journal_search(
+                arguments["query"],
+                int(arguments.get("limit", 20)),
+            )
+        ]
     raise KeyError(name)
 
 
@@ -141,9 +148,7 @@ def _render_section(section: str, include_inactive: bool) -> mcp_types.TextConte
 
     header = SECTION_HEADERS.get(sec, sec.value.title())
     if not entries:
-        return mcp_types.TextContent(
-            type="text", text=f"## {header}\n\n_No entries._"
-        )
+        return mcp_types.TextContent(type="text", text=f"## {header}\n\n_No entries._")
 
     lines = [f"## {header}", ""]
     for e in entries:
@@ -151,7 +156,11 @@ def _render_section(section: str, include_inactive: bool) -> mcp_types.TextConte
         status_tag = f" _({e.status})_" if e.status != "active" else ""
         lines.append(f"- {ref}{e.content}{status_tag}")
         if e.metadata:
-            meta_bits = [f"{k}: {v}" for k, v in e.metadata.items() if v not in (None, "", [], {})]
+            meta_bits = [
+                f"{k}: {v}"
+                for k, v in e.metadata.items()
+                if v not in (None, "", [], {})
+            ]
             if meta_bits:
                 lines.append(f"  - {' · '.join(meta_bits)}")
     return mcp_types.TextContent(type="text", text="\n".join(lines))

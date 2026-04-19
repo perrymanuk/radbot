@@ -171,7 +171,10 @@ class QdrantMemoryService(BaseMemoryService):
                                 "Created source_agent index on existing collection"
                             )
                         except Exception as idx_err:
-                            logger.debug("source_agent index already exists or failed: %s", idx_err)
+                            logger.debug(
+                                "source_agent index already exists or failed: %s",
+                                idx_err,
+                            )
                         return
 
                 # Create the collection

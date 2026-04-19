@@ -120,7 +120,9 @@ class NtfyClient:
                     logger.info(f"ntfy notification sent: {title[:60]}")
                     if not skip_notification:
                         try:
-                            from radbot.tools.notifications.db import create_notification
+                            from radbot.tools.notifications.db import (
+                                create_notification,
+                            )
 
                             create_notification(
                                 type="ntfy_outbound",

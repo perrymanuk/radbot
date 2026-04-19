@@ -11,7 +11,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ────────────────────────────────────────────────────────────
 # GitHub App Client tests
 # ────────────────────────────────────────────────────────────
@@ -62,9 +61,7 @@ class TestGitHubAppClient:
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.hazmat.primitives import serialization
 
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048
-        )
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -90,9 +87,7 @@ class TestGitHubAppClient:
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.hazmat.primitives import serialization
 
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048
-        )
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -120,9 +115,7 @@ class TestGitHubAppClient:
         from cryptography.hazmat.primitives import serialization
         import tempfile
 
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048
-        )
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.TraditionalOpenSSL,
@@ -174,12 +167,15 @@ class TestClaudeCodeClient:
 
     def test_get_claude_code_status_no_token(self):
         """Returns error when CLI exists but no token."""
-        with patch(
-            "radbot.tools.claude_code.claude_code_client.shutil.which",
-            return_value="/usr/bin/claude",
-        ), patch(
-            "radbot.tools.claude_code.claude_code_client._get_oauth_token",
-            return_value=None,
+        with (
+            patch(
+                "radbot.tools.claude_code.claude_code_client.shutil.which",
+                return_value="/usr/bin/claude",
+            ),
+            patch(
+                "radbot.tools.claude_code.claude_code_client._get_oauth_token",
+                return_value=None,
+            ),
         ):
             from radbot.tools.claude_code.claude_code_client import (
                 get_claude_code_status,
@@ -192,12 +188,15 @@ class TestClaudeCodeClient:
 
     def test_get_claude_code_status_ok(self):
         """Returns ok when CLI and token are available."""
-        with patch(
-            "radbot.tools.claude_code.claude_code_client.shutil.which",
-            return_value="/usr/bin/claude",
-        ), patch(
-            "radbot.tools.claude_code.claude_code_client._get_oauth_token",
-            return_value="test-token",
+        with (
+            patch(
+                "radbot.tools.claude_code.claude_code_client.shutil.which",
+                return_value="/usr/bin/claude",
+            ),
+            patch(
+                "radbot.tools.claude_code.claude_code_client._get_oauth_token",
+                return_value="test-token",
+            ),
         ):
             from radbot.tools.claude_code.claude_code_client import (
                 get_claude_code_status,
@@ -232,16 +231,22 @@ class TestClaudeCodeClient:
 
         # Simulate stream-json output
         stream_lines = [
-            json.dumps({
-                "type": "assistant",
-                "session_id": "sess-123",
-                "content": [{"type": "text", "text": "Here is the plan..."}],
-            }) + "\n",
-            json.dumps({
-                "type": "result",
-                "session_id": "sess-123",
-                "result": "Plan complete.",
-            }) + "\n",
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "session_id": "sess-123",
+                    "content": [{"type": "text", "text": "Here is the plan..."}],
+                }
+            )
+            + "\n",
+            json.dumps(
+                {
+                    "type": "result",
+                    "session_id": "sess-123",
+                    "result": "Plan complete.",
+                }
+            )
+            + "\n",
         ]
         stdout_data = "".join(stream_lines).encode("utf-8")
 
@@ -362,7 +367,10 @@ class TestClaudeCodeTools:
         from radbot.tools.claude_code.claude_code_tools import CLAUDE_CODE_TOOLS
 
         assert len(CLAUDE_CODE_TOOLS) == 6
-        names = [getattr(t, "name", "") or getattr(t, "__name__", "") for t in CLAUDE_CODE_TOOLS]
+        names = [
+            getattr(t, "name", "") or getattr(t, "__name__", "")
+            for t in CLAUDE_CODE_TOOLS
+        ]
         assert "clone_repository" in names
         assert "claude_code_plan" in names
         assert "claude_code_continue" in names
@@ -389,7 +397,9 @@ class TestCoderDB:
         mock_conn_ctx = MagicMock()
         mock_conn_ctx.__enter__ = MagicMock(return_value=mock_conn_ctx)
         mock_conn_ctx.__exit__ = MagicMock(return_value=False)
-        mock_conn_ctx.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor_obj)
+        mock_conn_ctx.cursor.return_value.__enter__ = MagicMock(
+            return_value=mock_cursor_obj
+        )
         mock_conn_ctx.cursor.return_value.__exit__ = MagicMock(return_value=False)
         mock_conn.return_value = mock_conn_ctx
 

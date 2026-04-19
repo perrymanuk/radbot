@@ -272,7 +272,9 @@ class TestTerminalSessionLifecycle:
                     "/terminal/sessions/",
                     json={"workspace_id": wid},
                 )
-                assert resp.status_code == 200, f"Session {i} creation failed: {resp.text}"
+                assert (
+                    resp.status_code == 200
+                ), f"Session {i} creation failed: {resp.text}"
                 tid = resp.json()["terminal_id"]
                 terminal_ids.append(tid)
                 cleanup.track("terminal_session", tid)
@@ -289,9 +291,9 @@ class TestTerminalSessionLifecycle:
                 "/terminal/sessions/",
                 json={"workspace_id": overflow_wid},
             )
-            assert resp.status_code == 429, (
-                f"Expected 429 for 4th session, got {resp.status_code}: {resp.text}"
-            )
+            assert (
+                resp.status_code == 429
+            ), f"Expected 429 for 4th session, got {resp.status_code}: {resp.text}"
         finally:
             # Kill all sessions to avoid leaking into other tests
             for tid in terminal_ids:

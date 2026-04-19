@@ -228,9 +228,7 @@ def get_calendar_service(
                 from google.oauth2.credentials import Credentials as OAuthCredentials
 
                 token_info = json.loads(token_json)
-                creds = OAuthCredentials.from_authorized_user_info(
-                    token_info, scopes
-                )
+                creds = OAuthCredentials.from_authorized_user_info(token_info, scopes)
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(AuthRequest())
                     # Write refreshed token back to store, preserving
@@ -240,7 +238,9 @@ def get_calendar_service(
                         if key in token_info and key not in refreshed:
                             refreshed[key] = token_info[key]
                     store.set(
-                        "calendar_token", json.dumps(refreshed), credential_type="oauth_token"
+                        "calendar_token",
+                        json.dumps(refreshed),
+                        credential_type="oauth_token",
                     )
                 if creds and creds.valid:
                     _calendar_service = build("calendar", "v3", credentials=creds)
@@ -365,7 +365,9 @@ def get_calendar_service(
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
 
-            logger.debug(f"Loading service account credentials from: {credentials_path}")
+            logger.debug(
+                f"Loading service account credentials from: {credentials_path}"
+            )
 
             # Create credentials from file
             credentials = service_account.Credentials.from_service_account_file(
@@ -476,7 +478,9 @@ def get_workspace_calendar_service(
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
 
-            logger.debug(f"Loading service account credentials from: {credentials_path}")
+            logger.debug(
+                f"Loading service account credentials from: {credentials_path}"
+            )
 
             # Create credentials from file
             credentials = service_account.Credentials.from_service_account_file(
