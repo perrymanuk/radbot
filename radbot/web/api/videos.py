@@ -102,8 +102,8 @@ def _maybe_generate_tags(url: str, kideo_video_id: str) -> List[str]:
     if not yt_id:
         return []
     try:
-        from radbot.tools.youtube.tag_generator import generate_tags_for_video
         from radbot.tools.youtube.kideo_client import set_video_tags
+        from radbot.tools.youtube.tag_generator import generate_tags_for_video
         from radbot.tools.youtube.youtube_client import get_video_details
 
         details_list = get_video_details([yt_id])

@@ -22,18 +22,18 @@ from radbot.agent.agent_initializer import (
     types,
 )
 from radbot.agent.agent_tools_setup import setup_before_agent_call
-
-# Import callbacks
-from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
 from radbot.callbacks.empty_content_callback import (
     handle_empty_response_after_model,
     scrub_empty_content_before_model,
 )
-from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+
+# Import callbacks
+from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
+from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
 from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
-from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
+from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services

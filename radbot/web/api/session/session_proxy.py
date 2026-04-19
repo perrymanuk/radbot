@@ -296,9 +296,9 @@ class SessionProxy:
             from a2a.client.card_resolver import A2ACardResolver
             from a2a.client.client import ClientConfig as A2AClientConfig
             from a2a.client.client_factory import A2AClientFactory
+            from a2a.types import Message as A2AMessage
+            from a2a.types import Part as A2APart
             from a2a.types import (
-                Message as A2AMessage,
-                Part as A2APart,
                 TextPart,
                 TransportProtocol,
             )

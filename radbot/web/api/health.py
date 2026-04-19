@@ -3,7 +3,7 @@ Health check endpoints for RadBot monitoring.
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel

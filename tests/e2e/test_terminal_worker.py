@@ -217,11 +217,9 @@ class TestTerminalHandler:
 
     async def test_protocol_constants(self):
         """Protocol constants match expected values."""
-        from radbot.worker.terminal_handler import (
-            MSG_CLOSED as H_CLOSED,
-            MSG_DATA as H_DATA,
-            MSG_RESIZE as H_RESIZE,
-        )
+        from radbot.worker.terminal_handler import MSG_CLOSED as H_CLOSED
+        from radbot.worker.terminal_handler import MSG_DATA as H_DATA
+        from radbot.worker.terminal_handler import MSG_RESIZE as H_RESIZE
 
         assert H_DATA == 0x01
         assert H_RESIZE == 0x02

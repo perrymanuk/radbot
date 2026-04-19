@@ -1,8 +1,8 @@
 """Non-deterministic response assertion helpers for agent chat tests."""
 
-import pytest
-
 from typing import Any, Dict, List
+
+import pytest
 
 # Common Beto personality synonyms for "not found" / "missing" / "error".
 # Import and spread into assert_response_contains_any() calls that check

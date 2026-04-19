@@ -7,8 +7,9 @@ import os
 from typing import Any, List, Optional
 
 from dotenv import load_dotenv
-from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
+
+from radbot.agent.runner import RadbotRunner as Runner
 
 # SessionService is now just InMemorySessionService in recent ADK versions
 SessionService = InMemorySessionService  # Type alias for backward compatibility

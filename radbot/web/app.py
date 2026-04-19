@@ -28,10 +28,17 @@ from starlette.middleware.cors import CORSMiddleware
 from radbot.config import config_manager
 from radbot.web.api.admin import router as admin_router
 from radbot.web.api.agent_info import register_agent_info_router
+from radbot.web.api.alerts import router as alerts_router
 
 # Import API routers for registration
 from radbot.web.api.events import register_events_router
+from radbot.web.api.ha import router as ha_router
+from radbot.web.api.health import router as health_router
+from radbot.web.api.mcp import public_router as mcp_public_router
+from radbot.web.api.mcp import router as mcp_admin_router
+from radbot.web.api.media import router as media_router
 from radbot.web.api.messages import register_messages_router
+from radbot.web.api.notifications import router as notifications_router
 from radbot.web.api.reminders import router as reminders_router
 from radbot.web.api.scheduler import router as scheduler_router
 from radbot.web.api.session import (
@@ -41,26 +48,17 @@ from radbot.web.api.session import (
     memory_router,
 )
 from radbot.web.api.sessions import register_sessions_router
+from radbot.web.api.setup import router as setup_router
 from radbot.web.api.stt import router as stt_router
-from radbot.web.api.tts import router as tts_router
+from radbot.web.api.telos import router as telos_router
 from radbot.web.api.terminal import (
     TerminalManager,
     register_terminal_websocket,
-    router as terminal_router,
 )
-from radbot.web.api.webhooks import router as webhooks_router
-from radbot.web.api.health import router as health_router
-from radbot.web.api.alerts import router as alerts_router
-from radbot.web.api.notifications import router as notifications_router
-from radbot.web.api.media import router as media_router
+from radbot.web.api.terminal import router as terminal_router
+from radbot.web.api.tts import router as tts_router
 from radbot.web.api.videos import router as videos_router
-from radbot.web.api.ha import router as ha_router
-from radbot.web.api.telos import router as telos_router
-from radbot.web.api.setup import router as setup_router
-from radbot.web.api.mcp import (
-    router as mcp_admin_router,
-    public_router as mcp_public_router,
-)
+from radbot.web.api.webhooks import router as webhooks_router
 
 logger = logging.getLogger(__name__)
 

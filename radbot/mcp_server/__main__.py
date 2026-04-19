@@ -19,8 +19,8 @@ import logging
 import sys
 
 import mcp.server.stdio
-from mcp.server.models import InitializationOptions
 from mcp.server.lowlevel import NotificationOptions
+from mcp.server.models import InitializationOptions
 
 from .server import create_server
 

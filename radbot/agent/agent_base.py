@@ -11,9 +11,10 @@ from typing import Any, Dict, List, Optional, Union
 
 from dotenv import load_dotenv
 from google.adk.agents import Agent
-from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
+
+from radbot.agent.runner import RadbotRunner as Runner
 
 # Configure logging
 logger = logging.getLogger(__name__)

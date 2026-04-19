@@ -346,8 +346,8 @@ def retag_untagged_kideo_videos() -> Dict[str, Any]:
         # Generate tags using title, channel, and optionally transcript
         from radbot.tools.youtube.tag_generator import (
             fetch_transcript,
-            generate_tags as _generate_tags,
         )
+        from radbot.tools.youtube.tag_generator import generate_tags as _generate_tags
 
         transcript = fetch_transcript(yt_video_id) if yt_video_id else None
         tags = _generate_tags(

@@ -58,8 +58,8 @@ class TestGitHubAppClient:
     def test_generate_jwt(self):
         """JWT generation produces a valid token."""
         # Use a real RSA key for testing
-        from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(
@@ -84,8 +84,8 @@ class TestGitHubAppClient:
     @patch("radbot.tools.github.github_app_client.httpx.get")
     def test_get_status_success(self, mock_get):
         """get_status returns app info on success."""
-        from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(
@@ -111,9 +111,10 @@ class TestGitHubAppClient:
     @patch("radbot.tools.github.github_app_client.httpx.post")
     def test_clone_repo_new(self, mock_post, mock_run):
         """clone_repo clones a new repo."""
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.hazmat.primitives import serialization
         import tempfile
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         pem = private_key.private_bytes(

@@ -42,8 +42,8 @@ async def list_notifications(
     try:
         from radbot.tools.notifications.db import (
             count_notifications,
-            list_notifications as db_list,
         )
+        from radbot.tools.notifications.db import list_notifications as db_list
         from radbot.tools.shared.serialization import serialize_rows
 
         read_filter = None

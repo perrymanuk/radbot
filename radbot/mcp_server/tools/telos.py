@@ -131,7 +131,7 @@ def _render_full() -> mcp_types.TextContent:
 
 def _render_section(section: str, include_inactive: bool) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
-    from radbot.tools.telos.models import Section, SECTION_HEADERS
+    from radbot.tools.telos.models import SECTION_HEADERS, Section
 
     try:
         sec = Section(section.lower())

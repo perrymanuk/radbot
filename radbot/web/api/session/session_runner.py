@@ -21,14 +21,14 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from google.adk.artifacts import InMemoryArtifactService
-
-# Import needed ADK components
-from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 # Import root_agent directly from agent.py
 from agent import root_agent
+
+# Import needed ADK components
+from radbot.agent.runner import RadbotRunner as Runner
 
 # Import the malformed function handler
 from radbot.web.api.malformed_function_handler import (
