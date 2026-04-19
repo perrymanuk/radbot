@@ -361,10 +361,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: e2e-secrets
     timeout-minutes: 45
-    # Non-blocking: the dual-checkout pattern requires bootstrap-radbot-stack
-    # to exist on origin/main. The PR that introduces the action can't satisfy
-    # that. Subsequent PRs run normally; the aggregate treats absent score as 0.
-    continue-on-error: true
     outputs:
       score: ${{ steps.compare.outputs.score }}
     env:
