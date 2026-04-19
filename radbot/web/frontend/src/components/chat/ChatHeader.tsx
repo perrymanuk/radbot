@@ -217,6 +217,20 @@ export default function ChatHeader() {
               </button>
 
               <a
+                href="/projects"
+                aria-label="Open projects"
+                data-test="chat-header-projects-link"
+                className={cn(
+                  "hidden sm:flex px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
+                  "items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+                  "text-accent-blue hover:bg-accent-blue/15 hover:text-accent-blue",
+                  "focus:outline-none focus:ring-1 focus:ring-accent-blue",
+                )}
+              >
+                PROJ
+              </a>
+
+              <a
                 href="/terminal"
                 aria-label="Open terminal"
                 className={cn(

@@ -108,21 +108,23 @@ Frontend buttons on Casa-rendered UI cards hit these REST endpoints directly —
 
 ### Telos (`/api/telos`) — `web/api/telos.py`
 
-All endpoints require the admin bearer token (same as `/admin/api/*`). Drives the `TelosPanel` admin UI and supports power-user markdown import/export.
+Admin-authed CRUD drives the `TelosPanel` admin UI and supports power-user markdown import/export. Two **unauth'd public read** endpoints feed the `/projects` page (single-user radbot — matches the rest of `/api/*`).
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/api/telos/status` | `{has_identity}` — wizard-vs-editor branch |
-| `GET` | `/api/telos/sections` | Per-section active-entry counts + headers |
-| `GET` | `/api/telos/section/{section}?include_inactive=false` | Entries in a section |
-| `GET` | `/api/telos/entry/{section}/{ref_code}` | Single entry |
-| `POST` | `/api/telos/entry/{section}` | Add entry (body: `{content, ref_code?, metadata?, status?, sort_order?}`) |
-| `PUT` | `/api/telos/entry/{section}/{ref_code}` | Patch entry (body: `{content?, metadata_merge?, metadata_replace?, status?, sort_order?}`) |
-| `POST` | `/api/telos/archive/{section}/{ref_code}` | Soft delete (body: `{reason?}`) |
-| `POST` | `/api/telos/bulk` | Atomic multi-section upsert — used by the onboarding wizard (body: `{entries, replace?}`) |
-| `POST` | `/api/telos/import` | Merge-or-replace from canonical Telos markdown (body: `{markdown, replace?}`) |
-| `GET` | `/api/telos/export` | Current Telos as canonical markdown (text/plain) |
-| `POST` | `/api/telos/resolve-prediction/{ref_code}` | Resolve a prediction; auto-adds `wrong_about` on miscalibration (body: `{outcome, actual_value?}`) |
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| `GET` | `/api/telos/projects/summary` | none | Flat list of projects + derived counts (milestone_count, active_task_count, done_task_count). Feeds `/projects` left rail. |
+| `GET` | `/api/telos/projects/entries?sections=projects,milestones,project_tasks,explorations,goals&include_inactive=false` | none | Bulk-fetch multiple telos sections in one call. Feeds `/projects` detail panes. Unknown section names are skipped. |
+| `GET` | `/api/telos/status` | admin | `{has_identity}` — wizard-vs-editor branch |
+| `GET` | `/api/telos/sections` | admin | Per-section active-entry counts + headers |
+| `GET` | `/api/telos/section/{section}?include_inactive=false` | admin | Entries in a section |
+| `GET` | `/api/telos/entry/{section}/{ref_code}` | admin | Single entry |
+| `POST` | `/api/telos/entry/{section}` | admin | Add entry (body: `{content, ref_code?, metadata?, status?, sort_order?}`) |
+| `PUT` | `/api/telos/entry/{section}/{ref_code}` | admin | Patch entry (body: `{content?, metadata_merge?, metadata_replace?, status?, sort_order?}`) |
+| `POST` | `/api/telos/archive/{section}/{ref_code}` | admin | Soft delete (body: `{reason?}`) |
+| `POST` | `/api/telos/bulk` | admin | Atomic multi-section upsert — used by the onboarding wizard (body: `{entries, replace?}`) |
+| `POST` | `/api/telos/import` | admin | Merge-or-replace from canonical Telos markdown (body: `{markdown, replace?}`) |
+| `GET` | `/api/telos/export` | admin | Current Telos as canonical markdown (text/plain) |
+| `POST` | `/api/telos/resolve-prediction/{ref_code}` | admin | Resolve a prediction; auto-adds `wrong_about` on miscalibration (body: `{outcome, actual_value?}`) |
 
 ### Home Assistant (`/api/ha`) — `web/api/ha.py`
 
@@ -198,7 +200,21 @@ Feature flag: if `static/dist/index.html` exists, FastAPI serves the React SPA; 
 | `ChatPage.tsx` | Main chat UI; renders inline cards + handoff chips; calls `/api/sessions/{id}/stats` after each turn |
 | `TerminalPage.tsx` | Terminal emulator with workspace search, health indicator, scrollback replay, binary WS protocol, GPU renderer, multi-client WS |
 | `NotificationsPage.tsx` | Unified notification feed with date grouping |
+| `ProjectsPage.tsx` | Telos project hierarchy viewer — two-pane (list rail + tabbed detail). Routes `/projects` and `/projects/:refCode`. Read-only v1. |
 | `AdminPage.tsx` | Admin panels + palette refresh; dynamic agent roster |
+
+Routing uses `react-router-dom` v6 — `App.tsx` wraps the tree in `<BrowserRouter>` with `<Routes>` dispatching to the pages above (fallthrough `*` → `ChatPage`). Deep-linkable tab state on `/projects/:refCode?tab=milestones` via `useSearchParams`.
+
+### Projects Page (`pages/ProjectsPage.tsx`, 2026-04-19)
+
+Visualizes the Telos project hierarchy: project → milestones → tasks (grouped by `metadata.task_status`) + explorations + goals. Parent linkage is read from `metadata.parent_project` / `metadata.parent_milestone` — the DB stays flat, trees are assembled client-side.
+
+- **Data**: `stores/projects-store.ts` (Zustand) — bulk-fetches all 5 sections via `GET /api/telos/projects/entries` + `GET /api/telos/projects/summary` once on mount. Normalized store: `entries: Record<"section:ref_code", TelosEntry>` + `childrenByParent` index. Pure selectors (`selectMilestonesForProject`, `selectTasksForMilestone`, `selectUnmilestonedTasks`, `selectOrphans`, `bucketTasks`) derive hierarchy.
+- **Components** (`components/projects/`): `ProjectList` (left rail w/ filter), `ProjectDetail` (tab shell, deep-linked via `?tab=`), `OverviewTab` / `MilestonesTab` / `TasksTab` / `ExplorationsTab` / `GoalsTab`, `MilestoneCard` (collapsible, `done` bucket collapsed by default), `TaskRow`, `EntryMarkdown` (memoized `react-markdown` wrapper).
+- **Orphan vs. Unmilestoned**: distinct UX. Orphaned entries (parent ref_code points at a missing project/milestone) → red badge in page header. Unmilestoned tasks (task with `parent_project` but no `parent_milestone`) → warning-styled block inside the project's Milestones tab.
+- **Task status buckets**: canonical set is `inprogress | backlog | done`, with a catch-all `other` bucket for non-canonical values (data hygiene surface until the status field is canonicalized in the DB).
+- **API client**: `lib/telos-api.ts` — typed fetch wrappers for the two unauth'd read endpoints. No admin bearer.
+- **Header link**: `ChatHeader.tsx` PROJ button next to TERM.
 
 ### Admin Panel Modules (`components/admin/panels/`)
 
