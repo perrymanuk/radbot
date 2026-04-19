@@ -57,18 +57,21 @@ Created per-agent via `create_agent_memory_tools(agent_name)`. Scoped by `source
 
 Global variants (`search_past_conversations`, `store_important_information`) exist but are not currently assigned to any agent.
 
-### todo — `tools/todo/api/`
+### telos project hierarchy — `tools/telos/telos_tools.py`
+
+Projects are Telos entries in section `projects` (PRJ ref_codes). Their children live in their own sections and link back via `metadata.parent_project`. Tools for adding/completing/archiving tasks/milestones are all part of `TELOS_TOOLS` on beto (no dedicated "tracker" sub-agent).
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `add_task` | `description`, `project_id`, `title`, `category`, `origin`, `related_info` | Create new task |
-| `complete_task` | `task_id` | Mark task as done |
-| `remove_task` | `task_id` | Delete task |
-| `list_projects` | — | List all projects |
-| `list_project_tasks` | `project_id`, `status_filter`, `include_done` | List tasks in a project |
-| `list_all_tasks` | `status_filter`, `include_done` | List all tasks across projects |
-| `update_task` | `task_id`, `title`, `description`, `status`, `category`, `related_info` | Update task fields |
-| `update_project` | `project_id`, `name` | Rename project |
+| `telos_list_projects` | — | List active Telos projects |
+| `telos_get_project` | `ref_or_name` | Render a project with all its milestones, tasks grouped by kanban status, explorations, and linked goals |
+| `telos_add_milestone` | `title`, `parent_project`, `deadline?`, `details?` | Add a milestone under a project (confirm-required, auto-assigns `MS<N>`) |
+| `telos_complete_milestone` | `ref_code`, `resolution?` | Mark a milestone completed (silent) |
+| `telos_add_task` | `description`, `parent_project`, `parent_milestone?`, `title?`, `category?`, `task_status?` | Add a project task (confirm-required, auto-assigns `PT<N>`). `task_status` ∈ `backlog` / `inprogress` / `done`, default `backlog` |
+| `telos_list_tasks` | `parent_project?`, `parent_milestone?`, `task_status?`, `include_inactive?` | Filter project tasks |
+| `telos_complete_task` | `ref_code` | Flip task's `metadata.task_status` → `done` (silent) |
+| `telos_archive_task` | `ref_code`, `reason?` | Soft-delete a task (confirm-required) |
+| `telos_add_exploration` | `topic`, `parent_project`, `notes?` | Record an open research thread under a project (confirm-required, auto-assigns `EX<N>`). Use for "I want to look into X" capture before it becomes a task |
 
 ### calendar — `tools/calendar/calendar_tools.py`
 

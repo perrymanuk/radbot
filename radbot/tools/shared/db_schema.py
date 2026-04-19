@@ -3,7 +3,7 @@
 import logging
 from typing import List
 
-from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection, get_db_cursor
 
 logger = logging.getLogger(__name__)
 

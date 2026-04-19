@@ -1,7 +1,8 @@
 """
 Factory function for creating the Planner agent.
 
-Planner handles calendar events, scheduled tasks, reminders, and time queries.
+Planner handles calendar events, scheduled tasks, reminders, webhooks, and
+time queries.
 """
 
 import logging
@@ -73,6 +74,9 @@ def create_planner_agent() -> Optional[Agent]:
         # Reminder tools
         tools.extend(load_tools("radbot.tools.reminders", "REMINDER_TOOLS", "Planner", "reminder"))
 
+        # Webhook tools (formerly on tracker)
+        tools.extend(load_tools("radbot.tools.webhooks", "WEBHOOK_TOOLS", "Planner", "webhook"))
+
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
 
@@ -82,7 +86,7 @@ def create_planner_agent() -> Optional[Agent]:
         agent = Agent(
             name="planner",
             model=model,
-            description="Calendar events, scheduled recurring tasks, one-shot reminders, and time queries.",
+            description="Calendar events, scheduled recurring tasks, one-shot reminders, webhook triggers, and time queries.",
             instruction=instruction,
             tools=tools,
             mode="task",

@@ -5,7 +5,7 @@ This module sets up the imports and basic configuration needed for the RadBot ag
 It serves as the initialization module for the root agent.py file.
 
 Domain tool imports have been moved to individual agent factories
-(home_agent, planner_agent, tracker_agent, comms_agent).
+(home_agent, planner_agent, comms_agent, etc.).
 """
 
 import logging

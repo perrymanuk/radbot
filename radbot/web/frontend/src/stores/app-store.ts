@@ -2,8 +2,6 @@ import { create } from "zustand";
 import type {
   Message,
   Session,
-  Task,
-  Project,
   AgentEvent,
   AgentInfo,
   ConnectionStatus,
@@ -45,18 +43,6 @@ interface AppState {
   clearEvents: () => void;
   eventFilter: EventCategory | "all";
   setEventFilter: (f: EventCategory | "all") => void;
-
-  // ── Tasks ───────────────────────────────────────────────
-  tasks: Task[];
-  projects: Project[];
-  loadTasks: () => Promise<void>;
-  loadProjects: () => Promise<void>;
-  taskStatusFilter: string;
-  taskProjectFilter: string;
-  taskSearch: string;
-  setTaskStatusFilter: (f: string) => void;
-  setTaskProjectFilter: (f: string) => void;
-  setTaskSearch: (s: string) => void;
 
   // ── Panels ──────────────────────────────────────────────
   activePanel: PanelType;
@@ -224,35 +210,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearEvents: () => set({ events: [] }),
   eventFilter: "all",
   setEventFilter: (f) => set({ eventFilter: f }),
-
-  // ── Tasks ───────────────────────────────────────────────
-  tasks: [],
-  projects: [],
-
-  loadTasks: async () => {
-    try {
-      const tasks = await api.fetchTasks();
-      set({ tasks: Array.isArray(tasks) ? tasks : [] });
-    } catch {
-      // Tasks API may not be available
-    }
-  },
-
-  loadProjects: async () => {
-    try {
-      const projects = await api.fetchProjects();
-      set({ projects: Array.isArray(projects) ? projects : [] });
-    } catch {
-      // Projects API may not be available
-    }
-  },
-
-  taskStatusFilter: "all",
-  taskProjectFilter: "all",
-  taskSearch: "",
-  setTaskStatusFilter: (f) => set({ taskStatusFilter: f }),
-  setTaskProjectFilter: (f) => set({ taskProjectFilter: f }),
-  setTaskSearch: (s) => set({ taskSearch: s }),
 
   // ── Panels ──────────────────────────────────────────────
   activePanel: null,

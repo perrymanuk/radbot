@@ -216,6 +216,59 @@ class TestSetDeliverySlot:
 
 
 class TestSubmitShoppingList:
+    """The Picnic shopping-list bridge now reads from Telos `project_tasks`
+    under the named Telos `projects` entry."""
+
+    @staticmethod
+    def _telos_project(ref_code="PRJ9", name="Groceries"):
+        from radbot.tools.telos.models import Entry, Section
+
+        return Entry(
+            entry_id="pg-id",
+            section=Section.PROJECTS,
+            ref_code=ref_code,
+            content=name,
+            metadata={},
+            status="active",
+        )
+
+    @staticmethod
+    def _telos_task(title, parent="PRJ9", quantity=None, status="backlog"):
+        from radbot.tools.telos.models import Entry, Section
+
+        meta = {"parent_project": parent, "task_status": status, "title": title}
+        if quantity is not None:
+            meta["quantity"] = quantity
+        return Entry(
+            entry_id=f"t-{title}",
+            section=Section.PROJECT_TASKS,
+            ref_code=None,
+            content=title,
+            metadata=meta,
+            status="active",
+        )
+
+    def _patch_telos(self, project, tasks):
+        """Patch telos_db.get_entry + list_section to serve a fake project + tasks."""
+        from radbot.tools.telos.models import Section
+
+        def _get_entry(section, ref_code):
+            if section == Section.PROJECTS and project and ref_code == project.ref_code:
+                return project
+            return None
+
+        def _list_section(section, status="active"):
+            if section == Section.PROJECTS:
+                return [project] if project else []
+            if section == Section.PROJECT_TASKS:
+                return tasks
+            return []
+
+        return (
+            patch("radbot.tools.telos.db.get_entry", side_effect=_get_entry),
+            patch("radbot.tools.telos.db.list_section", side_effect=_list_section),
+        )
+
     def test_bridge_matches_and_adds(self, mock_client):
         from radbot.tools.picnic.picnic_tools import submit_shopping_list_to_picnic
 
@@ -226,27 +279,20 @@ class TestSubmitShoppingList:
         mock_client.add_product.return_value = {}
         mock_client.get_cart.return_value = {"total_price": 298}
 
-        todo_result = {
-            "status": "success",
-            "tasks": [
-                {"title": "Milk", "related_info": {"quantity": 2}},
-                {"title": "Bananas", "related_info": {"quantity": 1}},
-            ],
-        }
-
-        with _patch_client(mock_client):
-            with patch(
-                "radbot.tools.todo.api.list_tools.list_project_tasks",
-                return_value=todo_result,
-            ):
-                result = submit_shopping_list_to_picnic("Groceries")
+        project = self._telos_project()
+        tasks = [
+            self._telos_task("Milk", quantity=2),
+            self._telos_task("Bananas", quantity=1),
+        ]
+        p1, p2 = self._patch_telos(project, tasks)
+        with _patch_client(mock_client), p1, p2:
+            result = submit_shopping_list_to_picnic("Groceries")
 
         assert result["status"] == "success"
         assert result["matched_count"] == 2
         assert result["unmatched_count"] == 0
         assert result["cart_total"] == 298
 
-        # Milk should be added with quantity 2
         calls = mock_client.add_product.call_args_list
         assert calls[0].args == ("p1",)
         assert calls[0].kwargs == {"count": 2}
@@ -256,25 +302,19 @@ class TestSubmitShoppingList:
 
         mock_client.search.side_effect = [
             [{"id": "p1", "name": "Milk", "price": 129}],
-            [],  # No results for "Dragon Fruit"
+            [],
         ]
         mock_client.add_product.return_value = {}
         mock_client.get_cart.return_value = {"total_price": 129}
 
-        todo_result = {
-            "status": "success",
-            "tasks": [
-                {"title": "Milk", "related_info": {"quantity": 1}},
-                {"title": "Dragon Fruit", "related_info": {}},
-            ],
-        }
-
-        with _patch_client(mock_client):
-            with patch(
-                "radbot.tools.todo.api.list_tools.list_project_tasks",
-                return_value=todo_result,
-            ):
-                result = submit_shopping_list_to_picnic("Groceries")
+        project = self._telos_project()
+        tasks = [
+            self._telos_task("Milk", quantity=1),
+            self._telos_task("Dragon Fruit"),
+        ]
+        p1, p2 = self._patch_telos(project, tasks)
+        with _patch_client(mock_client), p1, p2:
+            result = submit_shopping_list_to_picnic("Groceries")
 
         assert result["status"] == "success"
         assert result["matched_count"] == 1
@@ -284,32 +324,23 @@ class TestSubmitShoppingList:
     def test_bridge_empty_list(self, mock_client):
         from radbot.tools.picnic.picnic_tools import submit_shopping_list_to_picnic
 
-        todo_result = {"status": "success", "tasks": []}
-
-        with _patch_client(mock_client):
-            with patch(
-                "radbot.tools.todo.api.list_tools.list_project_tasks",
-                return_value=todo_result,
-            ):
-                result = submit_shopping_list_to_picnic("Groceries")
+        project = self._telos_project()
+        p1, p2 = self._patch_telos(project, tasks=[])
+        with _patch_client(mock_client), p1, p2:
+            result = submit_shopping_list_to_picnic("Groceries")
 
         assert result["status"] == "error"
-        assert "No items found" in result["message"]
+        assert "No backlog tasks" in result["message"]
 
-    def test_bridge_todo_error(self, mock_client):
+    def test_bridge_project_missing(self, mock_client):
         from radbot.tools.picnic.picnic_tools import submit_shopping_list_to_picnic
 
-        todo_result = {"status": "error", "message": "Project not found"}
-
-        with _patch_client(mock_client):
-            with patch(
-                "radbot.tools.todo.api.list_tools.list_project_tasks",
-                return_value=todo_result,
-            ):
-                result = submit_shopping_list_to_picnic("Groceries")
+        p1, p2 = self._patch_telos(project=None, tasks=[])
+        with _patch_client(mock_client), p1, p2:
+            result = submit_shopping_list_to_picnic("Groceries")
 
         assert result["status"] == "error"
-        assert "Project not found" in result["message"]
+        assert "No Telos project" in result["message"]
 
     def test_bridge_default_quantity(self, mock_client):
         from radbot.tools.picnic.picnic_tools import submit_shopping_list_to_picnic
@@ -318,19 +349,11 @@ class TestSubmitShoppingList:
         mock_client.add_product.return_value = {}
         mock_client.get_cart.return_value = {"total_price": 299}
 
-        todo_result = {
-            "status": "success",
-            "tasks": [
-                {"title": "Eggs", "related_info": None},  # No quantity specified
-            ],
-        }
-
-        with _patch_client(mock_client):
-            with patch(
-                "radbot.tools.todo.api.list_tools.list_project_tasks",
-                return_value=todo_result,
-            ):
-                result = submit_shopping_list_to_picnic()
+        project = self._telos_project()
+        tasks = [self._telos_task("Eggs")]  # no quantity
+        p1, p2 = self._patch_telos(project, tasks)
+        with _patch_client(mock_client), p1, p2:
+            result = submit_shopping_list_to_picnic()
 
         assert result["status"] == "success"
         mock_client.add_product.assert_called_once_with("p1", count=1)

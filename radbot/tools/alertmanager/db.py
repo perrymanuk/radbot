@@ -1,6 +1,6 @@
 """Database schema and CRUD operations for alert events and remediation policies.
 
-Uses the shared DB pool from ``radbot.tools.todo.db.connection`` via
+Uses the shared DB pool from ``radbot.db.connection`` via
 the ``get_db_connection`` context manager.
 """
 
@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
 
-from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection, get_db_cursor
 
 logger = logging.getLogger(__name__)
 

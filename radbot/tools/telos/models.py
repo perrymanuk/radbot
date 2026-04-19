@@ -23,6 +23,9 @@ class Section(str, Enum):
     CHALLENGES = "challenges"
     STRATEGIES = "strategies"
     PROJECTS = "projects"
+    MILESTONES = "milestones"
+    PROJECT_TASKS = "project_tasks"
+    EXPLORATIONS = "explorations"
     WISDOM = "wisdom"
     IDEAS = "ideas"
     PREDICTIONS = "predictions"
@@ -47,6 +50,9 @@ SECTION_HEADERS: Dict[Section, str] = {
     Section.CHALLENGES: "CHALLENGES",
     Section.STRATEGIES: "STRATEGIES",
     Section.PROJECTS: "PROJECTS",
+    Section.MILESTONES: "MILESTONES",
+    Section.PROJECT_TASKS: "PROJECT TASKS",
+    Section.EXPLORATIONS: "EXPLORATIONS",
     Section.WISDOM: "WISDOM",
     Section.IDEAS: "IDEAS",
     Section.PREDICTIONS: "PREDICTIONS",
@@ -84,6 +90,9 @@ REF_PREFIX: Dict[Section, str] = {
     Section.CHALLENGES: "C",
     Section.STRATEGIES: "S",
     Section.PROJECTS: "PRJ",
+    Section.MILESTONES: "MS",
+    Section.PROJECT_TASKS: "PT",
+    Section.EXPLORATIONS: "EX",
     Section.PREDICTIONS: "PRED",
     Section.METRICS: "K",
 }

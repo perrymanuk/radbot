@@ -1,6 +1,6 @@
 """Database persistence and aggregation queries for LLM usage cost tracking.
 
-Uses the shared DB pool from ``radbot.tools.todo.db.connection`` via
+Uses the shared DB pool from ``radbot.db.connection`` via
 the ``get_db_connection`` context manager.
 """
 
@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from radbot.tools.todo.db.connection import get_db_connection
+from radbot.db.connection import get_db_connection
 
 logger = logging.getLogger(__name__)
 

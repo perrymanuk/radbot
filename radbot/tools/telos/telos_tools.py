@@ -602,6 +602,291 @@ def telos_import_markdown(markdown_text: str, replace: bool = False) -> Dict[str
 
 
 # ---------------------------------------------------------------------------
+# Project-task tools (replace the deprecated tools/todo module)
+# ---------------------------------------------------------------------------
+
+_VALID_TASK_STATUSES = {"backlog", "inprogress", "done"}
+
+
+def _require_project(ref_code: str):
+    """Return (entry, None) if the project exists; else (None, error_dict)."""
+    project = telos_db.get_entry(Section.PROJECTS, ref_code)
+    if not project:
+        return None, {
+            "status": "error",
+            "message": f"No project {ref_code}. Use telos_list_projects first.",
+        }
+    return project, None
+
+
+def telos_list_projects() -> Dict[str, Any]:
+    """List active Telos projects. Returns ref_code, name (first content line),
+    and metadata. Use before adding a task/milestone/exploration so you know
+    the parent_project ref.
+    """
+
+    def _do():
+        rows = telos_db.list_section(Section.PROJECTS, status="active")
+        out = []
+        for p in rows:
+            name = (p.content or "").splitlines()[0].strip()
+            out.append(
+                {
+                    "ref_code": p.ref_code,
+                    "name": name,
+                    "metadata": p.metadata,
+                }
+            )
+        return {"status": "success", "projects": out}
+
+    return _wrap("list projects", _do)
+
+
+def telos_get_project(ref_or_name: str) -> Dict[str, Any]:
+    """Render a project hierarchy as a single payload: the project itself
+    plus all its milestones, tasks (grouped by task_status), explorations,
+    and linked goals. ref_or_name is the ref_code ("PRJ1") or a substring of
+    the project name.
+    """
+
+    def _do():
+        # Resolve by ref_code first, then by name substring.
+        needle = ref_or_name.strip()
+        project = telos_db.get_entry(Section.PROJECTS, needle)
+        if project is None:
+            for p in telos_db.list_section(Section.PROJECTS, status="active"):
+                first = (p.content or "").splitlines()[0].lower()
+                if needle.lower() in first:
+                    project = p
+                    break
+        if project is None:
+            return {"status": "error", "message": f"Unknown project: {ref_or_name!r}."}
+
+        ref = project.ref_code
+
+        def _children(section: Section):
+            return [
+                _serialize_entry(e)
+                for e in telos_db.list_section(section, status="active")
+                if (e.metadata or {}).get("parent_project") == ref
+            ]
+
+        tasks = _children(Section.PROJECT_TASKS)
+        grouped: Dict[str, list] = {"backlog": [], "inprogress": [], "done": []}
+        for t in tasks:
+            status_key = (t.get("metadata") or {}).get("task_status") or "backlog"
+            grouped.setdefault(status_key, []).append(t)
+
+        return {
+            "status": "success",
+            "project": _serialize_entry(project),
+            "milestones": _children(Section.MILESTONES),
+            "tasks": grouped,
+            "explorations": _children(Section.EXPLORATIONS),
+            "goals": [
+                _serialize_entry(g)
+                for g in telos_db.list_section(Section.GOALS, status="active")
+                if (g.metadata or {}).get("parent_project") == ref
+            ],
+        }
+
+    return _wrap(f"get project {ref_or_name}", _do)
+
+
+def telos_add_milestone(
+    title: str,
+    parent_project: str,
+    deadline: str = "",
+    details: str = "",
+) -> Dict[str, Any]:
+    """Add a milestone under a project. Confirmation REQUIRED.
+    Auto-assigns MS<N>.
+
+    Args:
+        title: Milestone title (one line).
+        parent_project: ref_code of the parent project (e.g. "PRJ1").
+        deadline: Optional ISO date.
+        details: Optional multi-line description appended below the title.
+    """
+
+    def _do():
+        _p, err = _require_project(parent_project)
+        if err:
+            return err
+        content = title if not details else f"{title}\n\n{details}"
+        metadata: Dict[str, Any] = {"parent_project": parent_project}
+        if deadline:
+            metadata["deadline"] = deadline
+        row = telos_db.add_entry(Section.MILESTONES, content, metadata=metadata)
+        return {"status": "success", "entry": _serialize_entry(row)}
+
+    return _wrap("add milestone", _do)
+
+
+def telos_complete_milestone(ref_code: str, resolution: str = "") -> Dict[str, Any]:
+    """Mark a milestone completed. No confirmation needed — routine update."""
+
+    def _do():
+        meta = {"completed_at": _now_iso()}
+        if resolution:
+            meta["resolution"] = resolution
+        row = telos_db.update_entry(
+            Section.MILESTONES,
+            ref_code,
+            status="completed",
+            metadata_merge=meta,
+        )
+        if not row:
+            return {"status": "error", "message": f"No milestone {ref_code}."}
+        return {"status": "success", "entry": _serialize_entry(row)}
+
+    return _wrap(f"complete milestone {ref_code}", _do)
+
+
+def telos_add_task(
+    description: str,
+    parent_project: str,
+    parent_milestone: str = "",
+    title: str = "",
+    category: str = "",
+    task_status: str = "backlog",
+) -> Dict[str, Any]:
+    """Create a project task under an existing Telos project (and optionally
+    a milestone). Confirmation REQUIRED. Auto-assigns PT<N>.
+
+    Args:
+        description: Full task description.
+        parent_project: ref_code of the parent project (e.g. "PRJ1").
+        parent_milestone: Optional ref_code of a milestone (e.g. "MS2").
+        title: Optional short title.
+        category: Optional tag ("bug", "feature", "chore", …).
+        task_status: "backlog" | "inprogress" | "done". Default "backlog".
+    """
+
+    def _do():
+        if task_status not in _VALID_TASK_STATUSES:
+            return {
+                "status": "error",
+                "message": (
+                    f"invalid task_status {task_status!r}. "
+                    f"Valid: {sorted(_VALID_TASK_STATUSES)}."
+                ),
+            }
+        _p, err = _require_project(parent_project)
+        if err:
+            return err
+        if parent_milestone:
+            ms = telos_db.get_entry(Section.MILESTONES, parent_milestone)
+            if not ms:
+                return {
+                    "status": "error",
+                    "message": f"No milestone {parent_milestone}.",
+                }
+        metadata: Dict[str, Any] = {
+            "parent_project": parent_project,
+            "task_status": task_status,
+        }
+        if parent_milestone:
+            metadata["parent_milestone"] = parent_milestone
+        if title:
+            metadata["title"] = title
+        if category:
+            metadata["category"] = category
+        row = telos_db.add_entry(Section.PROJECT_TASKS, description, metadata=metadata)
+        return {"status": "success", "entry": _serialize_entry(row)}
+
+    return _wrap("add task", _do)
+
+
+def telos_list_tasks(
+    parent_project: str = "",
+    parent_milestone: str = "",
+    task_status: str = "",
+    include_inactive: bool = False,
+) -> Dict[str, Any]:
+    """List project tasks, optionally filtered by parent project, milestone,
+    and/or kanban status."""
+
+    def _do():
+        status = None if include_inactive else "active"
+        rows = telos_db.list_section(
+            Section.PROJECT_TASKS, status=status, order_by="sort_order_asc"
+        )
+        out = []
+        for r in rows:
+            meta = r.metadata or {}
+            if parent_project and meta.get("parent_project") != parent_project:
+                continue
+            if parent_milestone and meta.get("parent_milestone") != parent_milestone:
+                continue
+            if task_status and meta.get("task_status") != task_status:
+                continue
+            out.append(_serialize_entry(r))
+        return {"status": "success", "entries": out}
+
+    return _wrap("list tasks", _do)
+
+
+def telos_complete_task(ref_code: str) -> Dict[str, Any]:
+    """Mark a project task as done (sets metadata.task_status='done').
+    No confirmation needed — completing a task is routine.
+    """
+
+    def _do():
+        row = telos_db.update_entry(
+            Section.PROJECT_TASKS,
+            ref_code,
+            metadata_merge={"task_status": "done", "completed_at": _now_iso()},
+        )
+        if not row:
+            return {"status": "error", "message": f"No task {ref_code}."}
+        return {"status": "success", "entry": _serialize_entry(row)}
+
+    return _wrap(f"complete task {ref_code}", _do)
+
+
+def telos_archive_task(ref_code: str, reason: str = "") -> Dict[str, Any]:
+    """Archive (soft-delete) a project task. Confirmation REQUIRED."""
+
+    def _do():
+        ok = telos_db.archive_entry(
+            Section.PROJECT_TASKS, ref_code, reason=reason or None
+        )
+        if not ok:
+            return {"status": "error", "message": f"No task {ref_code}."}
+        return {"status": "success", "archived": f"project_tasks:{ref_code}"}
+
+    return _wrap(f"archive task {ref_code}", _do)
+
+
+def telos_add_exploration(
+    topic: str,
+    parent_project: str,
+    notes: str = "",
+) -> Dict[str, Any]:
+    """Record an open exploration / research thread under a project.
+    Confirmation REQUIRED. Auto-assigns EX<N>.
+
+    Use for things that aren't tasks yet — "I want to look into X" captures
+    here, and a follow-up task/milestone can be promoted from it later.
+    """
+
+    def _do():
+        _p, err = _require_project(parent_project)
+        if err:
+            return err
+        content = topic if not notes else f"{topic}\n\n{notes}"
+        row = telos_db.add_entry(
+            Section.EXPLORATIONS,
+            content,
+            metadata={"parent_project": parent_project},
+        )
+        return {"status": "success", "entry": _serialize_entry(row)}
+
+    return _wrap("add exploration", _do)
+
+
+# ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
 
@@ -640,6 +925,17 @@ telos_complete_goal_tool = FunctionTool(telos_complete_goal)
 telos_archive_tool = FunctionTool(telos_archive)
 telos_import_markdown_tool = FunctionTool(telos_import_markdown)
 
+# Project hierarchy tools (replace the deprecated tools/todo module)
+telos_list_projects_tool = FunctionTool(telos_list_projects)
+telos_get_project_tool = FunctionTool(telos_get_project)
+telos_add_milestone_tool = FunctionTool(telos_add_milestone)
+telos_complete_milestone_tool = FunctionTool(telos_complete_milestone)
+telos_add_task_tool = FunctionTool(telos_add_task)
+telos_list_tasks_tool = FunctionTool(telos_list_tasks)
+telos_complete_task_tool = FunctionTool(telos_complete_task)
+telos_archive_task_tool = FunctionTool(telos_archive_task)
+telos_add_exploration_tool = FunctionTool(telos_add_exploration)
+
 
 TELOS_TOOLS = [
     # read
@@ -663,4 +959,14 @@ TELOS_TOOLS = [
     telos_complete_goal_tool,
     telos_archive_tool,
     telos_import_markdown_tool,
+    # project hierarchy (replaces the old tools/todo module)
+    telos_list_projects_tool,
+    telos_get_project_tool,
+    telos_add_milestone_tool,
+    telos_complete_milestone_tool,
+    telos_add_task_tool,
+    telos_list_tasks_tool,
+    telos_complete_task_tool,
+    telos_archive_task_tool,
+    telos_add_exploration_tool,
 ]

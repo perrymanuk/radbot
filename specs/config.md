@@ -37,7 +37,7 @@ Stored as `config:<section>` entries in `radbot_credentials` (`credential_type='
 
 | Section | Keys | Purpose |
 |---------|------|---------|
-| `config:agent` | `main_model`, `sub_model`, per-agent models (`casa_agent`, `planner_agent`, `tracker_agent`, `comms_agent`, `axel_agent`/`axel_agent_model`, `scout_agent`, `kidsvid_agent`), `session_mode`, `max_session_workers`, `worker_image_tag` | Agent model selection + session/worker config |
+| `config:agent` | `main_model`, `sub_model`, per-agent models (`casa_agent`, `planner_agent`, `comms_agent`, `axel_agent`/`axel_agent_model`, `scout_agent`, `kidsvid_agent`), `session_mode`, `max_session_workers`, `worker_image_tag` | Agent model selection + session/worker config |
 | `config:integrations` | `home_assistant.*`, `overseerr.*`, `lidarr.*`, `picnic.*`, `jira.*`, `ntfy.*`, `github.*`, `nomad.*`, `kideo.*`, `alertmanager.*`, `ollama.*` | Integration endpoints, flags, non-secret keys |
 | `config:vector_db` | `url`, `api_key`, `host`, `port`, `collection` | Qdrant connection + collection |
 | `config:scheduler` | `enabled` | Scheduler engine toggle |

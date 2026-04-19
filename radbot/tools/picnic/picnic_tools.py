@@ -328,24 +328,50 @@ def submit_shopping_list_to_picnic(
     if err:
         return err
 
-    # Read items from the todo system
+    # Read items from Telos (project tasks under the named project with
+    # task_status=backlog). Project is matched by ref_code or by a
+    # case-insensitive substring of its first-line name.
     try:
-        from radbot.tools.todo.api.list_tools import list_project_tasks
+        from radbot.tools.telos import db as telos_db
+        from radbot.tools.telos.models import Section
 
-        result = list_project_tasks(project_name, status_filter="backlog")
-        if result.get("status") != "success":
+        direct = telos_db.get_entry(Section.PROJECTS, project_name)
+        project = direct
+        if project is None:
+            needle = project_name.strip().lower()
+            for p in telos_db.list_section(Section.PROJECTS, status="active"):
+                first = (p.content or "").splitlines()[0].strip().lower()
+                if needle == first or needle in first:
+                    project = p
+                    break
+        if project is None or not project.ref_code:
             return {
                 "status": "error",
-                "message": f"Failed to read shopping list: {result.get('message', 'Unknown error')}",
+                "message": f"No Telos project named '{project_name}'.",
             }
-        tasks = result.get("tasks", [])
+
+        pt_rows = telos_db.list_section(Section.PROJECT_TASKS, status="active")
+        tasks: List[Dict[str, Any]] = []
+        for row in pt_rows:
+            meta = row.metadata or {}
+            if meta.get("parent_project") != project.ref_code:
+                continue
+            if meta.get("task_status", "backlog") != "backlog":
+                continue
+            tasks.append(
+                {
+                    "title": meta.get("title") or (row.content or "").splitlines()[0],
+                    "description": row.content,
+                    "related_info": meta,
+                }
+            )
         if not tasks:
             return {
                 "status": "error",
-                "message": f"No items found in project '{project_name}' with status 'backlog'",
+                "message": f"No backlog tasks under project '{project_name}'.",
             }
     except Exception as e:
-        msg = f"Failed to read shopping list from todo system: {e}"
+        msg = f"Failed to read shopping list from Telos: {e}"
         logger.error(msg)
         return {"status": "error", "message": msg[:300]}
 

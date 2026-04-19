@@ -157,20 +157,6 @@ async def initialize_app_startup():
             )
             # Continue app startup even if database initialization fails
 
-        # Initialize todo database schema (runs migrations like adding title column)
-        logger.debug("Initializing todo database schema...")
-        try:
-            from radbot.tools.todo.db.schema import (
-                create_schema_if_not_exists as init_todo_schema,
-            )
-
-            init_todo_schema()
-            logger.debug("Todo database schema initialized")
-        except Exception as todo_err:
-            logger.error(
-                f"Error initializing todo database: {str(todo_err)}", exc_info=True
-            )
-
         # Initialize scheduler and webhook database schemas
         logger.debug("Initializing scheduler database schema...")
         try:
@@ -219,6 +205,19 @@ async def initialize_app_startup():
         except Exception as telos_err:
             logger.error(
                 f"Error initializing telos database: {str(telos_err)}", exc_info=True
+            )
+
+        # One-shot idempotent migration of legacy todo tables into Telos
+        # (section=projects + section=project_tasks). Safe on every boot:
+        # skips when old `tasks`/`projects` tables are absent, skips rows
+        # whose legacy UUIDs are already mirrored on Telos metadata.
+        try:
+            from scripts.migrate_todo_to_telos import main as _migrate_todo_to_telos
+
+            _migrate_todo_to_telos()
+        except Exception as mig_err:
+            logger.error(
+                f"todo→telos migration failed (non-fatal): {mig_err}", exc_info=True
             )
 
         logger.debug("Initializing coder workspaces database schema...")
@@ -1296,176 +1295,6 @@ async def websocket_endpoint(
         logger.error(f"WebSocket error: {str(e)}", exc_info=True)
     finally:
         await manager.disconnect(session_id, websocket)
-
-
-@app.post("/api/tasks")
-async def create_task_endpoint(request: Request):
-    """Create a new task.
-
-    Accepts JSON body with title, description, project_id, and optional
-    status and category fields.
-
-    Returns:
-        The new task ID on success.
-    """
-    try:
-        from radbot.tools.todo.api.task_tools import add_task
-
-        body = await request.json()
-        description = body.get("description", "")
-        project_id = body.get("project_id", "")
-        title = body.get("title") or None
-        category = body.get("category") or None
-
-        if not description and not title:
-            raise HTTPException(
-                status_code=400, detail="Title or description is required"
-            )
-        if not project_id:
-            raise HTTPException(status_code=400, detail="project_id is required")
-
-        result = add_task(
-            description=description or (title or ""),
-            project_id=project_id,
-            title=title,
-            category=category,
-            origin="web_ui",
-        )
-
-        if result.get("status") == "success":
-            # If a non-default status was requested, update it after creation
-            status = body.get("status")
-            if status and status != "backlog":
-                task_id = result.get("task_id")
-                if task_id:
-                    from radbot.tools.todo.api.update_tools import update_task
-
-                    update_task(task_id=task_id, status=status)
-            return result
-
-        msg = result.get("message", "Unknown error")
-        raise HTTPException(status_code=400, detail=msg)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error creating task: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error creating task: {str(e)}")
-
-
-@app.get("/api/tasks")
-async def get_tasks():
-    """Get all tasks from the database directly.
-
-    Returns:
-        JSON list of tasks
-    """
-    try:
-        # Import task listing function
-        from radbot.tools.todo.api.list_tools import list_all_tasks
-
-        # Call the function directly
-        result = list_all_tasks()
-
-        # list_all_tasks returns {"status": "success", "tasks": [...]}
-        if isinstance(result, dict) and result.get("status") == "success":
-            return result.get("tasks", [])
-
-        logger.warning(f"list_all_tasks returned unexpected result: {result}")
-        return []
-    except Exception as e:
-        logger.error(f"Error getting tasks: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting tasks: {str(e)}")
-
-
-@app.delete("/api/tasks/{task_id}")
-async def delete_task_endpoint(task_id: str):
-    """Delete a task by ID.
-
-    Returns:
-        Confirmation on success, error on failure.
-    """
-    try:
-        from radbot.tools.todo.api.task_tools import remove_task
-
-        result = remove_task(task_id=task_id)
-
-        if result.get("status") == "success":
-            return result
-
-        msg = result.get("message", "Unknown error")
-        if "not found" in msg.lower():
-            raise HTTPException(status_code=404, detail=msg)
-        raise HTTPException(status_code=400, detail=msg)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error deleting task {task_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error deleting task: {str(e)}")
-
-
-@app.put("/api/tasks/{task_id}")
-async def update_task_endpoint(task_id: str, request: Request):
-    """Update a task by ID.
-
-    Accepts JSON body with optional fields: description, status, project_id.
-
-    Returns:
-        Updated task on success, error on failure.
-    """
-    try:
-        from radbot.tools.todo.api.update_tools import update_task
-
-        body = await request.json()
-
-        # Extract supported fields
-        kwargs = {}
-        for field in ("description", "status", "project_id", "title"):
-            if field in body:
-                kwargs[field] = body[field]
-
-        if not kwargs:
-            raise HTTPException(status_code=400, detail="No valid fields to update")
-
-        result = update_task(task_id=task_id, **kwargs)
-
-        if result.get("status") == "success":
-            return result
-
-        # Determine appropriate status code
-        msg = result.get("message", "Unknown error")
-        if "not found" in msg.lower():
-            raise HTTPException(status_code=404, detail=msg)
-        raise HTTPException(status_code=400, detail=msg)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error updating task {task_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error updating task: {str(e)}")
-
-
-@app.get("/api/projects")
-async def get_projects():
-    """Get all projects from the database directly.
-
-    Returns:
-        JSON list of projects
-    """
-    try:
-        # Import project listing function
-        from radbot.tools.todo.api.project_tools import list_projects
-
-        # Call the function directly
-        result = list_projects()
-
-        # list_projects returns {"status": "success", "projects": [...]}
-        if isinstance(result, dict) and result.get("status") == "success":
-            return result.get("projects", [])
-
-        logger.warning(f"list_projects returned unexpected result: {result}")
-        return []
-    except Exception as e:
-        logger.error(f"Error getting projects: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting projects: {str(e)}")
 
 
 def start_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
