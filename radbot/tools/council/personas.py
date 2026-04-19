@@ -71,7 +71,7 @@ PERSONAS: Dict[str, Dict[str, str]] = {
             "looks smaller on paper than it is in practice."
         ),
         "key_questions": (
-            "- Is the scope actually scoped, or is the \"small task\" a "
+            '- Is the scope actually scoped, or is the "small task" a '
             "two-week rabbit hole in disguise?\n"
             "- What are the test-writing gotchas (async, flakes, real-vs-mock)?\n"
             "- What's the dev-loop feedback time and is it tolerable?\n"

@@ -62,7 +62,9 @@ async def _run_critic(
     # Sanitize inputs at the boundary — plan text can contain content pulled
     # in via wiki_read / web_fetch earlier in scout's turn, and we're about
     # to embed it in a new LLM prompt.
-    safe_plan = sanitize_external_content(plan, source="council.plan", strictness="strict")
+    safe_plan = sanitize_external_content(
+        plan, source="council.plan", strictness="strict"
+    )
     safe_prior = (
         sanitize_external_content(
             prior_round_findings, source="council.prior", strictness="strict"
