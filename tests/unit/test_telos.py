@@ -212,7 +212,7 @@ def _make_req(existing_system_instruction: str | None = None):
 class TestInjectTelosContext:
     def test_noop_on_empty_db(self):
         with patch(
-            "radbot.tools.telos.callback.build_telos_tiers",
+            "radbot.tools.telos.loader.build_telos_tiers",
             return_value=("", ""),
         ):
             ctx = _make_ctx()
@@ -223,7 +223,7 @@ class TestInjectTelosContext:
 
     def test_first_turn_injects_anchor_plus_full_block(self):
         with patch(
-            "radbot.tools.telos.callback.build_telos_tiers",
+            "radbot.tools.telos.loader.build_telos_tiers",
             return_value=("ANCHOR_TEXT", "FULL_BLOCK_TEXT"),
         ):
             ctx = _make_ctx(state={})
@@ -238,7 +238,7 @@ class TestInjectTelosContext:
 
     def test_subsequent_turn_injects_anchor_only(self):
         with patch(
-            "radbot.tools.telos.callback.build_telos_tiers",
+            "radbot.tools.telos.loader.build_telos_tiers",
             return_value=("ANCHOR_TEXT", "FULL_BLOCK_TEXT"),
         ):
             ctx = _make_ctx(state={_BOOTSTRAP_STATE_KEY: True})
@@ -251,7 +251,7 @@ class TestInjectTelosContext:
 
     def test_first_turn_with_no_full_block_still_injects_anchor(self):
         with patch(
-            "radbot.tools.telos.callback.build_telos_tiers",
+            "radbot.tools.telos.loader.build_telos_tiers",
             return_value=("ANCHOR_TEXT", ""),
         ):
             ctx = _make_ctx(state={})
@@ -264,7 +264,7 @@ class TestInjectTelosContext:
 
     def test_handles_none_system_instruction(self):
         with patch(
-            "radbot.tools.telos.callback.build_telos_tiers",
+            "radbot.tools.telos.loader.build_telos_tiers",
             return_value=("ANCHOR_TEXT", ""),
         ):
             ctx = _make_ctx()
@@ -274,7 +274,7 @@ class TestInjectTelosContext:
 
     def test_handles_db_failure_gracefully(self):
         with patch(
-            "radbot.tools.telos.callback.build_telos_tiers",
+            "radbot.tools.telos.loader.build_telos_tiers",
             side_effect=RuntimeError("db down"),
         ):
             ctx = _make_ctx()

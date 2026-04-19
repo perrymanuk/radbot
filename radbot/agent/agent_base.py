@@ -34,7 +34,7 @@ from radbot.config.settings import ConfigManager
 # Fallback instruction if configuration loading fails
 FALLBACK_INSTRUCTION = """
 You are a helpful and versatile AI assistant. Your goal is to understand the user's request
-and fulfill it by using available tools, delegating to specialized sub-agents, or accessing 
+and fulfill it by using available tools, delegating to specialized sub-agents, or accessing
 memory when necessary. Be clear and concise in your responses.
 """
 

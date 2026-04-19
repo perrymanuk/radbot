@@ -232,17 +232,18 @@ class ConfigManager:
         Get the main agent model name.
 
         Order of precedence:
-        1. RADBOT_MAIN_MODEL env var
+        1. RADBOT_MAIN_MODEL env var (re-read each call so runtime overrides work)
         2. GEMINI_MODEL env var
-        3. Default model (gemini-2.5-flash)
+        3. config_manager's loaded model_config
+        4. Default model (gemini-2.5-flash)
 
         Returns:
             The configured main model name
         """
-        # First try RADBOT_MAIN_MODEL, then GEMINI_MODEL, then default
         return (
-            self.model_config["main_model"]
-            or self.model_config.get("gemini_model")
+            os.environ.get("RADBOT_MAIN_MODEL")
+            or os.environ.get("GEMINI_MODEL")
+            or self.model_config.get("main_model")
             or "gemini-2.5-flash"
         )
 
@@ -250,10 +251,19 @@ class ConfigManager:
         """
         Get the sub-agent model name.
 
+        Order of precedence:
+        1. RADBOT_SUB_MODEL env var (re-read each call so runtime overrides work)
+        2. config_manager's loaded model_config
+        3. Default model (gemini-2.5-flash)
+
         Returns:
             The configured sub-agent model name
         """
-        return self.model_config["sub_agent_model"]
+        return (
+            os.environ.get("RADBOT_SUB_MODEL")
+            or self.model_config.get("sub_agent_model")
+            or "gemini-2.5-flash"
+        )
 
     def get_agent_model(self, agent_name: str) -> str:
         """
@@ -286,10 +296,18 @@ class ConfigManager:
         """
         Check if the agent is configured to use Vertex AI.
 
+        Order of precedence:
+        1. GOOGLE_GENAI_USE_VERTEXAI env var (re-read each call)
+        2. config_manager's loaded model_config
+        3. False
+
         Returns:
             True if using Vertex AI, False otherwise
         """
-        return self.model_config["use_vertex_ai"]
+        env_value = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI")
+        if env_value is not None:
+            return env_value.upper() == "TRUE"
+        return bool(self.model_config.get("use_vertex_ai", False))
 
     def get_vertex_project(self) -> Optional[str]:
         """

@@ -15,6 +15,14 @@ inputs:
     description: "Host port to expose radbot on (matches RADBOT_EXPOSED_PORT in docker-compose)"
     required: false
     default: "8001"
+  working_directory:
+    description: >
+      Repo checkout to operate from. Default '.' assumes the workflow checked
+      out into the workspace root. Set to e.g. 'main' or 'pr' when the workflow
+      uses actions/checkout with `path:` (visual-regression's dual-checkout).
+      All compose / seed commands are scoped to this directory.
+    required: false
+    default: "."
   tailscale_oauth_client_id:
     description: "Tailscale OAuth client ID (required if with_tailscale=true)"
     required: false
@@ -47,6 +55,7 @@ runs:
 
     - name: Generate .env for stack bootstrap
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
         cat > .env <<EOF
         RADBOT_ADMIN_TOKEN=${{ inputs.radbot_admin_token }}
@@ -56,10 +65,12 @@ runs:
 
     - name: Bring up Docker stack
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: docker compose up -d --build --wait
 
     - name: Wait for /health (initial)
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
         uv run python scripts/wait_for_health.py \
           --url "http://localhost:${{ inputs.exposed_port }}/health" \
@@ -68,6 +79,7 @@ runs:
 
     - name: Seed credentials from GH secrets
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       env:
         GEMINI_API_KEY: ${{ env.GEMINI_API_KEY }}
         ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_API_KEY }}
@@ -84,10 +96,12 @@ runs:
 
     - name: Restart radbot to pick up seeded config
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: docker compose restart radbot
 
     - name: Wait for /health
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
         uv run python scripts/wait_for_health.py \
           --url "http://localhost:${{ inputs.exposed_port }}/health" \
@@ -96,8 +110,9 @@ runs:
 
     - name: Snapshot stack state
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       run: |
-        echo "## Bootstrap snapshot" >> "$GITHUB_STEP_SUMMARY"
+        echo "## Bootstrap snapshot (${{ inputs.working_directory }})" >> "$GITHUB_STEP_SUMMARY"
         echo '```' >> "$GITHUB_STEP_SUMMARY"
         curl -s "http://localhost:${{ inputs.exposed_port }}/health" >> "$GITHUB_STEP_SUMMARY" || true
         echo '' >> "$GITHUB_STEP_SUMMARY"

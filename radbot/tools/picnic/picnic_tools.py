@@ -577,9 +577,9 @@ def get_picnic_delivery_details(
 
     raw = client.get_delivery(delivery_id)
     logger.debug("Picnic /deliveries/%s raw response type=%s keys=%s: %s",
-                   delivery_id, type(raw).__name__,
-                   list(raw.keys()) if isinstance(raw, dict) else "N/A",
-                   repr(raw)[:3000])
+                 delivery_id, type(raw).__name__,
+                 list(raw.keys()) if isinstance(raw, dict) else "N/A",
+                 repr(raw)[:3000])
 
     summary = _format_delivery_summary(raw)
     items = _extract_delivery_items(raw)

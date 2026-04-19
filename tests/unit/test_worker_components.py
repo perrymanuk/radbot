@@ -1,11 +1,16 @@
 """Unit tests for worker package components.
 
-Tests the Nomad job template generator, idle watchdog, history loader,
-and worker DB operations — all without external service dependencies.
+Tests the Nomad job template generator and SessionProxy/SessionManager —
+all without external service dependencies.
+
+NOTE: The earlier `idle_watchdog` and `history_loader` modules were removed
+in 393c173 ("strip to minimal PTY server"). Workers no longer self-terminate
+(they run until externally stopped); history replay was folded into
+SessionRunner. Tests that targeted those modules were removed alongside the
+modules themselves — there is no longer behavior to verify there.
 """
 
 import json
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -68,8 +73,10 @@ class TestNomadJobTemplate:
         assert "radbot.worker" in args
         assert "--session-id" in args
         assert "test-sid" in args
+        # Workers no longer self-terminate (idle watchdog removed in 393c173)
         assert "--idle-timeout" not in args
-        assert "7200" in args
+        # Worker must bind a port for the PTY/A2A server
+        assert "--port" in args
 
     def test_image_tag(self):
         from radbot.worker.nomad_template import build_worker_job_spec
@@ -248,203 +255,6 @@ class TestNomadJobTemplate:
 
 
 # ---------------------------------------------------------------------------
-# Idle Watchdog
-# ---------------------------------------------------------------------------
-class TestActivityWatchdog:
-    """Tests for radbot.worker.idle_watchdog.ActivityWatchdog."""
-
-    def test_initial_activity(self):
-        from radbot.worker.idle_watchdog import ActivityWatchdog
-
-        w = ActivityWatchdog()
-        assert w.idle_seconds < 1.0
-
-    def test_touch_resets_idle(self):
-        from radbot.worker.idle_watchdog import ActivityWatchdog
-
-        w = ActivityWatchdog()
-        # Simulate some passage of time
-        w.last_activity = time.monotonic() - 30
-        assert w.idle_seconds >= 29
-        w.touch()
-        assert w.idle_seconds < 1.0
-
-    def test_uptime_increases(self):
-        from radbot.worker.idle_watchdog import ActivityWatchdog
-
-        w = ActivityWatchdog()
-        w._start_time = time.monotonic() - 60
-        assert w.uptime_seconds >= 59
-
-
-# ---------------------------------------------------------------------------
-# History Loader
-# ---------------------------------------------------------------------------
-class TestHistoryLoader:
-    """Tests for radbot.worker.history_loader.load_history_into_session."""
-
-    @pytest.mark.asyncio
-    async def test_loads_messages_from_db(self):
-        from radbot.worker.history_loader import load_history_into_session
-
-        mock_session = MagicMock()
-        mock_service = AsyncMock()
-
-        messages = [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hi there!"},
-            {"role": "user", "content": "How are you?"},
-            {"role": "assistant", "content": "I'm good!"},
-        ]
-
-        with patch(
-            "radbot.worker.history_loader.chat_operations"
-        ) as mock_ops:
-            mock_ops.get_messages_by_session_id.return_value = messages
-
-            await load_history_into_session(
-                session=mock_session,
-                session_id="test-session",
-                session_service=mock_service,
-                agent_name="beto",
-            )
-
-            assert mock_service.append_event.call_count == 4
-            mock_ops.get_messages_by_session_id.assert_called_once_with(
-                "test-session", limit=30
-            )
-
-    @pytest.mark.asyncio
-    async def test_skips_empty_messages(self):
-        from radbot.worker.history_loader import load_history_into_session
-
-        mock_session = MagicMock()
-        mock_service = AsyncMock()
-
-        messages = [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": ""},  # Empty
-            {"role": "user", "content": "Test"},
-        ]
-
-        with patch(
-            "radbot.worker.history_loader.chat_operations"
-        ) as mock_ops:
-            mock_ops.get_messages_by_session_id.return_value = messages
-
-            await load_history_into_session(
-                session=mock_session,
-                session_id="test-session",
-                session_service=mock_service,
-            )
-
-            # Only 2 events (user Hello + user Test), assistant was empty
-            assert mock_service.append_event.call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_no_messages_is_noop(self):
-        from radbot.worker.history_loader import load_history_into_session
-
-        mock_session = MagicMock()
-        mock_service = AsyncMock()
-
-        with patch(
-            "radbot.worker.history_loader.chat_operations"
-        ) as mock_ops:
-            mock_ops.get_messages_by_session_id.return_value = []
-
-            await load_history_into_session(
-                session=mock_session,
-                session_id="test-session",
-                session_service=mock_service,
-            )
-
-            mock_service.append_event.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_max_history_limit(self):
-        from radbot.worker.history_loader import load_history_into_session
-
-        mock_session = MagicMock()
-        mock_service = AsyncMock()
-
-        # Create 20 messages, but max_history=5
-        messages = [
-            {"role": "user", "content": f"msg {i}"}
-            for i in range(20)
-        ]
-
-        with patch(
-            "radbot.worker.history_loader.chat_operations"
-        ) as mock_ops:
-            mock_ops.get_messages_by_session_id.return_value = messages
-
-            await load_history_into_session(
-                session=mock_session,
-                session_id="test-session",
-                session_service=mock_service,
-                max_history=5,
-            )
-
-            assert mock_service.append_event.call_count == 5
-
-    @pytest.mark.asyncio
-    async def test_handles_db_error_gracefully(self):
-        from radbot.worker.history_loader import load_history_into_session
-
-        mock_session = MagicMock()
-        mock_service = AsyncMock()
-
-        with patch(
-            "radbot.worker.history_loader.chat_operations"
-        ) as mock_ops:
-            mock_ops.get_messages_by_session_id.side_effect = Exception("DB down")
-
-            # Should not raise
-            await load_history_into_session(
-                session=mock_session,
-                session_id="test-session",
-                session_service=mock_service,
-            )
-
-            mock_service.append_event.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_user_assistant_invocation_ids(self):
-        from radbot.worker.history_loader import load_history_into_session
-
-        mock_session = MagicMock()
-        mock_service = AsyncMock()
-
-        messages = [
-            {"role": "user", "content": "Q1"},
-            {"role": "assistant", "content": "A1"},
-            {"role": "user", "content": "Q2"},
-            {"role": "assistant", "content": "A2"},
-        ]
-
-        with patch(
-            "radbot.worker.history_loader.chat_operations"
-        ) as mock_ops:
-            mock_ops.get_messages_by_session_id.return_value = messages
-
-            await load_history_into_session(
-                session=mock_session,
-                session_id="test-session",
-                session_service=mock_service,
-            )
-
-            events = [
-                call.args[1] for call in mock_service.append_event.call_args_list
-            ]
-            # User/assistant pairs share invocation_id
-            assert events[0].invocation_id == events[1].invocation_id
-            assert events[2].invocation_id == events[3].invocation_id
-            # Different turns have different invocation_ids
-            assert events[0].invocation_id != events[2].invocation_id
-
-
-# ---------------------------------------------------------------------------
 # Session Manager Mode
 # ---------------------------------------------------------------------------
 class TestSessionManagerMode:
@@ -511,8 +321,10 @@ class TestSessionProxyUnit:
         proxy = SessionProxy(user_id="web_user", session_id="test-session")
 
         mock_result = {"response": "hello", "events": []}
+        # SessionRunner is imported lazily inside _fallback_local; patch its
+        # source module so the import inside the function picks up the mock.
         with patch(
-            "radbot.web.api.session.session_proxy.SessionRunner"
+            "radbot.web.api.session.session_runner.SessionRunner"
         ) as MockRunner:
             mock_runner = AsyncMock()
             mock_runner.process_message.return_value = mock_result
@@ -546,10 +358,12 @@ class TestSessionProxyUnit:
 
         proxy = SessionProxy(user_id="web_user", session_id="test-session")
 
+        # touch_worker lives in radbot.worker.db and is imported lazily; patch
+        # the source so the lazy import inside process_message picks up the mock.
         with (
             patch.object(proxy, "_ensure_worker", return_value="http://worker:8000"),
             patch.object(proxy, "_send_a2a_message", return_value="worker response"),
-            patch("radbot.web.api.session.session_proxy.touch_worker"),
+            patch("radbot.worker.db.touch_worker"),
         ):
             result = await proxy.process_message("hello")
             assert result["response"] == "worker response"
@@ -574,9 +388,9 @@ class TestSessionProxyUnit:
         from radbot.web.api.session.session_proxy import SessionProxy
 
         proxy = SessionProxy(user_id="u", session_id="s")
-        with patch(
-            "radbot.web.api.session.session_proxy.config_loader"
-        ) as mock_cfg:
+        # config_loader is imported lazily inside _get_max_workers; patch the
+        # singleton at its source module.
+        with patch("radbot.config.config_loader.config_loader") as mock_cfg:
             mock_cfg.config = {}
             assert proxy._get_max_workers() == 10
 
@@ -584,9 +398,7 @@ class TestSessionProxyUnit:
         from radbot.web.api.session.session_proxy import SessionProxy
 
         proxy = SessionProxy(user_id="u", session_id="s")
-        with patch(
-            "radbot.web.api.session.session_proxy.config_loader"
-        ) as mock_cfg:
+        with patch("radbot.config.config_loader.config_loader") as mock_cfg:
             mock_cfg.config = {"agent": {"max_session_workers": 5}}
             assert proxy._get_max_workers() == 5
 
@@ -596,9 +408,11 @@ class TestSessionProxyUnit:
 
         proxy = SessionProxy(user_id="u", session_id="s")
 
+        # get_nomad_client + count_active_workers are imported lazily; patch
+        # at their source modules.
         with (
-            patch("radbot.web.api.session.session_proxy.get_nomad_client") as mock_get,
-            patch("radbot.web.api.session.session_proxy.count_active_workers", return_value=10),
+            patch("radbot.tools.nomad.nomad_client.get_nomad_client") as mock_get,
+            patch("radbot.worker.db.count_active_workers", return_value=10),
             patch.object(proxy, "_get_max_workers", return_value=10),
             patch.object(proxy, "_get_bootstrap_secrets", return_value={"credential_key": "k", "admin_token": "t", "postgres_pass": "p"}),
         ):

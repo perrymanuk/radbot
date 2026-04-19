@@ -782,6 +782,7 @@ async def healthz_check():
     """Healthz endpoint."""
     return {"status": "ok"}
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""

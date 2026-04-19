@@ -68,6 +68,7 @@ def _reset_integration_clients() -> None:
         except Exception:
             pass  # Module may not be installed/configured
 
+
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -1146,7 +1147,6 @@ async def test_claude_code(request: Request, _: None = Depends(_verify_admin)):
         return _err(status.get("message", "Unknown error"))
     except Exception as e:
         return _err(f"Claude Code test failed: {e}")
-
 
 
 @router.post("/api/test/nomad")

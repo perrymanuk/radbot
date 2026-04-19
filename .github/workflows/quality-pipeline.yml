@@ -389,6 +389,7 @@ jobs:
       - name: Bootstrap stack (main)
         uses: ./main/.github/actions/bootstrap-radbot-stack
         with:
+          working_directory: main
           radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
           tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
@@ -404,7 +405,7 @@ jobs:
       - name: Tear down stack (main)
         if: always()
         working-directory: main
-        run: docker compose down -v
+        run: docker compose down -v || true
 
       # ── Phase 2: capture PR head ─────────────────────────────────────
       - name: Checkout PR head
@@ -421,6 +422,7 @@ jobs:
       - name: Bootstrap stack (pr)
         uses: ./pr/.github/actions/bootstrap-radbot-stack
         with:
+          working_directory: pr
           with_tailscale: "false"  # already joined above; nodeid already authed
           radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
@@ -435,7 +437,7 @@ jobs:
       - name: Tear down stack (pr)
         if: always()
         working-directory: pr
-        run: docker compose down -v
+        run: docker compose down -v || true
 
       # ── Phase 3: AI compare ──────────────────────────────────────────
       - name: Compare screenshots

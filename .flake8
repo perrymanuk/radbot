@@ -1,0 +1,37 @@
+[flake8]
+# Match the codebase as it's actually written. The 79-char limit and many of
+# flake8's defaults predate the project's conventions; documenting what we
+# enforce vs. what's accepted here so the linter is a useful gate, not noise.
+max-line-length = 120
+
+# Codes we explicitly ignore project-wide:
+#   E203 — whitespace before ':' (conflicts with black)
+#   E501 — line too long (we let black/format judgement decide)
+#   E402 — module-level import not at top (justified by lazy / conditional imports)
+#   F401 — imported but unused (re-exports in __init__.py + intentional API surface)
+#   F541 — f-string without placeholders (cosmetic; sometimes intentional for consistency)
+#   F811 — redefinition of unused name (lazy-import patterns + try/except fallbacks)
+#   F824 — unused `global` (false positive when re-binding via getattr)
+#   F841 — assigned but unused local (often debug variables; cleaned up incrementally)
+#   W293 — whitespace on blank line (cosmetic)
+#   W605 — invalid escape sequence (regex strings in markdown / docstrings)
+extend-ignore = E203,E501,E402,F401,F541,F811,F824,F841,W293,W605
+
+# Per-file overrides for files where wholesale ignores would hide real bugs.
+per-file-ignores =
+    # __init__.py files: explicit re-exports
+    radbot/__init__.py:F401
+    radbot/agent/__init__.py:F401
+    radbot/tools/__init__.py:F401
+
+# Standard exclusions
+exclude =
+    .git,
+    .venv,
+    __pycache__,
+    build,
+    dist,
+    node_modules,
+    radbot/web/frontend,
+    *.egg-info,
+    .claude/worktrees,

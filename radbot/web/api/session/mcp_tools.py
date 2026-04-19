@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 def _try_load_mcp_tools(self):
-    """Try to load and add MCP tools to the root agent."""
+    """Try to load and add MCP tools to the root agent.
+
+    DEAD CODE: this module-level function is no longer invoked; SessionRunner's
+    call to it is commented out (see session_runner.py:86). The `root_agent`
+    references inside refer to a global that doesn't exist in this scope —
+    they're flagged F821 by flake8 and tagged noqa for now. Delete this whole
+    function once we're confident nothing else imports it.
+    """
     try:
         # Import necessary modules
         from google.adk.tools import FunctionTool
@@ -33,8 +40,8 @@ def _try_load_mcp_tools(self):
         existing_tool_names = set()
 
         # Get existing tool names
-        if hasattr(root_agent, "tools"):
-            for tool in root_agent.tools:
+        if hasattr(root_agent, "tools"):  # noqa: F821 — dead path, see docstring
+            for tool in root_agent.tools:  # noqa: F821
                 if hasattr(tool, "name"):
                     existing_tool_names.add(tool.name)
                 elif hasattr(tool, "__name__"):
@@ -111,7 +118,7 @@ def _try_load_mcp_tools(self):
                                     declaration = claude_prompt_tool._get_declaration()
                                     if hasattr(declaration, "name"):
                                         tool_name = declaration.name
-                                except:
+                                except Exception:
                                     pass
                             # Fallback to string representation
                             if not tool_name:
@@ -142,8 +149,8 @@ def _try_load_mcp_tools(self):
                 )
 
         # Add all collected tools to the agent
-        if tools_to_add and hasattr(root_agent, "tools"):
-            root_agent.tools = list(root_agent.tools) + tools_to_add
+        if tools_to_add and hasattr(root_agent, "tools"):  # noqa: F821 — dead path
+            root_agent.tools = list(root_agent.tools) + tools_to_add  # noqa: F821
             logger.info(f"Added {len(tools_to_add)} total MCP tools to agent")
 
     except Exception as e:
