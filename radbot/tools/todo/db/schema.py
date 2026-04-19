@@ -92,37 +92,17 @@ def create_schema_if_not_exists() -> None:
                         CREATE TABLE projects (
                             project_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                             name TEXT NOT NULL UNIQUE,
-                            wiki_path TEXT,
-                            path_patterns TEXT[] NOT NULL DEFAULT '{}',
                             created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
                         );
                     """)
                     logger.info("Projects table created successfully")
                 else:
                     logger.info("Projects table already exists")
-                    # Migration: add wiki_path if missing
-                    cursor.execute("""
-                        SELECT EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_name = 'projects' AND column_name = 'wiki_path'
-                        );
-                    """)
-                    if not cursor.fetchone()[0]:
-                        logger.info("Adding wiki_path column to projects table")
-                        cursor.execute("ALTER TABLE projects ADD COLUMN wiki_path TEXT;")
-                    # Migration: add path_patterns if missing
-                    cursor.execute("""
-                        SELECT EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_name = 'projects' AND column_name = 'path_patterns'
-                        );
-                    """)
-                    if not cursor.fetchone()[0]:
-                        logger.info("Adding path_patterns column to projects table")
-                        cursor.execute(
-                            "ALTER TABLE projects ADD COLUMN path_patterns TEXT[] "
-                            "NOT NULL DEFAULT '{}';"
-                        )
+                # Note: earlier PR briefly added `wiki_path` + `path_patterns`
+                # columns here to power the MCP bridge. Those moved to
+                # Telos metadata (see `tools/telos`, section `projects`).
+                # Existing DBs keep the columns harmlessly; new installs
+                # don't get them.
     except Exception as e:
         logger.error(f"Error creating database schema: {e}")
         raise

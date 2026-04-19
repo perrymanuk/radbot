@@ -1,11 +1,18 @@
-"""Project registry MCP tools.
+"""Project registry MCP tools — backed by Telos.
 
-Projects are radbot's existing `projects` table rows extended with two
-columns added in PR 1: `wiki_path` (markdown file under the wiki root)
-and `path_patterns` (TEXT[] of cwd substrings that identify this project).
+Projects are the entries in `telos_entries` with `section='projects'`.
+Each project gets its `path_patterns` (list of cwd substrings) and
+optional `wiki_path` stored in its `metadata` JSONB — both are consumed
+by the Claude Code `SessionStart` hook to auto-load context when a user
+`cd`s into a matching repo.
 
-`project_match(cwd)` is the key tool: the Claude Code SessionStart hook
-calls it to decide whether to inject project context.
+Tools in this module never *create* telos projects — that goes through
+the confirm-required `telos_add_project` agent tool. These only read
+projects and attach MCP-bridge metadata to existing ones.
+
+PR-1 previously backed these tools against the unrelated `projects`
+table in `tools/todo/db/schema.py` (todo-list projects, not telos
+identity projects). That layer became dead after this PR.
 """
 
 from __future__ import annotations
@@ -20,9 +27,10 @@ def tools() -> list[mcp_types.Tool]:
         mcp_types.Tool(
             name="project_match",
             description=(
-                "Return the name of the project whose `path_patterns` match "
-                "the given cwd (any element of path_patterns must appear as a "
-                "substring of cwd). Returns empty if no match."
+                "Return the ref_code of the Telos project whose "
+                "`metadata.path_patterns` matches the given cwd (any "
+                "pattern must appear as a substring of cwd). Returns empty "
+                "if no match. Used by Claude Code's SessionStart hook."
             ),
             inputSchema={
                 "type": "object",
@@ -33,7 +41,10 @@ def tools() -> list[mcp_types.Tool]:
         ),
         mcp_types.Tool(
             name="project_list",
-            description="Return a markdown table of all registered projects.",
+            description=(
+                "Return a markdown table of all active Telos projects — "
+                "ref_code, name, path_patterns, wiki_path."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -41,38 +52,45 @@ def tools() -> list[mcp_types.Tool]:
             },
         ),
         mcp_types.Tool(
-            name="project_register",
+            name="project_set_path_patterns",
             description=(
-                "Create or update a project entry. `name` is the canonical "
-                "identifier. `path_patterns` is a list of cwd substrings "
-                "(e.g. ['/git/perrymanuk/radbot']). `wiki_path` is optional, "
-                "relative to the wiki root."
+                "Attach MCP-bridge metadata to an existing Telos project "
+                "(`metadata.path_patterns` + optional `metadata.wiki_path`). "
+                "Does not create new projects — use the confirm-required "
+                "`telos_add_project` agent tool for that. The ref_code "
+                "argument is the project's Telos ref (e.g. `P1`)."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string"},
+                    "ref_code": {"type": "string"},
                     "path_patterns": {
                         "type": "array",
                         "items": {"type": "string"},
                     },
-                    "wiki_path": {"type": "string"},
+                    "wiki_path": {
+                        "type": "string",
+                        "description": "Optional — relative path under wiki root.",
+                    },
                 },
-                "required": ["name", "path_patterns"],
+                "required": ["ref_code", "path_patterns"],
                 "additionalProperties": False,
             },
         ),
         mcp_types.Tool(
             name="project_get_context",
             description=(
-                "Return the project's context as markdown. Phase 1: reads the "
-                "registered `wiki_path` file. Phase 2 (PR 2): will render the "
-                "live Telos project hierarchy (milestones, tasks, explorations)."
+                "Return markdown for a Telos project — its current content "
+                "plus recent journal entries whose `metadata.related_refs` "
+                "contain this project's ref_code. Accepts either a ref_code "
+                "(`P1`) or the project name (matched against Telos entry "
+                "content). PR-2 will replace this with the full hierarchy "
+                "render (milestones / explorations / project_tasks)."
             ),
             inputSchema={
                 "type": "object",
-                "properties": {"name": {"type": "string"}},
-                "required": ["name"],
+                "properties": {"ref_or_name": {"type": "string"}},
+                "required": ["ref_or_name"],
                 "additionalProperties": False,
             },
         ),
@@ -86,134 +104,178 @@ async def call(
         return [_do_match(arguments["cwd"])]
     if name == "project_list":
         return [_do_list()]
-    if name == "project_register":
-        return [_do_register(
-            arguments["name"],
+    if name == "project_set_path_patterns":
+        return [_do_set_path_patterns(
+            arguments["ref_code"],
             list(arguments.get("path_patterns") or []),
             arguments.get("wiki_path"),
         )]
     if name == "project_get_context":
-        return [_do_get_context(arguments["name"])]
+        return [_do_get_context(arguments["ref_or_name"])]
     raise KeyError(name)
+
+
+# ---------------------------------------------------------------------------
+# Helpers (lazy imports inside to keep module-import cost minimal)
+# ---------------------------------------------------------------------------
 
 
 def _err(msg: str) -> mcp_types.TextContent:
     return mcp_types.TextContent(type="text", text=f"**Error:** {msg}")
 
 
+def _active_projects():
+    """Yield active Telos projects with parsed metadata."""
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    return telos_db.list_section(Section.PROJECTS, status="active")
+
+
 def _do_match(cwd: str) -> mcp_types.TextContent:
-    from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
-
-    with get_db_connection() as conn, get_db_cursor(conn) as c:
-        c.execute(
-            "SELECT name FROM projects "
-            "WHERE EXISTS (SELECT 1 FROM unnest(path_patterns) p WHERE %s LIKE '%%' || p || '%%') "
-            "ORDER BY length(name) DESC LIMIT 1",
-            (cwd,),
-        )
-        row = c.fetchone()
-
-    if not row:
+    """Return the ref_code of the project whose path_patterns matches cwd."""
+    # Longest-pattern-first so more specific patterns win on overlap
+    best: tuple[int, str] | None = None
+    for project in _active_projects():
+        patterns = (project.metadata or {}).get("path_patterns") or []
+        for pattern in patterns:
+            if not isinstance(pattern, str) or not pattern:
+                continue
+            if pattern in cwd:
+                score = len(pattern)
+                if best is None or score > best[0]:
+                    best = (score, project.ref_code or "")
+    if best is None or not best[1]:
         return mcp_types.TextContent(type="text", text="")
-    return mcp_types.TextContent(type="text", text=row[0])
+    return mcp_types.TextContent(type="text", text=best[1])
 
 
 def _do_list() -> mcp_types.TextContent:
-    from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
-
-    with get_db_connection() as conn, get_db_cursor(conn) as c:
-        c.execute(
-            "SELECT name, path_patterns, wiki_path FROM projects ORDER BY name"
-        )
-        rows = c.fetchall()
-
-    if not rows:
+    projects = list(_active_projects())
+    if not projects:
         return mcp_types.TextContent(
-            type="text", text="_No projects registered._"
+            type="text", text="_No active Telos projects._"
         )
-
     lines = [
-        "## Registered projects",
+        "## Telos projects (active)",
         "",
-        "| Name | Path patterns | Wiki page |",
-        "|---|---|---|",
+        "| ref | Name | Path patterns | Wiki page |",
+        "|---|---|---|---|",
     ]
-    for name, patterns, wiki_path in rows:
-        patterns_str = ", ".join(f"`{p}`" for p in (patterns or [])) or "—"
+    for p in projects:
+        meta = p.metadata or {}
+        patterns = meta.get("path_patterns") or []
+        wiki_path = meta.get("wiki_path")
+        patterns_str = ", ".join(f"`{pat}`" for pat in patterns) or "—"
         wiki_str = f"`{wiki_path}`" if wiki_path else "—"
-        lines.append(f"| `{name}` | {patterns_str} | {wiki_str} |")
+        name = (p.content or "").splitlines()[0][:80]
+        lines.append(
+            f"| `{p.ref_code or '?'}` | {name} | {patterns_str} | {wiki_str} |"
+        )
     return mcp_types.TextContent(type="text", text="\n".join(lines))
 
 
-def _do_register(
-    name: str, path_patterns: list[str], wiki_path: str | None
+def _do_set_path_patterns(
+    ref_code: str, path_patterns: list[str], wiki_path: str | None
 ) -> mcp_types.TextContent:
-    from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
 
     clean_patterns = [p.strip() for p in path_patterns if p and p.strip()]
-    if not clean_patterns:
-        return _err("At least one non-empty path_pattern is required.")
+    metadata_merge: dict[str, Any] = {"path_patterns": clean_patterns}
+    if wiki_path is not None:
+        metadata_merge["wiki_path"] = wiki_path.strip() or None
 
-    with get_db_connection() as conn, get_db_cursor(conn, commit=True) as c:
-        c.execute(
-            """
-            INSERT INTO projects (name, path_patterns, wiki_path)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (name) DO UPDATE
-              SET path_patterns = EXCLUDED.path_patterns,
-                  wiki_path = EXCLUDED.wiki_path
-            RETURNING (xmax = 0) AS inserted
-            """,
-            (name, clean_patterns, wiki_path),
+    entry = telos_db.update_entry(
+        Section.PROJECTS, ref_code, metadata_merge=metadata_merge
+    )
+    if entry is None:
+        return _err(
+            f"No Telos project with ref_code `{ref_code}` — create it via "
+            "`telos_add_project` first."
         )
-        inserted = c.fetchone()[0]
-
-    verb = "Registered" if inserted else "Updated"
-    wiki_note = f" · wiki_path=`{wiki_path}`" if wiki_path else ""
+    name = (entry.content or "").splitlines()[0][:80]
+    bits = [f"patterns={clean_patterns}"]
+    if wiki_path is not None:
+        bits.append(f"wiki_path={wiki_path!r}")
     return mcp_types.TextContent(
         type="text",
-        text=f"{verb} project `{name}` · patterns={clean_patterns}{wiki_note}",
+        text=f"Set MCP bridge metadata on `{ref_code}` ({name}) — {' · '.join(bits)}",
     )
 
 
-def _do_get_context(name: str) -> mcp_types.TextContent:
-    from radbot.tools.todo.db.connection import get_db_connection, get_db_cursor
+def _find_project(ref_or_name: str):
+    """Locate a project by ref_code (exact) or by name (case-insensitive).
 
-    # Import here to reuse the same root + sanitization logic
-    from .wiki import _resolve_under_root, _wiki_root
+    Name match order: exact first-line match → case-insensitive first-line
+    match → substring match against the first line. This is lenient enough
+    that "radbot" matches a project whose content is
+    "radbot https://github.com/perrymanuk/radbot".
+    """
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
 
-    with get_db_connection() as conn, get_db_cursor(conn) as c:
-        c.execute("SELECT wiki_path FROM projects WHERE name = %s", (name,))
-        row = c.fetchone()
+    needle = ref_or_name.strip()
+    direct = telos_db.get_entry(Section.PROJECTS, needle)
+    if direct is not None:
+        return direct
 
-    if not row:
-        return _err(f"Unknown project: `{name}`")
-    wiki_path = row[0]
-    if not wiki_path:
-        return mcp_types.TextContent(
-            type="text",
-            text=(
-                f"## Project: {name}\n\n"
-                "_No wiki page registered for this project. "
-                "Set `wiki_path` via `project_register` to surface context here._"
-            ),
-        )
+    needle_low = needle.lower()
+    projects = list(_active_projects())
 
-    if _wiki_root() is None:
-        return _err("Wiki not configured: RADBOT_WIKI_PATH unset or missing.")
+    def _first_line(e) -> str:
+        return (e.content or "").splitlines()[0].strip()
 
-    abs_path, err = _resolve_under_root(wiki_path)
-    if abs_path is None:
-        return _err(err)
+    for p in projects:
+        if _first_line(p) == needle:
+            return p
+    for p in projects:
+        if _first_line(p).lower() == needle_low:
+            return p
+    for p in projects:
+        if needle_low in _first_line(p).lower():
+            return p
+    return None
 
-    import os as _os
-    if not _os.path.isfile(abs_path):
-        return _err(
-            f"Project `{name}` references missing wiki file: `{wiki_path}`"
-        )
 
-    try:
-        with open(abs_path, "r", encoding="utf-8") as f:
-            return mcp_types.TextContent(type="text", text=f.read())
-    except OSError as e:
-        return _err(f"Failed to read wiki page: {e}")
+def _do_get_context(ref_or_name: str) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    project = _find_project(ref_or_name)
+    if project is None:
+        return _err(f"Unknown project: `{ref_or_name}`")
+
+    meta = project.metadata or {}
+    name = (project.content or "").splitlines()[0][:80] or project.ref_code or "?"
+    lines = [f"# Project: {name} ({project.ref_code})", ""]
+
+    if project.content and "\n" in (project.content or ""):
+        lines.append(project.content.strip())
+        lines.append("")
+
+    if meta.get("wiki_path"):
+        lines.append(f"**Wiki page:** `{meta['wiki_path']}`")
+        lines.append("")
+
+    # Journal entries tagged with this project's ref_code
+    journal_entries = telos_db.list_section(
+        Section.JOURNAL, status=None, limit=50, order_by="created_at_desc"
+    )
+    related = [
+        e for e in journal_entries
+        if project.ref_code
+        and project.ref_code in (e.metadata or {}).get("related_refs", [])
+    ][:10]
+    if related:
+        lines.append("## Recent activity")
+        lines.append("")
+        for e in related:
+            date = e.created_at.strftime("%Y-%m-%d") if e.created_at else ""
+            content = (e.content or "").splitlines()[0][:200]
+            lines.append(f"- **{date}** — {content}")
+
+    if len(lines) <= 2:
+        lines.append("_No recent activity recorded for this project._")
+
+    return mcp_types.TextContent(type="text", text="\n".join(lines).rstrip())

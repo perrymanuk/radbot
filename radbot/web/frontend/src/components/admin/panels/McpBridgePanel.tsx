@@ -1,14 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAdminStore } from "@/stores/admin-store";
 import * as adminApi from "@/lib/admin-api";
-import type { McpProject, McpStatus } from "@/lib/admin-api";
+import type { McpStatus, TelosEntry } from "@/lib/admin-api";
 import { Card, Note } from "@/components/admin/FormFields";
 
-/** Admin panel for the MCP bridge: token management + project registry. */
+/** Admin panel for the MCP bridge.
+ *
+ * Token management (status, reveal, rotate) is owned by this panel. Project
+ * entries live in Telos (`section='projects'`), so the registry section
+ * here just lists active Telos projects and lets the user attach
+ * `path_patterns` + `wiki_path` to each one via `metadata_merge`. Creating
+ * new Telos projects happens elsewhere (confirm-required `telos_add_project`
+ * agent tool or the Telos admin panel).
+ */
 export function McpBridgePanel() {
   const { token, toast } = useAdminStore();
   const [status, setStatus] = useState<McpStatus | null>(null);
-  const [projects, setProjects] = useState<McpProject[]>([]);
+  const [projects, setProjects] = useState<TelosEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Reveal / rotate modal state
@@ -22,10 +30,10 @@ export function McpBridgePanel() {
     try {
       const [s, p] = await Promise.all([
         adminApi.getMcpStatus(token),
-        adminApi.listMcpProjects(token),
+        adminApi.telosGetSection(token, "projects"),
       ]);
       setStatus(s);
-      setProjects(p);
+      setProjects(p.entries);
     } catch (e: any) {
       toast(`MCP status load failed: ${e.message}`, "error");
     } finally {
@@ -114,10 +122,10 @@ export function McpBridgePanel() {
 
       <Card title="Token">
         <Note>
-          Token is managed via the <code>RADBOT_MCP_TOKEN</code> env var or the
-          credential store (store wins over env). Rotating generates a new
-          secure value in the store; you then copy it into each machine's
-          shell profile.
+          Token is managed via the <code>RADBOT_MCP_TOKEN</code> env var or
+          the credential store (store wins over env). Rotating generates a
+          new secure value in the store; you then copy it into each
+          machine's shell profile.
         </Note>
         <div className="flex items-center gap-3 mt-3">
           <code className="text-sm bg-bg-secondary rounded px-2 py-1">
@@ -140,18 +148,16 @@ export function McpBridgePanel() {
         </div>
       </Card>
 
-      <Card title="Project registry">
+      <Card title="Project registry (Telos-backed)">
         <Note>
-          Registered projects are matched against <code>cwd</code> by the
-          <code> SessionStart </code>hook. Each pattern is a substring test — any match
-          returns this project. <code>wiki_path</code> (optional) is the wiki
-          page whose contents load as session context.
+          These are the projects in your Telos (<code>section: projects</code>).
+          Attach <code>path_patterns</code> (cwd substrings) and an optional
+          <code> wiki_path</code> to each one and the SessionStart hook will
+          inject that project's context whenever you <code>cd</code> into a
+          matching repo. Create or archive projects from the Telos panel —
+          they're identity entries, not MCP-bridge settings.
         </Note>
-        <ProjectTable
-          projects={projects}
-          onChange={reload}
-          token={token}
-        />
+        <ProjectTable projects={projects} onChange={reload} token={token} />
       </Card>
 
       {revealed !== null && (
@@ -166,60 +172,29 @@ export function McpBridgePanel() {
   );
 }
 
-// ── Project editor table ──────────────────────────────────────
+// ── Telos-project editor table ────────────────────────────────
 
 function ProjectTable({
   projects, onChange, token,
 }: {
-  projects: McpProject[];
+  projects: TelosEntry[];
   onChange: () => void | Promise<void>;
   token: string | null;
 }) {
-  const { toast } = useAdminStore();
-  const [newName, setNewName] = useState("");
-  const [newPatterns, setNewPatterns] = useState("");
-  const [newWiki, setNewWiki] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-
-  const add = async () => {
-    if (!token || !newName.trim()) return;
-    setBusy("new");
-    try {
-      await adminApi.upsertMcpProject(token, {
-        name: newName.trim(),
-        path_patterns: newPatterns.split(",").map((s) => s.trim()).filter(Boolean),
-        wiki_path: newWiki.trim() || null,
-      });
-      setNewName(""); setNewPatterns(""); setNewWiki("");
-      await onChange();
-      toast(`Added ${newName.trim()}`, "success");
-    } catch (e: any) {
-      toast(`Add failed: ${e.message}`, "error");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const del = async (name: string) => {
-    if (!token) return;
-    if (!window.confirm(`Delete project "${name}"?`)) return;
-    setBusy(name);
-    try {
-      await adminApi.deleteMcpProject(token, name);
-      await onChange();
-      toast(`Deleted ${name}`, "success");
-    } catch (e: any) {
-      toast(`Delete failed: ${e.message}`, "error");
-    } finally {
-      setBusy(null);
-    }
-  };
-
+  if (!projects.length) {
+    return (
+      <div className="mt-3 text-sm text-txt-secondary">
+        _No active Telos projects. Ask beto to add one via
+        <code> telos_add_project</code>._
+      </div>
+    );
+  }
   return (
     <div className="mt-3 space-y-3">
       <table className="w-full text-sm">
         <thead className="text-txt-secondary text-left">
           <tr>
+            <th className="py-1 pr-4">Ref</th>
             <th className="py-1 pr-4">Name</th>
             <th className="py-1 pr-4">Path patterns</th>
             <th className="py-1 pr-4">Wiki path</th>
@@ -228,43 +203,8 @@ function ProjectTable({
         </thead>
         <tbody>
           {projects.map((p) => (
-            <ProjectRow key={p.name} project={p} onChange={onChange} token={token} busy={busy === p.name} onDelete={() => del(p.name)} />
+            <ProjectRow key={p.entry_id} project={p} onChange={onChange} token={token} />
           ))}
-          <tr className="border-t border-border">
-            <td className="py-2 pr-4">
-              <input
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="radbot"
-                className="bg-bg-secondary rounded px-2 py-1 w-full"
-              />
-            </td>
-            <td className="py-2 pr-4">
-              <input
-                value={newPatterns}
-                onChange={(e) => setNewPatterns(e.target.value)}
-                placeholder="/git/me/radbot, /work/foo (comma-separated)"
-                className="bg-bg-secondary rounded px-2 py-1 w-full"
-              />
-            </td>
-            <td className="py-2 pr-4">
-              <input
-                value={newWiki}
-                onChange={(e) => setNewWiki(e.target.value)}
-                placeholder="wiki/concepts/radbot.md"
-                className="bg-bg-secondary rounded px-2 py-1 w-full"
-              />
-            </td>
-            <td className="py-2">
-              <button
-                className="text-sm px-3 py-1 rounded bg-bg-tertiary hover:bg-bg-secondary"
-                onClick={add}
-                disabled={busy === "new" || !newName.trim()}
-              >
-                {busy === "new" ? "Adding…" : "Add"}
-              </button>
-            </td>
-          </tr>
         </tbody>
       </table>
     </div>
@@ -272,43 +212,55 @@ function ProjectTable({
 }
 
 function ProjectRow({
-  project, onChange, token, busy, onDelete,
+  project, onChange, token,
 }: {
-  project: McpProject;
+  project: TelosEntry;
   onChange: () => void | Promise<void>;
   token: string | null;
-  busy: boolean;
-  onDelete: () => void;
 }) {
   const { toast } = useAdminStore();
-  const [patterns, setPatterns] = useState(project.path_patterns.join(", "));
-  const [wiki, setWiki] = useState(project.wiki_path || "");
+  const initialPatterns = useMemo(
+    () => ((project.metadata?.path_patterns as string[] | undefined) ?? []).join(", "),
+    [project.metadata?.path_patterns],
+  );
+  const initialWiki = (project.metadata?.wiki_path as string | undefined) ?? "";
+  const [patterns, setPatterns] = useState(initialPatterns);
+  const [wiki, setWiki] = useState(initialWiki);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!token) return;
+    if (!token || !project.ref_code) return;
+    setSaving(true);
     try {
-      await adminApi.upsertMcpProject(token, {
-        name: project.name,
-        path_patterns: patterns.split(",").map((s) => s.trim()).filter(Boolean),
-        wiki_path: wiki.trim() || null,
+      await adminApi.telosUpdateEntry(token, "projects", project.ref_code, {
+        metadata_merge: {
+          path_patterns: patterns.split(",").map((s) => s.trim()).filter(Boolean),
+          wiki_path: wiki.trim() || null,
+        },
       });
       setEditing(false);
       await onChange();
-      toast(`Saved ${project.name}`, "success");
+      toast(`Saved ${project.ref_code}`, "success");
     } catch (e: any) {
       toast(`Save failed: ${e.message}`, "error");
+    } finally {
+      setSaving(false);
     }
   };
 
+  const name = (project.content || "").split("\n")[0].slice(0, 80);
+
   return (
     <tr className="border-t border-border">
-      <td className="py-2 pr-4 font-medium">{project.name}</td>
+      <td className="py-2 pr-4 font-mono text-xs">{project.ref_code}</td>
+      <td className="py-2 pr-4">{name || <span className="text-txt-secondary">—</span>}</td>
       <td className="py-2 pr-4">
         {editing ? (
           <input
             value={patterns}
             onChange={(e) => setPatterns(e.target.value)}
+            placeholder="/git/me/radbot, /work/foo (comma-separated)"
             className="bg-bg-secondary rounded px-2 py-1 w-full"
           />
         ) : (
@@ -320,6 +272,7 @@ function ProjectRow({
           <input
             value={wiki}
             onChange={(e) => setWiki(e.target.value)}
+            placeholder="wiki/concepts/radbot.md"
             className="bg-bg-secondary rounded px-2 py-1 w-full"
           />
         ) : (
@@ -329,14 +282,27 @@ function ProjectRow({
       <td className="py-2 flex gap-2 justify-end">
         {editing ? (
           <>
-            <button className="text-sm px-2 py-1 rounded bg-green-700 text-white" onClick={save}>Save</button>
-            <button className="text-sm px-2 py-1 rounded bg-bg-secondary" onClick={() => setEditing(false)}>Cancel</button>
+            <button
+              className="text-sm px-2 py-1 rounded bg-green-700 text-white disabled:opacity-50"
+              onClick={save}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              className="text-sm px-2 py-1 rounded bg-bg-secondary"
+              onClick={() => { setEditing(false); setPatterns(initialPatterns); setWiki(initialWiki); }}
+            >
+              Cancel
+            </button>
           </>
         ) : (
-          <>
-            <button className="text-sm px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-secondary" onClick={() => setEditing(true)}>Edit</button>
-            <button className="text-sm px-2 py-1 rounded bg-red-700 text-white disabled:opacity-50" onClick={onDelete} disabled={busy}>Delete</button>
-          </>
+          <button
+            className="text-sm px-2 py-1 rounded bg-bg-tertiary hover:bg-bg-secondary"
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </button>
         )}
       </td>
     </tr>
