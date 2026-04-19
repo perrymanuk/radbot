@@ -1,7 +1,7 @@
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useShallow } from "zustand/shallow";
 import type { TelosEntry } from "@/lib/telos-api";
-import { cn } from "@/lib/utils";
 import {
   selectExplorationsForProject,
   selectGoalsForProject,
@@ -9,29 +9,35 @@ import {
   selectTasksForProject,
   useProjectsStore,
 } from "@/stores/projects-store";
+import DetailHeader from "./DetailHeader";
+import TabBar, { type Tab } from "./TabBar";
 import OverviewTab from "./OverviewTab";
 import MilestonesTab from "./MilestonesTab";
 import TasksTab from "./TasksTab";
 import ExplorationsTab from "./ExplorationsTab";
 import GoalsTab from "./GoalsTab";
+import { accentFor } from "./shared/projectAccent";
 
-const TABS = [
-  { key: "overview", label: "Overview" },
-  { key: "milestones", label: "Milestones" },
-  { key: "tasks", label: "Tasks" },
-  { key: "explorations", label: "Explorations" },
-  { key: "goals", label: "Goals" },
-] as const;
+const TABS: Omit<Tab, "count">[] = [
+  { key: "overview", label: "Overview", icon: "folder" },
+  { key: "milestones", label: "Milestones", icon: "flag" },
+  { key: "tasks", label: "Tasks", icon: "check" },
+  { key: "explorations", label: "Explorations", icon: "flask" },
+  { key: "goals", label: "Goals", icon: "target" },
+];
 
 type TabKey = (typeof TABS)[number]["key"];
 
 interface Props {
   project: TelosEntry;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
-export default function ProjectDetail({ project }: Props) {
+export default function ProjectDetail({ project, onRefresh, refreshing }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = (searchParams.get("tab") as TabKey) || "overview";
+  const accent = accentFor(project.ref_code || "");
 
   const counts = useProjectsStore(
     useShallow((s) => ({
@@ -42,66 +48,59 @@ export default function ProjectDetail({ project }: Props) {
     })),
   );
 
-  const tabCount = (key: TabKey) => {
-    if (key === "milestones") return counts.milestones;
-    if (key === "tasks") return counts.tasks;
-    if (key === "explorations") return counts.explorations;
-    if (key === "goals") return counts.goals;
-    return null;
-  };
+  const tabs: Tab[] = TABS.map((t) => ({
+    ...t,
+    count:
+      t.key === "overview"
+        ? null
+        : t.key === "milestones"
+        ? counts.milestones || null
+        : t.key === "tasks"
+        ? counts.tasks || null
+        : t.key === "explorations"
+        ? counts.explorations || null
+        : counts.goals || null,
+  }));
 
-  const setTab = (tab: TabKey) => {
+  const setTab = (tab: string) => {
     const next = new URLSearchParams(searchParams);
     if (tab === "overview") next.delete("tab");
     else next.set("tab", tab);
     setSearchParams(next, { replace: true });
   };
 
-  const firstLine = (project.content || "").split("\n")[0];
+  // Keyboard shortcuts 1-5 to switch tabs
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      const map: Record<string, TabKey> = {
+        "1": "overview",
+        "2": "milestones",
+        "3": "tasks",
+        "4": "explorations",
+        "5": "goals",
+      };
+      if (map[e.key]) setTab(map[e.key]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   return (
-    <div className="flex flex-col h-full bg-bg-primary" data-test="projects-detail">
-      <div className="px-4 py-2.5 bg-bg-tertiary border-b border-border flex items-baseline gap-3 flex-shrink-0">
-        <span className="text-[0.7rem] font-mono text-accent-blue uppercase tracking-wider">
-          {project.ref_code}
-        </span>
-        <span className="text-sm font-mono text-txt-primary truncate">
-          {firstLine}
-        </span>
-        {project.status !== "active" && (
-          <span className="ml-auto text-[0.65rem] font-mono text-txt-secondary uppercase">
-            {project.status}
-          </span>
-        )}
-      </div>
-
-      <div className="flex border-b border-border bg-bg-secondary flex-shrink-0 overflow-x-auto">
-        {TABS.map((t) => {
-          const active = t.key === currentTab;
-          const count = tabCount(t.key);
-          return (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={cn(
-                "px-3 py-1.5 text-[0.7rem] font-mono uppercase tracking-wider",
-                "border-b-2 transition-colors whitespace-nowrap",
-                active
-                  ? "text-accent-blue border-accent-blue"
-                  : "text-txt-secondary border-transparent hover:text-txt-primary",
-              )}
-              data-test={`projects-tab-${t.key}`}
-            >
-              {t.label}
-              {count !== null && (
-                <span className="ml-1.5 opacity-60">{count}</span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "var(--surface)",
+      }}
+      data-test="projects-detail"
+    >
+      <DetailHeader project={project} onRefresh={onRefresh} refreshing={refreshing} />
+      <TabBar tabs={tabs} active={currentTab} setActive={setTab} accent={accent} />
+      <div style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}>
         {currentTab === "overview" && <OverviewTab project={project} />}
         {currentTab === "milestones" && <MilestonesTab project={project} />}
         {currentTab === "tasks" && <TasksTab project={project} />}

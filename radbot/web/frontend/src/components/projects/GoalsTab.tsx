@@ -4,7 +4,9 @@ import {
   selectGoalsForProject,
   useProjectsStore,
 } from "@/stores/projects-store";
-import EntryMarkdown from "./EntryMarkdown";
+import PIcon from "./shared/PIcon";
+import RefCode from "./shared/RefCode";
+import { Empty } from "./shared/Misc";
 
 interface Props {
   project: TelosEntry;
@@ -16,37 +18,73 @@ export default function GoalsTab({ project }: Props) {
   );
 
   if (goals.length === 0) {
-    return (
-      <div
-        className="text-[0.75rem] font-mono text-txt-secondary italic"
-        data-test="projects-goals-tab"
-      >
-        No goals attached to this project.
-      </div>
-    );
+    return <Empty label="No goals attached — set a North Star for this project." icon="target" />;
   }
 
   return (
-    <div className="space-y-3" data-test="projects-goals-tab">
-      {goals.map((g) => (
-        <div
-          key={g.entry_id}
-          className="border border-accent-blue/30 bg-accent-blue/5 rounded-sm p-3"
-          data-test={`projects-goal-${g.ref_code}`}
-        >
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-[0.65rem] font-mono text-accent-blue uppercase tracking-wider">
-              ◎ {g.ref_code}
-            </span>
-            {g.status !== "active" && (
-              <span className="text-[0.6rem] font-mono text-txt-secondary uppercase">
-                {g.status}
+    <div
+      style={{
+        padding: "18px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}
+      data-test="projects-goals-tab"
+    >
+      {goals.map((g) => {
+        const title = (g.content || "").split("\n")[0];
+        const body = (g.content || "").split("\n").slice(1).join("\n").trim();
+        return (
+          <div
+            key={g.entry_id}
+            style={{
+              padding: "14px 16px",
+              borderRadius: 8,
+              background: "color-mix(in oklch, var(--sky) 8%, var(--surface))",
+              border: "1px solid color-mix(in oklch, var(--sky) 32%, var(--p-border))",
+              borderLeft: "3px solid var(--sky)",
+            }}
+            data-test={`projects-goal-${g.ref_code}`}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
+              }}
+            >
+              <span style={{ color: "var(--sky)", display: "inline-flex" }}>
+                <PIcon name="target" size={14} />
               </span>
+              <RefCode code={g.ref_code || ""} color="var(--sky)" />
+              <span
+                style={{
+                  fontFamily: "var(--sans)",
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "var(--text)",
+                }}
+              >
+                {title}
+              </span>
+            </div>
+            {body && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "var(--text-mute)",
+                  lineHeight: 1.6,
+                  paddingLeft: 22,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {body}
+              </div>
             )}
           </div>
-          <EntryMarkdown content={g.content || ""} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

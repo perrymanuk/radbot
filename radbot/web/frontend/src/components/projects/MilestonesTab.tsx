@@ -8,15 +8,18 @@ import {
   selectUnmilestonedTasks,
   useProjectsStore,
 } from "@/stores/projects-store";
-import { cn } from "@/lib/utils";
-import EntryMarkdown from "./EntryMarkdown";
-import TaskRow from "./TaskRow";
+import PIcon from "./shared/PIcon";
+import RefCode from "./shared/RefCode";
+import ProgressBar from "./shared/ProgressBar";
+import TaskLine from "./shared/TaskLine";
+import { accentFor } from "./shared/projectAccent";
 
 interface Props {
   project: TelosEntry;
 }
 
 export default function MilestonesTab({ project }: Props) {
+  const accent = accentFor(project.ref_code || "");
   const milestones = useProjectsStore(
     useShallow((s) => selectMilestonesForProject(s, project.ref_code!)),
   );
@@ -25,149 +28,286 @@ export default function MilestonesTab({ project }: Props) {
   );
 
   return (
-    <div className="space-y-3" data-test="projects-milestones-tab">
+    <div
+      style={{
+        padding: "18px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
+      data-test="projects-milestones-tab"
+    >
       {milestones.length === 0 && unmilestoned.length === 0 && (
-        <div className="text-[0.75rem] font-mono text-txt-secondary italic">
-          No milestones yet.
+        <div
+          style={{
+            padding: 30,
+            textAlign: "center",
+            fontFamily: "var(--p-mono)",
+            fontSize: 12,
+            color: "var(--text-dim)",
+            border: "1px dashed var(--p-border)",
+            borderRadius: 8,
+          }}
+        >
+          No milestones yet — add one to start grouping tasks.
         </div>
       )}
 
       {milestones.map((m) => (
-        <MilestoneCard key={m.entry_id} milestone={m} />
+        <MilestoneCard key={m.entry_id} milestone={m} accent={accent} />
       ))}
 
       {unmilestoned.length > 0 && (
         <div
-          className="border border-yellow-500/40 bg-yellow-500/5 rounded-sm"
+          style={{
+            borderRadius: 8,
+            overflow: "hidden",
+            background: "color-mix(in oklch, var(--amber) 5%, var(--surface))",
+            border: "1px solid color-mix(in oklch, var(--amber) 38%, var(--p-border))",
+          }}
           data-test="projects-unmilestoned"
         >
-          <div className="px-3 py-1.5 border-b border-yellow-500/30 flex items-center justify-between">
-            <span className="text-[0.7rem] font-mono uppercase tracking-wider text-yellow-500">
-              ⚠ Unmilestoned
+          <div
+            style={{
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              borderBottom: "1px solid color-mix(in oklch, var(--amber) 25%, var(--p-border))",
+            }}
+          >
+            <span style={{ color: "var(--amber)" }}>⚠</span>
+            <span
+              style={{
+                fontFamily: "var(--p-mono)",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.16em",
+                color: "var(--amber)",
+              }}
+            >
+              UNMILESTONED
             </span>
-            <span className="text-[0.65rem] font-mono text-txt-secondary">
+            <span style={{ flex: 1 }} />
+            <span
+              style={{
+                fontFamily: "var(--p-mono)",
+                fontSize: 10,
+                color: "var(--text-mute)",
+              }}
+            >
               {unmilestoned.length} task{unmilestoned.length === 1 ? "" : "s"} need triage
             </span>
           </div>
-          <div className="divide-y divide-border/40">
-            {unmilestoned.map((t) => (
-              <TaskRow key={t.entry_id} task={t} bucket={taskBucket(t)} />
-            ))}
-          </div>
+          {unmilestoned.map((t) => (
+            <TaskLine key={t.entry_id} task={t} accent={accent} />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function taskBucket(t: TelosEntry): string {
-  const raw = ((t.metadata || {}).task_status || "").toString().toLowerCase();
-  if (raw === "inprogress" || raw === "in_progress" || raw === "in progress")
-    return "inprogress";
-  if (raw === "done" || raw === "complete" || raw === "completed") return "done";
-  if (raw === "backlog" || raw === "todo" || raw === "pending" || raw === "")
-    return "backlog";
-  return "other";
-}
-
-function MilestoneCard({ milestone }: { milestone: TelosEntry }) {
-  const [expanded, setExpanded] = useState(true);
-  const [showDone, setShowDone] = useState(false);
+function MilestoneCard({
+  milestone,
+  accent,
+}: {
+  milestone: TelosEntry;
+  accent: string;
+}) {
+  const [open, setOpen] = useState(true);
   const tasks = useProjectsStore(
     useShallow((s) => selectTasksForMilestone(s, milestone.ref_code!)),
   );
-  const buckets = bucketTasks(tasks);
+  const b = bucketTasks(tasks);
   const total = tasks.length;
-  const done = buckets.done.length;
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-  const firstLine = (milestone.content || "").split("\n")[0];
+  const pct = total ? Math.round((b.done.length / total) * 100) : 0;
+  const title = (milestone.content || "").split("\n")[0];
+  const target = (milestone.metadata || {}).target as string | undefined;
 
   return (
     <div
-      className="border border-border rounded-sm bg-bg-secondary/50"
+      style={{
+        borderRadius: 8,
+        overflow: "hidden",
+        background: "var(--surface)",
+        border: "1px solid var(--p-border)",
+        borderLeft: "3px solid var(--violet)",
+      }}
       data-test={`projects-milestone-${milestone.ref_code}`}
     >
       <button
-        onClick={() => setExpanded((v) => !v)}
-        className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-bg-tertiary transition-colors"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          padding: "11px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          background: `color-mix(in oklch, var(--violet) 6%, transparent)`,
+          borderBottom: open ? "1px solid var(--border-soft)" : "none",
+        }}
       >
-        <span className="text-txt-secondary font-mono text-xs">
-          {expanded ? "▾" : "▸"}
+        <span
+          style={{
+            color: "var(--text-dim)",
+            transition: "transform 120ms",
+            transform: `rotate(${open ? 90 : 0}deg)`,
+            display: "inline-flex",
+          }}
+        >
+          <PIcon name="chev" size={12} />
         </span>
-        <span className="text-[0.65rem] font-mono text-accent-blue uppercase tracking-wider">
-          {milestone.ref_code}
+        <span style={{ color: "var(--violet)", display: "inline-flex" }}>
+          <PIcon name="flag" size={13} />
         </span>
-        <span className="text-[0.8rem] font-mono text-txt-primary flex-1 truncate">
-          {firstLine}
+        <RefCode code={milestone.ref_code || ""} color="var(--violet)" />
+        <span
+          style={{
+            flex: 1,
+            fontFamily: "var(--sans)",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "var(--text)",
+            minWidth: 0,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {title}
         </span>
-        <span className="text-[0.65rem] font-mono text-txt-secondary">
-          {done}/{total} · {pct}%
+        {target && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontFamily: "var(--p-mono)",
+              fontSize: 10,
+              color: "var(--text-dim)",
+            }}
+          >
+            <PIcon name="clock" size={10} />
+            {target}
+          </span>
+        )}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            minWidth: 140,
+          }}
+        >
+          <div style={{ width: 80 }}>
+            <ProgressBar pct={pct} color="var(--violet)" height={3} />
+          </div>
+          <span
+            style={{
+              fontFamily: "var(--p-mono)",
+              fontSize: 11,
+              color: "var(--text)",
+              fontWeight: 600,
+              width: 56,
+              textAlign: "right",
+            }}
+          >
+            {b.done.length}/{total}
+          </span>
         </span>
       </button>
 
-      {expanded && (
-        <div className="border-t border-border/40">
-          {milestone.content && milestone.content !== firstLine && (
-            <div className="px-3 py-2 border-b border-border/40">
-              <EntryMarkdown content={milestone.content} />
-            </div>
-          )}
-
-          {total === 0 ? (
-            <div className="px-3 py-2 text-[0.7rem] font-mono text-txt-secondary italic">
-              No tasks.
-            </div>
-          ) : (
-            <div>
-              <TaskBucket label="In progress" tasks={buckets.inprogress} bucket="inprogress" />
-              <TaskBucket label="Backlog" tasks={buckets.backlog} bucket="backlog" />
-              <TaskBucket label="Other" tasks={buckets.other} bucket="other" />
-              <div>
-                <button
-                  onClick={() => setShowDone((v) => !v)}
-                  className={cn(
-                    "w-full px-3 py-1 text-left text-[0.65rem] font-mono uppercase tracking-wider",
-                    "text-txt-secondary hover:bg-bg-tertiary",
-                  )}
-                >
-                  {showDone ? "▾" : "▸"} Done ({buckets.done.length})
-                </button>
-                {showDone && (
-                  <div className="divide-y divide-border/40">
-                    {buckets.done.map((t) => (
-                      <TaskRow key={t.entry_id} task={t} bucket="done" />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+      {open && total > 0 && (
+        <div>
+          <TaskGroup label="IN PROGRESS" tasks={b.inprogress} accent={accent} />
+          <TaskGroup label="BACKLOG" tasks={b.backlog} accent={accent} />
+          <TaskGroup label="OTHER" tasks={b.other} accent={accent} />
+          <TaskGroup label="DONE" tasks={b.done} accent={accent} collapsedByDefault />
         </div>
       )}
+
+      {open && total === 0 && (
+        <div
+          style={{
+            padding: "10px 14px",
+            fontFamily: "var(--p-mono)",
+            fontSize: 11,
+            color: "var(--text-dim)",
+            fontStyle: "italic",
+          }}
+        >
+          no tasks yet
+        </div>
+      )}
+
+      {open &&
+        milestone.content &&
+        (milestone.content.split("\n").slice(1).join("\n").trim() !== "") && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderTop: "1px solid var(--border-soft)",
+              fontSize: 12,
+              color: "var(--text-mute)",
+              lineHeight: 1.5,
+              fontStyle: "italic",
+            }}
+          >
+            {milestone.content.split("\n").slice(1).join("\n").trim()}
+          </div>
+        )}
     </div>
   );
 }
 
-function TaskBucket({
+function TaskGroup({
   label,
   tasks,
-  bucket,
+  accent,
+  collapsedByDefault,
 }: {
   label: string;
   tasks: TelosEntry[];
-  bucket: string;
+  accent: string;
+  collapsedByDefault?: boolean;
 }) {
+  const [open, setOpen] = useState(!collapsedByDefault);
   if (tasks.length === 0) return null;
   return (
     <div>
-      <div className="px-3 py-1 text-[0.65rem] font-mono uppercase tracking-wider text-txt-secondary bg-bg-primary/50">
-        {label} ({tasks.length})
-      </div>
-      <div className="divide-y divide-border/40">
-        {tasks.map((t) => (
-          <TaskRow key={t.entry_id} task={t} bucket={bucket} />
-        ))}
-      </div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          padding: "6px 14px",
+          fontFamily: "var(--p-mono)",
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: "0.16em",
+          color: "var(--text-dim)",
+          background: "var(--bg-sunk)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        <span
+          style={{
+            transition: "transform 120ms",
+            transform: `rotate(${open ? 90 : 0}deg)`,
+            display: "inline-flex",
+          }}
+        >
+          <PIcon name="chev" size={10} />
+        </span>
+        <span>
+          {label} · {tasks.length}
+        </span>
+      </button>
+      {open && tasks.map((t) => <TaskLine key={t.entry_id} task={t} accent={accent} />)}
     </div>
   );
 }
