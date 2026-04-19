@@ -16,9 +16,9 @@ from typing import Any
 
 from mcp import types as mcp_types
 
-from . import memory, projects, tasks, telos, wiki
+from . import memory, project_tasks, projects, tasks, telos, wiki
 
-_MODULES = [telos, wiki, projects, tasks, memory]
+_MODULES = [telos, wiki, projects, project_tasks, tasks, memory]
 
 
 def all_tools() -> list[mcp_types.Tool]:

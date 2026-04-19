@@ -6,13 +6,15 @@ optional `wiki_path` stored in its `metadata` JSONB — both are consumed
 by the Claude Code `SessionStart` hook to auto-load context when a user
 `cd`s into a matching repo.
 
-Tools in this module never *create* telos projects — that goes through
-the confirm-required `telos_add_project` agent tool. These only read
-projects and attach MCP-bridge metadata to existing ones.
+Read tools (`project_list`, `project_get_context`, `project_match`) and
+the metadata setter (`project_set_path_patterns`) are always safe.
 
-PR-1 previously backed these tools against the unrelated `projects`
-table in `tools/todo/db/schema.py` (todo-list projects, not telos
-identity projects). That layer became dead after this PR.
+Mutation tools (`project_create`, `project_update`, `project_archive`,
+`project_merge`, `project_list_children`) are a parallel surface to
+beto's confirm-required `telos_*` tools. They call the same
+`radbot.tools.telos.db` primitives directly; user confirmation is
+expected at the MCP client UI (e.g. Claude Code's per-tool approval)
+rather than enforced here. Never hard-deletes — archive only.
 """
 
 from __future__ import annotations
@@ -94,6 +96,124 @@ def tools() -> list[mcp_types.Tool]:
                 "additionalProperties": False,
             },
         ),
+        mcp_types.Tool(
+            name="project_create",
+            description=(
+                "Create a new Telos project. Auto-assigns a `PRJ<N>` "
+                "ref_code. Optional metadata: `priority`, `parent_goal` "
+                "(Goal ref_code like `G1`), `path_patterns` (list of cwd "
+                "substrings for the SessionStart hook), and `wiki_path`."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Project name / title (first line of content).",
+                    },
+                    "priority": {"type": "string"},
+                    "parent_goal": {
+                        "type": "string",
+                        "description": "Optional Goal ref_code (e.g. `G1`).",
+                    },
+                    "path_patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "wiki_path": {"type": "string"},
+                },
+                "required": ["name"],
+                "additionalProperties": False,
+            },
+        ),
+        mcp_types.Tool(
+            name="project_update",
+            description=(
+                "Update an existing Telos project. `name` replaces "
+                "`content`; other fields shallow-merge into metadata. "
+                "`path_patterns` fully replaces the existing list (not "
+                "appended). Pass `status` to reactivate an archived "
+                "project. To remove a metadata key set it to empty string "
+                "or `null`."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ref_code": {"type": "string"},
+                    "name": {"type": "string"},
+                    "priority": {"type": "string"},
+                    "parent_goal": {"type": "string"},
+                    "path_patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                    "wiki_path": {"type": "string"},
+                    "status": {
+                        "type": "string",
+                        "enum": ["active", "completed", "archived", "superseded"],
+                    },
+                },
+                "required": ["ref_code"],
+                "additionalProperties": False,
+            },
+        ),
+        mcp_types.Tool(
+            name="project_archive",
+            description=(
+                "Archive (soft-delete) a Telos project. Stamps "
+                "`metadata.archived_reason` if provided. With "
+                "`cascade_children=true`, also archives every active "
+                "milestone / project_task / exploration whose "
+                "`metadata.parent_project` matches. Without cascade, active "
+                "children are left alone and listed in the response."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ref_code": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "cascade_children": {"type": "boolean", "default": False},
+                },
+                "required": ["ref_code"],
+                "additionalProperties": False,
+            },
+        ),
+        mcp_types.Tool(
+            name="project_merge",
+            description=(
+                "Merge one Telos project into another. Rebinds every "
+                "active child (milestones, project_tasks, explorations) so "
+                "their `metadata.parent_project` points at `into_ref`, "
+                "then archives `from_ref` with an optional reason. "
+                "Both refs must exist and differ."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "from_ref": {"type": "string"},
+                    "into_ref": {"type": "string"},
+                    "archive_reason": {"type": "string"},
+                },
+                "required": ["from_ref", "into_ref"],
+                "additionalProperties": False,
+            },
+        ),
+        mcp_types.Tool(
+            name="project_list_children",
+            description=(
+                "Return a markdown rollup of active milestones, "
+                "project_tasks, and explorations whose "
+                "`metadata.parent_project` matches the given project "
+                "ref_code. Useful to preview what `project_archive "
+                "--cascade` or `project_merge` would touch."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {"ref_code": {"type": "string"}},
+                "required": ["ref_code"],
+                "additionalProperties": False,
+            },
+        ),
     ]
 
 
@@ -112,6 +232,30 @@ async def call(
         )]
     if name == "project_get_context":
         return [_do_get_context(arguments["ref_or_name"])]
+    if name == "project_create":
+        return [_do_create(
+            arguments["name"],
+            arguments.get("priority"),
+            arguments.get("parent_goal"),
+            arguments.get("path_patterns"),
+            arguments.get("wiki_path"),
+        )]
+    if name == "project_update":
+        return [_do_update(arguments)]
+    if name == "project_archive":
+        return [_do_archive(
+            arguments["ref_code"],
+            arguments.get("reason"),
+            bool(arguments.get("cascade_children", False)),
+        )]
+    if name == "project_merge":
+        return [_do_merge(
+            arguments["from_ref"],
+            arguments["into_ref"],
+            arguments.get("archive_reason"),
+        )]
+    if name == "project_list_children":
+        return [_do_list_children(arguments["ref_code"])]
     raise KeyError(name)
 
 
@@ -278,4 +422,252 @@ def _do_get_context(ref_or_name: str) -> mcp_types.TextContent:
     if len(lines) <= 2:
         lines.append("_No recent activity recorded for this project._")
 
+    return mcp_types.TextContent(type="text", text="\n".join(lines).rstrip())
+
+
+# ---------------------------------------------------------------------------
+# Mutation helpers
+# ---------------------------------------------------------------------------
+
+
+_CHILD_SECTIONS = ("MILESTONES", "PROJECT_TASKS", "EXPLORATIONS")
+
+
+def _clean_patterns(patterns: list[str] | None) -> list[str] | None:
+    if patterns is None:
+        return None
+    return [p.strip() for p in patterns if p and p.strip()]
+
+
+def _project_meta_from(
+    priority: str | None,
+    parent_goal: str | None,
+    path_patterns: list[str] | None,
+    wiki_path: str | None,
+) -> dict[str, Any]:
+    """Build a project metadata dict. Empty-string / None values are
+    interpreted as "remove this key" (stored as JSON null so the shallow
+    JSONB merge clears them)."""
+    meta: dict[str, Any] = {}
+    if priority is not None:
+        meta["priority"] = priority.strip() or None
+    if parent_goal is not None:
+        meta["parent_goal"] = parent_goal.strip() or None
+    if path_patterns is not None:
+        meta["path_patterns"] = _clean_patterns(path_patterns) or []
+    if wiki_path is not None:
+        meta["wiki_path"] = wiki_path.strip() or None
+    return meta
+
+
+def _active_children(ref_code: str) -> dict[str, list]:
+    """Return active children of a project keyed by section name."""
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    out: dict[str, list] = {}
+    for sec_name in _CHILD_SECTIONS:
+        sec = getattr(Section, sec_name)
+        rows = telos_db.list_section(sec, status="active")
+        out[sec_name] = [
+            r for r in rows
+            if (r.metadata or {}).get("parent_project") == ref_code
+        ]
+    return out
+
+
+def _do_create(
+    name: str,
+    priority: str | None,
+    parent_goal: str | None,
+    path_patterns: list[str] | None,
+    wiki_path: str | None,
+) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    clean_name = (name or "").strip()
+    if not clean_name:
+        return _err("`name` is required and must not be whitespace.")
+
+    raw = _project_meta_from(priority, parent_goal, path_patterns, wiki_path)
+    metadata = {k: v for k, v in raw.items() if v is not None and v != []}
+
+    entry = telos_db.add_entry(Section.PROJECTS, clean_name, metadata=metadata)
+    bits = [f"ref=`{entry.ref_code}`", f"name={clean_name!r}"]
+    if metadata:
+        bits.append(f"metadata={metadata}")
+    return mcp_types.TextContent(
+        type="text", text=f"Created project — {' · '.join(bits)}"
+    )
+
+
+def _do_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    ref_code = arguments["ref_code"]
+    new_name = arguments.get("name")
+    status = arguments.get("status")
+
+    metadata_merge = _project_meta_from(
+        arguments.get("priority"),
+        arguments.get("parent_goal"),
+        arguments.get("path_patterns"),
+        arguments.get("wiki_path"),
+    )
+
+    content: str | None = None
+    if new_name is not None:
+        clean_name = new_name.strip()
+        if not clean_name:
+            return _err("`name` must not be whitespace if provided.")
+        content = clean_name
+
+    entry = telos_db.update_entry(
+        Section.PROJECTS,
+        ref_code,
+        content=content,
+        metadata_merge=metadata_merge or None,
+        status=status,
+    )
+    if entry is None:
+        return _err(f"No Telos project with ref_code `{ref_code}`.")
+
+    bits: list[str] = []
+    if content is not None:
+        bits.append(f"name={content!r}")
+    if metadata_merge:
+        bits.append(f"metadata_merge={metadata_merge}")
+    if status is not None:
+        bits.append(f"status={status}")
+    if not bits:
+        bits.append("no-op")
+    return mcp_types.TextContent(
+        type="text",
+        text=f"Updated project `{ref_code}` — {' · '.join(bits)}",
+    )
+
+
+def _do_archive(
+    ref_code: str, reason: str | None, cascade_children: bool
+) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    existing = telos_db.get_entry(Section.PROJECTS, ref_code)
+    if existing is None:
+        return _err(f"No Telos project with ref_code `{ref_code}`.")
+
+    children = _active_children(ref_code)
+    archived_counts: dict[str, int] = {}
+    cascade_reason = reason or f"parent {ref_code} archived"
+
+    if cascade_children:
+        for sec_name, rows in children.items():
+            sec = getattr(Section, sec_name)
+            count = 0
+            for row in rows:
+                if telos_db.archive_entry(sec, row.ref_code, reason=cascade_reason):
+                    count += 1
+            archived_counts[sec_name] = count
+
+    ok = telos_db.archive_entry(Section.PROJECTS, ref_code, reason=reason or None)
+    if not ok:
+        return _err(f"Failed to archive project `{ref_code}`.")
+
+    lines = [f"Archived project `{ref_code}`."]
+    if reason:
+        lines.append(f"Reason: {reason}")
+    if cascade_children and archived_counts:
+        summary = ", ".join(
+            f"{sec_name.lower()}={n}" for sec_name, n in archived_counts.items() if n
+        )
+        lines.append(f"Cascaded: {summary or 'none'}.")
+    elif not cascade_children:
+        orphan = {k: len(v) for k, v in children.items() if v}
+        if orphan:
+            summary = ", ".join(f"{k.lower()}={n}" for k, n in orphan.items())
+            lines.append(
+                f"**Warning:** left active children unbound ({summary}). "
+                f"Re-run with `cascade_children=true` to archive them."
+            )
+    return mcp_types.TextContent(type="text", text="\n".join(lines))
+
+
+def _do_merge(
+    from_ref: str, into_ref: str, archive_reason: str | None
+) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    if from_ref == into_ref:
+        return _err("`from_ref` and `into_ref` must differ.")
+    src = telos_db.get_entry(Section.PROJECTS, from_ref)
+    if src is None:
+        return _err(f"No Telos project with ref_code `{from_ref}`.")
+    dst = telos_db.get_entry(Section.PROJECTS, into_ref)
+    if dst is None:
+        return _err(f"No Telos project with ref_code `{into_ref}`.")
+
+    children = _active_children(from_ref)
+    rebound: dict[str, int] = {}
+    for sec_name, rows in children.items():
+        sec = getattr(Section, sec_name)
+        count = 0
+        for row in rows:
+            updated = telos_db.update_entry(
+                sec, row.ref_code,
+                metadata_merge={"parent_project": into_ref},
+            )
+            if updated is not None:
+                count += 1
+        rebound[sec_name] = count
+
+    reason = archive_reason or f"merged into {into_ref}"
+    telos_db.archive_entry(Section.PROJECTS, from_ref, reason=reason)
+
+    lines = [f"Merged `{from_ref}` → `{into_ref}`."]
+    summary = ", ".join(
+        f"{sec_name.lower()}={n}" for sec_name, n in rebound.items() if n
+    )
+    lines.append(f"Rebound children: {summary or 'none'}.")
+    lines.append(f"Archived `{from_ref}` (reason: {reason}).")
+    return mcp_types.TextContent(type="text", text="\n".join(lines))
+
+
+def _do_list_children(ref_code: str) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    if telos_db.get_entry(Section.PROJECTS, ref_code) is None:
+        return _err(f"No Telos project with ref_code `{ref_code}`.")
+
+    children = _active_children(ref_code)
+    lines = [f"# Active children of `{ref_code}`", ""]
+    any_rows = False
+    labels = {
+        "MILESTONES": "## Milestones",
+        "PROJECT_TASKS": "## Project tasks",
+        "EXPLORATIONS": "## Explorations",
+    }
+    for sec_name, rows in children.items():
+        if not rows:
+            continue
+        any_rows = True
+        lines.append(labels[sec_name])
+        lines.append("")
+        for r in rows:
+            first = (r.content or "").splitlines()[0][:120]
+            meta = r.metadata or {}
+            extra = []
+            if meta.get("task_status"):
+                extra.append(f"status={meta['task_status']}")
+            if meta.get("parent_milestone"):
+                extra.append(f"ms={meta['parent_milestone']}")
+            tail = f" ({', '.join(extra)})" if extra else ""
+            lines.append(f"- `{r.ref_code}` — {first}{tail}")
+        lines.append("")
+    if not any_rows:
+        lines.append("_No active children._")
     return mcp_types.TextContent(type="text", text="\n".join(lines).rstrip())

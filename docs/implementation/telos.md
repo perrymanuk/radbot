@@ -209,6 +209,19 @@ All tools return `{"status": "success" | "error", ...}` per radbot convention.
 Silent vs. confirm-required is enforced by the agent's instructions, not the
 tool signature — the tool just does what it's asked.
 
+### MCP write surface
+
+The MCP bridge (`radbot/mcp_server/tools/projects.py` + `project_tasks.py`)
+exposes a parallel set of project-hierarchy mutations — `project_create`,
+`project_update`, `project_archive`, `project_merge`, `milestone_add`,
+`milestone_complete`, `task_add`, `task_update`, `task_complete`,
+`task_archive`, `exploration_add` — that call the same
+`radbot.tools.telos.db` primitives these FunctionTools call. Confirmation is
+expected at the MCP client UI (e.g. Claude Code's per-tool approval), not at
+the server. All removal is soft (`status='archived'` + `metadata.archived_reason`)
+— no hard deletes — matching beto's behaviour. Other Telos sections
+(identity / goals / problems / wisdom / etc.) stay beto-only for now.
+
 ### Read tools
 
 | Tool | Purpose |

@@ -25,7 +25,8 @@ radbot/mcp_server/
     ├── __init__.py      # module registry — aggregates all tools() / dispatches call()
     ├── telos.py         # telos_get_full, telos_get_section, telos_get_entry, telos_search_journal
     ├── wiki.py          # wiki_read, wiki_list, wiki_search, wiki_write
-    ├── projects.py      # project_match, project_list, project_register, project_get_context
+    ├── projects.py      # project_match/list/get_context/list_children/set_path_patterns + create/update/archive/merge
+    ├── project_tasks.py # milestone_add/complete, task_add/update/complete/archive, exploration_add
     ├── tasks.py         # list_tasks, list_reminders, list_scheduled_tasks
     └── memory.py        # search_memory
 ```
@@ -58,6 +59,18 @@ Both transports serve the same `Server` instance produced by
 | `project_list()` | markdown table | ref · name · patterns · wiki_path (active Telos projects only) |
 | `project_set_path_patterns(ref_code, path_patterns, wiki_path?)` | plain confirmation | Updates `metadata` on an existing Telos project via `metadata_merge` |
 | `project_get_context(ref_or_name)` | markdown | Telos content + recent journal entries with matching `related_refs`. PR 2 replaces with full hierarchy render (milestones/tasks/explorations) |
+| `project_create(name, priority?, parent_goal?, path_patterns?, wiki_path?)` | plain confirmation | Auto-assigns `PRJ<N>` via `db.add_entry(Section.PROJECTS, ...)` |
+| `project_update(ref_code, name?, priority?, parent_goal?, path_patterns?, wiki_path?, status?)` | plain confirmation | Shallow `metadata_merge`; `name` replaces content; `path_patterns` fully replaces list |
+| `project_archive(ref_code, reason?, cascade_children?)` | markdown | Soft-delete via `db.archive_entry`; cascades to milestones / project_tasks / explorations when requested |
+| `project_merge(from_ref, into_ref, archive_reason?)` | markdown | Rebinds every active child's `parent_project` to `into_ref`, then archives `from_ref` |
+| `project_list_children(ref_code)` | markdown | Preview for cascade / merge — active milestones, tasks, explorations under a project |
+| `milestone_add(parent_project, title, deadline?, details?)` | plain confirmation | Auto-assigns `MS<N>` |
+| `milestone_complete(ref_code, resolution?)` | plain confirmation | Sets `status='completed'` + `metadata.completed_at` |
+| `task_add(parent_project, description, parent_milestone?, title?, category?, task_status?)` | plain confirmation | Auto-assigns `PT<N>`; task_status ∈ backlog/inprogress/done |
+| `task_update(ref_code, description?, title?, category?, task_status?, parent_milestone?)` | plain confirmation | Shallow metadata merge; empty string clears a field |
+| `task_complete(ref_code)` | plain confirmation | Sets `metadata.task_status='done'` + `completed_at` |
+| `task_archive(ref_code, reason?)` | plain confirmation | Soft-delete via `db.archive_entry` |
+| `exploration_add(parent_project, topic, notes?)` | plain confirmation | Auto-assigns `EX<N>` |
 | `list_tasks(status?, project?)` | markdown | Grouped by status |
 | `list_reminders(status?)` | markdown | Relative-time phrasing |
 | `list_scheduled_tasks()` | markdown table | name · cron · enabled · prompt |
