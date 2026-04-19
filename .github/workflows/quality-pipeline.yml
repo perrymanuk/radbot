@@ -475,7 +475,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BUDGET_USD: ${{ env.ANTHROPIC_BUDGET_USD }}
         run: |
-          uv run python scripts/visual_regression_compare.py \
+          # anthropic isn't in pyproject.toml deps; only the visual-regression
+          # comparator script needs it. Install on demand for this job.
+          uv pip install --system anthropic>=0.40.0
+          python scripts/visual_regression_compare.py \
             --before "$GITHUB_WORKSPACE/screens/main" \
             --after "$GITHUB_WORKSPACE/screens/pr" \
             --output-json "$GITHUB_WORKSPACE/visual-result.json" \
