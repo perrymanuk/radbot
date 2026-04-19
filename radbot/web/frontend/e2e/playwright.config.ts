@@ -1,14 +1,20 @@
 import { defineConfig, devices } from "@playwright/test";
 import * as dotenv from "dotenv";
-import * as path from "path";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
-dotenv.config({ path: path.resolve(__dirname, "../../../../.env") });
+// ESM-safe __dirname (package.json has "type": "module"; bare __dirname is undefined).
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load .env at repo root if it exists (locally). In CI, env vars come from the
+// workflow `env:` block — dotenv won't override them (override:false default).
+dotenv.config({ path: resolve(__dirname, "../../../../.env") });
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:5173";
 
-// CI debug: surface what we resolved before workers fork.
+// Surface the resolved value to stdout so CI logs show exactly what we used.
 // eslint-disable-next-line no-console
-console.error(
+console.log(
   `[playwright.config] BASE_URL=${BASE_URL} (PLAYWRIGHT_BASE_URL=${process.env.PLAYWRIGHT_BASE_URL ?? "<unset>"})`,
 );
 
