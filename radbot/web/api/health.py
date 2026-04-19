@@ -73,11 +73,11 @@ async def detailed_health_check(response: Response):
             # Simple check: get collections
             collections = memory_service.client.get_collections()
             components["memory"] = ComponentStatus(
-                status="ok", 
+                status="ok",
                 details={"collections": [c.name for c in collections.collections]}
             )
         else:
-             components["memory"] = ComponentStatus(status="warning", message="Memory service not initialized")
+            components["memory"] = ComponentStatus(status="warning", message="Memory service not initialized")
     except Exception as e:
         logger.warning(f"Health check failed for memory service: {e}")
         components["memory"] = ComponentStatus(status="error", message=str(e))

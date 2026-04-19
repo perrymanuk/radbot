@@ -170,8 +170,10 @@ def _render_full_block(
             body = _assemble(header, sections)
 
     # Final safety: hard-truncate if still over.
+    # The ellipsis "…" is U+2026 = 3 bytes in UTF-8, so reserve 3 bytes for it
+    # to keep the total ≤ FULL_BLOCK_CAP_BYTES.
     if len(body.encode("utf-8")) > FULL_BLOCK_CAP_BYTES:
-        body = body.encode("utf-8")[: FULL_BLOCK_CAP_BYTES - 1].decode(
+        body = body.encode("utf-8")[: FULL_BLOCK_CAP_BYTES - 3].decode(
             "utf-8", errors="ignore"
         ) + "…"
 

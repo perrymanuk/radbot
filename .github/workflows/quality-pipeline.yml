@@ -232,7 +232,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras
-      - run: make test-unit && make test-integration
+      # Dummy DB creds satisfy the import-time check in
+      # radbot/web/db/connection.py — unit tests don't actually connect, but
+      # the module raises at import unless creds are present.
+      - name: Run unit + integration tests
+        env:
+          POSTGRES_DB: radbot_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        run: make test-unit && make test-integration
       - id: score
         if: always()
         run: echo "score=${{ job.status == 'success' && '20' || '0' }}" >> "$GITHUB_OUTPUT"
@@ -322,8 +330,20 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           BASE_REF: origin/${{ github.event.pull_request.base.ref }}
-        run: npm run test:e2e:affected
+        run: |
+          # Bypass the sh -c wrapper from the npm script — env propagation is
+          # finicky through nested wrappers, and we want playwright to see
+          # PLAYWRIGHT_BASE_URL directly.
+          echo "PLAYWRIGHT_BASE_URL=$PLAYWRIGHT_BASE_URL"
+          SPECS=$(node e2e/select-affected.mjs)
+          echo "Affected specs: '$SPECS'"
+          # --config explicit because playwright.config.ts lives in e2e/, not
+          # this cwd (radbot/web/frontend). Without it, Playwright doesn't
+          # find the config and silently falls back to defaults — including
+          # an undefined baseURL.
+          npx playwright test --config=e2e/playwright.config.ts $SPECS
       - name: Collect failure artifacts
         if: failure()
         run: |
@@ -374,6 +394,14 @@ jobs:
         with:
           node-version: "20"
 
+      # PR head checked out FIRST so its composite action is available for
+      # both phases — origin/main may not yet have the working_directory input.
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+
       # ── Phase 1: capture main baseline ───────────────────────────────
       - name: Checkout origin/main
         uses: actions/checkout@v4
@@ -386,9 +414,14 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm run build
-      - name: Bootstrap stack (main)
-        uses: ./main/.github/actions/bootstrap-radbot-stack
+      # Use the PR head's copy of the composite action for BOTH bootstraps —
+      # origin/main may not yet have the working_directory input (the PR that
+      # introduces it is the one that needs to use it). The action only orchestrates;
+      # it operates on whatever working_directory is passed in, so this is correct.
+      - name: Bootstrap stack (main checkout)
+        uses: ./pr/.github/actions/bootstrap-radbot-stack
         with:
+          working_directory: main
           radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
           tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
@@ -399,19 +432,15 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           SCREENSHOT_DIR: ${{ github.workspace }}/screens/main
-        run: npx playwright test --grep @screenshot
+        run: npx playwright test --config=e2e/playwright.config.ts --grep @screenshot
         continue-on-error: true
       - name: Tear down stack (main)
         if: always()
         working-directory: main
-        run: docker compose down -v
+        run: docker compose down -v || true
 
       # ── Phase 2: capture PR head ─────────────────────────────────────
-      - name: Checkout PR head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: pr
+      # PR head was already checked out at the top of the job into ./pr/
       - name: Install + build (pr)
         working-directory: pr/radbot/web/frontend
         run: |
@@ -421,6 +450,7 @@ jobs:
       - name: Bootstrap stack (pr)
         uses: ./pr/.github/actions/bootstrap-radbot-stack
         with:
+          working_directory: pr
           with_tailscale: "false"  # already joined above; nodeid already authed
           radbot_admin_token: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
@@ -430,24 +460,30 @@ jobs:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           SCREENSHOT_DIR: ${{ github.workspace }}/screens/pr
-        run: npx playwright test --grep @screenshot
+        run: npx playwright test --config=e2e/playwright.config.ts --grep @screenshot
         continue-on-error: true
       - name: Tear down stack (pr)
         if: always()
         working-directory: pr
-        run: docker compose down -v
+        run: docker compose down -v || true
 
       # ── Phase 3: AI compare ──────────────────────────────────────────
       - name: Compare screenshots
         id: compare
+        working-directory: pr
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_BUDGET_USD: ${{ env.ANTHROPIC_BUDGET_USD }}
-        run: uv run python scripts/visual_regression_compare.py \
-              --before "$GITHUB_WORKSPACE/screens/main" \
-              --after "$GITHUB_WORKSPACE/screens/pr" \
-              --output-json visual-result.json \
-              --max-score 20 >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          # anthropic isn't in pyproject.toml deps; only the visual-regression
+          # comparator script needs it. uv run --with creates an ephemeral
+          # venv with the dep — avoids the "externally-managed" PEP 668 error
+          # that --system would hit on Ubuntu's system Python.
+          uv run --with "anthropic>=0.40.0" python scripts/visual_regression_compare.py \
+            --before "$GITHUB_WORKSPACE/screens/main" \
+            --after "$GITHUB_WORKSPACE/screens/pr" \
+            --output-json "$GITHUB_WORKSPACE/visual-result.json" \
+            --max-score 20 >> "$GITHUB_STEP_SUMMARY"
       - name: Upload screenshot artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -520,12 +556,14 @@ jobs:
             fi
           } > comment.md
       - name: Post sticky comment
-        uses: peter-evans/create-or-update-comment@v4
+        uses: marocchino/sticky-pull-request-comment@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body-path: comment.md
-          edit-mode: replace
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ github.event.pull_request.number }}
+          # `header` is the hidden marker used to find the existing comment
+          # on subsequent runs and update in place instead of creating a new one.
+          header: quality-pipeline
+          path: comment.md
       - name: Set commit status
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
