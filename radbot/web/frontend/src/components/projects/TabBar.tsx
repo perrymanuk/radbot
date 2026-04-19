@@ -17,6 +17,7 @@ interface Props {
 export default function TabBar({ tabs, active, setActive, accent }: Props) {
   return (
     <div
+      className="projects-tab-bar"
       style={{
         display: "flex",
         borderBottom: "1px solid var(--p-border)",
@@ -24,6 +25,7 @@ export default function TabBar({ tabs, active, setActive, accent }: Props) {
         padding: "0 20px",
         flex: "none",
         gap: 0,
+        overflowX: "auto",
       }}
     >
       {tabs.map((t) => {
@@ -73,6 +75,7 @@ export default function TabBar({ tabs, active, setActive, accent }: Props) {
       })}
       <div style={{ flex: 1, borderBottom: "1px solid var(--p-border)", marginBottom: -1 }} />
       <div
+        className="projects-tab-kbd-hint"
         style={{
           display: "flex",
           alignItems: "center",

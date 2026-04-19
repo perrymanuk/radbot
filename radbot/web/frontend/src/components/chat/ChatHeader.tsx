@@ -221,13 +221,14 @@ export default function ChatHeader() {
                 aria-label="Open projects"
                 data-test="chat-header-projects-link"
                 className={cn(
-                  "hidden sm:flex px-2 sm:px-2.5 py-1.5 sm:py-1 text-[0.72rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
-                  "items-center gap-1.5 sm:gap-1 min-h-[40px] sm:min-h-0",
+                  "flex px-1.5 sm:px-2.5 py-1 sm:py-1 text-[0.68rem] sm:text-[0.7rem] font-mono uppercase tracking-wider transition-all cursor-pointer no-underline",
+                  "items-center gap-1 min-h-[32px] sm:min-h-0",
                   "text-accent-blue hover:bg-accent-blue/15 hover:text-accent-blue",
                   "focus:outline-none focus:ring-1 focus:ring-accent-blue",
                 )}
               >
-                PROJ
+                <span className="hidden sm:inline">PROJ</span>
+                <span className="sm:hidden">P</span>
               </a>
 
               <a

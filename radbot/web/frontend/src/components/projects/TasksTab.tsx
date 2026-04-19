@@ -86,6 +86,7 @@ export default function TasksTab({ project }: Props) {
       data-test="projects-tasks-tab"
     >
       <div
+        className="projects-tasks-chiprow"
         style={{
           display: "flex",
           alignItems: "center",

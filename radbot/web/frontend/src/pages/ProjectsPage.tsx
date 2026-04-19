@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ProjectList, { type ProjectListHandle } from "@/components/projects/ProjectList";
 import ProjectDetail from "@/components/projects/ProjectDetail";
 import TaskEditDialog from "@/components/projects/TaskEditDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   selectOrphans,
   selectProject,
@@ -12,6 +13,7 @@ import {
 
 export default function ProjectsPage() {
   const { refCode } = useParams<{ refCode?: string }>();
+  const isMobile = useIsMobile();
   const loadAll = useProjectsStore((s) => s.loadAll);
   const loading = useProjectsStore((s) => s.loading);
   const loaded = useProjectsStore((s) => s.loaded);
@@ -41,10 +43,13 @@ export default function ProjectsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Default-select first active project if nothing in URL
+  // Default-select first active project if nothing in URL.
+  // On mobile we skip this so the user lands on the list view, not the
+  // detail view of a project they didn't pick.
   const effectiveProject = (() => {
     if (project) return project;
     if (refCode) return undefined;
+    if (isMobile) return undefined;
     const first = summary.find((p) => p.status === "active") ?? summary[0];
     return first ? entries[`projects:${first.ref_code}`] : undefined;
   })();
@@ -153,6 +158,47 @@ export default function ProjectsPage() {
           >
             Loading projects…
           </div>
+        ) : isMobile ? (
+          // Mobile: stacked — either the list OR the detail, never both.
+          // Selecting a project navigates to /projects/<ref>; the back link
+          // in the detail header returns to the list view.
+          effectiveProject ? (
+            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+              <div
+                style={{
+                  padding: "8px 12px",
+                  borderBottom: "1px solid var(--border-soft)",
+                  background: "var(--bg-sunk)",
+                }}
+              >
+                <Link
+                  to="/projects"
+                  style={{
+                    fontFamily: "var(--p-mono)",
+                    fontSize: 11,
+                    color: "var(--text-dim)",
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    minHeight: 32,
+                  }}
+                  data-test="projects-mobile-back"
+                >
+                  &lt; ALL PROJECTS
+                </Link>
+              </div>
+              <div style={{ flex: 1, overflow: "hidden" }}>
+                <ProjectDetail
+                  project={effectiveProject}
+                  onRefresh={() => loadAll()}
+                  refreshing={loading}
+                />
+              </div>
+            </div>
+          ) : (
+            <ProjectList ref={listRef} />
+          )
         ) : (
           <PanelGroup direction="horizontal">
             <Panel defaultSize={25} minSize={18} maxSize={40}>
