@@ -214,6 +214,34 @@ async def projects_entries(
     return {"sections": out}
 
 
+class ProjectTaskPatch(BaseModel):
+    content: Optional[str] = None
+    metadata_merge: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None
+
+
+@router.patch("/projects/task/{ref_code}")
+async def patch_project_task(
+    ref_code: str,
+    body: ProjectTaskPatch,
+) -> Dict[str, Any]:
+    """Partial update of a single project_task entry. Unauth'd write, scoped
+    to the `project_tasks` section only — all other telos writes remain
+    admin-bearer-protected. Powers the inline task editor on `/projects`."""
+    if body.status is not None and body.status not in STATUS_VALUES:
+        raise HTTPException(400, f"Invalid status {body.status!r}.")
+    entry = telos_db.update_entry(
+        Section.PROJECT_TASKS,
+        ref_code,
+        content=body.content,
+        metadata_merge=body.metadata_merge,
+        status=body.status,
+    )
+    if not entry:
+        raise HTTPException(404, f"No task {ref_code}.")
+    return _serialize(entry)
+
+
 # ---------------------------------------------------------------------------
 # Admin-authed endpoints (writes + sensitive sections)
 # ---------------------------------------------------------------------------

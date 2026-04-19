@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import ProjectList, { type ProjectListHandle } from "@/components/projects/ProjectList";
 import ProjectDetail from "@/components/projects/ProjectDetail";
+import TaskEditDialog from "@/components/projects/TaskEditDialog";
 import {
   selectOrphans,
   selectProject,
@@ -186,6 +187,7 @@ export default function ProjectsPage() {
           </PanelGroup>
         )}
       </div>
+      <TaskEditDialog />
     </div>
   );
 }

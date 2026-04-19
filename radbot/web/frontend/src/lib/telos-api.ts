@@ -67,3 +67,28 @@ export async function listProjectEntries(
 export function entryKey(section: string, refCode: string): string {
   return `${section}:${refCode}`;
 }
+
+export interface ProjectTaskPatch {
+  content?: string;
+  metadata_merge?: Record<string, any>;
+  status?: string;
+}
+
+export async function patchProjectTask(
+  refCode: string,
+  patch: ProjectTaskPatch,
+): Promise<TelosEntry> {
+  const res = await fetch(
+    `/api/telos/projects/task/${encodeURIComponent(refCode)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return res.json();
+}

@@ -26,6 +26,7 @@ export default function MilestonesTab({ project }: Props) {
   const unmilestoned = useProjectsStore(
     useShallow((s) => selectUnmilestonedTasks(s, project.ref_code!)),
   );
+  const openTaskEditor = useProjectsStore((s) => s.openTaskEditor);
 
   return (
     <div
@@ -100,7 +101,7 @@ export default function MilestonesTab({ project }: Props) {
             </span>
           </div>
           {unmilestoned.map((t) => (
-            <TaskLine key={t.entry_id} task={t} accent={accent} />
+            <TaskLine key={t.entry_id} task={t} accent={accent} onClick={openTaskEditor} />
           ))}
         </div>
       )}
@@ -274,6 +275,7 @@ function TaskGroup({
   collapsedByDefault?: boolean;
 }) {
   const [open, setOpen] = useState(!collapsedByDefault);
+  const openTaskEditor = useProjectsStore((s) => s.openTaskEditor);
   if (tasks.length === 0) return null;
   return (
     <div>
@@ -307,7 +309,7 @@ function TaskGroup({
           {label} · {tasks.length}
         </span>
       </button>
-      {open && tasks.map((t) => <TaskLine key={t.entry_id} task={t} accent={accent} />)}
+      {open && tasks.map((t) => <TaskLine key={t.entry_id} task={t} accent={accent} onClick={openTaskEditor} />)}
     </div>
   );
 }

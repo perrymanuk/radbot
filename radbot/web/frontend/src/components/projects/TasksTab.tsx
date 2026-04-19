@@ -21,6 +21,7 @@ export default function TasksTab({ project }: Props) {
   const tasks = useProjectsStore(
     useShallow((s) => selectTasksForProject(s, project.ref_code!)),
   );
+  const openTaskEditor = useProjectsStore((s) => s.openTaskEditor);
   const b = bucketTasks(tasks);
 
   const show =
@@ -126,7 +127,14 @@ export default function TasksTab({ project }: Props) {
             no tasks match.
           </div>
         ) : (
-          show.map((t) => <TaskLine key={t.entry_id} task={t} accent={accent} />)
+          show.map((t) => (
+            <TaskLine
+              key={t.entry_id}
+              task={t}
+              accent={accent}
+              onClick={openTaskEditor}
+            />
+          ))
         )}
       </div>
     </div>
