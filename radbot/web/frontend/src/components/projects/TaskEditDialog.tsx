@@ -99,7 +99,7 @@ export default function TaskEditDialog() {
         backdropFilter: "blur(2px)",
         display: "grid",
         placeItems: "center",
-        padding: 24,
+        padding: "clamp(8px, 2vw, 24px)",
       }}
     >
       <div
@@ -144,8 +144,8 @@ export default function TaskEditDialog() {
             onClick={close}
             aria-label="Close"
             style={{
-              width: 28,
-              height: 28,
+              minWidth: 44,
+              minHeight: 44,
               display: "grid",
               placeItems: "center",
               color: "var(--text-dim)",
@@ -154,7 +154,7 @@ export default function TaskEditDialog() {
             }}
             data-test="projects-task-edit-close"
           >
-            <PIcon name="close" size={12} />
+            <PIcon name="close" size={14} />
           </button>
         </div>
 
@@ -168,10 +168,11 @@ export default function TaskEditDialog() {
                   onClick={() => setStatus(opt.key)}
                   data-test={`projects-task-edit-status-${opt.key}`}
                   style={{
-                    padding: "6px 12px",
+                    padding: "10px 14px",
+                    minHeight: 44,
                     borderRadius: 6,
                     fontFamily: "var(--p-mono)",
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 700,
                     letterSpacing: "0.12em",
                     color: active ? opt.color : "var(--text-mute)",
@@ -285,9 +286,10 @@ export default function TaskEditDialog() {
             onClick={close}
             disabled={saving}
             style={{
-              padding: "6px 12px",
+              padding: "10px 16px",
+              minHeight: 44,
               fontFamily: "var(--p-mono)",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.1em",
               color: "var(--text-mute)",
@@ -304,9 +306,10 @@ export default function TaskEditDialog() {
             disabled={!dirty || saving}
             data-test="projects-task-edit-save"
             style={{
-              padding: "6px 14px",
+              padding: "10px 18px",
+              minHeight: 44,
               fontFamily: "var(--p-mono)",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.1em",
               color: "var(--bg)",

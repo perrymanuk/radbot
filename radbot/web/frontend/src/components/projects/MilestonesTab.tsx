@@ -30,6 +30,7 @@ export default function MilestonesTab({ project }: Props) {
 
   return (
     <div
+      className="projects-milestones-tab"
       style={{
         padding: "18px 22px",
         display: "flex",

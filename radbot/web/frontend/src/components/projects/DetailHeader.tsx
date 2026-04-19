@@ -45,6 +45,7 @@ export default function DetailHeader({ project, onRefresh, refreshing }: Props) 
 
   return (
     <div
+      className="projects-detail-header"
       style={{
         padding: "14px 20px 0",
         borderBottom: "1px solid var(--p-border)",
@@ -169,6 +170,7 @@ export default function DetailHeader({ project, onRefresh, refreshing }: Props) 
       </div>
 
       <div
+        className="projects-detail-stats"
         style={{
           display: "flex",
           gap: 16,
@@ -186,7 +188,10 @@ export default function DetailHeader({ project, onRefresh, refreshing }: Props) 
         <MiniStat label="DONE" value={stats.done} color="var(--crt)" />
         <MiniStat label="MILESTONES" value={stats.milestones} color="var(--violet)" />
         <div style={{ flex: 1, minWidth: 80 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 180 }}>
+        <div
+          className="projects-detail-completion"
+          style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 180 }}
+        >
           <span
             style={{
               fontSize: 9,
