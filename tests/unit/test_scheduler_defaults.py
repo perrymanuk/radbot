@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-
 from radbot.tools.scheduler.defaults import (
     DEFAULT_DISTILLER_CRON,
     DEFAULT_DREAM_CRON,

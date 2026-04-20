@@ -143,8 +143,8 @@ async def run_dream(
         }
 
     from qdrant_client import (
-        models as qmodels,
-    )  # local import keeps module importable without qdrant
+        models as qmodels,  # local import keeps module importable without qdrant
+    )
 
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=lookback_hours)

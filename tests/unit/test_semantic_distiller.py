@@ -9,9 +9,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from radbot.tools.memory._distiller_schema import (
-    DistilledRule,
-    DistillationResult,
     MAX_STATEMENT_WORDS,
+    DistillationResult,
+    DistilledRule,
 )
 from radbot.tools.memory.semantic_distiller import (
     CURSOR_POINT_ID,
