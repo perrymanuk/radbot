@@ -8,7 +8,7 @@ Results are pushed to active WebSocket connections.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -88,6 +88,15 @@ class SchedulerEngine:
                     self.register_reminder(reminder)
         except Exception as e:
             logger.error(f"Error loading reminders from DB: {e}")
+
+        # Register default proactive primitives (Dream + Heartbeat).
+        # Never allowed to block scheduler startup.
+        try:
+            from radbot.tools.scheduler.defaults import register_default_jobs
+
+            register_default_jobs(self)
+        except Exception as e:
+            logger.error(f"Error registering default proactive jobs: {e}")
 
         self._scheduler.start()
         self._started = True

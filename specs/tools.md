@@ -152,6 +152,15 @@ Uses WebSocket client (`ha_websocket_client.py`) for Lovelace CRUD.
 | `list_scheduled_tasks` | — |
 | `delete_scheduled_task` | `task_id` |
 
+Default proactive primitives (not LLM-callable; native APScheduler jobs registered by `tools/scheduler/defaults.py` inside `SchedulerEngine.start()`):
+
+| Job | Default cron | Implementation | Config section |
+|-----|--------------|----------------|----------------|
+| Dream (memory consolidation) | `0 3 * * *` | `tools/memory/memory_consolidation.py::run_dream` | `config:dream` (`enabled`, `cron_expression`, `lookback_hours`, `promote`) |
+| Heartbeat (morning digest) | `0 8 * * *` | `tools/heartbeat/digest.py::assemble_digest` + `tools/heartbeat/delivery.py::deliver_digest` (ntfy) | `config:heartbeat` (`enabled`, `cron_expression`, `horizon_hours`) |
+
+Dream eTAMP safety: low-trust points (`trust=low` or `source ∈ {alert,webhook}`) are excluded from promotion candidacy; `promote=True` surfaces candidate IDs only — never writes to durable storage without user confirmation.
+
 ### reminders — `tools/reminders/reminder_tools.py`
 
 | Tool | Parameters |
