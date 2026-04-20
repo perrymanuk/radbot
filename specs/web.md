@@ -224,6 +224,7 @@ Visualizes the Telos project hierarchy: project → milestones → tasks (groupe
 - **Task status buckets**: canonical set is `inprogress | backlog | done`, with a catch-all `other` bucket for non-canonical values (data hygiene surface until the status field is canonicalized in the DB).
 - **API client**: `lib/telos-api.ts` — typed fetch wrappers for the two unauth'd read endpoints. No admin bearer.
 - **Header link**: `ChatHeader.tsx` PROJ button next to TERM.
+- **Per-agent mascot**: `ChatHeader.tsx` swaps mascot image + wordmark based on the active session's `agent_name` — `scout` → `scout.jpeg` + `SCOUT`, otherwise → `radbot.png` + `RADBOT`. Source images in `radbot/web/frontend/public/`.
 
 ### Admin Panel Modules (`components/admin/panels/`)
 
