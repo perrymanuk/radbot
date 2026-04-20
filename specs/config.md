@@ -28,6 +28,7 @@ admin_token:       # Admin API bearer token
 | `RADBOT_CONFIG_FILE` | Path to `config.yaml` (alias: `RADBOT_CONFIG`, default: auto-discovered) |
 | `RADBOT_ENV` | `dev` → loads `config.dev.yaml` before `config.yaml` in each search directory |
 | `RADBOT_MAIN_MODEL` / `RADBOT_SUB_MODEL` | Model overrides (if no DB/file entry exists) |
+| `RADBOT_NAMING_MODEL` | Model override for the session auto-naming service (`radbot/services/session_naming.py`). Takes precedence over `config:agent.agent_models.naming_model`; falls back to `main_model` when neither is set |
 | `RADBOT_WORKER_IMAGE_TAG` | Overrides `config:agent.worker_image_tag` for new workers |
 | `LOG_LEVEL` | Controls log verbosity at runtime (default `INFO`) |
 
@@ -37,7 +38,7 @@ Stored as `config:<section>` entries in `radbot_credentials` (`credential_type='
 
 | Section | Keys | Purpose |
 |---------|------|---------|
-| `config:agent` | `main_model`, `sub_model`, per-agent models (`casa_agent`, `planner_agent`, `comms_agent`, `axel_agent`/`axel_agent_model`, `scout_agent`, `kidsvid_agent`), `session_mode`, `max_session_workers`, `worker_image_tag`, `terse_protocol_enabled` (bool; env override `RADBOT_TERSE_PROTOCOL_ENABLED`; default false) | Agent model selection + session/worker config + terse-protocol feature flag |
+| `config:agent` | `main_model`, `sub_model`, per-agent models (`casa_agent`, `planner_agent`, `comms_agent`, `axel_agent`/`axel_agent_model`, `scout_agent`, `kidsvid_agent`), `naming_model` (cheap model for `radbot/services/session_naming.py`; env override `RADBOT_NAMING_MODEL`; falls back to `main_model`), `session_mode`, `max_session_workers`, `worker_image_tag`, `terse_protocol_enabled` (bool; env override `RADBOT_TERSE_PROTOCOL_ENABLED`; default false) | Agent model selection + session/worker config + terse-protocol feature flag |
 | `config:integrations` | `home_assistant.*`, `overseerr.*`, `lidarr.*`, `picnic.*`, `jira.*`, `ntfy.*`, `github.*`, `nomad.*`, `kideo.*`, `alertmanager.*`, `ollama.*` | Integration endpoints, flags, non-secret keys |
 | `config:vector_db` | `url`, `api_key`, `host`, `port`, `collection` | Qdrant connection + collection |
 | `config:scheduler` | `enabled` | Scheduler engine toggle |

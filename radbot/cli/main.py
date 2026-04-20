@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 import sys
+import uuid
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ from radbot.agent.agent import RadBotAgent, create_agent
 from radbot.config import config_manager
 from radbot.logging_config import setup_logging
 from radbot.tools.basic import get_current_time
+from radbot.web.db import chat_operations
 
 # Set up logging (single entry-point call)
 setup_logging()
@@ -439,13 +441,20 @@ def display_welcome_message() -> None:
     print("=" * 60)
 
 
-def process_commands(command: str, agent: RadBotAgent, user_id: str) -> bool:
+def process_commands(
+    command: str,
+    agent: RadBotAgent,
+    user_id: str,
+    session_id: Optional[str] = None,
+) -> bool:
     """Process special commands.
 
     Args:
         command: The command to process (without the leading '/')
         agent: The RadBotAgent instance
         user_id: The current user ID
+        session_id: Persistent chat-session UUID used by history-dependent
+            commands like ``/name``. Required for ``/name`` to work.
 
     Returns:
         True if application should exit, False otherwise
@@ -546,6 +555,18 @@ def process_commands(command: str, agent: RadBotAgent, user_id: str) -> bool:
             print("  To enable memory, make sure Qdrant is properly configured in .env")
 
         return False
+    elif command == "name":
+        from radbot.services.session_naming import auto_name_session
+
+        if not session_id:
+            print("\nRename failed: no persistent session id available")
+            return False
+        ok, result = auto_name_session(session_id)
+        if ok:
+            print(f"\nRenamed session to: {result}")
+        else:
+            print(f"\nRename failed: {result}")
+        return False
     elif command == "ha":
         print("\nChecking Home Assistant status...")
         ha_status = check_home_assistant_status()
@@ -616,7 +637,25 @@ async def main():
 
         # Use a fixed user ID so memories persist across all sessions
         user_id = "web_user"
-        logger.debug(f"Starting session with user_id: {user_id}")
+
+        # Generate a fresh UUID session so CLI turns land in chat_messages
+        # alongside web sessions. Without a real UUID, history-dependent
+        # commands (e.g. /name) and the persistent-history UI can't see CLI
+        # conversations at all.
+        session_id = str(uuid.uuid4())
+        try:
+            chat_operations.create_or_update_session(
+                session_id=session_id, user_id=user_id, agent_name="beto"
+            )
+        except Exception as e:
+            logger.warning(
+                "Could not create persistent chat session %s: %s. "
+                "CLI turns will not be persisted.",
+                session_id,
+                e,
+            )
+            session_id = None  # disable persistence for this run
+        logger.debug("Starting session user_id=%s session_id=%s", user_id, session_id)
 
         # Main interaction loop
         while True:
@@ -627,7 +666,7 @@ async def main():
                 # Check for commands (starting with '/')
                 if user_input.startswith("/"):
                     command = user_input[1:].strip().lower()
-                    should_exit = process_commands(command, agent, user_id)
+                    should_exit = process_commands(command, agent, user_id, session_id)
                     if should_exit:
                         sys.exit(0)
                     continue
@@ -637,8 +676,33 @@ async def main():
                     f"Processing message: {user_input[:20]}{'...' if len(user_input) > 20 else ''}"
                 )
 
+                # Persist user turn before calling the agent so history is
+                # recoverable even if the agent call crashes.
+                if session_id:
+                    try:
+                        chat_operations.add_message(
+                            session_id=session_id,
+                            role="user",
+                            content=user_input,
+                            user_id=user_id,
+                        )
+                    except Exception as e:
+                        logger.warning("Failed to persist user turn: %s", e)
+
                 response = agent.process_message(user_id, user_input)
                 print(f"\nradbot: {response}")
+
+                if session_id and response:
+                    try:
+                        chat_operations.add_message(
+                            session_id=session_id,
+                            role="assistant",
+                            content=response,
+                            agent_name="beto",
+                            user_id=user_id,
+                        )
+                    except Exception as e:
+                        logger.warning("Failed to persist assistant turn: %s", e)
 
             except KeyboardInterrupt:
                 print("\n\nSession interrupted. Exiting.")
