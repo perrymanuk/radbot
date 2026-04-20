@@ -332,6 +332,8 @@ async def initialize_app_startup():
 
             if agent_core.memory_service:
                 root_agent._memory_service = agent_core.memory_service
+                for _root in agent_core.ROOT_AGENTS.values():
+                    _root._memory_service = agent_core.memory_service
                 logger.debug("Re-initialized memory service with DB config overrides")
         except Exception as mem_err:
             logger.warning(f"Error re-initializing memory service: {mem_err}")
