@@ -10,7 +10,7 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 |-------|--------|-------------|
 | `tasks` | `tools/todo/db/schema.py` | `task_id` (UUID), `project_id`, `title`, `status` (backlog/inprogress/done), `related_info` (JSONB) |
 | `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE), `wiki_path` (TEXT, nullable — relative path under `$RADBOT_WIKI_PATH`), `path_patterns` (TEXT[], cwd substrings used by MCP `project_match`) |
-| `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
+| `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `agent_name` (TEXT NOT NULL DEFAULT 'beto' — pins cron to a root agent; engine fires through `scheduler-offline-<agent_name>` session), `enabled`, `metadata` (JSONB) |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
 | `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section` (identity/mission/problems/goals/projects/challenges/wisdom/predictions/journal/…), `ref_code` (e.g. `G1`, `P2`, `ME`), `content`, `metadata` (JSONB — section-specific fields), `status` (active/completed/archived/superseded), `sort_order`, UNIQUE (section, ref_code) |
@@ -46,8 +46,8 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 
 All schemas idempotent via `init_*_schema()` with `CREATE TABLE IF NOT EXISTS` (or the `init_table_schema()` helper in `tools/shared/db_schema.py`). Called from:
 
-- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, telemetry, notifications, llm_usage_log, alerts). Wired only on beto's root callback; scout-rooted sessions never fire it, so any table written to by scout-root callbacks (e.g. `telemetry_events`) must also be initialized at web-side startup below.
-- `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history, credential store, `llm_usage_log`, `telemetry_events`). Runs unconditionally on process start so scout-rooted sessions get the tables they log to.
+- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, telemetry, notifications, llm_usage_log, alerts)
+- `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history)
 - `worker/__main__.py` — worker-side schema init (calls directly, not via ADK callback)
 
 ## Qdrant
