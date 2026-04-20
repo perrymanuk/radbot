@@ -1,9 +1,9 @@
-"""Default scheduler jobs for proactive primitives (Dream + Heartbeat).
+"""Default scheduler jobs for proactive primitives (Dream + Distiller + Heartbeat).
 
 Registered as native APScheduler cron jobs inside `SchedulerEngine.start()`
 so the primitives run as deterministic Python routines rather than
-LLM-prompt-driven scheduled tasks. Config-gated via `config:dream` and
-`config:heartbeat` sections (both enabled by default).
+LLM-prompt-driven scheduled tasks. Config-gated via `config:dream`,
+`config:distiller`, and `config:heartbeat` sections (all enabled by default).
 """
 
 from __future__ import annotations
@@ -17,9 +17,11 @@ logger = logging.getLogger(__name__)
 
 DREAM_JOB_ID = "__dream__"
 HEARTBEAT_JOB_ID = "__heartbeat__"
+DISTILLER_JOB_ID = "__distiller__"
 
 DEFAULT_DREAM_CRON = "0 3 * * *"  # 03:00 daily
 DEFAULT_HEARTBEAT_CRON = "0 8 * * *"  # 08:00 daily
+DEFAULT_DISTILLER_CRON = "30 3 * * *"  # 03:30 daily — after Dream settles
 
 
 def _get_section(section: str) -> Dict[str, Any]:
@@ -55,8 +57,52 @@ async def _run_dream_job() -> None:
         promote = bool(cfg.get("promote", False))
         result = await run_dream(lookback_hours=lookback, promote=promote)
         logger.info("Dream job finished: %s", result)
+        _record_dream_telemetry(result)
     except Exception as e:
         logger.error("Dream job failed: %s", e, exc_info=True)
+
+
+def _record_dream_telemetry(result: Dict[str, Any]) -> None:
+    """Enqueue the integer aggregates from a Dream pass. Never raises."""
+    try:
+        from radbot.tools.telemetry import get_telemetry_service
+
+        get_telemetry_service().enqueue(
+            "dream_pass_complete",
+            {
+                "scanned": int(result.get("scanned", 0)),
+                "clusters": int(result.get("clusters", 0)),
+                "consolidated": int(result.get("consolidated", 0)),
+                "archived": int(result.get("archived", 0)),
+                "skipped_low_trust": int(result.get("skipped_low_trust", 0)),
+                "promotion_candidates": int(result.get("promotion_candidates", 0)),
+            },
+        )
+    except Exception as e:
+        logger.debug("dream telemetry enqueue failed (non-fatal): %s", e)
+
+
+async def _run_distiller_job() -> None:
+    """APScheduler entry-point for the SemanticDistiller."""
+    try:
+        from radbot.tools.memory.semantic_distiller import (
+            DEFAULT_MAX_ATTEMPTS,
+            DEFAULT_MIN_EPISODES,
+            DEFAULT_MODEL,
+            DEFAULT_PRIOR_RULES_K,
+            run_distillation,
+        )
+
+        cfg = _get_section("distiller")
+        result = await run_distillation(
+            min_episodes=int(cfg.get("min_episodes", DEFAULT_MIN_EPISODES)),
+            max_attempts=int(cfg.get("max_attempts", DEFAULT_MAX_ATTEMPTS)),
+            prior_rules_k=int(cfg.get("prior_rules_k", DEFAULT_PRIOR_RULES_K)),
+            model=str(cfg.get("model", DEFAULT_MODEL)),
+        )
+        logger.info("Distiller job finished: %s", result)
+    except Exception as e:
+        logger.error("Distiller job failed: %s", e, exc_info=True)
 
 
 async def _run_heartbeat_job() -> None:
@@ -97,6 +143,13 @@ def register_default_jobs(engine: Any) -> None:
             DEFAULT_DREAM_CRON,
             _run_dream_job,
             "Dream (memory consolidation)",
+        ),
+        (
+            "distiller",
+            DISTILLER_JOB_ID,
+            DEFAULT_DISTILLER_CRON,
+            _run_distiller_job,
+            "SemanticDistiller (episodic → implicit)",
         ),
         (
             "heartbeat",

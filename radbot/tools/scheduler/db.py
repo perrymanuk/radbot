@@ -32,6 +32,7 @@ def init_scheduler_schema() -> None:
                 prompt TEXT NOT NULL,
                 description TEXT,
                 session_id TEXT,
+                agent_name TEXT NOT NULL DEFAULT 'beto',
                 enabled BOOLEAN NOT NULL DEFAULT TRUE,
                 created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -49,6 +50,18 @@ def init_scheduler_schema() -> None:
         ],
     )
 
+    # Idempotent migration: add agent_name column for rows predating the
+    # per-task routing feature. Existing tasks default to beto.
+    try:
+        with get_db_connection() as conn:
+            with get_db_cursor(conn, commit=True) as cursor:
+                cursor.execute("""
+                    ALTER TABLE scheduled_tasks
+                    ADD COLUMN IF NOT EXISTS agent_name TEXT NOT NULL DEFAULT 'beto';
+                    """)
+    except psycopg2.Error as e:
+        logger.error(f"Failed to add agent_name column to scheduled_tasks: {e}")
+
 
 def create_task(
     name: str,
@@ -57,16 +70,25 @@ def create_task(
     description: Optional[str] = None,
     session_id: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    agent_name: str = "beto",
 ) -> Dict[str, Any]:
     """Insert a new scheduled task and return its data."""
     sql = """
-        INSERT INTO scheduled_tasks (name, cron_expression, prompt, description, session_id, metadata)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        RETURNING task_id, name, cron_expression, prompt, description, session_id,
+        INSERT INTO scheduled_tasks (name, cron_expression, prompt, description, session_id, metadata, agent_name)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        RETURNING task_id, name, cron_expression, prompt, description, session_id, agent_name,
                   enabled, created_at, updated_at, last_run_at, last_result, run_count, metadata;
     """
     meta_json = json.dumps(metadata) if metadata else None
-    params = (name, cron_expression, prompt, description, session_id, meta_json)
+    params = (
+        name,
+        cron_expression,
+        prompt,
+        description,
+        session_id,
+        meta_json,
+        agent_name,
+    )
 
     try:
         with get_db_connection() as conn:

@@ -141,16 +141,23 @@ class SchedulerEngine:
         if existing:
             existing.remove()
 
+        agent_name = task_row.get("agent_name") or "beto"
+
         self._scheduler.add_job(
             self._execute_job,
             trigger=trigger,
             id=task_id,
             name=name,
-            kwargs={"task_id": task_id, "prompt": prompt, "name": name},
+            kwargs={
+                "task_id": task_id,
+                "prompt": prompt,
+                "name": name,
+                "agent_name": agent_name,
+            },
             replace_existing=True,
         )
         logger.debug(
-            f"Registered scheduler job '{name}' ({task_id}), cron='{cron_expr}'"
+            f"Registered scheduler job '{name}' ({task_id}), cron='{cron_expr}', agent={agent_name}"
         )
 
     def unregister_job(self, task_id: str) -> None:
@@ -203,18 +210,26 @@ class SchedulerEngine:
         except Exception as e:
             logger.warning(f"ntfy notification failed (non-fatal): {e}")
 
-    async def _execute_job(self, task_id: str, prompt: str, name: str) -> None:
+    async def _execute_job(
+        self,
+        task_id: str,
+        prompt: str,
+        name: str,
+        agent_name: str = "beto",
+    ) -> None:
         """Called by APScheduler when a job fires.
 
-        Always processes the prompt through the agent regardless of WebSocket
-        connection state. Results are broadcast to active connections and/or
-        queued for delivery on reconnect. A push notification is sent via ntfy.
+        Always processes the prompt through a dedicated per-agent scheduler
+        session so the task's configured root agent handles it, regardless of
+        which session(s) the user currently has open. Results surface via the
+        notifications table + ntfy; events are also broadcast to any active
+        WS connections for live awareness.
         """
         from radbot.tools.shared.sanitize import sanitize_text
 
         prompt = sanitize_text(prompt, source="scheduler")
         logger.info(
-            f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), prompt: {prompt[:80]}"
+            f"=== SCHEDULER JOB FIRED === Task '{name}' ({task_id}), agent={agent_name}, prompt: {prompt[:80]}"
         )
 
         if not self._connection_manager:
@@ -224,18 +239,12 @@ class SchedulerEngine:
 
         has_connections = self._connection_manager.has_connections()
 
-        # Pick a session_id: use an active connection's session, or generate
-        # a fixed offline session ID so the agent can still process.
-        if has_connections:
-            session_id = self._connection_manager.get_any_session_id()
-        else:
-            session_id = "scheduler-offline"
-            logger.debug(
-                f"No active WebSocket connections; using offline session for task '{name}'"
-            )
-
+        # Always use a dedicated per-agent offline session. This pins the
+        # cron to the configured root agent and avoids leaking the prompt
+        # into whichever chat the user happens to have focused.
+        session_id = f"scheduler-offline-{agent_name}"
         logger.debug(
-            f"Using session {session_id} for scheduled task '{name}' processing"
+            f"Using session {session_id} (agent={agent_name}) for scheduled task '{name}'"
         )
 
         # 1. Broadcast system message to all connections (no-op if none)
@@ -266,15 +275,13 @@ class SchedulerEngine:
         except Exception as e:
             logger.warning(f"Failed to persist system message to DB: {e}")
 
-        # 4. Process through agent
+        # 4. Process through agent (dedicated per-agent scheduler session)
         try:
-            # Lazy import to avoid circular dependencies
-            from radbot.web.api.session.dependencies import (
-                get_or_create_runner_for_session,
-            )
+            if not self._session_manager:
+                raise RuntimeError("No session_manager injected into scheduler")
 
-            runner = await get_or_create_runner_for_session(
-                session_id, self._session_manager
+            runner = await self._session_manager.get_or_create_runner(
+                session_id, agent_name=agent_name
             )
             result = await runner.process_message(prompt)
 

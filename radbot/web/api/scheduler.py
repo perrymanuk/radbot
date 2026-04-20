@@ -19,6 +19,7 @@ class ScheduledTaskCreate(BaseModel):
     cron_expression: str
     prompt: str
     description: Optional[str] = None
+    agent_name: str = "beto"
 
 
 class ScheduledTaskResponse(BaseModel):
@@ -52,6 +53,14 @@ async def create_scheduled_task(body: ScheduledTaskCreate):
     except (ValueError, KeyError) as e:
         raise HTTPException(status_code=400, detail=f"Invalid cron expression: {e}")
 
+    from radbot.agent.agent_core import ROOT_AGENTS
+
+    if body.agent_name not in ROOT_AGENTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown agent_name '{body.agent_name}'. Valid: {sorted(ROOT_AGENTS.keys())}",
+        )
+
     try:
         from radbot.tools.scheduler.db import create_task
 
@@ -60,6 +69,7 @@ async def create_scheduled_task(body: ScheduledTaskCreate):
             cron_expression=body.cron_expression,
             prompt=body.prompt,
             description=body.description,
+            agent_name=body.agent_name,
         )
 
         task_id = str(row["task_id"])
@@ -103,11 +113,12 @@ async def trigger_scheduled_task(task_id: str):
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
 
-        # Fire the job directly (fast - just broadcasts, no LLM)
+        # Fire the job directly through the agent pipeline
         await engine._execute_job(
             task_id=task_id,
             prompt=task["prompt"],
             name=task.get("name", task_id),
+            agent_name=task.get("agent_name") or "beto",
         )
 
         return {"status": "triggered", "task_id": task_id, "name": task.get("name")}

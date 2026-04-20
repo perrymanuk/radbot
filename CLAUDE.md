@@ -174,6 +174,7 @@ Project / milestone / task / exploration management stays on beto (Telos-backed)
 | `tools/nomad/` | `nomad_client.py`, `nomad_tools.py` | `list_nomad_jobs`, `get_nomad_job_status`, `get_nomad_allocation_logs`, `restart_nomad_allocation`, `plan_nomad_job_update`, `submit_nomad_job_update`, `check_nomad_service_health` | Nomad HTTP API |
 | `tools/notifications/` | `db.py` | `create_notification`, `list_notifications`, `mark_read`, `mark_all_read` | Unified notification store (scheduled tasks, reminders, alerts, ntfy) |
 | `tools/alertmanager/` | `db.py`, `processor.py`, `ntfy_handler.py` | (pipeline, not FunctionTools) | Alert ingestion + autonomous remediation |
+| `tools/telemetry/` | `service.py`, `models.py`, `db.py` | `TelemetryService` (infra, not FunctionTool) | Decoupled fail-open metrics: bounded queue + background worker w/ 1s DB timeouts, atexit flush, strict Pydantic payload validation (PII strip), kill-switch `config:telemetry.enabled`. Producers: Dream + Telos context injection. PT30 / EX7. |
 | `tools/shared/` | `config_helper.py`, `client_utils.py`, `tool_decorator.py`, `retry.py`, `db_schema.py`, `errors.py`, `validation.py` | `get_integration_config()`, `client_or_error()`, `@tool_error_handler`, `@retry_on_error` | Shared helpers |
 
 ---
@@ -198,6 +199,7 @@ All tables use the shared pool from `radbot/db/connection.py` unless noted.
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |
 | `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 | `notifications` | `tools/notifications/db.py` | `notification_id` (UUID), `type` (scheduled_task/reminder/alert/ntfy_outbound), `title`, `message`, `read`, `priority`, `metadata` (JSONB) |
+| `telemetry_events` | `tools/telemetry/db.py` | `event_id` (UUID), `event_type` (TEXT), `payload` (JSONB — integers/bools only), `created_at` (TIMESTAMPTZ). Append-only baseline metrics; no retention. |
 | `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
 Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own pool in `web/db/connection.py`.
