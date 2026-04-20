@@ -268,6 +268,24 @@ async def initialize_app_startup():
                 exc_info=True,
             )
 
+        # PT30 baseline telemetry (`telemetry_events`). Previously only
+        # initialized by `setup_before_agent_call` on beto's before-agent
+        # callback — so scout-rooted sessions (which don't wire that
+        # callback) dropped every batch with "relation telemetry_events
+        # does not exist". CREATE TABLE IF NOT EXISTS is idempotent, so
+        # eager startup init is safe.
+        logger.debug("Initializing PT30 telemetry_events schema...")
+        try:
+            from radbot.tools.telemetry import init_telemetry_schema
+
+            init_telemetry_schema()
+            logger.debug("telemetry_events schema initialized")
+        except Exception as tel_err:
+            logger.error(
+                f"Error initializing telemetry_events schema: {str(tel_err)}",
+                exc_info=True,
+            )
+
         # Initialize session workers schema
         logger.debug("Initializing session workers database schema...")
         try:
