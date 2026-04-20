@@ -194,6 +194,7 @@ export function AgentModelsPanel() {
   const [enableCodeExec, setEnableCodeExec] = useState(false);
   const [sessionMode, setSessionMode] = useState(false);
   const [maxWorkers, setMaxWorkers] = useState("10");
+  const [terseProtocolEnabled, setTerseProtocolEnabled] = useState(false);
   // Map of config_key ("casa_agent") → override string ("" = inherit default)
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [overridesOpen, setOverridesOpen] = useState(false);
@@ -218,6 +219,7 @@ export function AgentModelsPanel() {
     if (agent.enable_adk_code_execution !== undefined) setEnableCodeExec(!!agent.enable_adk_code_execution);
     if (agent.session_mode !== undefined) setSessionMode(agent.session_mode === "remote");
     if (agent.max_session_workers !== undefined) setMaxWorkers(String(agent.max_session_workers));
+    if (agent.terse_protocol_enabled !== undefined) setTerseProtocolEnabled(!!agent.terse_protocol_enabled);
 
     const agentModels = agent.agent_models || {};
     const init: Record<string, string> = {};
@@ -252,6 +254,7 @@ export function AgentModelsPanel() {
         enable_adk_code_execution: enableCodeExec,
         session_mode: sessionMode ? "remote" : "local",
         max_session_workers: parseInt(maxWorkers, 10) || 10,
+        terse_protocol_enabled: terseProtocolEnabled,
         agent_models: agentModels,
       });
 
@@ -307,6 +310,20 @@ export function AgentModelsPanel() {
             placeholder="10"
           />
         )}
+      </Card>
+
+      <Card title="Sub-Agent Output">
+        <Note>
+          Terse JSON Protocol: casa, planner, comms, axel, and kidsvid emit compressed JSON
+          (<code>summary</code> + <code>pass_through</code>) that Beto re-hydrates into prose.
+          Reduces sub-agent output tokens. Env override:{" "}
+          <code>RADBOT_TERSE_PROTOCOL_ENABLED</code>.
+        </Note>
+        <FormToggle
+          label="Enable Terse JSON Protocol"
+          checked={terseProtocolEnabled}
+          onChange={setTerseProtocolEnabled}
+        />
       </Card>
 
       {/* Collapsible Per-Agent Model Overrides */}
