@@ -69,6 +69,15 @@ def _build_scout_toolkit() -> List[Any]:
     except Exception as e:
         logger.warning("Scout: plan council unavailable: %s", e)
 
+    # Divergent ideation — three parallel persona calls (Pragmatic, Contrarian,
+    # Wildcard) with graceful degradation. See `explorations: EX5` in Telos.
+    try:
+        from radbot.tools.divergent_ideation import divergent_ideation_tool
+
+        toolkit.append(divergent_ideation_tool)
+    except Exception as e:
+        logger.warning("Scout: divergent_ideation unavailable: %s", e)
+
     return toolkit
 
 
