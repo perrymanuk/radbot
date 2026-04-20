@@ -77,9 +77,17 @@ Rules:
   not like a chat reply. The orchestrator will re-hydrate it into its own
   voice, so persona / pleasantries / hedging are wasted tokens here.
 - "pass_through" holds strings that must reach the user verbatim: tool
-  result identifiers, exact log lines, UI fenced blocks such as
-  ```radbot:card ... ``` (include the fences), URLs, IDs, quoted errors.
-  When in doubt, pass through rather than summarize — paraphrasing a
+  result identifiers, exact log lines, URLs, IDs, quoted errors, and UI
+  fenced blocks.
+- UI fenced blocks (those whose type identifier starts with ``radbot:``,
+  e.g. ``radbot:card``, ``radbot:ha-device``, ``radbot:media``) MUST be
+  placed in pass_through as a single multi-line string that INCLUDES
+  both the opening ```` ```radbot:<kind> ```` line AND the closing
+  ```` ``` ```` line. Do not strip the triple-backticks. Do not emit
+  the JSON body alone. The rehydrator in Python will repair a stripped
+  fence if it has to, but the canonical form is: opening fence, newline,
+  body, newline, closing fence — verbatim.
+- When in doubt, pass through rather than summarize — paraphrasing a
   tool-generated string counts as hallucination.
 - Do not emit the protocol tags on tool-call turns. They apply only to
   the final natural-language response that returns control to Beto.
@@ -131,6 +139,48 @@ _BARE_JSON_RE = re.compile(r"(\{[^{}]*\"summary\"[^{}]*\})", re.DOTALL)
 
 
 _TRUNCATED_DEGRADE_MARKER = "(sub-agent response was malformed or truncated)"
+
+# A pass_through string is treated as a UI fence candidate when it starts
+# with ``radbot:<kind>`` (our UI-fence convention). The LLM has a habit of
+# stripping the triple-backticks when putting a fenced block into
+# ``pass_through`` — we repair that here so the frontend card renderer
+# sees a valid fence block at column 0.
+_UI_FENCE_PREFIX_RE = re.compile(r"^radbot:([A-Za-z0-9_\-]+)\s*(.*)$", re.DOTALL)
+
+
+def _normalize_pass_through(item: str) -> str:
+    """Render a single ``pass_through`` string so it reaches the frontend
+    intact.
+
+    Three cases, in priority order:
+
+    1. Already a proper fence block (``item.lstrip()`` starts with ``` ```
+       and contains a closing ``` ``` ``` ``) — pass through verbatim. The
+       LLM did the right thing; don't second-guess.
+    2. Starts with ``radbot:<kind>`` (with or without the fence markers) —
+       the LLM stripped the fences. Wrap the payload in ``` ```radbot:<kind>
+       \n<body>\n``` ``` ``. This is the regression fix: the frontend card
+       renderer looks for a top-level fence block with that exact kind
+       header, so we rebuild it.
+    3. Anything else (plain text, log line, URL, quoted error) — emit
+       verbatim. Pass_through's contract is "exact strings the user must
+       see"; we don't reflow or decorate them.
+    """
+    if not isinstance(item, str):
+        item = str(item)
+    stripped_leading = item.lstrip()
+    # Case 1: already a fence — trust it.
+    if stripped_leading.startswith("```"):
+        return item.rstrip()
+    # Case 2: radbot:<kind> prefix without fences.
+    m = _UI_FENCE_PREFIX_RE.match(stripped_leading)
+    if m:
+        kind = m.group(1)
+        body = (m.group(2) or "").strip()
+        if body:
+            return f"```radbot:{kind}\n{body}\n```"
+        return f"```radbot:{kind}\n```"
+    return item.rstrip()
 
 
 def _extract_terse_candidate(raw_text: str) -> Optional[str]:
@@ -234,20 +284,24 @@ def rehydrate_terse_payload(raw_text: str) -> str:
     if not isinstance(pass_through, list):
         pass_through = []
 
-    lines = []
+    blocks: list[str] = []
     if summary.strip():
-        lines.append(f"**Summary:** {summary.strip()}")
-    if pass_through:
-        lines.append("")
-        lines.append("**Pass-through:**")
-        for item in pass_through:
-            lines.append(str(item))
-    if not lines:
+        blocks.append(f"**Summary:** {summary.strip()}")
+    for item in pass_through:
+        normalized = _normalize_pass_through(item)
+        if normalized:
+            blocks.append(normalized)
+    if not blocks:
         # Valid JSON but empty both fields — tell Beto there's no content
         # without returning an empty string (which would trip the empty-
         # content callback and force a retry).
         return "(sub-agent returned empty terse payload)"
-    return "\n".join(lines)
+    # Blank-line separated so fence blocks sit at column 0 of their own
+    # paragraph — the frontend card parser requires that. No
+    # ``**Pass-through:**`` header: that header nested fence blocks inside
+    # a markdown section and hid them from the card renderer. See
+    # EX21 post-mortem.
+    return "\n\n".join(blocks)
 
 
 # ── ADK callbacks ────────────────────────────────────────────

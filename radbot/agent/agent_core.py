@@ -169,14 +169,31 @@ _before_cbs = [
 # Terse JSON Protocol (EX21 / PT56 / PT58): instruct sub-agents to emit
 # compact JSON and re-hydrate it for Beto. Gated at runtime by
 # ``is_terse_protocol_enabled()`` so these callbacks are safe to register
-# with the flag off. Scoped to natural-language sub-agents only — ADK
-# built-ins (search_agent, code_execution_agent) return structured outputs
-# that the protocol would corrupt.
-# Scout is also excluded: per EX21 the protocol applies only to casa,
-# planner, comms, axel, kidsvid. Scout emits structured plans (and can be
-# a session root on its own), which the terse-JSON-to-Beto contract would
-# mangle.
-_TERSE_PROTOCOL_EXCLUDED = {"search_agent", "code_execution_agent", "scout"}
+# with the flag off.
+#
+# Exclusions — the protocol attaches to the complement of this set:
+#   * search_agent / code_execution_agent — ADK built-ins with structured
+#     outputs that the protocol would corrupt.
+#   * scout — emits structured plans; can also be a session root on its
+#     own, where the terse-JSON-to-Beto contract doesn't apply.
+#   * casa / comms / kidsvid (PT62) — transactional / tool-heavy domain
+#     agents whose native output is already compact. EX20 telemetry
+#     showed casa looping 53× on a single light switch under the
+#     protocol because weaker Gemini variants can't juggle tool-call
+#     mode and JSON-emission mode simultaneously. The compression
+#     target (long prose commentary) doesn't match these agents'
+#     traffic profile, so overhead > savings.
+#
+# Remaining agents with the protocol attached: axel (long implementation
+# prose) and planner (mixed) — where there is actual compression headroom.
+_TERSE_PROTOCOL_EXCLUDED = {
+    "search_agent",
+    "code_execution_agent",
+    "scout",
+    "casa",
+    "comms",
+    "kidsvid",
+}
 for sa in all_sub_agents:
     terse_applies = sa.name not in _TERSE_PROTOCOL_EXCLUDED
     if not sa.after_model_callback:

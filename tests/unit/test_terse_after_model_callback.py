@@ -9,6 +9,7 @@ types just to assert on ``part.text``.
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -35,7 +36,7 @@ class TestRehydrateValidPayloads:
         out = rehydrate_terse_payload(raw)
         assert "**Summary:** Light kitchen is off." in out
         assert TERSE_JSON_OPEN not in out
-        assert "Pass-through" not in out  # empty pass_through → no section
+        # Empty pass_through → summary only, no trailing blocks.
 
     def test_rehydrate_passes_through_exact_strings_verbatim(self):
         raw = (
@@ -46,9 +47,15 @@ class TestRehydrateValidPayloads:
         )
         out = rehydrate_terse_payload(raw)
         assert "**Summary:** Found 3 entities." in out
-        assert "**Pass-through:**" in out
         assert "light.kitchen: on" in out
         assert "light.bedroom: off" in out
+        # Items land at column 0 of their own paragraph — no
+        # ``**Pass-through:**`` markdown header that would bury fenced
+        # UI blocks inside a section and hide them from the card parser.
+        assert "**Pass-through:**" not in out
+        lines = out.split("\n")
+        assert "light.kitchen: on" in lines, "item must be at column 0"
+        assert "light.bedroom: off" in lines, "item must be at column 0"
 
     def test_rehydrate_accepts_json_fenced_block(self):
         raw = (
@@ -73,6 +80,79 @@ class TestRehydrateValidPayloads:
         )
         out = rehydrate_terse_payload(raw)
         assert out.strip() != ""
+
+
+# ── rehydrate_terse_payload: UI fence repair ─────────────────────────────
+#
+# The LLM has a strong habit of stripping the triple-backtick fences when
+# placing a radbot:<kind> card into pass_through. The frontend card parser
+# requires the full fence block at column 0 — nothing else renders. These
+# tests pin the repair so the regression that broke "turn off basement
+# plant lights" (card shown as raw inline JSON) cannot recur.
+
+
+class TestRehydrateUIFenceRepair:
+    def test_stripped_card_fence_is_rebuilt(self):
+        # This is the literal shape casa emitted in prod on 2026-04-20
+        # when the first "turn off lights" card regression happened:
+        # the pass_through string had ``radbot:card`` + JSON body but
+        # NO triple-backtick fences.
+        stripped_card = (
+            'radbot:card {"entity_id": "switch.basement_plant_lamp_switch", '
+            '"state": "off"}'
+        )
+        payload = {
+            "summary": "Basement plant lights are off.",
+            "pass_through": [stripped_card],
+        }
+        raw = f"{TERSE_JSON_OPEN}{json.dumps(payload)}{TERSE_JSON_CLOSE}"
+        out = rehydrate_terse_payload(raw)
+        # Fence markers rebuilt AND at column 0 — both required for the
+        # card parser to recognize the block.
+        assert "```radbot:card" in out
+        assert out.count("```") >= 2, "need opening AND closing fence"
+        for line in out.split("\n"):
+            if line.startswith("```radbot:card"):
+                break
+        else:
+            raise AssertionError("fence must start at column 0 on its own line")
+        # The entity_id is preserved verbatim — no paraphrasing.
+        assert "switch.basement_plant_lamp_switch" in out
+
+    def test_already_fenced_card_passes_through_untouched(self):
+        # If the LLM cooperates and emits the full fence inside
+        # pass_through, the normalizer must not double-wrap it.
+        fenced = '```radbot:ha-device\n{"entity_id": "light.kitchen"}\n```'
+        payload = {
+            "summary": "Kitchen light is on.",
+            "pass_through": [fenced],
+        }
+        raw = f"{TERSE_JSON_OPEN}{json.dumps(payload)}{TERSE_JSON_CLOSE}"
+        out = rehydrate_terse_payload(raw)
+        # Exactly one opening fence of kind radbot:ha-device (not double-wrapped).
+        assert out.count("```radbot:ha-device") == 1
+        assert "light.kitchen" in out
+
+    def test_multiline_stripped_card_body_survives_wrap(self):
+        # Pass_through contains a multi-line body without fences. The
+        # repair must still produce a single fence block whose body is
+        # the whole multi-line payload.
+        stripped_multiline = (
+            'radbot:ha-device\n{"entity_id": "light.kitchen",\n"state": "on"}'
+        )
+        payload = {
+            "summary": "Device info.",
+            "pass_through": [stripped_multiline],
+        }
+        raw = f"{TERSE_JSON_OPEN}{json.dumps(payload)}{TERSE_JSON_CLOSE}"
+        out = rehydrate_terse_payload(raw)
+        assert "```radbot:ha-device" in out
+        assert "light.kitchen" in out
+        # Closing fence is present and on its own line at column 0.
+        assert "\n```" in out
+        # Summary paragraph and the fence block are separated by a blank
+        # line so the markdown renderer treats the fence as its own block.
+        assert "**Summary:** Device info." in out.split("\n\n")[0]
 
 
 # ── rehydrate_terse_payload: malformed / degrade gracefully ──────────────
