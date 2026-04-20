@@ -1,13 +1,15 @@
 ---
 name: ship
 description: >
-  Branch off main into an isolated worktree, run cheap local quality gates,
-  open a PR with the run-e2e and auto-merge-eligible labels applied, watch the
-  quality-pipeline workflow run, fix CI failures up to 3 times, and auto-merge
-  when the score crosses 90. Use when the user says "ship this", "open a PR
-  for this work", "merge when CI is green", or wants the full ship-it lifecycle
-  for a non-trivial change. Does NOT decide merge authority — the workflow's
-  own gates do; this skill just orchestrates the human-side loop.
+  Branch off main into an isolated worktree, run cheap local quality gates
+  (lint, static type-check, unit tests, frontend build/e2e), open a PR with
+  the run-e2e and auto-merge-eligible labels applied, watch the
+  quality-pipeline workflow run, fix CI failures up to 3 times, and merge
+  from the user's shell (so deploy workflows fire) when the score crosses 90.
+  Use when the user says "ship this", "open a PR for this work", "merge when
+  CI is green", or wants the full ship-it lifecycle for a non-trivial change.
+  Does NOT decide merge authority — the workflow's own gates do; this skill
+  just orchestrates the human-side loop.
 ---
 
 # /ship — work in worktree → PR → quality-pipeline → auto-merge at 90
@@ -58,26 +60,44 @@ From here, every command runs in the worktree.
 
 ## Phase 3 — Local gates (cheap subset)
 
-Run these — they catch the cheap failures before paying for CI:
+**Hard gate**: every command below must exit 0 before Phase 5 (secret scan) / Phase 6 (push). CI runs the same checks — running them locally first is the cheap way to avoid a red pipeline + 4-minute wait.
+
+### Python static + unit
 
 ```bash
-make lint                   # ruff + mypy
+make lint                   # flake8 + mypy over radbot/ and tests/
 make test-unit              # pytest tests/unit
-cd radbot/web/frontend && npm ci && npm run build && cd ../../..
-cd radbot/web/frontend && BASE_REF=origin/main npm run test:e2e:affected && cd ../../..
 ```
 
-Skip locally:
-- `make test-integration` (slow, depends on services)
-- `make test-e2e-browser` full run (covered by CI)
-- visual regression (requires real Anthropic spend; CI handles it)
-- chat-quality grading (`ANTHROPIC_API_KEY` required; CI handles it)
+### Frontend static + build (only if `radbot/web/frontend/**` changed)
 
-If anything fails:
-1. Show the user the failure.
-2. Fix only the failing thing — don't refactor.
-3. Re-run only the gate that failed.
-4. Repeat until green or user aborts.
+```bash
+cd radbot/web/frontend
+npm ci
+npm run lint                # eslint .
+npx tsc --noEmit            # TypeScript static type check
+npm run build               # catches import / prop-type issues missed by lint
+BASE_REF=origin/main npm run test:e2e:affected
+cd ../../..
+```
+
+Check `git diff --name-only origin/main...HEAD` (or the working tree for pre-commit runs) to decide whether the frontend block applies. If the diff is Python-only, skip the frontend block entirely.
+
+### Skip locally (CI covers these)
+
+- `make test-integration` — slow, depends on services
+- `make test-e2e-browser` full run — covered by functional-e2e
+- Visual regression — requires real Anthropic spend
+- Chat-quality grading — requires `ANTHROPIC_API_KEY`
+
+### On failure
+
+1. Show the user the failing output verbatim.
+2. Fix only the failing thing — don't refactor, don't auto-format unrelated code.
+3. Re-run **only** the gate that failed (not the whole suite).
+4. Repeat until green or the user aborts.
+
+Do not proceed to Phase 5 until every gate above is green. "I'll let CI catch it" is a failure mode — CI costs ~4 min and a GitHub Actions minute; `make lint` costs ~10 s.
 
 ## Phase 4 — Spec sync check
 
@@ -194,18 +214,38 @@ If `score < $AUTO_MERGE_THRESHOLD`:
 
 Cap at $MAX_FIX_ATTEMPTS. Past that, hand control to the user with a summary.
 
-## Phase 11 — Auto-merge
+## Phase 11 — Merge (user-authenticated, so deploys trigger)
 
 If `score ≥ $AUTO_MERGE_THRESHOLD`:
 
 1. Confirm once with the user: `Score is NN/100 — merge now?` Skip if `--auto-yes` was passed.
-2. The workflow's aggregate job already calls `gh pr merge --auto --squash --delete-branch` when `auto-merge-eligible` is set, score ≥ 90, secret-scan succeeded, and path-guard didn't block. Verify the PR has `auto-merge` enabled:
+2. Verify the pipeline actually cleared the gates the skill cannot see:
 
 ```bash
-gh pr view $PR_NUMBER --repo $GITHUB_REPO --json autoMergeRequest --jq .autoMergeRequest
+gh pr view $PR_NUMBER --repo $GITHUB_REPO \
+  --json labels,statusCheckRollup \
+  --jq '{labels: [.labels[].name], aggregate_conclusion: ([.statusCheckRollup[] | select(.name=="aggregate") | .conclusion] | last)}'
 ```
 
-3. If auto-merge isn't queued (e.g. path-guard blocked, or `auto-merge-eligible` isn't applied), tell the user why and ask if they want to merge by hand.
+   - `auto-merge-eligible` must be in `labels` (otherwise the user chose `--manual-merge`; stop and hand off).
+   - `aggregate_conclusion` must be `SUCCESS`.
+
+3. Merge from the user's shell — **never from inside the workflow**. A merge authored by the workflow's `GITHUB_TOKEN` does not fire downstream `push` workflows (including `Build and Push Docker Image`), so merging from CI silently skips deploys ([GitHub docs](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow)). `gh` uses the user's PAT, so the resulting push to `main` triggers the docker-build workflow as expected.
+
+```bash
+gh pr merge $PR_NUMBER --repo $GITHUB_REPO --squash --delete-branch
+```
+
+4. After merge, confirm the deploy fired:
+
+```bash
+sleep 10
+gh run list --repo $GITHUB_REPO --workflow "Build and Push Docker Image" --branch main --limit 1
+```
+
+   Tell the user the run ID so they can watch it. If no run appears within ~30 s, the user should push an empty commit from their shell to force a fresh `push` event.
+
+5. If `auto-merge-eligible` is missing or `aggregate_conclusion` is not `SUCCESS`, tell the user why and stop — do not attempt the merge.
 
 The skill has NO authority to bypass branch protection or path-guard — it only orchestrates.
 
