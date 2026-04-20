@@ -115,6 +115,11 @@
           "description": "Whether to use Vertex AI for model API access",
           "default": false
         },
+        "terse_protocol_enabled": {
+          "type": "boolean",
+          "description": "Enable the Terse JSON Protocol for sub-agent \u2192 Beto output compression. Attaches before/after model callbacks to casa, planner, comms, axel, and kidsvid. Env override: RADBOT_TERSE_PROTOCOL_ENABLED.",
+          "default": false
+        },
         "vertex_project": {
           "type": ["string", "null"],
           "description": "Google Cloud project ID for Vertex AI"
