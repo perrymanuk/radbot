@@ -69,6 +69,14 @@ def _build_scout_toolkit() -> List[Any]:
     except Exception as e:
         logger.warning("Scout: plan council unavailable: %s", e)
 
+    # Divergent ideation — 3 parallel LLM streams (standard/contrarian/wildcard)
+    try:
+        from radbot.tools.divergent_ideation import execute_divergent_ideation_tool
+
+        toolkit.append(execute_divergent_ideation_tool)
+    except Exception as e:
+        logger.warning("Scout: divergent_ideation unavailable: %s", e)
+
     return toolkit
 
 
