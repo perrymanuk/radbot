@@ -7,8 +7,10 @@ from unittest.mock import MagicMock, patch
 
 
 from radbot.tools.scheduler.defaults import (
+    DEFAULT_DISTILLER_CRON,
     DEFAULT_DREAM_CRON,
     DEFAULT_HEARTBEAT_CRON,
+    DISTILLER_JOB_ID,
     DREAM_JOB_ID,
     HEARTBEAT_JOB_ID,
     register_default_jobs,
@@ -27,12 +29,10 @@ def test_register_default_jobs_both_enabled_by_default():
     with patch("radbot.tools.scheduler.defaults._get_section", return_value={}):
         register_default_jobs(engine)
 
-    assert scheduler.add_job.call_count == 2
-    ids = [call.kwargs.get("id") or call.args[2] if len(call.args) > 2 else call.kwargs.get("id")
-           for call in scheduler.add_job.call_args_list]
-    # Extract by kwargs (always passed by name in our impl)
+    assert scheduler.add_job.call_count == 3
     ids = [call.kwargs["id"] for call in scheduler.add_job.call_args_list]
     assert DREAM_JOB_ID in ids
+    assert DISTILLER_JOB_ID in ids
     assert HEARTBEAT_JOB_ID in ids
 
 
@@ -57,9 +57,9 @@ def test_register_default_jobs_uses_custom_cron():
     with patch("radbot.tools.scheduler.defaults._get_section", side_effect=section):
         register_default_jobs(engine)
 
-    # Both jobs added with the custom cron expression — we don't inspect the
-    # trigger object directly, but we verify count and ids.
-    assert scheduler.add_job.call_count == 2
+    # All three jobs added with the custom cron expression — we don't
+    # inspect the trigger object directly, but we verify count.
+    assert scheduler.add_job.call_count == 3
 
 
 def test_register_default_jobs_bad_cron_is_logged_and_skipped():
@@ -68,14 +68,17 @@ def test_register_default_jobs_bad_cron_is_logged_and_skipped():
     def section(name):
         if name == "dream":
             return {"enabled": True, "cron_expression": "not a cron"}
-        return {"enabled": True}  # heartbeat uses default
+        return {"enabled": True}  # distiller + heartbeat use defaults
 
     with patch("radbot.tools.scheduler.defaults._get_section", side_effect=section):
         register_default_jobs(engine)
 
-    # Only heartbeat should have been added.
-    assert scheduler.add_job.call_count == 1
-    assert scheduler.add_job.call_args.kwargs["id"] == HEARTBEAT_JOB_ID
+    # Only distiller + heartbeat should have been added (dream has bad cron).
+    assert scheduler.add_job.call_count == 2
+    ids = [call.kwargs["id"] for call in scheduler.add_job.call_args_list]
+    assert DISTILLER_JOB_ID in ids
+    assert HEARTBEAT_JOB_ID in ids
+    assert DREAM_JOB_ID not in ids
 
 
 def test_register_default_jobs_replaces_existing():
@@ -91,7 +94,7 @@ def test_register_default_jobs_replaces_existing():
         register_default_jobs(engine)
 
     existing.remove.assert_called_once()
-    assert scheduler.add_job.call_count == 2
+    assert scheduler.add_job.call_count == 3
 
 
 def test_register_default_jobs_handles_missing_scheduler():
@@ -102,5 +105,5 @@ def test_register_default_jobs_handles_missing_scheduler():
 
 
 def test_defaults_constants_are_valid_5_field_cron():
-    for expr in (DEFAULT_DREAM_CRON, DEFAULT_HEARTBEAT_CRON):
+    for expr in (DEFAULT_DREAM_CRON, DEFAULT_DISTILLER_CRON, DEFAULT_HEARTBEAT_CRON):
         assert len(expr.split()) == 5

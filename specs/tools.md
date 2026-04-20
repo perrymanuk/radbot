@@ -158,9 +158,12 @@ Default proactive primitives (not LLM-callable; native APScheduler jobs register
 | Job | Default cron | Implementation | Config section |
 |-----|--------------|----------------|----------------|
 | Dream (memory consolidation) | `0 3 * * *` | `tools/memory/memory_consolidation.py::run_dream` | `config:dream` (`enabled`, `cron_expression`, `lookback_hours`, `promote`) |
+| SemanticDistiller (episodic → implicit) | `30 3 * * *` | `tools/memory/semantic_distiller.py::run_distillation` | `config:distiller` (`enabled`, `cron_expression`, `min_episodes`, `max_attempts`, `prior_rules_k`, `model`) |
 | Heartbeat (morning digest) | `0 8 * * *` | `tools/heartbeat/digest.py::assemble_digest` + `tools/heartbeat/delivery.py::deliver_digest` (ntfy) | `config:heartbeat` (`enabled`, `cron_expression`, `horizon_hours`) |
 
 Dream eTAMP safety: low-trust points (`trust=low` or `source ∈ {alert,webhook}`) are excluded from promotion candidacy; `promote=True` surfaces candidate IDs only — never writes to durable storage without user confirmation.
+
+SemanticDistiller (EX8 / PT32): chronological trigger — scrolls `memory_class=episodic` points newer than a cursor doc (`memory_type=distiller_cursor`); skips if `< min_episodes`. Pydantic AI enforces `DistilledRule`: statement ≤ 25 words via `@field_validator`, mandatory `relation_to_prior ∈ {novel, refines, contradicts, reinforces}`, non-empty `supersedes` when refining/contradicting. Dead-letter queue: per-episode `distillation_attempts` counter incremented before the LLM call; episodes exceeding `max_attempts` get `status=dead_letter` and are skipped on future runs. Idempotent 3-step update tagged with a `job_run_id` batch UUID — (1) upsert new rules as `status=pending`, (2) supersede prior rules → `inactive` + archive source episodes → `archived`, (3) flip pending → `active`. Never issues a physical `DELETE`. `rollback_distillation(job_run_id)` reverts any partial state left by a crash mid-run.
 
 ### reminders — `tools/reminders/reminder_tools.py`
 
