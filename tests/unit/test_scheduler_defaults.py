@@ -82,6 +82,7 @@ def test_register_default_jobs_replaces_existing():
     engine, scheduler = _engine_with_scheduler()
     existing = MagicMock()
     # Return an existing job only for dream.
+
     def get_job(job_id):
         return existing if job_id == DREAM_JOB_ID else None
     scheduler.get_job.side_effect = get_job

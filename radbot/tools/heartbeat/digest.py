@@ -129,7 +129,7 @@ def _render_tasks(tasks: List[Dict[str, Any]]) -> str:
     lines = ["## Tasks"]
     for t in tasks[:15]:
         tag = " ⚠ overdue" if t.get("overdue") else (f" (due {t['due']})" if t.get("due") else "")
-        lines.append(f"- **{t.get('ref_code','')}**{tag} — {t.get('content','')}")
+        lines.append(f"- **{t.get('ref_code', '')}**{tag} — {t.get('content', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -151,7 +151,7 @@ def _render_reminders(rems: List[Dict[str, Any]]) -> str:
     lines = ["## Reminders"]
     for r in rems[:10]:
         at = r["remind_at"].strftime("%H:%M") if isinstance(r.get("remind_at"), datetime) else "?"
-        lines.append(f"- {at} — {r.get('message','')}")
+        lines.append(f"- {at} — {r.get('message', '')}")
     return "\n".join(lines) + "\n"
 
 
@@ -161,7 +161,7 @@ def _render_alerts(alerts: List[Dict[str, Any]]) -> str:
     lines = ["## Alerts"]
     for a in alerts[:10]:
         lines.append(
-            f"- [{a.get('severity','?')}] {a.get('alertname','?')} @ {a.get('instance','?')}"
+            f"- [{a.get('severity', '?')}] {a.get('alertname', '?')} @ {a.get('instance', '?')}"
         )
     return "\n".join(lines) + "\n"
 
