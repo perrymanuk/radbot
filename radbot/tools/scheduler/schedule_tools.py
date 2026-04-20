@@ -25,12 +25,14 @@ def create_scheduled_task(
     cron_expression: str,
     prompt: str,
     description: Optional[str] = None,
+    agent_name: str = "beto",
 ) -> Dict[str, Any]:
     """
     Creates a new recurring scheduled task.
 
-    The task will fire on the given cron schedule, send the prompt to the agent,
-    and push the response to the web UI.
+    The task will fire on the given cron schedule, send the prompt to the
+    specified root agent, and push the response via the notifications pipeline
+    (ntfy + notifications table + WS broadcast).
 
     Args:
         name: A short human-readable name for the task (e.g. "Morning Weather Check").
@@ -39,6 +41,9 @@ def create_scheduled_task(
             Format: minute hour day_of_month month day_of_week
         prompt: The text that will be sent to the agent each time the task fires.
         description: An optional longer description of what this task does.
+        agent_name: Which root agent handles the prompt. One of "beto" (default)
+            or "scout". Each cron runs in a dedicated per-agent scheduler session
+            so it is not routed to whatever chat the user has open.
 
     Returns:
         On success: {"status": "success", "task_id": "...", "name": "...", "cron_expression": "..."}
@@ -52,12 +57,21 @@ def create_scheduled_task(
     except (ValueError, KeyError) as e:
         return {"status": "error", "message": f"Invalid cron expression: {e}"}
 
+    from radbot.agent.agent_core import ROOT_AGENTS
+
+    if agent_name not in ROOT_AGENTS:
+        return {
+            "status": "error",
+            "message": f"Unknown agent_name '{agent_name}'. Valid: {sorted(ROOT_AGENTS.keys())}",
+        }
+
     try:
         row = scheduler_db.create_task(
             name=name,
             cron_expression=cron_expression,
             prompt=prompt,
             description=description,
+            agent_name=agent_name,
         )
         task_id = str(row["task_id"])
 
@@ -76,6 +90,7 @@ def create_scheduled_task(
             "task_id": task_id,
             "name": name,
             "cron_expression": cron_expression,
+            "agent_name": agent_name,
         }
     except Exception as e:
         error_message = f"Failed to create scheduled task: {str(e)}"
