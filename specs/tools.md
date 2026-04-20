@@ -40,6 +40,7 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/shared/card_protocol.py` (cards) | 4 | casa, kidsvid | `show_media_card`, `show_season_breakdown`, `show_ha_device_card`, `show_video_card` |
 | Axel execution tools | 4 | axel | `code_execution_tool`, `run_tests`, `validate_code`, `generate_documentation` |
 | `load_artifacts` (ADK) | 1 | axel | built-in |
+| `tools/telemetry/` | 0 (infra, not FunctionTools) | n/a | `TelemetryService` — decoupled, fail-open metrics pipeline. Bounded queue (1000), background-worker batch insert, strict 1s connect/statement timeouts, atexit/SIGTERM flush (≤3s), strict Pydantic validation that drops events with extra fields (PII safety). Producers: Dream (`tools/scheduler/defaults.py`) + Telos context-injection callback (`tools/telos/callback.py`). Kill-switch: `config:telemetry.enabled`. Persists to `telemetry_events`. PT30 / EX7. |
 
 **Total**: ~105 FunctionTools + variable MCP tools + 2 ADK built-ins (`google_search`, `BuiltInCodeExecutor`).
 
