@@ -1,13 +1,13 @@
 """Unit tests for TelemetryService — fail-open semantics, no wall-clock waits.
 
-We exercise the service's public surface (``enqueue`` + ``flush``) and the
-internal ``_flush_batch`` directly so we can assert DB-error handling
-without spinning up a real worker thread or sleeping.
+We assert against the service module's logger (mocked) rather than pytest's
+``caplog`` fixture. The radbot logging stack configures handlers at import
+time and may disable propagation, leaving ``caplog`` empty in CI even when
+warnings are emitted — mocking the logger sidesteps that entirely.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List, Tuple
 from unittest.mock import patch
 
@@ -37,6 +37,17 @@ def _telemetry_enabled():
         yield m
 
 
+@pytest.fixture
+def warn_log():
+    """Capture every warning emitted via the service module's logger."""
+    with patch("radbot.tools.telemetry.service.logger") as mock_logger:
+        yield mock_logger
+
+
+def _warn_messages(mock_logger) -> List[str]:
+    return [c.args[0] for c in mock_logger.warning.call_args_list]
+
+
 def _make_service(db_writer=None, max_queue_size: int = 1000) -> TelemetryService:
     return TelemetryService(
         db_writer=db_writer or (lambda batch: None),
@@ -47,26 +58,26 @@ def _make_service(db_writer=None, max_queue_size: int = 1000) -> TelemetryServic
 # --------------------------------------------------------------- queue overflow
 
 
-def test_enqueue_drops_when_queue_full(caplog):
+def test_enqueue_drops_when_queue_full(warn_log):
     """A full queue must drop silently with one rate-limited warning — never raise."""
     svc = _make_service(max_queue_size=2)
     # Don't start the worker — fill the queue manually so put_nowait fails.
     svc._queue.put_nowait(("dream_pass_complete", _payload()))
     svc._queue.put_nowait(("dream_pass_complete", _payload()))
 
-    with caplog.at_level(logging.WARNING, logger="radbot.tools.telemetry.service"):
-        # Should not raise even though the worker is asleep and queue is full.
-        with patch.object(svc, "_ensure_started"):
-            svc.enqueue("dream_pass_complete", _payload())
+    # Should not raise even though the worker is asleep and queue is full.
+    with patch.object(svc, "_ensure_started"):
+        svc.enqueue("dream_pass_complete", _payload())
 
-    assert any("queue full" in r.message for r in caplog.records)
+    msgs = _warn_messages(warn_log)
+    assert any("queue full" in m for m in msgs), msgs
     assert svc._queue.qsize() == 2  # third event was dropped
 
 
 # ------------------------------------------------------------------ DB timeout
 
 
-def test_db_timeout_drops_batch(caplog):
+def test_db_timeout_drops_batch(warn_log):
     """A db_writer raising OperationalError must NOT propagate; batch is dropped."""
     def boom(batch):
         raise psycopg2.OperationalError("statement timeout (mocked, no real wait)")
@@ -77,12 +88,12 @@ def test_db_timeout_drops_batch(caplog):
         ("dream_pass_complete", _payload()),
     ]
 
-    with caplog.at_level(logging.WARNING, logger="radbot.tools.telemetry.service"):
-        # _flush_batch is the post-collect tight loop; calling it directly
-        # avoids spawning the worker thread (no sleep, no race).
-        svc._flush_batch(batch)
+    # _flush_batch is the post-collect tight loop; calling it directly avoids
+    # spawning the worker thread (no sleep, no race).
+    svc._flush_batch(batch)
 
-    assert any("DB write failed" in r.message for r in caplog.records)
+    msgs = _warn_messages(warn_log)
+    assert any("DB write failed" in m for m in msgs), msgs
 
 
 # ------------------------------------------------------------------ kill switch
@@ -101,25 +112,25 @@ def test_kill_switch_disables_enqueue(_telemetry_enabled):
 # ----------------------------------------------------- pydantic strips PII text
 
 
-def test_pydantic_rejects_extra_text_field(caplog):
+def test_pydantic_rejects_extra_text_field(warn_log):
     """Extra string fields like ``"text"`` must be dropped (PII safety)."""
     svc = _make_service()
     payload = dict(_payload())
     payload["text"] = "user typed something private here"
 
-    with caplog.at_level(logging.WARNING, logger="radbot.tools.telemetry.service"):
-        svc.enqueue("dream_pass_complete", payload)
+    svc.enqueue("dream_pass_complete", payload)
 
     assert svc._queue.qsize() == 0
-    assert any("validation failed" in r.message for r in caplog.records)
+    msgs = _warn_messages(warn_log)
+    assert any("validation failed" in m for m in msgs), msgs
 
 
-def test_pydantic_rejects_unknown_event_type(caplog):
+def test_pydantic_rejects_unknown_event_type(warn_log):
     svc = _make_service()
-    with caplog.at_level(logging.WARNING, logger="radbot.tools.telemetry.service"):
-        svc.enqueue("not_a_real_event", {"x": 1})
+    svc.enqueue("not_a_real_event", {"x": 1})
     assert svc._queue.qsize() == 0
-    assert any("validation failed" in r.message for r in caplog.records)
+    msgs = _warn_messages(warn_log)
+    assert any("validation failed" in m for m in msgs), msgs
 
 
 # ---------------------------------------------------- successful happy-path enqueue
@@ -164,14 +175,13 @@ def test_flush_is_safe_when_worker_never_started():
 # ------------------------------------------------------------- warn throttling
 
 
-def test_warn_throttle_suppresses_repeated_warnings(caplog):
+def test_warn_throttle_suppresses_repeated_warnings(warn_log):
     svc = _make_service(max_queue_size=1)
     svc._queue.put_nowait(("dream_pass_complete", _payload()))
 
-    with caplog.at_level(logging.WARNING, logger="radbot.tools.telemetry.service"):
-        with patch.object(svc, "_ensure_started"):
-            svc.enqueue("dream_pass_complete", _payload())  # warns
-            svc.enqueue("dream_pass_complete", _payload())  # throttled
+    with patch.object(svc, "_ensure_started"):
+        svc.enqueue("dream_pass_complete", _payload())  # warns
+        svc.enqueue("dream_pass_complete", _payload())  # throttled
 
-    warns = [r for r in caplog.records if "queue full" in r.message]
-    assert len(warns) == 1
+    warns = [m for m in _warn_messages(warn_log) if "queue full" in m]
+    assert len(warns) == 1, _warn_messages(warn_log)
