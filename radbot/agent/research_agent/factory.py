@@ -69,6 +69,17 @@ def _build_scout_toolkit() -> List[Any]:
     except Exception as e:
         logger.warning("Scout: plan council unavailable: %s", e)
 
+    # Read-only code exploration (EX9). Lets scout sync public repos into
+    # /data/repos and search them with rg, so she can produce file manifests
+    # for Claude Code without running an LSP. PT35 adds repo_map +
+    # repo_references on top of the same module.
+    try:
+        from radbot.tools.repo_exploration import REPO_EXPLORATION_TOOLS
+
+        toolkit.extend(REPO_EXPLORATION_TOOLS)
+    except Exception as e:
+        logger.warning("Scout: repo_exploration tools unavailable: %s", e)
+
     # Divergent ideation — three parallel persona calls (Pragmatic, Contrarian,
     # Wildcard) with graceful degradation. See `explorations: EX5` in Telos.
     try:

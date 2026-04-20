@@ -15,6 +15,7 @@
 - **Package manager**: `uv` — both containers use multi-stage builds with `uv` + GHA layer caching (`c20e8b2`, `c1cbdd8`)
 - **ADK**: `google-adk>=2.0.0a3,<3.0.0` with V1 LlmAgent mode (V2 `_Mesh` is being removed upstream — see CLAUDE.md gotchas)
 - **genai**: `google-genai>=1.68.0` (NOT the older `google-generativeai` package)
+- **Code-exploration binaries** (EX9, runtime stage): `git`, `ripgrep`, `universal-ctags` via apt; `ast-grep` (and the `sg` alias) copied from a dedicated `ast-grep-bin` builder stage that fetches the prebuilt `app-x86_64-unknown-linux-gnu.zip` from the GitHub release pinned by the `AST_GREP_VERSION` build arg. `mkdir /data/repos` creates the in-image jail dir; the Nomad job mounts a persistent volume on top. Stack-graphs was the original choice but the project is archived/source-only — universal-ctags + ast-grep + rg replaces it. Consumed by `radbot/tools/repo_exploration.py` (Scout's read-only repo tools).
 
 ## Bootstrap Config
 

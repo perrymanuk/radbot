@@ -22,6 +22,19 @@ RUN ANTHROPIC_API_KEY=sk-ant-dummy claude -p "hi" --max-turns 1 2>/dev/null || t
     && echo '{"theme":"dark"}' > /root/.claude/settings.json \
     && echo '{}' > /root/.claude/settings.local.json
 
+# Stage 3a: Fetch ast-grep prebuilt binary for code exploration tools (EX9).
+# stack-graphs is archived/source-only; we use universal-ctags + ast-grep + rg
+# instead. See radbot/tools/repo_exploration.py.
+FROM debian:bookworm-slim AS ast-grep-bin
+ARG AST_GREP_VERSION=0.42.1
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates unzip \
+    && curl -fsSL -o /tmp/ast-grep.zip \
+       "https://github.com/ast-grep/ast-grep/releases/download/${AST_GREP_VERSION}/app-x86_64-unknown-linux-gnu.zip" \
+    && unzip -j /tmp/ast-grep.zip -d /out \
+    && chmod +x /out/ast-grep /out/sg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Stage 3: Install Python dependencies (build tools available here only)
 FROM python:3.14-slim AS python-builder
 
@@ -45,8 +58,14 @@ FROM python:3.14-slim
 # Runtime-only system deps: libpq5 (psycopg2 runtime), git (workspace clones),
 # curl + ca-certificates (health checks, API calls)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 git curl ca-certificates \
+    libpq5 git curl ca-certificates ripgrep universal-ctags \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Code exploration binaries (EX9 / PT33). Scout reads cloned public repos
+# from /data/repos using these read-only tools.
+COPY --from=ast-grep-bin /out/ast-grep /usr/local/bin/ast-grep
+COPY --from=ast-grep-bin /out/sg /usr/local/bin/sg
+RUN mkdir -p /data/repos
 
 # Copy Node.js binary + Claude Code CLI (no npm/nodesource needed at runtime)
 COPY --from=claude-code-build /usr/local/bin/node /usr/local/bin/node
