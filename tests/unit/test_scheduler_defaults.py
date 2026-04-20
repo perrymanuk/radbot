@@ -28,8 +28,14 @@ def test_register_default_jobs_both_enabled_by_default():
         register_default_jobs(engine)
 
     assert scheduler.add_job.call_count == 2
-    ids = [call.kwargs.get("id") or call.args[2] if len(call.args) > 2 else call.kwargs.get("id")
-           for call in scheduler.add_job.call_args_list]
+    ids = [
+        (
+            call.kwargs.get("id") or call.args[2]
+            if len(call.args) > 2
+            else call.kwargs.get("id")
+        )
+        for call in scheduler.add_job.call_args_list
+    ]
     # Extract by kwargs (always passed by name in our impl)
     ids = [call.kwargs["id"] for call in scheduler.add_job.call_args_list]
     assert DREAM_JOB_ID in ids
@@ -85,6 +91,7 @@ def test_register_default_jobs_replaces_existing():
 
     def get_job(job_id):
         return existing if job_id == DREAM_JOB_ID else None
+
     scheduler.get_job.side_effect = get_job
 
     with patch("radbot.tools.scheduler.defaults._get_section", return_value={}):

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 DREAM_JOB_ID = "__dream__"
 HEARTBEAT_JOB_ID = "__heartbeat__"
 
-DEFAULT_DREAM_CRON = "0 3 * * *"       # 03:00 daily
-DEFAULT_HEARTBEAT_CRON = "0 8 * * *"    # 08:00 daily
+DEFAULT_DREAM_CRON = "0 3 * * *"  # 03:00 daily
+DEFAULT_HEARTBEAT_CRON = "0 8 * * *"  # 08:00 daily
 
 
 def _get_section(section: str) -> Dict[str, Any]:
@@ -91,15 +91,29 @@ def register_default_jobs(engine: Any) -> None:
         return
 
     specs = [
-        ("dream", DREAM_JOB_ID, DEFAULT_DREAM_CRON, _run_dream_job, "Dream (memory consolidation)"),
-        ("heartbeat", HEARTBEAT_JOB_ID, DEFAULT_HEARTBEAT_CRON, _run_heartbeat_job, "Heartbeat (morning digest)"),
+        (
+            "dream",
+            DREAM_JOB_ID,
+            DEFAULT_DREAM_CRON,
+            _run_dream_job,
+            "Dream (memory consolidation)",
+        ),
+        (
+            "heartbeat",
+            HEARTBEAT_JOB_ID,
+            DEFAULT_HEARTBEAT_CRON,
+            _run_heartbeat_job,
+            "Heartbeat (morning digest)",
+        ),
     ]
 
     for section, job_id, default_cron, callable_, label in specs:
         cfg = _get_section(section)
         enabled = cfg.get("enabled", True)
         if not enabled:
-            logger.info("%s disabled via config:%s — not registering job", label, section)
+            logger.info(
+                "%s disabled via config:%s — not registering job", label, section
+            )
             continue
         cron_expr = str(cfg.get("cron_expression") or default_cron)
         try:

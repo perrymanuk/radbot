@@ -498,9 +498,7 @@ class TestMemoryTools:
             }
         ]
 
-        result = search_past_conversations(
-            query="anything", tool_context=mock_context
-        )
+        result = search_past_conversations(query="anything", tool_context=mock_context)
 
         assert result["status"] == "success"
         assert result["memories"][0]["memory_class"] == "episodic"

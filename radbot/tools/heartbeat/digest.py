@@ -77,7 +77,9 @@ def _fetch_calendar(horizon: datetime) -> List[Dict[str, Any]]:
 
         mgr = get_calendar_manager()
         now = datetime.utcnow()
-        events = mgr.list_upcoming_events(time_min=now, time_max=horizon.replace(tzinfo=None), max_results=20)
+        events = mgr.list_upcoming_events(
+            time_min=now, time_max=horizon.replace(tzinfo=None), max_results=20
+        )
         if isinstance(events, dict) and events.get("error"):
             return []
         return list(events or [])
@@ -128,7 +130,11 @@ def _render_tasks(tasks: List[Dict[str, Any]]) -> str:
         return "## Tasks\n_No items_\n"
     lines = ["## Tasks"]
     for t in tasks[:15]:
-        tag = " ⚠ overdue" if t.get("overdue") else (f" (due {t['due']})" if t.get("due") else "")
+        tag = (
+            " ⚠ overdue"
+            if t.get("overdue")
+            else (f" (due {t['due']})" if t.get("due") else "")
+        )
         lines.append(f"- **{t.get('ref_code', '')}**{tag} — {t.get('content', '')}")
     return "\n".join(lines) + "\n"
 
@@ -150,7 +156,11 @@ def _render_reminders(rems: List[Dict[str, Any]]) -> str:
         return "## Reminders\n_No items_\n"
     lines = ["## Reminders"]
     for r in rems[:10]:
-        at = r["remind_at"].strftime("%H:%M") if isinstance(r.get("remind_at"), datetime) else "?"
+        at = (
+            r["remind_at"].strftime("%H:%M")
+            if isinstance(r.get("remind_at"), datetime)
+            else "?"
+        )
         lines.append(f"- {at} — {r.get('message', '')}")
     return "\n".join(lines) + "\n"
 

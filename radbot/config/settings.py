@@ -174,7 +174,7 @@ class ConfigManager:
                     )
                     r.model = new_r_model
 
-            for sa in (getattr(r, "sub_agents", None) or []):
+            for sa in getattr(r, "sub_agents", None) or []:
                 if id(sa) in seen_ids:
                     continue
                 seen_ids.add(id(sa))

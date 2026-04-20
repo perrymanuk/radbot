@@ -49,12 +49,18 @@ async def test_happy_path_returns_three_paths():
         )
     )
 
-    with patch.object(
-        di_module.tool, "create_client_with_config_settings", return_value=fake_client
-    ), patch.object(di_module.tool, "_model", return_value="gemini-test"), patch.object(
-        di_module.tool,
-        "sanitize_external_content",
-        side_effect=lambda text, **_: text,
+    with (
+        patch.object(
+            di_module.tool,
+            "create_client_with_config_settings",
+            return_value=fake_client,
+        ),
+        patch.object(di_module.tool, "_model", return_value="gemini-test"),
+        patch.object(
+            di_module.tool,
+            "sanitize_external_content",
+            side_effect=lambda text, **_: text,
+        ),
     ):
         result = await divergent_ideation("How do we cool a 10kW rack quietly?")
 
@@ -94,13 +100,20 @@ async def test_partial_failure_one_persona_times_out():
     )
 
     # Shrink the timeout so the test runs fast.
-    with patch.object(
-        di_module.tool, "create_client_with_config_settings", return_value=fake_client
-    ), patch.object(di_module.tool, "_model", return_value="gemini-test"), patch.object(
-        di_module.tool,
-        "sanitize_external_content",
-        side_effect=lambda text, **_: text,
-    ), patch.object(di_module.tool, "PER_CALL_TIMEOUT_SECONDS", 0.05):
+    with (
+        patch.object(
+            di_module.tool,
+            "create_client_with_config_settings",
+            return_value=fake_client,
+        ),
+        patch.object(di_module.tool, "_model", return_value="gemini-test"),
+        patch.object(
+            di_module.tool,
+            "sanitize_external_content",
+            side_effect=lambda text, **_: text,
+        ),
+        patch.object(di_module.tool, "PER_CALL_TIMEOUT_SECONDS", 0.05),
+    ):
         result = await divergent_ideation("Design a self-healing deploy.")
 
     # Tool did NOT raise — partial result returned.
@@ -130,12 +143,18 @@ async def test_partial_failure_one_persona_raises_exception():
         )
     )
 
-    with patch.object(
-        di_module.tool, "create_client_with_config_settings", return_value=fake_client
-    ), patch.object(di_module.tool, "_model", return_value="gemini-test"), patch.object(
-        di_module.tool,
-        "sanitize_external_content",
-        side_effect=lambda text, **_: text,
+    with (
+        patch.object(
+            di_module.tool,
+            "create_client_with_config_settings",
+            return_value=fake_client,
+        ),
+        patch.object(di_module.tool, "_model", return_value="gemini-test"),
+        patch.object(
+            di_module.tool,
+            "sanitize_external_content",
+            side_effect=lambda text, **_: text,
+        ),
     ):
         result = await divergent_ideation("Pick a vector DB.")
 
@@ -157,7 +176,9 @@ async def test_empty_problem_statement_returns_errors_without_calling_llm():
         called = True
         raise AssertionError("LLM client must not be constructed for empty input")
 
-    with patch.object(di_module.tool, "create_client_with_config_settings", side_effect=boom):
+    with patch.object(
+        di_module.tool, "create_client_with_config_settings", side_effect=boom
+    ):
         result = await divergent_ideation("   ")
 
     assert called is False
