@@ -56,10 +56,10 @@ Created per-agent via `create_agent_memory_tools(agent_name)`. Scoped by `source
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `search_agent_memory` | `query`, `max_results`, `time_window_days`, `memory_type` | Search this agent's scoped memories |
-| `store_agent_memory` | `information`, `memory_type` | Store memory in agent's namespace |
+| `search_agent_memory` | `query`, `max_results`, `time_window_days`, `memory_type`, `memory_class` | Search this agent's scoped memories |
+| `store_agent_memory` | `information`, `memory_type`, `memory_class` | Store memory in agent's namespace |
 
-Global variants (`search_past_conversations`, `store_important_information`) exist but are not currently assigned to any agent.
+`memory_class` (EX4 taxonomy): `episodic` / `implicit` / `explicit` — orthogonal to `memory_type`. See `specs/storage.md` § Memory type taxonomy. Defaults: `explicit` on store (user-authorized), unfiltered on search. Global variants (`search_past_conversations`, `store_important_information`) accept the same parameters.
 
 ### telos project hierarchy — `tools/telos/telos_tools.py`
 

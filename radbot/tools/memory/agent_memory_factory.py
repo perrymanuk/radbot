@@ -7,10 +7,12 @@ polluting other agents' memory spaces.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.tool_context import ToolContext
+
+from radbot.tools.memory.memory_tools import VALID_MEMORY_CLASSES
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,7 @@ def create_agent_memory_tools(agent_name: str) -> List[FunctionTool]:
         time_window_days: Optional[int] = None,
         tool_context: Optional[ToolContext] = None,
         memory_type: Optional[str] = None,
+        memory_class: Optional[Union[str, List[str]]] = None,
     ) -> Dict[str, Any]:
         """
         Search memories stored by this agent.
@@ -103,6 +106,13 @@ def create_agent_memory_tools(agent_name: str) -> List[FunctionTool]:
             if memory_type and memory_type.lower() != "all":
                 filter_conditions["memory_type"] = memory_type
 
+            if memory_class:
+                if isinstance(memory_class, str):
+                    if memory_class.lower() != "all":
+                        filter_conditions["memory_class"] = memory_class
+                else:
+                    filter_conditions["memory_class"] = list(memory_class)
+
             results = memory_service.search_memory(
                 app_name="beto",
                 user_id=user_id,
@@ -129,6 +139,7 @@ def create_agent_memory_tools(agent_name: str) -> List[FunctionTool]:
                         {
                             "text": entry.get("text", ""),
                             "type": entry.get("memory_type", "unknown"),
+                            "memory_class": entry.get("memory_class", "episodic"),
                             "relevance_score": entry.get("relevance_score", 0),
                             "date": date_str,
                         }
@@ -156,6 +167,7 @@ def create_agent_memory_tools(agent_name: str) -> List[FunctionTool]:
     def store_agent_memory(
         information: str,
         memory_type: str = "important_fact",
+        memory_class: str = "explicit",
         tool_context: Optional[ToolContext] = None,
     ) -> Dict[str, Any]:
         """
@@ -180,8 +192,18 @@ def create_agent_memory_tools(agent_name: str) -> List[FunctionTool]:
                     "error_message": "Memory service not available.",
                 }
 
+            if memory_class not in VALID_MEMORY_CLASSES:
+                return {
+                    "status": "error",
+                    "error_message": (
+                        f"Invalid memory_class '{memory_class}'. "
+                        f"Must be one of: {sorted(VALID_MEMORY_CLASSES)}"
+                    ),
+                }
+
             metadata = {
                 "memory_type": memory_type,
+                "memory_class": memory_class,
                 "source_agent": agent_name,
             }
 
