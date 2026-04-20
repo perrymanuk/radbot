@@ -307,7 +307,10 @@ class ClaudeCodeClient:
                     if event_type == "assistant" or event_type == "result":
                         # assistant events have content blocks
                         for block in event.get("content", []):
-                            if block.get("type") == "text" and total_chars < _MAX_OUTPUT_CHARS:
+                            if (
+                                block.get("type") == "text"
+                                and total_chars < _MAX_OUTPUT_CHARS
+                            ):
                                 text = block.get("text", "")
                                 output_parts.append(text)
                                 total_chars += len(text)
@@ -336,7 +339,9 @@ class ClaudeCodeClient:
                 "stderr": f"Process timed out after {timeout}s",
             }
 
-        stderr_text = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+        stderr_text = (
+            stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+        )
         output_text = "\n".join(output_parts) if output_parts else ""
         return_code = proc.returncode or 0
 
@@ -377,7 +382,7 @@ def get_claude_code_status() -> Dict[str, Any]:
     if not token_configured:
         return {
             "status": "error",
-            "message": "No OAuth token configured — set claude_code_oauth_token in credential store or CLAUDE_CODE_OAUTH_TOKEN env var",
+            "message": "No OAuth token configured — set claude_code_oauth_token in credential store or CLAUDE_CODE_OAUTH_TOKEN env var",  # noqa: E501
             "cli_available": True,
             "token_configured": False,
         }
@@ -403,7 +408,7 @@ def get_claude_code_status() -> Dict[str, Any]:
         if not auth_info.get("loggedIn"):
             return {
                 "status": "error",
-                "message": f"Token configured but authentication failed — token may be expired or invalid",
+                "message": "Token configured but authentication failed — token may be expired or invalid",
                 "cli_available": True,
                 "token_configured": True,
             }

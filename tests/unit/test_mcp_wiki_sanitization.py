@@ -13,7 +13,10 @@ from radbot.mcp_server.tools import wiki
 @pytest.fixture
 def wiki_root(monkeypatch):
     """Create a temp wiki root + symlinked 'outside' dir for traversal tests."""
-    with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as outside:
+    with (
+        tempfile.TemporaryDirectory() as root,
+        tempfile.TemporaryDirectory() as outside,
+    ):
         # Populate root
         os.makedirs(os.path.join(root, "wiki", "concepts"), exist_ok=True)
         with open(os.path.join(root, "wiki", "concepts", "thing.md"), "w") as f:

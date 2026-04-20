@@ -10,28 +10,34 @@ import os
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import uvicorn
 from fastapi import (
     Depends,
     FastAPI,
-    HTTPException,
     Request,
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
 from radbot.config import config_manager
 from radbot.web.api.admin import router as admin_router
 from radbot.web.api.agent_info import register_agent_info_router
+from radbot.web.api.alerts import router as alerts_router
 
 # Import API routers for registration
 from radbot.web.api.events import register_events_router
+from radbot.web.api.ha import router as ha_router
+from radbot.web.api.health import router as health_router
+from radbot.web.api.mcp import public_router as mcp_public_router
+from radbot.web.api.mcp import router as mcp_admin_router
+from radbot.web.api.media import router as media_router
 from radbot.web.api.messages import register_messages_router
+from radbot.web.api.notifications import router as notifications_router
 from radbot.web.api.reminders import router as reminders_router
 from radbot.web.api.scheduler import router as scheduler_router
 from radbot.web.api.session import (
@@ -41,26 +47,17 @@ from radbot.web.api.session import (
     memory_router,
 )
 from radbot.web.api.sessions import register_sessions_router
+from radbot.web.api.setup import router as setup_router
 from radbot.web.api.stt import router as stt_router
-from radbot.web.api.tts import router as tts_router
+from radbot.web.api.telos import router as telos_router
 from radbot.web.api.terminal import (
     TerminalManager,
     register_terminal_websocket,
-    router as terminal_router,
 )
-from radbot.web.api.webhooks import router as webhooks_router
-from radbot.web.api.health import router as health_router
-from radbot.web.api.alerts import router as alerts_router
-from radbot.web.api.notifications import router as notifications_router
-from radbot.web.api.media import router as media_router
+from radbot.web.api.terminal import router as terminal_router
+from radbot.web.api.tts import router as tts_router
 from radbot.web.api.videos import router as videos_router
-from radbot.web.api.ha import router as ha_router
-from radbot.web.api.telos import router as telos_router
-from radbot.web.api.setup import router as setup_router
-from radbot.web.api.mcp import (
-    router as mcp_admin_router,
-    public_router as mcp_public_router,
-)
+from radbot.web.api.webhooks import router as webhooks_router
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +286,10 @@ async def initialize_app_startup():
         # Initialize session workers schema
         logger.debug("Initializing session workers database schema...")
         try:
-            from radbot.worker.db import init_session_workers_schema, init_workspace_workers_schema
+            from radbot.worker.db import (
+                init_session_workers_schema,
+                init_workspace_workers_schema,
+            )
 
             init_session_workers_schema()
             init_workspace_workers_schema()
@@ -341,7 +341,6 @@ async def initialize_app_startup():
             from agent import root_agent
             from radbot.agent.agent_core import (
                 initialize_memory_service,
-                memory_service,
             )
 
             initialize_memory_service()
@@ -359,7 +358,6 @@ async def initialize_app_startup():
         # Refresh config_manager and apply DB model overrides to root agent
         try:
             from agent import root_agent
-            from radbot.config import config_manager
 
             config_manager.apply_model_config(root_agent)
         except Exception as model_err:
@@ -556,7 +554,7 @@ async def shutdown_terminals():
 
 # Handle X-Forwarded-Proto/Host behind reverse proxies (Traefik, etc.)
 # This ensures redirects use the correct scheme (https) when behind a proxy.
-from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
@@ -642,7 +640,9 @@ class ConnectionManager:
                 del self.active_connections[session_id]
             else:
                 self.active_connections[session_id] = [
-                    ws for ws in self.active_connections[session_id] if ws is not websocket
+                    ws
+                    for ws in self.active_connections[session_id]
+                    if ws is not websocket
                 ]
                 if not self.active_connections[session_id]:
                     del self.active_connections[session_id]
@@ -663,7 +663,9 @@ class ConnectionManager:
             async with self._lock:
                 if session_id in self.active_connections:
                     self.active_connections[session_id] = [
-                        ws for ws in self.active_connections[session_id] if ws not in dead
+                        ws
+                        for ws in self.active_connections[session_id]
+                        if ws not in dead
                     ]
                     if not self.active_connections[session_id]:
                         del self.active_connections[session_id]
@@ -732,7 +734,7 @@ class ConnectionManager:
                         original_length = len(event["text"])
                         event["text"] = (
                             event["text"][:100000]
-                            + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"
+                            + f"\n\n[Message truncated due to size constraints. Original length: {original_length} characters]"  # noqa: E501
                         )
                         logger.debug(
                             f"Truncated event text from {original_length} to {len(event['text'])} characters"
@@ -1062,7 +1064,7 @@ async def websocket_endpoint(
 
             # Check for special command to reset session to Beto
             if user_message.lower() in ["reset to beto", "use beto", "start beto"]:
-                logger.debug(f"Explicit request to reset session to Beto agent")
+                logger.debug("Explicit request to reset session to Beto agent")
                 if hasattr(runner, "reset_session"):
                     await runner.reset_session()
                     await manager.send_status(session_id, "reset")
@@ -1302,7 +1304,10 @@ async def websocket_endpoint(
                     # WebSocket clients can always find the text in events.
                     if response:
                         for ev in reversed(events):
-                            if ev.get("type") == "model_response" or ev.get("category") == "model_response":
+                            if (
+                                ev.get("type") == "model_response"
+                                or ev.get("category") == "model_response"
+                            ):
                                 if not ev.get("text"):
                                     ev["text"] = response
                                 break

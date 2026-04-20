@@ -105,7 +105,9 @@ async def test_dream_consolidates_duplicates():
 async def test_dream_skips_low_trust_from_promotion_candidates():
     v = [1.0, 0.0, 0.0]
     pts = [
-        _pt("a", v, {"source_agent": "beto", "memory_type": "important", "trust": "low"}),
+        _pt(
+            "a", v, {"source_agent": "beto", "memory_type": "important", "trust": "low"}
+        ),
         _pt("b", [0.0, 1.0, 0.0], {"source_agent": "beto", "memory_type": "important"}),
     ]
     svc = _service(pts)

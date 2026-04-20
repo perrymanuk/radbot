@@ -8,7 +8,7 @@ reminders that fire at a specific datetime.
 import logging
 import traceback
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from google.adk.tools import FunctionTool
 
@@ -81,7 +81,7 @@ def create_reminder(
             except ValueError:
                 return {
                     "status": "error",
-                    "message": f"Invalid datetime format: '{remind_at}'. Use ISO 8601 format (e.g. 2025-01-15T09:00:00).",
+                    "message": f"Invalid datetime format: '{remind_at}'. Use ISO 8601 format (e.g. 2025-01-15T09:00:00).",  # noqa: E501
                 }
 
             # Apply timezone if naive
@@ -91,7 +91,7 @@ def create_reminder(
                 except (KeyError, zoneinfo.ZoneInfoNotFoundError):
                     return {
                         "status": "error",
-                        "message": f"Unknown timezone: '{timezone_name}'. Use an IANA timezone name (e.g. America/Los_Angeles).",
+                        "message": f"Unknown timezone: '{timezone_name}'. Use an IANA timezone name (e.g. America/Los_Angeles).",  # noqa: E501
                     }
                 dt = dt.replace(tzinfo=tz)
         else:

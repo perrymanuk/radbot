@@ -29,10 +29,12 @@ def _mock_client(**method_returns):
 # Client unavailable
 # ---------------------------------------------------------------------------
 
+
 class TestClientUnavailable:
     def test_list_dashboards_no_client(self):
         async def _fut():
             return await list_ha_dashboards()
+
         with patch(_PATCH_CLIENT, return_value=None):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -41,6 +43,7 @@ class TestClientUnavailable:
     def test_get_config_no_client(self):
         async def _fut():
             return await get_ha_dashboard_config()
+
         with patch(_PATCH_CLIENT, return_value=None):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -48,6 +51,7 @@ class TestClientUnavailable:
     def test_create_no_client(self):
         async def _fut():
             return await create_ha_dashboard("test", "Test")
+
         with patch(_PATCH_CLIENT, return_value=None):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -57,6 +61,7 @@ class TestClientUnavailable:
 # list_ha_dashboards
 # ---------------------------------------------------------------------------
 
+
 class TestListDashboards:
     def test_success(self):
         dashboards = [{"id": 1, "url_path": "test-dash", "title": "Test"}]
@@ -64,6 +69,7 @@ class TestListDashboards:
 
         async def _fut():
             return await list_ha_dashboards()
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -75,6 +81,7 @@ class TestListDashboards:
 
         async def _fut():
             return await list_ha_dashboards()
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -85,6 +92,7 @@ class TestListDashboards:
 # get_ha_dashboard_config
 # ---------------------------------------------------------------------------
 
+
 class TestGetDashboardConfig:
     def test_success_default(self):
         config = {"views": [{"title": "Home"}]}
@@ -92,6 +100,7 @@ class TestGetDashboardConfig:
 
         async def _fut():
             return await get_ha_dashboard_config()
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -104,6 +113,7 @@ class TestGetDashboardConfig:
 
         async def _fut():
             return await get_ha_dashboard_config("energy")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -114,6 +124,7 @@ class TestGetDashboardConfig:
 # create_ha_dashboard
 # ---------------------------------------------------------------------------
 
+
 class TestCreateDashboard:
     def test_success(self):
         created = {"id": 5, "url_path": "new-dash", "title": "New Dash"}
@@ -121,6 +132,7 @@ class TestCreateDashboard:
 
         async def _fut():
             return await create_ha_dashboard("new-dash", "New Dash", icon="mdi:star")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -139,6 +151,7 @@ class TestCreateDashboard:
 
         async def _fut():
             return await create_ha_dashboard("dup", "Dup")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -149,6 +162,7 @@ class TestCreateDashboard:
 # update_ha_dashboard
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateDashboard:
     def test_success(self):
         updated = {"id": 3, "title": "Renamed"}
@@ -156,6 +170,7 @@ class TestUpdateDashboard:
 
         async def _fut():
             return await update_ha_dashboard(3, title="Renamed")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -166,6 +181,7 @@ class TestUpdateDashboard:
 
         async def _fut():
             return await update_ha_dashboard(3)
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -176,12 +192,14 @@ class TestUpdateDashboard:
 # delete_ha_dashboard
 # ---------------------------------------------------------------------------
 
+
 class TestDeleteDashboard:
     def test_success(self):
         client = _mock_client(delete_dashboard=None)
 
         async def _fut():
             return await delete_ha_dashboard(7)
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -193,6 +211,7 @@ class TestDeleteDashboard:
 
         async def _fut():
             return await delete_ha_dashboard(999)
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -202,6 +221,7 @@ class TestDeleteDashboard:
 # save_ha_dashboard_config
 # ---------------------------------------------------------------------------
 
+
 class TestSaveDashboardConfig:
     def test_success(self):
         client = _mock_client(save_dashboard_config=None)
@@ -209,6 +229,7 @@ class TestSaveDashboardConfig:
 
         async def _fut():
             return await save_ha_dashboard_config(config_json, "my-dash")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"
@@ -219,6 +240,7 @@ class TestSaveDashboardConfig:
 
         async def _fut():
             return await save_ha_dashboard_config("not json{{{", "x")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -229,6 +251,7 @@ class TestSaveDashboardConfig:
 
         async def _fut():
             return await save_ha_dashboard_config("[1,2,3]", "x")
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "error"
@@ -240,6 +263,7 @@ class TestSaveDashboardConfig:
 
         async def _fut():
             return await save_ha_dashboard_config(config_json)
+
         with patch(_PATCH_CLIENT, return_value=client):
             result = asyncio.run(_fut())
             assert result["status"] == "success"

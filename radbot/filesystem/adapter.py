@@ -7,7 +7,7 @@ that was using the previous MCP fileserver implementation.
 
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from google.adk.tools import FunctionTool
 
@@ -59,7 +59,9 @@ def get_filesystem_config() -> tuple[str, bool, bool, List[str]]:
 def _get_workspace_dir() -> Optional[str]:
     """Get the Claude Code workspace directory if configured."""
     try:
-        from radbot.tools.claude_code.claude_code_tools import _get_workspace_dir as get_ws_dir
+        from radbot.tools.claude_code.claude_code_tools import (
+            _get_workspace_dir as get_ws_dir,
+        )
 
         ws_dir = get_ws_dir()
         if ws_dir and os.path.isabs(ws_dir):

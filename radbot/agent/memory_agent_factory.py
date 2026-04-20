@@ -7,20 +7,24 @@ import os
 from typing import Any, List, Optional
 
 from dotenv import load_dotenv
-from radbot.agent.runner import RadbotRunner as Runner
-from google.adk.sessions import InMemorySessionService
+
+# Load .env before other imports that may read env vars at import time.
+load_dotenv()
+
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+
+from radbot.agent.agent import RadBotAgent  # noqa: E402
+from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
+from radbot.config import config_manager  # noqa: E402
+from radbot.config.config_loader import config_loader  # noqa: E402
+from radbot.memory.qdrant_memory import QdrantMemoryService  # noqa: E402
+from radbot.tools.memory import (  # noqa: E402
+    search_past_conversations,
+    store_important_information,
+)
 
 # SessionService is now just InMemorySessionService in recent ADK versions
 SessionService = InMemorySessionService  # Type alias for backward compatibility
-
-from radbot.agent.agent import RadBotAgent
-from radbot.config import config_manager
-from radbot.config.config_loader import config_loader
-from radbot.memory.qdrant_memory import QdrantMemoryService
-from radbot.tools.memory import search_past_conversations, store_important_information
-
-# Load environment variables (for backward compatibility)
-load_dotenv()
 
 
 def create_memory_enabled_agent(

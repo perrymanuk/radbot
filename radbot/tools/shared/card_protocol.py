@@ -49,7 +49,11 @@ def _lookup_poster_url(tmdb_id: int, media_type: str) -> Optional[str]:
         client = get_overseerr_client()
         if client is None:
             return None
-        raw = client.get_movie(tmdb_id) if media_type == "movie" else client.get_tv(tmdb_id)
+        raw = (
+            client.get_movie(tmdb_id)
+            if media_type == "movie"
+            else client.get_tv(tmdb_id)
+        )
         return tmdb_poster_url((raw or {}).get("posterPath"))
     except Exception as e:
         logger.debug("Poster URL lookup failed for %s/%s: %s", media_type, tmdb_id, e)
@@ -93,11 +97,9 @@ def _lookup_kideo_status(url: Optional[str]) -> tuple:
 
 
 def format_card_block(kind: str, data: Any) -> str:
-    """Return a ``\`\`\`radbot:<kind>\\n{json}\\n\`\`\``` fenced block."""
+    r"""Return a ```radbot:<kind>\n{json}\n``` fenced block."""
     if kind not in _VALID_KINDS:
-        raise ValueError(
-            f"Unknown card kind: {kind!r}. Valid: {sorted(_VALID_KINDS)}"
-        )
+        raise ValueError(f"Unknown card kind: {kind!r}. Valid: {sorted(_VALID_KINDS)}")
     payload = json.dumps(data, ensure_ascii=False)
     return f"```radbot:{kind}\n{payload}\n```"
 

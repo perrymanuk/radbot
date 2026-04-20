@@ -7,8 +7,6 @@ Usage:
 
 import argparse
 import logging
-import os
-import sys
 
 from dotenv import load_dotenv
 

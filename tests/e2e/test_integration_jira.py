@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -26,7 +29,7 @@ class TestJiraIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my Jira issues")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "issue", "jira", "ticket", "no issue", "assigned", "task"
             )
@@ -41,10 +44,16 @@ class TestJiraIntegration:
             result = await ws.send_and_wait_response(
                 "Search Jira for issues about deployment"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "issue", "jira", "result", "found", "no issue",
-                "deployment", "search",
+                result,
+                "issue",
+                "jira",
+                "result",
+                "found",
+                "no issue",
+                "deployment",
+                "search",
             )
         finally:
             await ws.close()
@@ -57,13 +66,13 @@ class TestJiraIntegration:
         try:
             # First list issues to get a real key
             r1 = await ws.send_and_wait_response("Show my Jira issues")
-            text1 = assert_response_not_empty(r1)
+            assert_response_not_empty(r1)
 
             # Try to add a comment — may fail if no issues exist
             result = await ws.send_and_wait_response(
                 "Add a comment to my most recent Jira issue saying 'E2E test comment - please ignore'"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "comment", "added", "jira", "issue", "no issue", "couldn't"
             )
@@ -83,10 +92,17 @@ class TestJiraIntegration:
             result = await ws.send_and_wait_response(
                 "Show me the full details of the first issue you listed"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "issue", "description", "status", "priority",
-                "summary", "assignee", "type", "key",
+                result,
+                "issue",
+                "description",
+                "status",
+                "priority",
+                "summary",
+                "assignee",
+                "type",
+                "key",
             )
         finally:
             await ws.close()

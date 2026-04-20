@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Union
 
 from google.adk.agents import Agent
 
-from radbot.agent.execution_agent.agent import AxelExecutionAgent, ExecutionAgent
+from radbot.agent.execution_agent.agent import ExecutionAgent
 from radbot.agent.factory_utils import load_tools
 from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
@@ -101,7 +101,14 @@ def create_execution_agent(
         logger.warning(f"Failed to add dynamic MCP tools to Axel: {e}")
 
     # Add Claude Code + GitHub tools
-    agent_tools.extend(load_tools("radbot.tools.claude_code.claude_code_tools", "CLAUDE_CODE_TOOLS", "Axel", "Claude Code"))
+    agent_tools.extend(
+        load_tools(
+            "radbot.tools.claude_code.claude_code_tools",
+            "CLAUDE_CODE_TOOLS",
+            "Axel",
+            "Claude Code",
+        )
+    )
 
     # Add Nomad infrastructure tools
     agent_tools.extend(load_tools("radbot.tools.nomad", "NOMAD_TOOLS", "Axel", "Nomad"))
@@ -130,10 +137,13 @@ def create_execution_agent(
     # Add completion instructions (task or transfer depending on V1/V2 mode)
     try:
         from google.adk.features import FeatureName, is_feature_enabled
+
         v2_active = not is_feature_enabled(FeatureName.V1_LLM_AGENT)
     except Exception:
         v2_active = False
-    full_instruction = instruction + (TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS)
+    full_instruction = instruction + (
+        TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
+    )
 
     # Create the ExecutionAgent instance
     execution_agent = ExecutionAgent(

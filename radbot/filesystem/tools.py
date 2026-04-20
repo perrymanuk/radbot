@@ -11,7 +11,7 @@ import logging
 import os
 import shutil
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from radbot.filesystem.security import create_parent_directory, validate_path
 

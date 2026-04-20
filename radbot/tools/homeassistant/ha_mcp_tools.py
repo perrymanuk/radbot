@@ -67,9 +67,7 @@ def _unwrap_ha_envelope(text: Optional[str]) -> Any:
     return envelope
 
 
-def _make_tool_caller(
-    client: HAMcpClient, original_name: str
-) -> Callable[..., Any]:
+def _make_tool_caller(client: HAMcpClient, original_name: str) -> Callable[..., Any]:
     """Build the async callable that ADK will invoke for this tool.
 
     The closure captures the HA-side tool name so the sanitized ADK tool

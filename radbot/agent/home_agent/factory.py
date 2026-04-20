@@ -99,19 +99,36 @@ def create_home_agent() -> Optional[Agent]:
                 logger.warning(f"Failed to add HA REST tools to Casa: {e}")
 
         # Dashboard tools (WebSocket-based)
-        tools.extend(load_tools("radbot.tools.homeassistant", "HA_DASHBOARD_TOOLS", "Casa", "HA dashboard"))
+        tools.extend(
+            load_tools(
+                "radbot.tools.homeassistant",
+                "HA_DASHBOARD_TOOLS",
+                "Casa",
+                "HA dashboard",
+            )
+        )
 
         # Overseerr tools
-        tools.extend(load_tools("radbot.tools.overseerr", "OVERSEERR_TOOLS", "Casa", "Overseerr"))
+        tools.extend(
+            load_tools("radbot.tools.overseerr", "OVERSEERR_TOOLS", "Casa", "Overseerr")
+        )
 
         # Lidarr music tools
-        tools.extend(load_tools("radbot.tools.lidarr", "LIDARR_TOOLS", "Casa", "Lidarr"))
+        tools.extend(
+            load_tools("radbot.tools.lidarr", "LIDARR_TOOLS", "Casa", "Lidarr")
+        )
 
         # Picnic grocery tools
-        tools.extend(load_tools("radbot.tools.picnic", "PICNIC_TOOLS", "Casa", "Picnic"))
+        tools.extend(
+            load_tools("radbot.tools.picnic", "PICNIC_TOOLS", "Casa", "Picnic")
+        )
 
         # Card-rendering tools (media, ha-device, season breakdown)
-        tools.extend(load_tools("radbot.tools.shared.card_protocol", "CARD_TOOLS", "Casa", "cards"))
+        tools.extend(
+            load_tools(
+                "radbot.tools.shared.card_protocol", "CARD_TOOLS", "Casa", "cards"
+            )
+        )
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
@@ -122,7 +139,7 @@ def create_home_agent() -> Optional[Agent]:
         agent = Agent(
             name="casa",
             model=model,
-            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), music collection (Lidarr), and grocery ordering (Picnic).",
+            description="Smart home device control (lights, switches, sensors), dashboard management (Lovelace), media requests (movies, TV shows), music collection (Lidarr), and grocery ordering (Picnic).",  # noqa: E501
             instruction=instruction,
             tools=tools,
             mode="task",

@@ -9,7 +9,7 @@ import asyncio
 import logging
 import os
 from contextlib import AsyncExitStack
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from google.adk.tools.mcp_tool import McpToolset
 from google.adk.tools.mcp_tool.mcp_session_manager import SseServerParams

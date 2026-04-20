@@ -86,19 +86,23 @@ def _start_server(workspace_id: str | None, host: str, port: int):
     async def health(request):
         nonlocal last_activity
         last_activity = time.monotonic()
-        return JSONResponse({
-            "status": "healthy",
-            "workspace_id": workspace_id,
-            "uptime_seconds": round(time.monotonic() - start_time),
-            "idle_seconds": round(time.monotonic() - last_activity),
-            "terminal_sessions": len(terminal_mgr.list_sessions()),
-        })
+        return JSONResponse(
+            {
+                "status": "healthy",
+                "workspace_id": workspace_id,
+                "uptime_seconds": round(time.monotonic() - start_time),
+                "idle_seconds": round(time.monotonic() - last_activity),
+                "terminal_sessions": len(terminal_mgr.list_sessions()),
+            }
+        )
 
     async def info(request):
-        return JSONResponse({
-            "workspace_id": workspace_id,
-            "uptime_seconds": round(time.monotonic() - start_time),
-        })
+        return JSONResponse(
+            {
+                "workspace_id": workspace_id,
+                "uptime_seconds": round(time.monotonic() - start_time),
+            }
+        )
 
     async def terminal_sessions_endpoint(request):
         nonlocal last_activity
@@ -117,14 +121,16 @@ def _start_server(workspace_id: str | None, host: str, port: int):
 
         try:
             session = terminal_mgr.create_session(ws_id, resume_session_id)
-            return JSONResponse({
-                "terminal_id": session.terminal_id,
-                "workspace_id": session.workspace_id,
-                "owner": session.workspace.get("owner"),
-                "repo": session.workspace.get("repo"),
-                "branch": session.workspace.get("branch"),
-                "pid": session.pid,
-            })
+            return JSONResponse(
+                {
+                    "terminal_id": session.terminal_id,
+                    "workspace_id": session.workspace_id,
+                    "owner": session.workspace.get("owner"),
+                    "repo": session.workspace.get("repo"),
+                    "branch": session.workspace.get("branch"),
+                    "pid": session.pid,
+                }
+            )
         except RuntimeError as e:
             return JSONResponse({"error": str(e)}, status_code=429)
         except ValueError as e:
@@ -234,7 +240,9 @@ def _ensure_workspace_ready(workspace_id: str) -> None:
                     else:
                         logger.error("Clone failed: %s", result.get("message"))
                 else:
-                    logger.warning("GitHub client not configured — cannot clone workspace")
+                    logger.warning(
+                        "GitHub client not configured — cannot clone workspace"
+                    )
             except Exception as e:
                 logger.error("Failed to clone workspace: %s", e)
     except Exception as e:

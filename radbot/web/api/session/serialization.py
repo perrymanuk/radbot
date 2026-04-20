@@ -6,7 +6,6 @@ This module provides serialization utilities for the session management.
 
 import json
 import logging
-from typing import Any
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -14,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 def _safely_serialize(obj):
     """Safely serialize objects to JSON-compatible structures."""
-    import json
-
     try:
         # Try direct JSON serialization
         json.dumps(obj)

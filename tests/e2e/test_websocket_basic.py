@@ -1,13 +1,16 @@
 """WebSocket basic connectivity e2e tests."""
 
-import json
 import uuid
 
 import pytest
 
 from tests.e2e.helpers.ws_client import WSTestClient
 
-pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session"), pytest.mark.timeout(30)]
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.timeout(30),
+]
 
 
 class TestWebSocketBasic:

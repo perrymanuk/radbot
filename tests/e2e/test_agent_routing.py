@@ -8,13 +8,18 @@ import uuid
 import pytest
 
 from tests.e2e.helpers.assertions import (
-    assert_agent_transferred,
     assert_response_contains_any,
     assert_response_not_empty,
 )
 from tests.e2e.helpers.ws_client import WSTestClient
 
-pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session"), pytest.mark.slow, pytest.mark.requires_gemini, pytest.mark.timeout(120)]
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.slow,
+    pytest.mark.requires_gemini,
+    pytest.mark.timeout(120),
+]
 
 
 class TestAgentRouting:
@@ -24,7 +29,7 @@ class TestAgentRouting:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show me my task list")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should either transfer to tracker or mention tasks
             assert_response_contains_any(
                 result, "task", "project", "todo", "backlog", "no task", "list"
@@ -40,13 +45,21 @@ class TestAgentRouting:
             result = await ws.send_and_wait_response(
                 "What events are on my calendar today?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should mention calendar-related content or confirm planner handled it
             assert_response_contains_any(
                 result,
-                "calendar", "event", "schedule", "no event",
-                "today", "appointment", "nothing", "agenda",
-                "planner", "nada", "chillin",
+                "calendar",
+                "event",
+                "schedule",
+                "no event",
+                "today",
+                "appointment",
+                "nothing",
+                "agenda",
+                "planner",
+                "nada",
+                "chillin",
             )
         finally:
             await ws.close()
@@ -82,10 +95,16 @@ class TestAgentRouting:
             result = await ws.send_and_wait_response(
                 "What smart home devices do I have in Home Assistant?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "device", "entity", "light", "sensor", "switch",
-                "home assistant", "smart home",
+                result,
+                "device",
+                "entity",
+                "light",
+                "sensor",
+                "switch",
+                "home assistant",
+                "smart home",
             )
         finally:
             await ws.close()
@@ -98,7 +117,7 @@ class TestAgentRouting:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my recent emails")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "email", "inbox", "message", "mail", "subject", "from"
             )
@@ -114,10 +133,18 @@ class TestAgentRouting:
                 "Research the differences between async and sync programming in Python. "
                 "Give me a brief summary."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "async", "sync", "python", "concurrent", "await", "event loop",
-                "research", "scout", "programming",
+                result,
+                "async",
+                "sync",
+                "python",
+                "concurrent",
+                "await",
+                "event loop",
+                "research",
+                "scout",
+                "programming",
             )
         finally:
             await ws.close()
@@ -130,7 +157,9 @@ class TestAgentRouting:
             # First: tracker domain
             r1 = await ws.send_and_wait_response("Show me my task list")
             assert_response_not_empty(r1)
-            assert_response_contains_any(r1, "task", "project", "todo", "backlog", "no task", "list")
+            assert_response_contains_any(
+                r1, "task", "project", "todo", "backlog", "no task", "list"
+            )
 
             # Second: planner domain
             r2 = await ws.send_and_wait_response("What time is it right now?")
@@ -139,7 +168,9 @@ class TestAgentRouting:
                 ind in r2["response_text"].lower()
                 for ind in [":", "am", "pm", "o'clock", "hour", "time", "clock"]
             ) or any(c.isdigit() for c in r2["response_text"])
-            assert has_time, f"Second response should contain time info, got: {r2['response_text'][:200]}"
+            assert (
+                has_time
+            ), f"Second response should contain time info, got: {r2['response_text'][:200]}"
         finally:
             await ws.close()
 
@@ -151,10 +182,19 @@ class TestAgentRouting:
             result = await ws.send_and_wait_response(
                 "Use the shell to run 'echo hello_e2e_test' and show me the output"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "hello", "output", "executed", "command", "echo", "shell",
-                "axel", "handled", "ran", "result",
+                result,
+                "hello",
+                "output",
+                "executed",
+                "command",
+                "echo",
+                "shell",
+                "axel",
+                "handled",
+                "ran",
+                "result",
             )
         finally:
             await ws.close()

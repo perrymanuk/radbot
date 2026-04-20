@@ -40,7 +40,9 @@ def resolve_agent_model(agent_name: str) -> str:
     return model
 
 
-def load_agent_instruction(agent_name: str, fallback: str, *, use_task_mode: bool = False) -> str:
+def load_agent_instruction(
+    agent_name: str, fallback: str, *, use_task_mode: bool = False
+) -> str:
     """Load agent instructions from config, falling back to a default string.
 
     Automatically appends completion instructions (task or transfer) based
@@ -64,6 +66,7 @@ def load_agent_instruction(agent_name: str, fallback: str, *, use_task_mode: boo
     if use_task_mode:
         try:
             from google.adk.features import FeatureName, is_feature_enabled
+
             if not is_feature_enabled(FeatureName.V1_LLM_AGENT):
                 instruction += TASK_FINISH_INSTRUCTIONS
                 return instruction

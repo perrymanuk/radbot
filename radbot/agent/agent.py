@@ -5,43 +5,18 @@ This module defines the essential RadBotAgent class and factory functions for th
 It serves as the single source of truth for all agent functionality.
 """
 
-# Import base RadBotAgent class
-from radbot.agent.agent_base import (
-    FALLBACK_INSTRUCTION,
-    Agent,
-    Any,
-    ConfigManager,
-    Content,
-    Dict,
-    InMemorySessionService,
-    List,
-    Optional,
-    Part,
-    RadBotAgent,
-    Runner,
-    SessionService,
-    Union,
-    config_manager,
-    load_dotenv,
-    logging,
-    os,
-    setup_vertex_environment,
-)
+import logging
 
-# Import AgentFactory
+# Import agent_methods for its side effects — it monkey-patches method
+# implementations onto RadBotAgent (add_tool, process_message,
+# register_tool_handlers, etc.). Required even though no names are used.
+import radbot.agent.agent_methods  # noqa: F401
+from radbot.agent.agent_base import FALLBACK_INSTRUCTION, RadBotAgent
 from radbot.agent.agent_factory import AgentFactory
-
-# Import RadBotAgent methods
-from radbot.agent.agent_methods import (  # Methods are attached to the RadBotAgent class in the agent_methods.py module
-    MessageToDict,
-)
-
-# Import utility functions
 from radbot.agent.agent_utils import (
     create_agent,
     create_core_agent_for_web,
     create_runner,
-    transfer_to_agent,
 )
 
 # Configure logging
@@ -49,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Export all relevant components
 __all__ = [
+    "FALLBACK_INSTRUCTION",
     "RadBotAgent",
     "AgentFactory",
     "create_runner",

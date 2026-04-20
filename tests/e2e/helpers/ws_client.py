@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import websockets
 
@@ -18,7 +18,9 @@ class WSTestClient:
         self.received: List[Dict[str, Any]] = []
 
     @classmethod
-    async def connect(cls, base_url: str, session_id: str, timeout: float = 10.0) -> "WSTestClient":
+    async def connect(
+        cls, base_url: str, session_id: str, timeout: float = 10.0
+    ) -> "WSTestClient":
         """Connect to the WebSocket endpoint and wait for 'ready' status."""
         ws_url = base_url.replace("http://", "ws://").replace("https://", "wss://")
         ws_url = f"{ws_url}/ws/{session_id}"
@@ -97,7 +99,21 @@ class WSTestClient:
                 response_text = msg.get("content", response_text)
 
         # If captured response is just a routing announcement, prefer last sub-agent text
-        _ROUTING_PATTERNS = ("transfer", "passing to", "sending to", "sent to", "catching that wave", "hang tight", "right on,", "over to casa", "over to planner", "over to tracker", "over to comms", "over to scout", "over to axel")
+        _ROUTING_PATTERNS = (
+            "transfer",
+            "passing to",
+            "sending to",
+            "sent to",
+            "catching that wave",
+            "hang tight",
+            "right on,",
+            "over to casa",
+            "over to planner",
+            "over to tracker",
+            "over to comms",
+            "over to scout",
+            "over to axel",
+        )
         if response_text and any(p in response_text.lower() for p in _ROUTING_PATTERNS):
             for event in reversed(events):
                 text = event.get("text", "")

@@ -1,7 +1,5 @@
 """Tasks API e2e tests."""
 
-import uuid
-
 import pytest
 import pytest_asyncio
 
@@ -66,7 +64,9 @@ class TestTasksAPI:
         ids = [t.get("task_id") for t in tasks]
         assert task_id in ids
 
-    async def test_update_task_status(self, client, cleanup, test_project_id, test_prefix):
+    async def test_update_task_status(
+        self, client, cleanup, test_project_id, test_prefix
+    ):
         """PUT /api/tasks/{id} should update the status."""
         create_resp = await client.post(
             "/api/tasks",
@@ -85,7 +85,9 @@ class TestTasksAPI:
         assert resp.status_code == 200
         assert resp.json()["status"] == "success"
 
-    async def test_update_task_title(self, client, cleanup, test_project_id, test_prefix):
+    async def test_update_task_title(
+        self, client, cleanup, test_project_id, test_prefix
+    ):
         """PUT /api/tasks/{id} should update the title."""
         create_resp = await client.post(
             "/api/tasks",

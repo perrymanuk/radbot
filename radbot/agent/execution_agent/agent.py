@@ -8,7 +8,7 @@ specialized for execution tasks and implementing specifications from Scout.
 import asyncio
 import logging
 import secrets
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Any, ClassVar, List, Optional
 
 from google.adk.agents import BaseAgent, ParallelAgent
 from google.adk.events import Event, EventActions

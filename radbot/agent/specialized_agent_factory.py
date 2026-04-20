@@ -12,7 +12,7 @@ transfer_to_agent won't find them.
 """
 
 import logging
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from google.adk.agents import Agent
 

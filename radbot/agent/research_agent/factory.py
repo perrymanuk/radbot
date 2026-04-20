@@ -5,17 +5,17 @@ This module provides factory functions for creating research agents.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
-
-logger = logging.getLogger(__name__)
-
-# Import ADK components
-from google.adk.tools import FunctionTool
+from typing import Any, List, Optional, Union
 
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent
 from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
+
+# Import ADK components
+
+
+logger = logging.getLogger(__name__)
 
 
 def _build_scout_toolkit() -> List[Any]:
@@ -136,7 +136,9 @@ def create_research_agent(
             instruction = config_manager.get_instruction("scout")
             logger.info("Scout: loaded instruction from scout.md")
         except FileNotFoundError:
-            logger.warning("Scout: scout.md not found, falling back to embedded instruction")
+            logger.warning(
+                "Scout: scout.md not found, falling back to embedded instruction"
+            )
 
     # Assemble scout's toolkit (same in both modes for behavioral consistency).
     # Caller-supplied `tools` are appended after the standard toolkit.
@@ -180,10 +182,13 @@ def create_research_agent(
     if not as_root and hasattr(adk_agent, "instruction") and adk_agent.instruction:
         try:
             from google.adk.features import FeatureName, is_feature_enabled
+
             v2_active = not is_feature_enabled(FeatureName.V1_LLM_AGENT)
         except Exception:
             v2_active = False
-        adk_agent.instruction += TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
+        adk_agent.instruction += (
+            TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
+        )
 
     # Root-mode wiring: attach sub-agents (search_agent sits under scout for
     # grounded Google) and the persona/sanitize/telemetry callback stack that
@@ -198,9 +203,15 @@ def create_research_agent(
                 handle_empty_response_after_model,
                 scrub_empty_content_before_model,
             )
-            from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
-            from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
-            from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+            from radbot.callbacks.sanitize_callback import (
+                sanitize_before_model_callback,
+            )
+            from radbot.callbacks.sanitize_tool_schemas import (
+                sanitize_tool_schemas_before_model,
+            )
+            from radbot.callbacks.telemetry_callback import (
+                telemetry_after_model_callback,
+            )
             from radbot.tools.telos import inject_telos_context
 
             adk_agent.before_model_callback = [

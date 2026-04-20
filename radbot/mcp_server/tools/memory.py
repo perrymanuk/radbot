@@ -56,15 +56,15 @@ def tools() -> list[mcp_types.Tool]:
     ]
 
 
-async def call(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "search_memory":
-        return [_do_search(
-            arguments["query"],
-            arguments.get("agent_scope", _DEFAULT_SCOPE),
-            int(arguments.get("limit", 5)),
-        )]
+        return [
+            _do_search(
+                arguments["query"],
+                arguments.get("agent_scope", _DEFAULT_SCOPE),
+                int(arguments.get("limit", 5)),
+            )
+        ]
     raise KeyError(name)
 
 
@@ -91,9 +91,7 @@ def _do_search(query: str, agent_scope: str, limit: int) -> mcp_types.TextConten
             filter_conditions=filter_conditions,
         )
     except Exception as e:
-        return mcp_types.TextContent(
-            type="text", text=f"**Error:** search failed: {e}"
-        )
+        return mcp_types.TextContent(type="text", text=f"**Error:** search failed: {e}")
 
     if not hits:
         scope_label = agent_scope if agent_scope else _DEFAULT_SCOPE

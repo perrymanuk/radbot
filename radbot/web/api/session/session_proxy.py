@@ -130,9 +130,7 @@ class SessionProxy:
                     port = svc.get("Port", 0)
                     if address and port:
                         url = f"http://{address}:{port}"
-                        logger.debug(
-                            "Discovered worker via Nomad service: %s", url
-                        )
+                        logger.debug("Discovered worker via Nomad service: %s", url)
                         return url
         except Exception as e:
             logger.debug("Nomad service discovery failed: %s", e)
@@ -142,9 +140,14 @@ class SessionProxy:
             from radbot.worker.db import get_worker
 
             record = get_worker(self.session_id)
-            if record and record.get("worker_url") and record.get("status") in (
-                "starting",
-                "healthy",
+            if (
+                record
+                and record.get("worker_url")
+                and record.get("status")
+                in (
+                    "starting",
+                    "healthy",
+                )
             ):
                 return record["worker_url"]
         except Exception as e:
@@ -287,17 +290,15 @@ class SessionProxy:
         except Exception:
             return False
 
-    async def _send_a2a_message(
-        self, worker_url: str, message: str
-    ) -> Optional[str]:
+    async def _send_a2a_message(self, worker_url: str, message: str) -> Optional[str]:
         """Send a message to the worker's A2A endpoint and return the response text."""
         try:
             from a2a.client.card_resolver import A2ACardResolver
             from a2a.client.client import ClientConfig as A2AClientConfig
             from a2a.client.client_factory import A2AClientFactory
+            from a2a.types import Message as A2AMessage
+            from a2a.types import Part as A2APart
             from a2a.types import (
-                Message as A2AMessage,
-                Part as A2APart,
                 TextPart,
                 TransportProtocol,
             )

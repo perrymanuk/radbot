@@ -7,7 +7,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import yaml
 
@@ -28,8 +28,6 @@ T = TypeVar("T")
 
 class ConfigError(Exception):
     """Exception raised for configuration errors."""
-
-    pass
 
 
 class ConfigLoader:
@@ -130,7 +128,7 @@ class ConfigLoader:
         # If we reach here, we couldn't find config.yaml
         # Instead of raising an error, return a default path for potential creation
         logger.warning(
-            f"No config.yaml found. Using default configuration with environment variables."
+            "No config.yaml found. Using default configuration with environment variables."
         )
         return project_root / "config.yaml"
 
@@ -322,7 +320,9 @@ class ConfigLoader:
 
             store = get_credential_store()
             if not store.available:
-                logger.warning("load_db_config: credential store unavailable (no master key)")
+                logger.warning(
+                    "load_db_config: credential store unavailable (no master key)"
+                )
                 return
 
             # Check for a full config blob first
@@ -347,8 +347,12 @@ class ConfigLoader:
             import json as _json
 
             entries = store.list()
-            config_entries = [e["name"] for e in entries if e["name"].startswith("config:")]
-            logger.info(f"load_db_config: found {len(config_entries)} config entries: {config_entries}")
+            config_entries = [
+                e["name"] for e in entries if e["name"].startswith("config:")
+            ]
+            logger.info(
+                f"load_db_config: found {len(config_entries)} config entries: {config_entries}"
+            )
 
             for entry in entries:
                 name = entry["name"]

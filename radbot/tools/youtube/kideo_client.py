@@ -83,9 +83,7 @@ def add_video(url: str, collection_id: Optional[str] = None) -> Dict[str, Any]:
     return resp.json()
 
 
-def add_videos_batch(
-    urls: List[str], collection_id: str
-) -> List[Dict[str, Any]]:
+def add_videos_batch(urls: List[str], collection_id: str) -> List[Dict[str, Any]]:
     """Add multiple videos to a Kideo collection.
 
     Args:
@@ -248,9 +246,7 @@ def get_popular_videos(
     params: Dict[str, Any] = {"limit": limit}
     if days is not None:
         params["days"] = days
-    resp = client.get(
-        f"/api/collections/{collection_id}/popular", params=params
-    )
+    resp = client.get(f"/api/collections/{collection_id}/popular", params=params)
     resp.raise_for_status()
     return resp.json()
 
@@ -271,9 +267,7 @@ def get_tag_stats(
     params: Dict[str, Any] = {}
     if days is not None:
         params["days"] = days
-    resp = client.get(
-        f"/api/collections/{collection_id}/tag-stats", params=params
-    )
+    resp = client.get(f"/api/collections/{collection_id}/tag-stats", params=params)
     resp.raise_for_status()
     return resp.json()
 
@@ -294,8 +288,6 @@ def get_channel_stats(
     params: Dict[str, Any] = {}
     if days is not None:
         params["days"] = days
-    resp = client.get(
-        f"/api/collections/{collection_id}/channel-stats", params=params
-    )
+    resp = client.get(f"/api/collections/{collection_id}/channel-stats", params=params)
     resp.raise_for_status()
     return resp.json()

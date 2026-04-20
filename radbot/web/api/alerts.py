@@ -15,7 +15,7 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,8 @@ async def alertmanager_webhook(request: Request):
 
     if secret:
         raw_body = await request.body()
-        sig_header = (
-            request.headers.get("X-Signature-256", "")
-            or request.headers.get("X-Hub-Signature-256", "")
+        sig_header = request.headers.get("X-Signature-256", "") or request.headers.get(
+            "X-Hub-Signature-256", ""
         )
         sig = sig_header.replace("sha256=", "")
         expected = hmac.new(secret.encode(), raw_body, hashlib.sha256).hexdigest()
@@ -88,8 +87,6 @@ def _require_admin(request: Request):
     """Verify admin bearer token. Reuses the admin auth logic."""
     import os
 
-    from radbot.credentials.store import get_credential_store
-
     expected = os.environ.get("RADBOT_ADMIN_TOKEN", "")
     if not expected:
         try:
@@ -120,9 +117,17 @@ async def list_alerts_endpoint(
     try:
         from radbot.tools.alertmanager.db import count_alerts, list_alerts
 
-        alerts = list_alerts(status=status, alertname=alertname, limit=limit, offset=offset)
+        alerts = list_alerts(
+            status=status, alertname=alertname, limit=limit, offset=offset
+        )
         total = count_alerts(status=status, alertname=alertname)
-        return {"alerts": alerts, "count": len(alerts), "total": total, "limit": limit, "offset": offset}
+        return {
+            "alerts": alerts,
+            "count": len(alerts),
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
     except Exception as e:
         logger.error(f"Failed to list alerts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

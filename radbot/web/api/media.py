@@ -171,7 +171,11 @@ async def get_media_details(
     if client is None:
         raise HTTPException(503, "Overseerr not configured — set up via Admin UI")
     try:
-        raw = client.get_movie(tmdb_id) if media_type == "movie" else client.get_tv(tmdb_id)
+        raw = (
+            client.get_movie(tmdb_id)
+            if media_type == "movie"
+            else client.get_tv(tmdb_id)
+        )
     except Exception as e:
         logger.error("Overseerr detail fetch failed: %s", e)
         raise HTTPException(502, f"Overseerr detail fetch failed: {e}")

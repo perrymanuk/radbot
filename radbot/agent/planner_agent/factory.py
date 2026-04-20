@@ -69,13 +69,23 @@ def create_planner_agent() -> Optional[Agent]:
             logger.warning(f"Failed to add calendar tools to Planner: {e}")
 
         # Scheduler tools
-        tools.extend(load_tools("radbot.tools.scheduler", "SCHEDULER_TOOLS", "Planner", "scheduler"))
+        tools.extend(
+            load_tools(
+                "radbot.tools.scheduler", "SCHEDULER_TOOLS", "Planner", "scheduler"
+            )
+        )
 
         # Reminder tools
-        tools.extend(load_tools("radbot.tools.reminders", "REMINDER_TOOLS", "Planner", "reminder"))
+        tools.extend(
+            load_tools(
+                "radbot.tools.reminders", "REMINDER_TOOLS", "Planner", "reminder"
+            )
+        )
 
         # Webhook tools (formerly on tracker)
-        tools.extend(load_tools("radbot.tools.webhooks", "WEBHOOK_TOOLS", "Planner", "webhook"))
+        tools.extend(
+            load_tools("radbot.tools.webhooks", "WEBHOOK_TOOLS", "Planner", "webhook")
+        )
 
         # Agent-scoped memory tools
         from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
@@ -86,7 +96,7 @@ def create_planner_agent() -> Optional[Agent]:
         agent = Agent(
             name="planner",
             model=model,
-            description="Calendar events, scheduled recurring tasks, one-shot reminders, webhook triggers, and time queries.",
+            description="Calendar events, scheduled recurring tasks, one-shot reminders, webhook triggers, and time queries.",  # noqa: E501
             instruction=instruction,
             tools=tools,
             mode="task",

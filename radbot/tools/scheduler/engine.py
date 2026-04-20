@@ -343,16 +343,20 @@ class SchedulerEngine:
                     metadata={"task_name": name, "prompt": prompt[:500]},
                 )
                 # Broadcast notification event for real-time badge updates
-                await self._broadcast_to_all({
-                    "type": "notification",
-                    "content": {
-                        "notification_id": str(notif.get("notification_id", "")),
-                        "notification_type": "scheduled_task",
-                        "title": f"Scheduled: {name}",
-                    },
-                })
+                await self._broadcast_to_all(
+                    {
+                        "type": "notification",
+                        "content": {
+                            "notification_id": str(notif.get("notification_id", "")),
+                            "notification_type": "scheduled_task",
+                            "title": f"Scheduled: {name}",
+                        },
+                    }
+                )
             except Exception as n_err:
-                logger.warning(f"Failed to create notification for task '{name}': {n_err}")
+                logger.warning(
+                    f"Failed to create notification for task '{name}': {n_err}"
+                )
 
             # 11. If no WS connections were active, queue result for reconnect delivery
             if not has_connections and response:
@@ -470,14 +474,16 @@ class SchedulerEngine:
                 source_id=reminder_id,
                 metadata={"reminder_id": reminder_id},
             )
-            await self._broadcast_to_all({
-                "type": "notification",
-                "content": {
-                    "notification_id": str(notif.get("notification_id", "")),
-                    "notification_type": "reminder",
-                    "title": "Reminder",
-                },
-            })
+            await self._broadcast_to_all(
+                {
+                    "type": "notification",
+                    "content": {
+                        "notification_id": str(notif.get("notification_id", "")),
+                        "notification_type": "reminder",
+                        "title": "Reminder",
+                    },
+                }
+            )
         except Exception as n_err:
             logger.warning(f"Failed to create notification for reminder: {n_err}")
 
@@ -547,7 +553,9 @@ class SchedulerEngine:
             if not undelivered:
                 return
 
-            logger.debug(f"Delivering {len(undelivered)} pending reminders on reconnect")
+            logger.debug(
+                f"Delivering {len(undelivered)} pending reminders on reconnect"
+            )
             for reminder in undelivered:
                 reminder_id = str(reminder["reminder_id"])
                 message = reminder["message"]

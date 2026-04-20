@@ -12,7 +12,6 @@ from typing import Any, Dict, List, Optional
 from google.adk.tools import FunctionTool
 
 from radbot.filesystem.security import (
-    get_allowed_directories,
     set_allowed_directories,
 )
 from radbot.filesystem.tools import (
@@ -69,7 +68,13 @@ def _create_write_file_tool() -> FunctionTool:
         """
         try:
             return write_file(path, content, overwrite)
-        except (PermissionError, FileNotFoundError, FileExistsError, ValueError, IOError) as e:
+        except (
+            PermissionError,
+            FileNotFoundError,
+            FileExistsError,
+            ValueError,
+            IOError,
+        ) as e:
             return {"status": "error", "error": str(e)}
 
     return FunctionTool(func=write_file_func)

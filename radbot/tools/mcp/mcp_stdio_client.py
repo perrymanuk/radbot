@@ -10,18 +10,14 @@ import asyncio
 import json
 import logging
 import os
-import signal
 import subprocess
 import threading
 import time
-import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional
 
 # Import from MCP SDK
 try:
-    from mcp import ClientSession
-    from mcp.client.stdio import stdio_client
-    from mcp.types import Tool
+    pass
 except ImportError:
     raise ImportError(
         "MCP Python SDK not installed. "

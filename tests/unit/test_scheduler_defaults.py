@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-
 from radbot.tools.scheduler.defaults import (
     DEFAULT_DISTILLER_CRON,
     DEFAULT_DREAM_CRON,
@@ -88,6 +87,7 @@ def test_register_default_jobs_replaces_existing():
 
     def get_job(job_id):
         return existing if job_id == DREAM_JOB_ID else None
+
     scheduler.get_job.side_effect = get_job
 
     with patch("radbot.tools.scheduler.defaults._get_section", return_value={}):

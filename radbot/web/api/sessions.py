@@ -6,7 +6,7 @@ This module provides API endpoints for managing multiple chat sessions.
 
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
@@ -152,8 +152,11 @@ def register_sessions_router(app):
             # Insert the DB row FIRST so the runner (which reads agent_name
             # from the DB row) gets the right root agent on first touch.
             success = chat_operations.create_or_update_session(
-                session_id=session_id, name=session_name, user_id=user_id,
-                description=request.description, agent_name=agent_name,
+                session_id=session_id,
+                name=session_name,
+                user_id=user_id,
+                description=request.description,
+                agent_name=agent_name,
             )
 
             if not success:
@@ -195,14 +198,17 @@ def register_sessions_router(app):
     ):
         """Update a session's name and/or description."""
         if not request or (not request.name and request.description is None):
-            raise HTTPException(status_code=400, detail="Name or description is required")
+            raise HTTPException(
+                status_code=400, detail="Name or description is required"
+            )
 
         logger.debug("Updating session %s", session_id)
 
         try:
             # Update in database — don't require runner to exist (session may be in DB only)
             success = chat_operations.create_or_update_session(
-                session_id=session_id, name=request.name,
+                session_id=session_id,
+                name=request.name,
                 description=request.description,
             )
 

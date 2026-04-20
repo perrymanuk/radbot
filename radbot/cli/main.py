@@ -8,7 +8,6 @@ import asyncio
 import logging
 import os
 import sys
-import uuid
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -226,7 +225,6 @@ async def setup_agent() -> Optional[RadBotAgent]:
     # Refresh config_manager and apply DB model overrides to root agent
     try:
         from agent import root_agent
-        from radbot.config import config_manager
 
         config_manager.apply_model_config(root_agent)
     except Exception as model_err:
@@ -242,15 +240,10 @@ async def setup_agent() -> Optional[RadBotAgent]:
 
     try:
         # Import the Home Assistant agent factory and memory agent factory
-        from radbot.agent.agent import AgentFactory
         from radbot.agent.home_assistant_agent_factory import (
             create_home_assistant_agent_factory,
         )
         from radbot.agent.memory_agent_factory import create_memory_enabled_agent
-        from radbot.config.settings import ConfigManager
-        from radbot.tools.mcp.mcp_tools import create_ha_mcp_enabled_agent
-
-        config_manager = ConfigManager()
 
         # Configure basic tools
         basic_tools = [get_current_time]
@@ -321,21 +314,12 @@ async def setup_agent() -> Optional[RadBotAgent]:
             try:
                 # Create a memory-enabled agent directly without using the factory function
                 from google.adk.agents import Agent
-                from radbot.agent.runner import RadbotRunner as Runner
                 from google.adk.sessions import InMemorySessionService
 
-                from radbot.memory.qdrant_memory import QdrantMemoryService
+                from radbot.agent.runner import RadbotRunner as Runner
 
                 # Set up necessary components
                 session_service = InMemorySessionService()
-
-                # Create memory service
-                try:
-                    memory_service = QdrantMemoryService()
-                    logger.debug("Created memory service successfully")
-                except Exception as e:
-                    logger.error(f"Failed to create memory service: {str(e)}")
-                    memory_service = None
 
                 # Get instruction
                 try:
@@ -347,10 +331,6 @@ async def setup_agent() -> Optional[RadBotAgent]:
                     )
 
                 # Create the base agent with all components directly, bypassing the factory functions
-                from google.adk.agents import Agent
-                from radbot.agent.runner import RadbotRunner as Runner
-                from google.adk.sessions import InMemorySessionService
-
                 from radbot.agent.agent import RadBotAgent
 
                 # Create components directly
@@ -394,10 +374,10 @@ async def setup_agent() -> Optional[RadBotAgent]:
 
                 # Create a super basic agent directly as a last resort
                 from google.adk.agents import Agent
-                from radbot.agent.runner import RadbotRunner as Runner
                 from google.adk.sessions import InMemorySessionService
 
                 from radbot.agent.agent import RadBotAgent
+                from radbot.agent.runner import RadbotRunner as Runner
 
                 # Create minimal components
                 session_service = InMemorySessionService()
@@ -511,7 +491,7 @@ def process_commands(command: str, agent: RadBotAgent, user_id: str) -> bool:
         if hasattr(agent, "_memory_service") and agent._memory_service is not None:
             memory_service = agent._memory_service
             print("\nMemory System Status:")
-            print(f"  Enabled: Yes")
+            print("  Enabled: Yes")
 
             # Get collection information
             try:
@@ -674,8 +654,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        import asyncio
-
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nInterrupted by user. Exiting.")

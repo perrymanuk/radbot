@@ -5,14 +5,8 @@ This module provides core utilities for connecting to external services
 via the Model Context Protocol (MCP).
 """
 
-import asyncio
 import logging
-import os
-from contextlib import AsyncExitStack
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
-from google.adk.tools.mcp_tool import McpToolset
-from google.adk.tools.mcp_tool.mcp_session_manager import SseServerParams
+from typing import Any, Dict, List
 
 from radbot.config.config_loader import config_loader
 from radbot.tools.mcp.mcp_client_factory import MCPClientError, MCPClientFactory

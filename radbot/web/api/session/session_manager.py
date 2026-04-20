@@ -33,7 +33,9 @@ class SessionManager:
         logger.info("Session manager initialized")
 
     async def get_or_create_runner(
-        self, session_id: str, user_id: str = "web_user",
+        self,
+        session_id: str,
+        user_id: str = "web_user",
         agent_name: Optional[str] = None,
     ) -> SessionRunner:
         """Atomically get or create a runner for a session.
@@ -88,16 +90,12 @@ class SessionManager:
             self.sessions[session_id] = runner
             return runner
 
-    async def get_runner(
-        self, session_id: str
-    ) -> Optional[SessionRunner]:
+    async def get_runner(self, session_id: str) -> Optional[SessionRunner]:
         """Get runner for a session."""
         async with self.lock:
             return self.sessions.get(session_id)
 
-    async def set_runner(
-        self, session_id: str, runner: SessionRunner
-    ):
+    async def set_runner(self, session_id: str, runner: SessionRunner):
         """Set runner for a session."""
         async with self.lock:
             self.sessions[session_id] = runner

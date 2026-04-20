@@ -6,29 +6,26 @@ runners, and handling agent creation with specific capabilities.
 """
 
 import logging
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional, Union
 
 # Import ADK components
 from google.adk.agents import Agent
-from radbot.agent.runner import RadbotRunner as Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-from google.protobuf.json_format import MessageToDict
+
+# Import agent factory and base components
+from radbot.agent.agent_base import RadBotAgent
+from radbot.agent.agent_factory import AgentFactory
+from radbot.agent.runner import RadbotRunner as Runner
+
+# Import our configuration modules
+from radbot.config.settings import ConfigManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Type alias for backward compatibility
 SessionService = InMemorySessionService
-
-# Import agent factory and base components
-from radbot.agent.agent_base import RadBotAgent
-from radbot.agent.agent_factory import AgentFactory
-
-# Import our configuration modules
-from radbot.config import config_manager
-from radbot.config.settings import ConfigManager
 
 
 def create_runner(
@@ -103,7 +100,6 @@ def create_agent(
             memory_tools = [search_past_conversations, store_important_information]
 
             # Add memory tools if they're not already included
-            memory_tool_names = set([tool.__name__ for tool in memory_tools])
             existing_tool_names = set()
             for tool in all_tools:
                 if hasattr(tool, "__name__"):
@@ -127,7 +123,6 @@ def create_agent(
             tools=all_tools,
             instruction_name=instruction_name,
             config=config,
-            register_tools=register_tools,
         )
         logger.info(f"Created web agent with {len(all_tools)} tools")
 
@@ -214,7 +209,7 @@ def create_agent(
                         if hasattr(sa, "name")
                     ):
                         sub_agents.append(search_sub)
-                        logger.info(f"Added search_agent to root_agent.sub_agents list")
+                        logger.info("Added search_agent to root_agent.sub_agents list")
                 except Exception as e:
                     logger.warning(f"Failed to create search agent: {str(e)}")
 
@@ -230,7 +225,7 @@ def create_agent(
                     ):
                         sub_agents.append(code_sub)
                         logger.info(
-                            f"Added code_execution_agent to root_agent.sub_agents list"
+                            "Added code_execution_agent to root_agent.sub_agents list"
                         )
                 except Exception as e:
                     logger.warning(f"Failed to create code execution agent: {str(e)}")
@@ -297,9 +292,6 @@ def create_core_agent_for_web(
         config=None,  # Will use global config
         register_tools=True,
     )
-
-    # Import required components for agent transfers
-    from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 
     # Ensure agent has transfer_to_agent tool
     if hasattr(agent, "tools"):

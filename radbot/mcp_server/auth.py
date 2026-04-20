@@ -66,11 +66,7 @@ def check_bearer(request: Request) -> JSONResponse | None:
         )
     header = request.headers.get("Authorization", "")
     if not header.startswith("Bearer "):
-        return JSONResponse(
-            {"error": "Missing bearer token"}, status_code=401
-        )
+        return JSONResponse({"error": "Missing bearer token"}, status_code=401)
     if header[7:].strip() != expected:
-        return JSONResponse(
-            {"error": "Invalid bearer token"}, status_code=401
-        )
+        return JSONResponse({"error": "Invalid bearer token"}, status_code=401)
     return None

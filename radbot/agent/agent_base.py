@@ -6,30 +6,25 @@ runner, and session management.
 """
 
 import logging
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 from dotenv import load_dotenv
-from google.adk.agents import Agent
-from radbot.agent.runner import RadbotRunner as Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
+
+# Load .env BEFORE config imports so env vars are available at module load.
+load_dotenv()
+
+from google.adk.agents import Agent  # noqa: E402 — after load_dotenv()
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+
+from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
+from radbot.config import config_manager  # noqa: E402
+from radbot.config.settings import ConfigManager  # noqa: E402
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Type alias for backward compatibility
 SessionService = InMemorySessionService
-
-# Load environment variables
-load_dotenv()
-
-# Import our configuration modules
-from radbot.config import config_manager
-
-# Import our ADK configuration setup to handle Vertex AI settings
-from radbot.config.adk_config import setup_vertex_environment
-from radbot.config.settings import ConfigManager
 
 # Fallback instruction if configuration loading fails
 FALLBACK_INSTRUCTION = """

@@ -4,19 +4,18 @@ Utility functions for working with the Model Context Protocol (MCP).
 This module provides helper functions for testing and debugging MCP connections.
 """
 
-import json
+import asyncio
 import logging
-import os
-import re
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional
 
 from dotenv import load_dotenv
-from google.adk.tools import FunctionTool
 
-from radbot.tools.mcp.mcp_tools import create_home_assistant_toolset
-
-# Load environment variables
+# Load environment variables before downstream imports.
 load_dotenv()
+
+from google.adk.tools import FunctionTool  # noqa: E402
+
+from radbot.tools.mcp.mcp_tools import create_home_assistant_toolset  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -114,9 +113,6 @@ def test_home_assistant_connection() -> Dict[str, Any]:
             "error": str(e),
             "details": None,
         }
-
-
-import asyncio
 
 
 async def _check_home_assistant_entity_async(entity_id: str) -> Dict[str, Any]:

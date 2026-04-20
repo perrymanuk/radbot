@@ -2,8 +2,6 @@
 
 from typing import Dict, Optional
 
-from google.adk.agents import Agent
-from google.adk.sessions import InMemorySessionService
 from google.adk.tools import FunctionTool
 
 from radbot.agent.agent import RadBotAgent

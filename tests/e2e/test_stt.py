@@ -4,12 +4,15 @@ Auto-skipped if Google Cloud STT is not available.
 """
 
 import io
-import struct
 import wave
 
 import pytest
 
-pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session"), pytest.mark.requires_stt]
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.requires_stt,
+]
 
 
 def _create_test_wav() -> bytes:

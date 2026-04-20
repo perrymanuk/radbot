@@ -1,8 +1,8 @@
 """Non-deterministic response assertion helpers for agent chat tests."""
 
-import pytest
+from typing import Any, Dict
 
-from typing import Any, Dict, List
+import pytest
 
 # Common Beto personality synonyms for "not found" / "missing" / "error".
 # Import and spread into assert_response_contains_any() calls that check
@@ -50,9 +50,9 @@ def assert_response_contains(ws_result: Dict[str, Any], *keywords: str) -> str:
     text = assert_response_not_empty(ws_result)
     text_lower = text.lower()
     for kw in keywords:
-        assert kw.lower() in text_lower, (
-            f"Expected '{kw}' in response, got: {text[:200]}"
-        )
+        assert (
+            kw.lower() in text_lower
+        ), f"Expected '{kw}' in response, got: {text[:200]}"
     return text
 
 
@@ -61,9 +61,9 @@ def assert_response_contains_any(ws_result: Dict[str, Any], *keywords: str) -> s
     text = assert_response_not_empty(ws_result)
     text_lower = text.lower()
     matched = any(kw.lower() in text_lower for kw in keywords)
-    assert matched, (
-        f"Expected at least one of {keywords} in response, got: {text[:200]}"
-    )
+    assert (
+        matched
+    ), f"Expected at least one of {keywords} in response, got: {text[:200]}"
     return text
 
 
@@ -96,9 +96,15 @@ def assert_agent_transferred(ws_result: Dict[str, Any], agent_name: str) -> bool
         if event.get("agent_name", "").lower() == agent_lower:
             return True
         # Check for transfer events
-        if "transfer" in event.get("type", "").lower() and agent_lower in str(event).lower():
+        if (
+            "transfer" in event.get("type", "").lower()
+            and agent_lower in str(event).lower()
+        ):
             return True
-        if event.get("category") == "agent_transfer" and agent_lower in str(event).lower():
+        if (
+            event.get("category") == "agent_transfer"
+            and agent_lower in str(event).lower()
+        ):
             return True
     return False
 
@@ -113,8 +119,9 @@ def assert_no_error(ws_result: Dict[str, Any]) -> None:
 def assert_response_matches_pattern(ws_result: Dict[str, Any], pattern: str) -> str:
     """Assert the response text matches a regex pattern."""
     import re
+
     text = assert_response_not_empty(ws_result)
-    assert re.search(pattern, text, re.IGNORECASE), (
-        f"Response does not match pattern '{pattern}': {text[:200]}"
-    )
+    assert re.search(
+        pattern, text, re.IGNORECASE
+    ), f"Response does not match pattern '{pattern}': {text[:200]}"
     return text

@@ -175,7 +175,10 @@ class TerminalManager:
         self._sessions[terminal_id] = session
         logger.info(
             "Terminal session %s created: pid=%d, workspace=%s/%s",
-            terminal_id, pid, ws.get("owner"), ws.get("repo"),
+            terminal_id,
+            pid,
+            ws.get("owner"),
+            ws.get("repo"),
         )
         return session
 
@@ -185,15 +188,17 @@ class TerminalManager:
     def list_sessions(self) -> List[Dict[str, Any]]:
         result = []
         for s in self._sessions.values():
-            result.append({
-                "terminal_id": s.terminal_id,
-                "workspace_id": s.workspace_id,
-                "owner": s.workspace.get("owner"),
-                "repo": s.workspace.get("repo"),
-                "branch": s.workspace.get("branch"),
-                "pid": s.pid,
-                "closed": s.closed,
-            })
+            result.append(
+                {
+                    "terminal_id": s.terminal_id,
+                    "workspace_id": s.workspace_id,
+                    "owner": s.workspace.get("owner"),
+                    "repo": s.workspace.get("repo"),
+                    "branch": s.workspace.get("branch"),
+                    "pid": s.pid,
+                    "closed": s.closed,
+                }
+            )
         return result
 
     def resize_terminal(self, terminal_id: str, cols: int, rows: int) -> None:
@@ -235,7 +240,9 @@ class TerminalManager:
         except Exception:
             pass
         self._save_claude_session_id(session)
-        logger.info("Terminal session %s cleaned up (pid=%d)", session.terminal_id, session.pid)
+        logger.info(
+            "Terminal session %s cleaned up (pid=%d)", session.terminal_id, session.pid
+        )
 
     def _save_claude_session_id(self, session: TerminalSession) -> None:
         """Find and persist the Claude Code session ID from its state files."""
@@ -275,7 +282,9 @@ class TerminalManager:
                 )
                 logger.info(
                     "Saved Claude session ID %s for workspace %s/%s",
-                    claude_session_id[:12], ws["owner"], ws["repo"],
+                    claude_session_id[:12],
+                    ws["owner"],
+                    ws["repo"],
                 )
         except Exception as e:
             logger.debug("Failed to capture Claude session ID: %s", e)
@@ -291,7 +300,8 @@ class TerminalManager:
                     session.closed = True
                     logger.info(
                         "Terminal session %s child exited (status=%d)",
-                        session.terminal_id, status,
+                        session.terminal_id,
+                        status,
                     )
             except ChildProcessError:
                 session.closed = True
@@ -323,7 +333,9 @@ class TerminalManager:
                     f"Failed to re-clone {ws['owner']}/{ws['repo']}: {result.get('message')}"
                 )
             new_path = result.get("local_path", local_path)
-            logger.info("Re-cloned workspace %s/%s to %s", ws["owner"], ws["repo"], new_path)
+            logger.info(
+                "Re-cloned workspace %s/%s to %s", ws["owner"], ws["repo"], new_path
+            )
             return new_path
         except Exception as e:
             raise ValueError(
@@ -369,7 +381,9 @@ class TerminalManager:
                     if api_key:
                         env["ANTHROPIC_API_KEY"] = api_key
                         token_injected = True
-                        logger.info("Terminal: injected ANTHROPIC_API_KEY from credential store")
+                        logger.info(
+                            "Terminal: injected ANTHROPIC_API_KEY from credential store"
+                        )
             except Exception as e:
                 logger.warning("Terminal: failed to get Anthropic API key: %s", e)
 
@@ -382,7 +396,9 @@ class TerminalManager:
         # Ensure onboarding is complete
         if token_injected:
             try:
-                from radbot.tools.claude_code.claude_code_client import _ensure_onboarding_complete
+                from radbot.tools.claude_code.claude_code_client import (
+                    _ensure_onboarding_complete,
+                )
 
                 _ensure_onboarding_complete(workspace_dir=local_path)
             except Exception as e:
@@ -486,7 +502,9 @@ async def handle_terminal_websocket(
     client_count = len(session._clients)
     logger.info(
         "Terminal WS connected: %s (%d client%s)",
-        session.terminal_id, client_count, "s" if client_count > 1 else "",
+        session.terminal_id,
+        client_count,
+        "s" if client_count > 1 else "",
     )
 
     # Replay scrollback
@@ -496,7 +514,8 @@ async def handle_terminal_websocket(
             await websocket.send_bytes(bytes([MSG_DATA]) + scrollback)
             logger.info(
                 "Terminal WS replayed %d bytes of scrollback for %s",
-                len(scrollback), session.terminal_id,
+                len(scrollback),
+                session.terminal_id,
             )
         except Exception as e:
             logger.debug("Failed to replay scrollback: %s", e)
@@ -546,6 +565,7 @@ async def handle_terminal_websocket(
         session.remove_client(websocket)
         logger.info(
             "Terminal WS disconnected: %s (%d client%s remaining)",
-            session.terminal_id, len(session._clients),
+            session.terminal_id,
+            len(session._clients),
             "s" if len(session._clients) != 1 else "",
         )

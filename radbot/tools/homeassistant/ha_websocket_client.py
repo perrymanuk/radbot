@@ -24,9 +24,9 @@ def _derive_ws_url(rest_url: str) -> str:
     """
     url = rest_url.rstrip("/")
     if url.startswith("https://"):
-        url = "wss://" + url[len("https://"):]
+        url = "wss://" + url[len("https://") :]
     elif url.startswith("http://"):
-        url = "ws://" + url[len("http://"):]
+        url = "ws://" + url[len("http://") :]
     if not url.endswith("/api/websocket"):
         url += "/api/websocket"
     return url
@@ -60,10 +60,14 @@ class HomeAssistantWebSocketClient:
             raise RuntimeError(f"Expected auth_required, got {msg.get('type')}")
 
         # Step 2: send auth
-        await self._ws.send(json.dumps({
-            "type": "auth",
-            "access_token": self._token,
-        }))
+        await self._ws.send(
+            json.dumps(
+                {
+                    "type": "auth",
+                    "access_token": self._token,
+                }
+            )
+        )
 
         # Step 3: receive auth_ok / auth_invalid
         raw = await self._ws.recv()
@@ -131,9 +135,7 @@ class HomeAssistantWebSocketClient:
                 raise
             logger.warning("HA WebSocket connection lost, reconnecting …")
             self._ws = None
-            return await self._send_command_locked(
-                msg_type, _retried=True, **kwargs
-            )
+            return await self._send_command_locked(msg_type, _retried=True, **kwargs)
 
     # ------------------------------------------------------------------
     # Dashboard (Lovelace) methods
@@ -164,9 +166,7 @@ class HomeAssistantWebSocketClient:
             kwargs["icon"] = icon
         return await self.send_command("lovelace/dashboards/create", **kwargs)
 
-    async def update_dashboard(
-        self, dashboard_id: int, **kwargs: Any
-    ) -> Any:
+    async def update_dashboard(self, dashboard_id: int, **kwargs: Any) -> Any:
         """Update dashboard metadata (title, icon, etc.)."""
         return await self.send_command(
             "lovelace/dashboards/update", dashboard_id=dashboard_id, **kwargs

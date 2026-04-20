@@ -142,8 +142,10 @@ def _blocked(host: str) -> Optional[str]:
     lowered = host.lower()
 
     # Explicit local/private names
-    if lowered in {"localhost"} or lowered.endswith(".local") or lowered.endswith(
-        ".internal"
+    if (
+        lowered in {"localhost"}
+        or lowered.endswith(".local")
+        or lowered.endswith(".internal")
     ):
         return f"private/local hostname: {host}"
 
@@ -224,7 +226,10 @@ async def web_fetch(url: str) -> Dict[str, Any]:
         async with httpx.AsyncClient(
             follow_redirects=False,
             timeout=timeout,
-            headers={"User-Agent": _USER_AGENT, "Accept": "text/html,text/plain,application/json,*/*;q=0.5"},
+            headers={
+                "User-Agent": _USER_AGENT,
+                "Accept": "text/html,text/plain,application/json,*/*;q=0.5",
+            },
         ) as client:
             current_url = url
             for hop in range(_DEFAULT_MAX_REDIRECTS + 1):
@@ -232,7 +237,10 @@ async def web_fetch(url: str) -> Dict[str, Any]:
                 if resp.is_redirect:
                     next_url = resp.headers.get("location", "")
                     if not next_url:
-                        return {"status": "error", "message": "redirect with no Location"}
+                        return {
+                            "status": "error",
+                            "message": "redirect with no Location",
+                        }
                     # Resolve relative redirects against the current URL
                     next_url = str(httpx.URL(current_url).join(next_url))
                     ok, reason = _validate_url(next_url)
@@ -272,7 +280,9 @@ async def web_fetch(url: str) -> Dict[str, Any]:
             else:
                 truncated = False
 
-            content_type = (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+            content_type = (
+                (resp.headers.get("content-type") or "").split(";")[0].strip().lower()
+            )
             try:
                 text = body.decode(resp.encoding or "utf-8", errors="replace")
             except LookupError:
@@ -281,7 +291,9 @@ async def web_fetch(url: str) -> Dict[str, Any]:
             if "html" in content_type:
                 text = _html_to_text(text)
 
-            safe = sanitize_external_content(text, source="web_fetch", strictness="strict")
+            safe = sanitize_external_content(
+                text, source="web_fetch", strictness="strict"
+            )
 
             logger.info(
                 "web_fetch ok url=%s final=%s bytes=%d truncated=%s ctype=%s",

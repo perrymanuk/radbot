@@ -10,11 +10,10 @@ import os
 
 from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
 
-# Initialize logger
-logger = logging.getLogger(__name__)
-
 from .code_execution_tool import create_code_execution_agent
 from .search_tool import create_search_agent
+
+logger = logging.getLogger(__name__)
 
 
 # Check if ADK built-in tools should be enabled

@@ -323,9 +323,7 @@ class TestSessionProxyUnit:
         mock_result = {"response": "hello", "events": []}
         # SessionRunner is imported lazily inside _fallback_local; patch its
         # source module so the import inside the function picks up the mock.
-        with patch(
-            "radbot.web.api.session.session_runner.SessionRunner"
-        ) as MockRunner:
+        with patch("radbot.web.api.session.session_runner.SessionRunner") as MockRunner:
             mock_runner = AsyncMock()
             mock_runner.process_message.return_value = mock_result
             MockRunner.return_value = mock_runner
@@ -346,7 +344,11 @@ class TestSessionProxyUnit:
         mock_result = {"response": "fallback response", "events": []}
         with (
             patch.object(proxy, "_ensure_worker", return_value=None),
-            patch.object(proxy, "_fallback_local", return_value={**mock_result, "source": "local_fallback"}) as mock_fb,
+            patch.object(
+                proxy,
+                "_fallback_local",
+                return_value={**mock_result, "source": "local_fallback"},
+            ) as mock_fb,
         ):
             result = await proxy.process_message("hello")
             mock_fb.assert_called_once()
@@ -414,7 +416,15 @@ class TestSessionProxyUnit:
             patch("radbot.tools.nomad.nomad_client.get_nomad_client") as mock_get,
             patch("radbot.worker.db.count_active_workers", return_value=10),
             patch.object(proxy, "_get_max_workers", return_value=10),
-            patch.object(proxy, "_get_bootstrap_secrets", return_value={"credential_key": "k", "admin_token": "t", "postgres_pass": "p"}),
+            patch.object(
+                proxy,
+                "_get_bootstrap_secrets",
+                return_value={
+                    "credential_key": "k",
+                    "admin_token": "t",
+                    "postgres_pass": "p",
+                },
+            ),
         ):
             mock_get.return_value = MagicMock()
             result = await proxy._spawn_worker()

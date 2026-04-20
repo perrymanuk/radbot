@@ -6,7 +6,7 @@ the Google Agent Development Kit (ADK).
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 # Import necessary components for ADK integration
 try:
@@ -20,8 +20,6 @@ except (ImportError, AttributeError):
 
     HAVE_ADK_TOOL_DECORATOR = False
 
-logger = logging.getLogger(__name__)
-
 from radbot.tools.ha_state_cache import search_ha_entities
 
 # Import the tool functions
@@ -32,6 +30,8 @@ from radbot.tools.ha_tools_impl import (
     turn_off_ha_entity,
     turn_on_ha_entity,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def create_tool_schemas() -> List[Any]:
@@ -263,7 +263,7 @@ def create_tool_schemas_with_function_tool() -> List[Any]:
                 "properties": {
                     "entity_id": {
                         "type": "string",
-                        "description": "The unique identifier of the entity (e.g., 'light.living_room', 'sensor.temperature')",
+                        "description": "The unique identifier of the entity (e.g., 'light.living_room', 'sensor.temperature')",  # noqa: E501
                     }
                 },
                 "required": ["entity_id"],
@@ -317,7 +317,7 @@ def create_tool_schemas_with_function_tool() -> List[Any]:
         function=toggle_ha_entity,
         function_schema={
             "name": "toggle_home_assistant_entity",
-            "description": "Toggle the state of a Home Assistant entity (e.g., turns lights/switches on if off, off if on)",
+            "description": "Toggle the state of a Home Assistant entity (e.g., turns lights/switches on if off, off if on)",  # noqa: E501
             "parameters": {
                 "type": "object",
                 "properties": {

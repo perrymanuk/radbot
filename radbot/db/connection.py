@@ -49,7 +49,6 @@ atexit.register(_close_pool)
 
 def get_db_pool() -> psycopg2.pool.ThreadedConnectionPool:
     """Return the process-wide connection pool, initialising on first call."""
-    global _pool
     if _pool is not None:
         return _pool
     with _pool_lock:

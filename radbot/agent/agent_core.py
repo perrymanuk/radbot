@@ -9,7 +9,6 @@ The new workflow-based LlmAgent builds its internal routing mesh in
 model_post_init — agents added after construction won't be routable.
 """
 
-import logging
 import os
 from datetime import date
 from typing import Any, List, Optional
@@ -22,18 +21,18 @@ from radbot.agent.agent_initializer import (
     types,
 )
 from radbot.agent.agent_tools_setup import setup_before_agent_call
-
-# Import callbacks
-from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
 from radbot.callbacks.empty_content_callback import (
     handle_empty_response_after_model,
     scrub_empty_content_before_model,
 )
-from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+
+# Import callbacks
+from radbot.callbacks.sanitize_callback import sanitize_before_model_callback
+from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
 from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
-from radbot.callbacks.sanitize_tool_schemas import sanitize_tool_schemas_before_model
+from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
@@ -126,23 +125,31 @@ beto_tools = create_agent_memory_tools("beto") + list(TELOS_TOOLS)
 # ADK 2.0's _Mesh builds the routing graph in model_post_init.
 # ---------------------------------------------------------------------------
 
-# Builtin sub-agents (search, code execution, scout)
-from radbot.agent.research_agent.factory import create_research_agent
-from radbot.tools.adk_builtin.code_execution_tool import create_code_execution_agent
-from radbot.tools.adk_builtin.search_tool import create_search_agent
+# Builtin sub-agents (search, code execution, scout).
+# Late imports are intentional — these factories must run after beto_tools /
+# TELOS setup above, which monkey-patches module state they depend on.
+from radbot.agent.research_agent.factory import create_research_agent  # noqa: E402
+from radbot.tools.adk_builtin.code_execution_tool import (  # noqa: E402
+    create_code_execution_agent,
+)
+from radbot.tools.adk_builtin.search_tool import create_search_agent  # noqa: E402
 
 search_agent = create_search_agent(name="search_agent")
 code_execution_agent = create_code_execution_agent(name="code_execution_agent")
 scout_agent = create_research_agent(name="scout", as_subagent=False)
 
 # Domain sub-agents (casa, planner, comms, axel, kidsvid)
-from radbot.agent.specialized_agent_factory import create_specialized_agents
+from radbot.agent.specialized_agent_factory import (  # noqa: E402
+    create_specialized_agents,
+)
 
 specialized_agents = create_specialized_agents()
 logger.debug(f"Created {len(specialized_agents)} specialized agents")
 
 # Assemble the complete sub-agents list
-all_sub_agents = [a for a in [search_agent, code_execution_agent, scout_agent] if a is not None]
+all_sub_agents = [
+    a for a in [search_agent, code_execution_agent, scout_agent] if a is not None
+]
 all_sub_agents.extend(specialized_agents)
 
 # Attach callbacks to all sub-agents before construction.
@@ -180,7 +187,10 @@ root_agent = Agent(
         # Attached to beto ONLY — sub-agents don't need user persona context.
         inject_telos_context,
     ],
-    after_model_callback=[handle_empty_response_after_model, telemetry_after_model_callback],
+    after_model_callback=[
+        handle_empty_response_after_model,
+        telemetry_after_model_callback,
+    ],
     generate_content_config=types.GenerateContentConfig(temperature=0.2),
 )
 

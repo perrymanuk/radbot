@@ -9,60 +9,41 @@ import json
 import logging
 import os
 import sys
-from typing import Any, Dict, Optional, Union
 
-logger = logging.getLogger(__name__)
-
-# Add project root to path
+# Add repo root to sys.path so `import agent` (root-level agent.py) resolves.
+# Must happen before any radbot/agent imports below.
 project_root = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../../../../")
 )
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from google.adk.artifacts import InMemoryArtifactService
-
-# Import needed ADK components
-from radbot.agent.runner import RadbotRunner as Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai.types import Content, Part
-
-# Import root_agent directly from agent.py (beto — default session root)
-from agent import root_agent
+from google.adk.artifacts import InMemoryArtifactService  # noqa: E402
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.genai.types import Content, Part  # noqa: E402
 
 # Registry of available session roots (keyed by agent_name stored on
-# chat_sessions). Unknown names fall back to beto.
-from radbot.agent.agent_core import get_root_agent
-
-# Import the malformed function handler
-from radbot.web.api.malformed_function_handler import (
+# chat_sessions). get_root_agent imports agent.py transitively, which sets
+# up the agent tree; unknown names fall back to beto.
+from radbot.agent.agent_core import get_root_agent  # noqa: E402
+from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
+from radbot.web.api.malformed_function_handler import (  # noqa: E402
     extract_text_from_malformed_function,
 )
-
-# Import event processing functions
-from radbot.web.api.session.event_processing import (
-    _get_event_details,
-    _get_plan_step_summary,
+from radbot.web.api.session.event_processing import (  # noqa: E402
     _process_agent_transfer_event,
     _process_generic_event,
     _process_model_response_event,
     _process_planner_event,
     _process_tool_call_event,
 )
-
-# Import MCP tools loader
-from radbot.web.api.session.mcp_tools import _try_load_mcp_tools
-
-# Import serialization function
-from radbot.web.api.session.serialization import _safely_serialize
-
-# Import utility functions
-from radbot.web.api.session.utils import (
+from radbot.web.api.session.utils import (  # noqa: E402
     _extract_response_from_event,
     _get_current_timestamp,
     _get_event_type,
-    _process_response_text,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class SessionRunner:
@@ -93,20 +74,12 @@ class SessionRunner:
         self.artifact_service = InMemoryArtifactService()
         logger.debug("Created InMemoryArtifactService for the session")
 
-        # NOTE: MCP tool loading into root agent disabled.
-        # Beto is a pure orchestrator — MCP tools belong on sub-agents (axel).
-        # The old _try_load_mcp_tools() mutated the global root_agent, adding
-        # tools like prompt_claude on every SessionRunner init.
-        # self._try_load_mcp_tools()
-
         # Log agent tree structure
         self._log_agent_tree()
 
         # Create the ADK Runner with app_name matching the selected root
         app_name = (
-            self._root_agent.name
-            if hasattr(self._root_agent, "name")
-            else agent_name
+            self._root_agent.name if hasattr(self._root_agent, "name") else agent_name
         )
         logger.info(
             "SessionRunner session=%s user=%s root=%s app_name=%s",
@@ -299,7 +272,9 @@ class SessionRunner:
             for attempt in range(MAX_RETRIES):
                 events = []
                 async for event in self.runner.run_async(
-                    user_id=self.user_id, session_id=session.id, new_message=user_message,
+                    user_id=self.user_id,
+                    session_id=session.id,
+                    new_message=user_message,
                     run_config=run_config,
                 ):
                     events.append(event)
@@ -308,7 +283,12 @@ class SessionRunner:
                 # Function call parts (transfer_to_agent etc.) don't count — we need real text.
                 has_text = False
                 for ev in events:
-                    if hasattr(ev, "content") and ev.content and hasattr(ev.content, "parts") and ev.content.parts:
+                    if (
+                        hasattr(ev, "content")
+                        and ev.content
+                        and hasattr(ev.content, "parts")
+                        and ev.content.parts
+                    ):
                         for part in ev.content.parts:
                             if hasattr(part, "text") and part.text:
                                 has_text = True
@@ -325,15 +305,23 @@ class SessionRunner:
                 logger.warning(
                     "No text in model response on attempt %d/%d (got %d events with function calls only) "
                     "— resetting session and retrying",
-                    attempt + 1, MAX_RETRIES, len(events),
+                    attempt + 1,
+                    MAX_RETRIES,
+                    len(events),
                 )
                 try:
-                    app_name = self.runner.app_name if hasattr(self.runner, "app_name") else "beto"
+                    app_name = (
+                        self.runner.app_name
+                        if hasattr(self.runner, "app_name")
+                        else "beto"
+                    )
                     await self.session_service.delete_session(
                         app_name=app_name, user_id=self.user_id, session_id=session.id
                     )
                     session = await self.session_service.create_session(
-                        app_name=app_name, user_id=self.user_id, session_id=self.session_id
+                        app_name=app_name,
+                        user_id=self.user_id,
+                        session_id=self.session_id,
                     )
                     # Don't reload history on retry — it may contain the
                     # poisoned empty-content event that caused the failure.
@@ -345,7 +333,9 @@ class SessionRunner:
                 await asyncio.sleep(0.5 * (attempt + 1))
 
             # Process events
-            logger.debug(f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}")
+            logger.debug(
+                f"Received {len(events)} events from runner: {[type(e).__name__ for e in events]}"
+            )
 
             # Log detailed information about each event
             for i, event in enumerate(events):
@@ -357,7 +347,7 @@ class SessionRunner:
                     else:
                         is_final = event.is_final_response
                 logger.debug(
-                    f"Event {i}: is_final={is_final}, content={type(event.content).__name__ if hasattr(event, 'content') else 'N/A'}"
+                    f"Event {i}: is_final={is_final}, content={type(event.content).__name__ if hasattr(event, 'content') else 'N/A'}"  # noqa: E501
                 )
 
                 # Log content parts detail to diagnose text extraction
@@ -380,7 +370,7 @@ class SessionRunner:
                                 part_attrs.append(f"function_response={name}")
                             if not part_attrs:
                                 part_attrs.append(
-                                    f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}"
+                                    f"type={type(part).__name__}, attrs={[a for a in dir(part) if not a.startswith('_')]}"  # noqa: E501
                                 )
                             logger.debug(
                                 f"  Event {i} part {j}: {', '.join(part_attrs)}"
@@ -455,7 +445,9 @@ class SessionRunner:
                     if to_agent:
                         handoffs.append(
                             {
-                                "from": (event_data.get("from_agent") or "BETO").upper(),
+                                "from": (
+                                    event_data.get("from_agent") or "BETO"
+                                ).upper(),
                                 "to": str(to_agent).upper(),
                             }
                         )
@@ -599,9 +591,7 @@ class SessionRunner:
                     if key in seen or h["from"] == h["to"]:
                         continue
                     seen.add(key)
-                    chips.append(
-                        f"```radbot:handoff\n{json.dumps(h)}\n```"
-                    )
+                    chips.append(f"```radbot:handoff\n{json.dumps(h)}\n```")
                 if chips:
                     final_response = "\n".join(chips) + "\n\n" + final_response
 
@@ -628,7 +618,7 @@ class SessionRunner:
 
         except Exception as e:
             logger.error(f"Error in process_message: {str(e)}", exc_info=True)
-            error_message = f"I apologize, but I encountered an error processing your message. Please try again. Error: {str(e)}"
+            error_message = f"I apologize, but I encountered an error processing your message. Please try again. Error: {str(e)}"  # noqa: E501
             return {"response": error_message, "events": []}
 
     def _extract_response_from_event(self, event):
@@ -713,7 +703,7 @@ class SessionRunner:
 
                             # Replace the JSON part with wrapped version
                             safe_json = escape(json_str)
-                            wrapped_json = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_json}</pre>'
+                            wrapped_json = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_json}</pre>'  # noqa: E501
 
                             # If the JSON is embedded in other text, preserve it
                             result = full_text.replace(json_str, wrapped_json)
@@ -755,12 +745,12 @@ class SessionRunner:
                         if is_special:
                             # For special API responses, preserve exact formatting
                             safe_content = escape(block_content)
-                            wrapped_content = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_content}</pre>'
+                            wrapped_content = f'<pre data-content-type="json-raw" class="content-json-raw">{safe_content}</pre>'  # noqa: E501
                         else:
                             # For regular JSON, format it nicely
                             formatted = json.dumps(json_obj, indent=2)
                             safe_content = escape(formatted)
-                            wrapped_content = f'<pre data-content-type="json-formatted" class="content-json-formatted">{safe_content}</pre>'
+                            wrapped_content = f'<pre data-content-type="json-formatted" class="content-json-formatted">{safe_content}</pre>'  # noqa: E501
 
                         # Replace the code block with our data-attribute version
                         start, end = match.span()
@@ -1141,154 +1131,6 @@ class SessionRunner:
         # Fallback to string representation
         return str(event)
 
-    def _try_load_mcp_tools(self):
-        """Try to load and add MCP tools to the root agent."""
-        try:
-            # Import necessary modules
-            from google.adk.tools import FunctionTool
-
-            from radbot.config.config_loader import config_loader
-            from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
-
-            # Get enabled MCP servers
-            servers = config_loader.get_enabled_mcp_servers()
-            if not servers:
-                logger.info("No enabled MCP servers found in configuration")
-                return
-
-            logger.info(f"Loading tools from {len(servers)} MCP servers")
-
-            # Initialize clients and collect tools
-            tools_to_add = []
-            existing_tool_names = set()
-
-            # Get existing tool names
-            if hasattr(root_agent, "tools"):
-                for tool in root_agent.tools:
-                    if hasattr(tool, "name"):
-                        existing_tool_names.add(tool.name)
-                    elif hasattr(tool, "__name__"):
-                        existing_tool_names.add(tool.__name__)
-
-            # Go through each server and directly initialize the client
-            for server in servers:
-                server_id = server.get("id")
-                server_name = server.get("name", server_id)
-
-                try:
-                    # Create a client directly instead of using factory
-                    transport = server.get("transport", "sse")
-                    url = server.get("url")
-                    auth_token = server.get("auth_token")
-
-                    # Handle different transport types
-                    if transport == "sse":
-                        # Use our custom SSE client implementation
-                        from radbot.tools.mcp.client import MCPSSEClient
-
-                        client = MCPSSEClient(url=url, auth_token=auth_token)
-
-                        # Initialize the client (this is synchronous and safe)
-                        if client.initialize():
-                            # Get tools from the client
-                            server_tools = client.tools
-
-                            if server_tools:
-                                logger.info(
-                                    f"Successfully loaded {len(server_tools)} tools from {server_name}"
-                                )
-
-                                # Add unique tools, filtering out blocklisted ones
-                                from radbot.tools.mcp.dynamic_tools_loader import (
-                                    _MCP_TOOL_BLOCKLIST,
-                                )
-
-                                for tool in server_tools:
-                                    tool_name = getattr(tool, "name", None) or getattr(
-                                        tool, "__name__", str(tool)
-                                    )
-                                    if tool_name in _MCP_TOOL_BLOCKLIST:
-                                        logger.info(
-                                            f"Skipping blocklisted tool: {tool_name} from {server_name}"
-                                        )
-                                    elif tool_name not in existing_tool_names:
-                                        tools_to_add.append(tool)
-                                        existing_tool_names.add(tool_name)
-                                        logger.info(
-                                            f"Added tool: {tool_name} from {server_name}"
-                                        )
-                        else:
-                            logger.warning(
-                                f"Failed to initialize MCP client for {server_name}"
-                            )
-
-                    elif transport == "stdio":
-                        # For Claude CLI, use the simplified prompt tool implementation
-                        try:
-                            from radbot.tools.claude_prompt import (
-                                create_claude_prompt_tool,
-                            )
-
-                            # Get the Claude prompt tool
-                            claude_prompt_tool = create_claude_prompt_tool()
-
-                            if claude_prompt_tool:
-                                logger.info(f"Successfully loaded Claude prompt tool")
-
-                                # Get the tool name - use multiple approaches to be robust
-                                tool_name = None
-                                # Try to get name attribute
-                                if hasattr(claude_prompt_tool, "name"):
-                                    tool_name = claude_prompt_tool.name
-                                # Try to get __name__ attribute
-                                elif hasattr(claude_prompt_tool, "__name__"):
-                                    tool_name = claude_prompt_tool.__name__
-                                # Try to get name from _get_declaration().name
-                                elif hasattr(claude_prompt_tool, "_get_declaration"):
-                                    try:
-                                        declaration = (
-                                            claude_prompt_tool._get_declaration()
-                                        )
-                                        if hasattr(declaration, "name"):
-                                            tool_name = declaration.name
-                                    except Exception:
-                                        logger.debug("Failed to get declaration name for MCP tool")
-                                # Fallback to string representation
-                                if not tool_name:
-                                    tool_name = str(claude_prompt_tool)
-
-                                # Add if not already present
-                                if tool_name not in existing_tool_names:
-                                    tools_to_add.append(claude_prompt_tool)
-                                    existing_tool_names.add(tool_name)
-                                    logger.info(
-                                        f"Added tool: {tool_name} from {server_name}"
-                                    )
-
-                                # Successfully loaded prompt tool, no need to try other methods
-                                continue
-                            else:
-                                logger.warning(f"Failed to create Claude prompt tool")
-                        except Exception as e:
-                            logger.warning(f"Error loading Claude prompt tool: {e}")
-                    else:
-                        logger.warning(
-                            f"Unsupported transport '{transport}' for MCP server {server_name}"
-                        )
-
-                except Exception as e:
-                    logger.warning(
-                        f"Error loading tools from MCP server {server_name}: {str(e)}"
-                    )
-
-            # Add all collected tools to the agent
-            if tools_to_add and hasattr(root_agent, "tools"):
-                root_agent.tools = list(root_agent.tools) + tools_to_add
-                logger.info(f"Added {len(tools_to_add)} total MCP tools to agent")
-
-        except Exception as e:
-            logger.warning(f"Error loading MCP tools: {str(e)}")
-
     def _safely_serialize(self, obj):
         """Safely serialize objects to JSON-compatible structures."""
         import json
@@ -1389,7 +1231,7 @@ class SessionRunner:
             )
 
             # Create a new session
-            session = await self.session_service.create_session(
+            await self.session_service.create_session(
                 app_name=app_name, user_id=self.user_id, session_id=self.session_id
             )
 

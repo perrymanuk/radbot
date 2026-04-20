@@ -41,7 +41,9 @@ def search_youtube_videos(
         On success: {"status": "success", "videos": [...], "total_results": N}
         On failure: {"status": "error", "message": "..."}
     """
-    logger.info(f"search_youtube_videos called with query='{query}', max_results={max_results}")
+    logger.info(
+        f"search_youtube_videos called with query='{query}', max_results={max_results}"
+    )
     from radbot.tools.youtube.youtube_client import search_videos
 
     result = search_videos(

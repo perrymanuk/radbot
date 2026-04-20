@@ -1074,7 +1074,9 @@ async def test_picnic(request: Request, _: None = Depends(_verify_admin)):
         )
         cart = api.get_cart()
         item_count = len(cart.get("items", []))
-        return _ok(f"Connected to Picnic ({country_code}) — {item_count} item groups in cart")
+        return _ok(
+            f"Connected to Picnic ({country_code}) — {item_count} item groups in cart"
+        )
     except Exception as e:
         return _err(f"Picnic connection failed: {e}")
 
@@ -1226,9 +1228,7 @@ async def test_lidarr(request: Request, _: None = Depends(_verify_admin)):
             if resp.status_code == 200:
                 data = resp.json()
                 return _ok(f"Connected to Lidarr v{data.get('version', '?')}")
-            return _err(
-                f"Lidarr returned HTTP {resp.status_code}: {resp.text[:200]}"
-            )
+            return _err(f"Lidarr returned HTTP {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         return _err(f"Lidarr connection failed: {e}")
 
@@ -1281,9 +1281,7 @@ async def test_youtube(request: Request, _: None = Depends(_verify_admin)):
             if resp.status_code == 200:
                 return _ok("YouTube Data API v3 connected successfully")
             data = resp.json()
-            err_msg = (
-                data.get("error", {}).get("message", resp.text[:200])
-            )
+            err_msg = data.get("error", {}).get("message", resp.text[:200])
             return _err(f"YouTube API error: {err_msg}")
     except Exception as e:
         return _err(f"YouTube connection failed: {e}")
@@ -1304,9 +1302,7 @@ async def test_kideo(request: Request, _: None = Depends(_verify_admin)):
             from radbot.config.config_loader import config_loader
 
             kideo_cfg = (
-                config_loader.get_config()
-                .get("integrations", {})
-                .get("kideo", {})
+                config_loader.get_config().get("integrations", {}).get("kideo", {})
             )
             url = kideo_cfg.get("url", "")
         except Exception:
@@ -1322,12 +1318,8 @@ async def test_kideo(request: Request, _: None = Depends(_verify_admin)):
             resp = await client.get(f"{url.rstrip('/')}/api/collections")
             if resp.status_code == 200:
                 data = resp.json()
-                return _ok(
-                    f"Connected to Kideo — {len(data)} collection(s)"
-                )
-            return _err(
-                f"Kideo returned HTTP {resp.status_code}: {resp.text[:200]}"
-            )
+                return _ok(f"Connected to Kideo — {len(data)} collection(s)")
+            return _err(f"Kideo returned HTTP {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         return _err(f"Kideo connection failed: {e}")
 
@@ -1622,13 +1614,20 @@ async def get_integration_status(_: None = Depends(_verify_admin)):
     ntfy_cfg = cfg.get("integrations", {}).get("ntfy", {})
     subscribe_topics = ntfy_cfg.get("subscribe_topics", [])
     if subscribe_topics:
-        status["alertmanager"] = {"status": "ok", "message": f"Subscribed to: {', '.join(subscribe_topics)}"}
+        status["alertmanager"] = {
+            "status": "ok",
+            "message": f"Subscribed to: {', '.join(subscribe_topics)}",
+        }
     else:
         status["alertmanager"] = {"status": "unconfigured"}
 
     # YouTube
     yt_cfg = cfg.get("integrations", {}).get("youtube", {})
-    yt_key = _store_get("youtube_api_key") or yt_cfg.get("api_key", "") or os.environ.get("YOUTUBE_API_KEY", "")
+    yt_key = (
+        _store_get("youtube_api_key")
+        or yt_cfg.get("api_key", "")
+        or os.environ.get("YOUTUBE_API_KEY", "")
+    )
     if yt_key:
         status["youtube"] = {"status": "ok"}
     else:

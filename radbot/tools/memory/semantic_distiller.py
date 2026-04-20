@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,7 @@ def _scroll_candidate_episodes(
         if offset is None:
             break
     # Stable chronological order for deterministic behavior.
-    points.sort(
-        key=lambda p: (getattr(p, "payload", {}) or {}).get("timestamp") or ""
-    )
+    points.sort(key=lambda p: (getattr(p, "payload", {}) or {}).get("timestamp") or "")
     return points
 
 
@@ -273,9 +271,7 @@ def _flag_dead_letters(svc: Any, episode_ids: List[str], max_attempts: int) -> i
 def _embed_statement(svc: Any, text: str) -> List[float]:
     from radbot.memory.embedding import embed_text
 
-    return embed_text(
-        text, svc.embedding_model, is_query=False, source="agent_memory"
-    )
+    return embed_text(text, svc.embedding_model, is_query=False, source="agent_memory")
 
 
 def _step2_insert_pending(

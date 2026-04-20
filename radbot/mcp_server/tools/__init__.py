@@ -28,9 +28,7 @@ def all_tools() -> list[mcp_types.Tool]:
     return out
 
 
-async def dispatch(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def dispatch(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     for module in _MODULES:
         for tool in module.tools():
             if tool.name == name:

@@ -167,7 +167,10 @@ async def get_nomad_allocation_logs(
     try:
         allocs = await client.get_job_allocations(job_id)
         if not allocs:
-            return {"status": "error", "error": f"No allocations found for job {job_id}"}
+            return {
+                "status": "error",
+                "error": f"No allocations found for job {job_id}",
+            }
 
         # Find the most recent running allocation, or fall back to latest
         running = [a for a in allocs if a.get("ClientStatus") == "running"]
@@ -235,7 +238,10 @@ async def restart_nomad_allocation(
     try:
         allocs = await client.get_job_allocations(job_id)
         if not allocs:
-            return {"status": "error", "error": f"No allocations found for job {job_id}"}
+            return {
+                "status": "error",
+                "error": f"No allocations found for job {job_id}",
+            }
 
         # Pick the most recent allocation (running preferred)
         running = [a for a in allocs if a.get("ClientStatus") == "running"]
@@ -257,9 +263,7 @@ async def restart_nomad_allocation(
         return {"status": "error", "error": str(e)}
 
 
-async def plan_nomad_job_update(
-    job_id: str, job_hcl: str
-) -> Dict[str, Any]:
+async def plan_nomad_job_update(job_id: str, job_hcl: str) -> Dict[str, Any]:
     """Parse an HCL job spec and plan the update (dry-run with diff).
 
     Args:
@@ -294,9 +298,7 @@ async def plan_nomad_job_update(
         return {"status": "error", "error": str(e)}
 
 
-async def submit_nomad_job_update(
-    job_id: str, job_spec_json: str
-) -> Dict[str, Any]:
+async def submit_nomad_job_update(job_id: str, job_spec_json: str) -> Dict[str, Any]:
     """Submit a job update to Nomad. Always run plan_nomad_job_update first.
 
     Args:

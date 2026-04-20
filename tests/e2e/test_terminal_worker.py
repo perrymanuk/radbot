@@ -217,11 +217,9 @@ class TestTerminalHandler:
 
     async def test_protocol_constants(self):
         """Protocol constants match expected values."""
-        from radbot.worker.terminal_handler import (
-            MSG_CLOSED as H_CLOSED,
-            MSG_DATA as H_DATA,
-            MSG_RESIZE as H_RESIZE,
-        )
+        from radbot.worker.terminal_handler import MSG_CLOSED as H_CLOSED
+        from radbot.worker.terminal_handler import MSG_DATA as H_DATA
+        from radbot.worker.terminal_handler import MSG_RESIZE as H_RESIZE
 
         assert H_DATA == 0x01
         assert H_RESIZE == 0x02
@@ -316,9 +314,7 @@ class TestRemoteTerminalWorkerFlow:
         # Verify we can connect via WebSocket
         from tests.e2e.helpers.terminal_ws_client import TerminalWSClient
 
-        ws = await TerminalWSClient.connect(
-            live_server, terminal_id, timeout=30.0
-        )
+        ws = await TerminalWSClient.connect(live_server, terminal_id, timeout=30.0)
 
         try:
             # Wait for some output (Claude Code startup banner)
@@ -364,9 +360,10 @@ class TestRemoteTerminalWorkerFlow:
 
             record = get_workspace_worker(ws_id)
             if record:
-                assert record["status"] in ("stopped", "failed"), (
-                    f"Worker should be stopped after workspace delete, got: {record['status']}"
-                )
+                assert record["status"] in (
+                    "stopped",
+                    "failed",
+                ), f"Worker should be stopped after workspace delete, got: {record['status']}"
         except Exception:
             pass  # DB might not be accessible from test runner
 

@@ -11,7 +11,7 @@ import os.path
 import random
 import socket
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional
 
 import google.auth
 import httplib2
@@ -228,9 +228,7 @@ def get_calendar_service(
                 from google.oauth2.credentials import Credentials as OAuthCredentials
 
                 token_info = json.loads(token_json)
-                creds = OAuthCredentials.from_authorized_user_info(
-                    token_info, scopes
-                )
+                creds = OAuthCredentials.from_authorized_user_info(token_info, scopes)
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(AuthRequest())
                     # Write refreshed token back to store, preserving
@@ -240,7 +238,9 @@ def get_calendar_service(
                         if key in token_info and key not in refreshed:
                             refreshed[key] = token_info[key]
                     store.set(
-                        "calendar_token", json.dumps(refreshed), credential_type="oauth_token"
+                        "calendar_token",
+                        json.dumps(refreshed),
+                        credential_type="oauth_token",
                     )
                 if creds and creds.valid:
                     _calendar_service = build("calendar", "v3", credentials=creds)
@@ -365,7 +365,9 @@ def get_calendar_service(
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
 
-            logger.debug(f"Loading service account credentials from: {credentials_path}")
+            logger.debug(
+                f"Loading service account credentials from: {credentials_path}"
+            )
 
             # Create credentials from file
             credentials = service_account.Credentials.from_service_account_file(
@@ -423,8 +425,6 @@ def get_workspace_calendar_service(
         ValueError: If credentials_path is None
         Exception: If authentication fails
     """
-    global _workspace_services
-
     # Return cached service if available and not forced to create new
     cache_key = f"{user_email}:{','.join(scopes or [FULL_ACCESS_SCOPE])}"
     if not force_new and cache_key in _workspace_services:
@@ -476,7 +476,9 @@ def get_workspace_calendar_service(
                 logger.error(error_msg)
                 raise FileNotFoundError(error_msg)
 
-            logger.debug(f"Loading service account credentials from: {credentials_path}")
+            logger.debug(
+                f"Loading service account credentials from: {credentials_path}"
+            )
 
             # Create credentials from file
             credentials = service_account.Credentials.from_service_account_file(
@@ -493,7 +495,7 @@ def get_workspace_calendar_service(
         # Test with a simple API call to verify permissions
         try:
             # Try to get the primary calendar to verify service works
-            calendar = service.calendars().get(calendarId="primary").execute()
+            service.calendars().get(calendarId="primary").execute()
             logger.info(f"Successfully connected to Google Calendar as: {user_email}")
         except HttpError as e:
             logger.error(
@@ -542,7 +544,7 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
             return False
 
         # Try to get calendar metadata
-        logger.debug(f"Attempting to access calendar metadata...")
+        logger.debug("Attempting to access calendar metadata...")
         try:
             calendar_info = service.calendars().get(calendarId=calendar_id).execute()
             logger.debug(
@@ -569,7 +571,7 @@ def validate_calendar_access(calendar_id: Optional[str] = None):
             from datetime import datetime
 
             now = datetime.utcnow().isoformat() + "Z"
-            logger.debug(f"Attempting to list calendar events...")
+            logger.debug("Attempting to list calendar events...")
             events = (
                 service.events()
                 .list(calendarId=calendar_id, timeMin=now, maxResults=10)

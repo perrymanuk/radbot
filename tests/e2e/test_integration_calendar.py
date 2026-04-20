@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -28,10 +31,20 @@ class TestCalendarIntegration:
             result = await ws.send_and_wait_response(
                 "What events are on my calendar this week?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "event", "calendar", "no event", "schedule", "nothing", "free",
-                "week", "agenda", "planner", "nada", "chillin",
+                result,
+                "event",
+                "calendar",
+                "no event",
+                "schedule",
+                "nothing",
+                "free",
+                "week",
+                "agenda",
+                "planner",
+                "nada",
+                "chillin",
             )
         finally:
             await ws.close()
@@ -44,10 +57,17 @@ class TestCalendarIntegration:
             result = await ws.send_and_wait_response(
                 "Am I free tomorrow afternoon? Check my calendar availability."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "free", "busy", "available", "calendar", "event",
-                "tomorrow", "afternoon", "schedule",
+                result,
+                "free",
+                "busy",
+                "available",
+                "calendar",
+                "event",
+                "tomorrow",
+                "afternoon",
+                "schedule",
             )
         finally:
             await ws.close()
@@ -62,7 +82,7 @@ class TestCalendarIntegration:
             result = await ws.send_and_wait_response(
                 "Create a calendar event called 'E2E Test Event' tomorrow at 11pm for 15 minutes"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "created", "event", "calendar", "e2e test", "scheduled"
             )
@@ -83,10 +103,17 @@ class TestCalendarIntegration:
             result = await ws.send_and_wait_response(
                 "Show any calendar events with 'meeting' in the title this week"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "event", "meeting", "calendar", "no", "found",
-                "schedule", "week", "nothing",
+                result,
+                "event",
+                "meeting",
+                "calendar",
+                "no",
+                "found",
+                "schedule",
+                "week",
+                "nothing",
             )
         finally:
             await ws.close()

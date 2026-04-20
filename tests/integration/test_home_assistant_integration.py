@@ -104,9 +104,7 @@ class TestHomeAssistantIntegration:
         mock_agent_factory = MagicMock(return_value=mock_agent)
 
         # Create agent
-        agent = create_ha_mcp_enabled_agent(
-            mock_agent_factory, [], ensure_memory_tools=False
-        )
+        create_ha_mcp_enabled_agent(mock_agent_factory, [], ensure_memory_tools=False)
 
         # Assertions
         mock_create_toolset.assert_called_once()

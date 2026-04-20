@@ -6,7 +6,7 @@ integration using the REST API approach.
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 from google.adk import Agent
 

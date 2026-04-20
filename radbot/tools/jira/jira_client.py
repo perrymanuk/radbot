@@ -60,7 +60,9 @@ def get_jira_client():
     try:
         from atlassian import Jira
 
-        client = Jira(url=url, username=email, password=api_token, cloud=True, timeout=15)
+        client = Jira(
+            url=url, username=email, password=api_token, cloud=True, timeout=15
+        )
         # Verify connectivity
         myself = client.myself()
         logger.info(

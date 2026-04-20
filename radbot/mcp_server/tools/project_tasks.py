@@ -20,7 +20,6 @@ from typing import Any
 
 from mcp import types as mcp_types
 
-
 _VALID_TASK_STATUSES = {"backlog", "inprogress", "done"}
 
 
@@ -205,21 +204,23 @@ def tools() -> list[mcp_types.Tool]:
     ]
 
 
-async def call(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "milestone_add":
-        return [_do_milestone_add(
-            arguments["parent_project"],
-            arguments["title"],
-            arguments.get("deadline"),
-            arguments.get("details"),
-        )]
+        return [
+            _do_milestone_add(
+                arguments["parent_project"],
+                arguments["title"],
+                arguments.get("deadline"),
+                arguments.get("details"),
+            )
+        ]
     if name == "milestone_complete":
-        return [_do_milestone_complete(
-            arguments["ref_code"],
-            arguments.get("resolution"),
-        )]
+        return [
+            _do_milestone_complete(
+                arguments["ref_code"],
+                arguments.get("resolution"),
+            )
+        ]
     if name == "task_add":
         return [_do_task_add(arguments)]
     if name == "task_update":
@@ -227,23 +228,29 @@ async def call(
     if name == "task_complete":
         return [_do_task_complete(arguments["ref_code"])]
     if name == "task_archive":
-        return [_do_task_archive(
-            arguments["ref_code"],
-            arguments.get("reason"),
-        )]
+        return [
+            _do_task_archive(
+                arguments["ref_code"],
+                arguments.get("reason"),
+            )
+        ]
     if name == "exploration_add":
-        return [_do_exploration_add(
-            arguments["parent_project"],
-            arguments["topic"],
-            arguments.get("notes"),
-        )]
+        return [
+            _do_exploration_add(
+                arguments["parent_project"],
+                arguments["topic"],
+                arguments.get("notes"),
+            )
+        ]
     if name == "exploration_update":
         return [_do_exploration_update(arguments)]
     if name == "exploration_archive":
-        return [_do_exploration_archive(
-            arguments["ref_code"],
-            arguments.get("reason"),
-        )]
+        return [
+            _do_exploration_archive(
+                arguments["ref_code"],
+                arguments.get("reason"),
+            )
+        ]
     raise KeyError(name)
 
 
@@ -317,7 +324,10 @@ def _do_milestone_complete(
     if resolution:
         meta["resolution"] = resolution
     row = telos_db.update_entry(
-        Section.MILESTONES, ref_code, status="completed", metadata_merge=meta,
+        Section.MILESTONES,
+        ref_code,
+        status="completed",
+        metadata_merge=meta,
     )
     if row is None:
         return _err(f"No milestone with ref_code `{ref_code}`.")
@@ -439,24 +449,18 @@ def _do_task_complete(ref_code: str) -> mcp_types.TextContent:
     )
     if row is None:
         return _err(f"No task with ref_code `{ref_code}`.")
-    return mcp_types.TextContent(
-        type="text", text=f"Completed task `{ref_code}`."
-    )
+    return mcp_types.TextContent(type="text", text=f"Completed task `{ref_code}`.")
 
 
 def _do_task_archive(ref_code: str, reason: str | None) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import Section
 
-    ok = telos_db.archive_entry(
-        Section.PROJECT_TASKS, ref_code, reason=reason or None
-    )
+    ok = telos_db.archive_entry(Section.PROJECT_TASKS, ref_code, reason=reason or None)
     if not ok:
         return _err(f"No task with ref_code `{ref_code}`.")
     tail = f" (reason: {reason})" if reason else ""
-    return mcp_types.TextContent(
-        type="text", text=f"Archived task `{ref_code}`.{tail}"
-    )
+    return mcp_types.TextContent(type="text", text=f"Archived task `{ref_code}`.{tail}")
 
 
 def _do_exploration_add(
@@ -527,15 +531,11 @@ def _do_exploration_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
     )
 
 
-def _do_exploration_archive(
-    ref_code: str, reason: str | None
-) -> mcp_types.TextContent:
+def _do_exploration_archive(ref_code: str, reason: str | None) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import Section
 
-    ok = telos_db.archive_entry(
-        Section.EXPLORATIONS, ref_code, reason=reason or None
-    )
+    ok = telos_db.archive_entry(Section.EXPLORATIONS, ref_code, reason=reason or None)
     if not ok:
         return _err(f"No exploration with ref_code `{ref_code}`.")
     tail = f" (reason: {reason})" if reason else ""

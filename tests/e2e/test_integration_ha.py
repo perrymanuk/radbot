@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -28,8 +31,10 @@ class TestHomeAssistantIntegration:
             result = await ws.send_and_wait_response(
                 "Search for sensor entities in Home Assistant"
             )
-            text = assert_response_not_empty(result)
-            assert_response_contains_any(result, "sensor", "entity", "entities", "home assistant")
+            assert_response_not_empty(result)
+            assert_response_contains_any(
+                result, "sensor", "entity", "entities", "home assistant"
+            )
         finally:
             await ws.close()
 
@@ -41,7 +46,7 @@ class TestHomeAssistantIntegration:
             result = await ws.send_and_wait_response(
                 "What sensor entities are available in Home Assistant? Just list a few."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should mention something about entities or state
             assert_response_contains_any(
                 result, "sensor", "entity", "state", "temperature", "humidity", "light"
@@ -57,7 +62,7 @@ class TestHomeAssistantIntegration:
             result = await ws.send_and_wait_response(
                 "List all light entities in Home Assistant"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "light", "entity", "entities", "lamp", "bulb", "no light"
             )
@@ -72,11 +77,21 @@ class TestHomeAssistantIntegration:
             result = await ws.send_and_wait_response(
                 "What is the state of sensor.nonexistent_e2e_test_entity in Home Assistant?"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "not found", "error", "doesn't exist", "unknown",
-                "no entity", "couldn't find", "unavailable",
-                "mia", "can't", "unable", "no", "sorry",
+                result,
+                "not found",
+                "error",
+                "doesn't exist",
+                "unknown",
+                "no entity",
+                "couldn't find",
+                "unavailable",
+                "mia",
+                "can't",
+                "unable",
+                "no",
+                "sorry",
             )
         finally:
             await ws.close()
@@ -90,10 +105,17 @@ class TestHomeAssistantIntegration:
             result = await ws.send_and_wait_response(
                 "Toggle the office light in Home Assistant"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "toggled", "turned", "on", "off", "light", "office",
-                "state", "changed",
+                result,
+                "toggled",
+                "turned",
+                "on",
+                "off",
+                "light",
+                "office",
+                "state",
+                "changed",
             )
         finally:
             await ws.close()

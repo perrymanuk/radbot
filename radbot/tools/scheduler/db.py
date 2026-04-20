@@ -55,12 +55,10 @@ def init_scheduler_schema() -> None:
     try:
         with get_db_connection() as conn:
             with get_db_cursor(conn, commit=True) as cursor:
-                cursor.execute(
-                    """
+                cursor.execute("""
                     ALTER TABLE scheduled_tasks
                     ADD COLUMN IF NOT EXISTS agent_name TEXT NOT NULL DEFAULT 'beto';
-                    """
-                )
+                    """)
     except psycopg2.Error as e:
         logger.error(f"Failed to add agent_name column to scheduled_tasks: {e}")
 
@@ -82,7 +80,15 @@ def create_task(
                   enabled, created_at, updated_at, last_run_at, last_result, run_count, metadata;
     """
     meta_json = json.dumps(metadata) if metadata else None
-    params = (name, cron_expression, prompt, description, session_id, meta_json, agent_name)
+    params = (
+        name,
+        cron_expression,
+        prompt,
+        description,
+        session_id,
+        meta_json,
+        agent_name,
+    )
 
     try:
         with get_db_connection() as conn:

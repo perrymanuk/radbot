@@ -2,13 +2,11 @@
 Custom memory service implementation using Qdrant as the vector database.
 """
 
-import json
 import logging
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-import numpy as np
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient, models
 
@@ -96,7 +94,7 @@ class QdrantMemoryService(BaseMemoryService):
                         url=url, api_key=api_key, https=use_https, prefer_grpc=False
                     )
                     logger.info(
-                        f"Connected to Qdrant with API key at {url} ({'HTTPS' if use_https else 'HTTP'} mode, gRPC disabled)"
+                        f"Connected to Qdrant with API key at {url} ({'HTTPS' if use_https else 'HTTP'} mode, gRPC disabled)"  # noqa: E501
                     )
                 else:
                     self.client = QdrantClient(
@@ -171,7 +169,10 @@ class QdrantMemoryService(BaseMemoryService):
                                 "Created source_agent index on existing collection"
                             )
                         except Exception as idx_err:
-                            logger.debug("source_agent index already exists or failed: %s", idx_err)
+                            logger.debug(
+                                "source_agent index already exists or failed: %s",
+                                idx_err,
+                            )
                         # Ensure memory_class index exists on existing collections
                         try:
                             self.client.create_payload_index(
@@ -183,7 +184,10 @@ class QdrantMemoryService(BaseMemoryService):
                                 "Created memory_class index on existing collection"
                             )
                         except Exception as idx_err:
-                            logger.debug("memory_class index already exists or failed: %s", idx_err)
+                            logger.debug(
+                                "memory_class index already exists or failed: %s",
+                                idx_err,
+                            )
                         return
 
                 # Create the collection

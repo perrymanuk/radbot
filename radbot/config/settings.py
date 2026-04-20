@@ -6,15 +6,14 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file before the config loader reads them.
 load_dotenv()
 
-# Import the new YAML config loader
-from radbot.config.config_loader import config_loader
+from radbot.config.config_loader import config_loader  # noqa: E402
 
 # Default paths
 DEFAULT_CONFIG_DIR = Path(__file__).parent / "default_configs"
@@ -175,7 +174,7 @@ class ConfigManager:
                     )
                     r.model = new_r_model
 
-            for sa in (getattr(r, "sub_agents", None) or []):
+            for sa in getattr(r, "sub_agents", None) or []:
                 if id(sa) in seen_ids:
                     continue
                 seen_ids.add(id(sa))

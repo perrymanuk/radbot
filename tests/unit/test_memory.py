@@ -3,14 +3,9 @@ Unit tests for the memory system.
 """
 
 import enum
-import tempfile
-import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-import pytest
-from qdrant_client import QdrantClient, models
+from qdrant_client import models
 
 
 # Patch the PayloadSchemaType in models before importing the modules that use it
@@ -27,14 +22,14 @@ class MockPayloadSchemaType(enum.Enum):
     BOOL = "bool"
 
 
-# Save the original and replace with mock
+# Save the original and replace with mock. Imports below depend on the
+# patched PayloadSchemaType, so they must happen AFTER the monkey-patch.
 original_payload_schema_type = models.PayloadSchemaType
 models.PayloadSchemaType = MockPayloadSchemaType
 
-# Import needed modules
-from radbot.memory.embedding import EmbeddingModel, embed_text
-from radbot.memory.qdrant_memory import QdrantMemoryService
-from radbot.tools.memory.memory_tools import (
+from radbot.memory.embedding import EmbeddingModel, embed_text  # noqa: E402
+from radbot.memory.qdrant_memory import QdrantMemoryService  # noqa: E402
+from radbot.tools.memory.memory_tools import (  # noqa: E402
     search_past_conversations,
     store_important_information,
 )
@@ -118,7 +113,7 @@ class TestQdrantMemoryService:
 
             old_val = os.environ.pop("QDRANT_COLLECTION", None)
             try:
-                service = QdrantMemoryService(host="localhost", port=6333)
+                QdrantMemoryService(host="localhost", port=6333)
             finally:
                 if old_val is not None:
                     os.environ["QDRANT_COLLECTION"] = old_val
@@ -150,7 +145,7 @@ class TestQdrantMemoryService:
         mock_client_instance.get_collections.return_value = collections_response
 
         # Initialize the service
-        service = QdrantMemoryService(url="https://test.qdrant.io", api_key="test-key")
+        QdrantMemoryService(url="https://test.qdrant.io", api_key="test-key")
 
         # Verify client initialization
         mock_client.assert_called_once_with(
@@ -503,9 +498,7 @@ class TestMemoryTools:
             }
         ]
 
-        result = search_past_conversations(
-            query="anything", tool_context=mock_context
-        )
+        result = search_past_conversations(query="anything", tool_context=mock_context)
 
         assert result["status"] == "success"
         assert result["memories"][0]["memory_class"] == "episodic"

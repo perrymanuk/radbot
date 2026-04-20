@@ -12,11 +12,16 @@ from tests.e2e.helpers.assertions import (
     assert_response_contains,
     assert_response_contains_any,
     assert_response_not_empty,
-    assert_tool_was_called,
 )
 from tests.e2e.helpers.ws_client import WSTestClient
 
-pytestmark = [pytest.mark.e2e, pytest.mark.asyncio(loop_scope="session"), pytest.mark.slow, pytest.mark.requires_gemini, pytest.mark.timeout(120)]
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.slow,
+    pytest.mark.requires_gemini,
+    pytest.mark.timeout(120),
+]
 
 
 class TestAgentChat:
@@ -82,14 +87,30 @@ class TestAgentChat:
                 "Remember that the E2E test secret code is ALPHA123. "
                 "Store this as an important fact."
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # The agent should acknowledge storing the information
             # Tool call detection is best-effort since events may not surface tool names
             assert_response_contains_any(
-                result, "stored", "remembered", "noted", "saved", "remember",
-                "got it", "got that", "locked", "recorded", "will remember",
-                "confirmed", "acknowledged", "banked", "stashed", "filed",
-                "memory", "store", "vault", "brain",
+                result,
+                "stored",
+                "remembered",
+                "noted",
+                "saved",
+                "remember",
+                "got it",
+                "got that",
+                "locked",
+                "recorded",
+                "will remember",
+                "confirmed",
+                "acknowledged",
+                "banked",
+                "stashed",
+                "filed",
+                "memory",
+                "store",
+                "vault",
+                "brain",
             )
         finally:
             await ws.close()
@@ -117,7 +138,7 @@ class TestAgentChat:
             result2 = await ws2.send_and_wait_response(
                 "Search your memory for a cross-session test code. What is it?"
             )
-            text = assert_response_not_empty(result2)
+            assert_response_not_empty(result2)
             # The agent may or may not find it depending on memory service state
             # At minimum it should respond without error
         finally:
@@ -129,12 +150,14 @@ class TestAgentChat:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             # Turn 1: establish context
-            r1 = await ws.send_and_wait_response("I'm thinking about getting a dog. A golden retriever.")
+            r1 = await ws.send_and_wait_response(
+                "I'm thinking about getting a dog. A golden retriever."
+            )
             assert_response_not_empty(r1)
 
             # Turn 2: follow up
             r2 = await ws.send_and_wait_response("What breed was I considering?")
-            text = assert_response_not_empty(r2)
+            assert_response_not_empty(r2)
             assert_response_contains_any(r2, "golden", "retriever", "dog")
         finally:
             await ws.close()
@@ -164,7 +187,7 @@ class TestAgentChat:
             result = await ws.send_and_wait_response(
                 "Search the web for the latest Python release version number"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             # Should contain some Python version info
             assert_response_contains_any(
                 result, "python", "3.", "release", "version", "latest"

@@ -153,9 +153,7 @@ class TelemetryService:
             if self._worker is not None and self._worker.is_alive():
                 return
             self._stopping.clear()
-            t = threading.Thread(
-                target=self._run, name="telemetry-worker", daemon=True
-            )
+            t = threading.Thread(target=self._run, name="telemetry-worker", daemon=True)
             t.start()
             self._worker = t
 

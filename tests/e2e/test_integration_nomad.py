@@ -7,7 +7,10 @@ import uuid
 
 import pytest
 
-from tests.e2e.helpers.assertions import assert_response_contains_any, assert_response_not_empty
+from tests.e2e.helpers.assertions import (
+    assert_response_contains_any,
+    assert_response_not_empty,
+)
 from tests.e2e.helpers.ws_client import WSTestClient
 
 pytestmark = [
@@ -26,7 +29,7 @@ class TestNomadIntegration:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("List all Nomad jobs")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "job", "nomad", "running", "status", "no job"
             )
@@ -41,10 +44,16 @@ class TestNomadIntegration:
             result = await ws.send_and_wait_response(
                 "Show me the status of the radbot Nomad job"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "radbot", "status", "running", "allocation",
-                "healthy", "not found", "job",
+                result,
+                "radbot",
+                "status",
+                "running",
+                "allocation",
+                "healthy",
+                "not found",
+                "job",
             )
         finally:
             await ws.close()
@@ -57,10 +66,16 @@ class TestNomadIntegration:
             result = await ws.send_and_wait_response(
                 "Show me the recent logs for the radbot Nomad job"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
-                result, "log", "radbot", "output", "stderr", "stdout",
-                "not found", "error",
+                result,
+                "log",
+                "radbot",
+                "output",
+                "stderr",
+                "stdout",
+                "not found",
+                "error",
             )
         finally:
             await ws.close()
@@ -73,7 +88,7 @@ class TestNomadIntegration:
             result = await ws.send_and_wait_response(
                 "Check the health of Nomad services"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "health", "service", "nomad", "healthy", "status"
             )

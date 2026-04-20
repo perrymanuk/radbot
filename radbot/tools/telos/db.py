@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import psycopg2
@@ -82,7 +81,7 @@ def next_ref_code(section: Section) -> Optional[str]:
             for (code,) in cursor.fetchall():
                 if not code or not code.startswith(prefix):
                     continue
-                tail = code[len(prefix):]
+                tail = code[len(prefix) :]
                 if tail.isdigit():
                     max_n = max(max_n, int(tail))
     return f"{prefix}{max_n + 1}"
@@ -258,11 +257,15 @@ def list_section(
         raise
 
 
-def archive_entry(section: Section, ref_code: str, reason: Optional[str] = None) -> bool:
+def archive_entry(
+    section: Section, ref_code: str, reason: Optional[str] = None
+) -> bool:
     """Set status='archived' and stash the reason in metadata.archived_reason."""
     meta = {"archived_reason": reason} if reason else {}
     row = update_entry(
-        section, ref_code, status="archived",
+        section,
+        ref_code,
+        status="archived",
         metadata_merge=meta if meta else None,
     )
     return row is not None

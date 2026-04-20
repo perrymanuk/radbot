@@ -9,16 +9,15 @@ from unittest.mock import MagicMock
 import pytest
 
 from radbot.tools.memory._distiller_schema import (
-    DistilledRule,
-    DistillationResult,
     MAX_STATEMENT_WORDS,
+    DistillationResult,
+    DistilledRule,
 )
 from radbot.tools.memory.semantic_distiller import (
     CURSOR_POINT_ID,
     rollback_distillation,
     run_distillation,
 )
-
 
 # ---------------------------------------------------------------------------
 # Schema validators
@@ -44,9 +43,7 @@ def test_refines_requires_supersedes():
 
 def test_contradicts_requires_supersedes():
     with pytest.raises(ValueError):
-        DistilledRule(
-            statement="rule", relation_to_prior="contradicts", supersedes=[]
-        )
+        DistilledRule(statement="rule", relation_to_prior="contradicts", supersedes=[])
 
 
 def test_novel_allows_empty_supersedes():
@@ -59,7 +56,9 @@ def test_novel_allows_empty_supersedes():
 # ---------------------------------------------------------------------------
 
 
-def _ep(pid: str, ts: str, text: str = "ep", attempts: int = 0, status: Optional[str] = None):
+def _ep(
+    pid: str, ts: str, text: str = "ep", attempts: int = 0, status: Optional[str] = None
+):
     payload = {
         "text": text,
         "memory_class": "episodic",
@@ -149,9 +148,7 @@ class _FakeQdrant:
         self.upserts.append(list(points))
 
     def set_payload(self, *, collection_name, payload, points):
-        self.payload_updates.append(
-            {"payload": dict(payload), "points": list(points)}
-        )
+        self.payload_updates.append({"payload": dict(payload), "points": list(points)})
         for pid in points:
             if pid in self._points:
                 self._points[pid].payload.update(payload)

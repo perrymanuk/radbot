@@ -70,9 +70,7 @@ def tools() -> list[mcp_types.Tool]:
     ]
 
 
-async def call(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "list_tasks":
         return [_render_tasks(arguments.get("status"), arguments.get("project"))]
     if name == "list_reminders":
@@ -118,9 +116,9 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
     project_names: dict[str, str] = {}
     for p in telos_db.list_section(Section.PROJECTS, status="active"):
         if p.ref_code:
-            project_names[p.ref_code] = (
-                (p.content or "").splitlines()[0].strip() or p.ref_code
-            )
+            project_names[p.ref_code] = (p.content or "").splitlines()[
+                0
+            ].strip() or p.ref_code
     if project:
         needle = project.strip().lower()
         if project in project_names:
@@ -139,7 +137,9 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
         Section.PROJECT_TASKS, status="active", order_by="sort_order_asc"
     )
     by_status: dict[str, list[tuple[str, str, str]]] = {
-        "backlog": [], "inprogress": [], "done": [],
+        "backlog": [],
+        "inprogress": [],
+        "done": [],
     }
     for r in rows:
         meta = r.metadata or {}
@@ -155,10 +155,12 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
 
     if not any(by_status.values()):
         filt = " · ".join(
-            bit for bit in (
+            bit
+            for bit in (
                 f"status={status}" if status else None,
                 f"project={project}" if project else None,
-            ) if bit
+            )
+            if bit
         )
         return mcp_types.TextContent(
             type="text", text=f"_No tasks{(' (' + filt + ')') if filt else ''}._"
@@ -183,9 +185,7 @@ def _render_reminders(status: str) -> mcp_types.TextContent:
     try:
         rows = rem_db.list_reminders(status=status)
     except Exception as e:
-        return mcp_types.TextContent(
-            type="text", text=f"**Error:** {e}"
-        )
+        return mcp_types.TextContent(type="text", text=f"**Error:** {e}")
 
     if not rows:
         return mcp_types.TextContent(
@@ -195,7 +195,11 @@ def _render_reminders(status: str) -> mcp_types.TextContent:
     lines = [f"## Reminders ({status}, {len(rows)})", ""]
     for r in rows:
         remind_at = r.get("remind_at")
-        when = _relative_time(remind_at) if isinstance(remind_at, datetime) else str(remind_at)
+        when = (
+            _relative_time(remind_at)
+            if isinstance(remind_at, datetime)
+            else str(remind_at)
+        )
         lines.append(f"- **{when}** — {r.get('message', '').strip()}")
     return mcp_types.TextContent(type="text", text="\n".join(lines))
 
@@ -205,9 +209,7 @@ def _render_scheduled() -> mcp_types.TextContent:
 
     rows = sched_db.list_tasks()
     if not rows:
-        return mcp_types.TextContent(
-            type="text", text="_No scheduled tasks._"
-        )
+        return mcp_types.TextContent(type="text", text="_No scheduled tasks._")
 
     lines = [
         "## Scheduled tasks",

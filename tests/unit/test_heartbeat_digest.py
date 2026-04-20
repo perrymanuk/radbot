@@ -14,11 +14,15 @@ from radbot.tools.heartbeat.digest import assemble_digest
 
 @pytest.mark.asyncio
 async def test_digest_empty_when_all_sources_empty():
-    with patch("radbot.tools.heartbeat.digest._fetch_tasks", return_value=[]), \
-         patch("radbot.tools.heartbeat.digest._fetch_calendar", return_value=[]), \
-         patch("radbot.tools.heartbeat.digest._fetch_reminders", return_value=[]), \
-         patch("radbot.tools.heartbeat.digest._fetch_alerts", return_value=[]), \
-         patch("radbot.tools.heartbeat.digest._fetch_overnight_scheduler", return_value=[]):
+    with (
+        patch("radbot.tools.heartbeat.digest._fetch_tasks", return_value=[]),
+        patch("radbot.tools.heartbeat.digest._fetch_calendar", return_value=[]),
+        patch("radbot.tools.heartbeat.digest._fetch_reminders", return_value=[]),
+        patch("radbot.tools.heartbeat.digest._fetch_alerts", return_value=[]),
+        patch(
+            "radbot.tools.heartbeat.digest._fetch_overnight_scheduler", return_value=[]
+        ),
+    ):
         md = await assemble_digest()
     assert md == ""
 
@@ -26,16 +30,28 @@ async def test_digest_empty_when_all_sources_empty():
 @pytest.mark.asyncio
 async def test_digest_renders_all_sections():
     now = datetime.now(timezone.utc)
-    tasks = [{"ref_code": "PT1", "content": "finish draft", "due": now.date().isoformat(), "overdue": False}]
+    tasks = [
+        {
+            "ref_code": "PT1",
+            "content": "finish draft",
+            "due": now.date().isoformat(),
+            "overdue": False,
+        }
+    ]
     events = [{"summary": "Standup", "start": {"dateTime": now.isoformat()}}]
     reminders = [{"message": "call mom", "remind_at": now + timedelta(hours=2)}]
     alerts = [{"severity": "warning", "alertname": "DiskFull", "instance": "srv1"}]
     overnight = [{"task_name": "nightly-backup", "response": "ok, 42 files"}]
-    with patch("radbot.tools.heartbeat.digest._fetch_tasks", return_value=tasks), \
-         patch("radbot.tools.heartbeat.digest._fetch_calendar", return_value=events), \
-         patch("radbot.tools.heartbeat.digest._fetch_reminders", return_value=reminders), \
-         patch("radbot.tools.heartbeat.digest._fetch_alerts", return_value=alerts), \
-         patch("radbot.tools.heartbeat.digest._fetch_overnight_scheduler", return_value=overnight):
+    with (
+        patch("radbot.tools.heartbeat.digest._fetch_tasks", return_value=tasks),
+        patch("radbot.tools.heartbeat.digest._fetch_calendar", return_value=events),
+        patch("radbot.tools.heartbeat.digest._fetch_reminders", return_value=reminders),
+        patch("radbot.tools.heartbeat.digest._fetch_alerts", return_value=alerts),
+        patch(
+            "radbot.tools.heartbeat.digest._fetch_overnight_scheduler",
+            return_value=overnight,
+        ),
+    ):
         md = await assemble_digest()
     assert "# Heartbeat" in md
     assert "## Tasks" in md and "PT1" in md and "finish draft" in md
@@ -52,11 +68,15 @@ async def test_digest_calendar_failure_degrades_silently():
     def raise_cal(*_a, **_k):
         raise RuntimeError("unauth")
 
-    with patch("radbot.tools.heartbeat.digest._fetch_tasks", return_value=tasks), \
-         patch("radbot.tools.heartbeat.digest._fetch_calendar", side_effect=raise_cal), \
-         patch("radbot.tools.heartbeat.digest._fetch_reminders", return_value=[]), \
-         patch("radbot.tools.heartbeat.digest._fetch_alerts", return_value=[]), \
-         patch("radbot.tools.heartbeat.digest._fetch_overnight_scheduler", return_value=[]):
+    with (
+        patch("radbot.tools.heartbeat.digest._fetch_tasks", return_value=tasks),
+        patch("radbot.tools.heartbeat.digest._fetch_calendar", side_effect=raise_cal),
+        patch("radbot.tools.heartbeat.digest._fetch_reminders", return_value=[]),
+        patch("radbot.tools.heartbeat.digest._fetch_alerts", return_value=[]),
+        patch(
+            "radbot.tools.heartbeat.digest._fetch_overnight_scheduler", return_value=[]
+        ),
+    ):
         with pytest.raises(RuntimeError):
             # the raw fetcher raises; assemble_digest itself isn't protecting
             # third-party patches, so this just validates our own fetchers
@@ -82,9 +102,13 @@ async def test_deliver_digest_no_ntfy_returns_false():
 async def test_deliver_digest_calls_ntfy_publish():
     fake = MagicMock()
     fake.publish = AsyncMock(return_value={"id": "abc"})
-    with patch("radbot.tools.ntfy.ntfy_client.get_ntfy_client", return_value=fake), \
-         patch("radbot.tools.notifications.db.create_notification", return_value={}):
-        delivered = await deliver_digest("# Heartbeat\n\nsome markdown", title="Morning Brief")
+    with (
+        patch("radbot.tools.ntfy.ntfy_client.get_ntfy_client", return_value=fake),
+        patch("radbot.tools.notifications.db.create_notification", return_value={}),
+    ):
+        delivered = await deliver_digest(
+            "# Heartbeat\n\nsome markdown", title="Morning Brief"
+        )
     assert delivered is True
     fake.publish.assert_awaited_once()
     kwargs = fake.publish.await_args.kwargs
@@ -104,9 +128,17 @@ async def test_fetch_tasks_filters_future_and_done(monkeypatch):
 
     entries = [
         SimpleNamespace(ref_code="PT1", content="today", metadata={"due_date": today}),
-        SimpleNamespace(ref_code="PT2", content="future", metadata={"due_date": future_date}),
-        SimpleNamespace(ref_code="PT3", content="done-today", metadata={"due_date": today, "task_status": "done"}),
-        SimpleNamespace(ref_code="PT4", content="overdue", metadata={"due_date": overdue}),
+        SimpleNamespace(
+            ref_code="PT2", content="future", metadata={"due_date": future_date}
+        ),
+        SimpleNamespace(
+            ref_code="PT3",
+            content="done-today",
+            metadata={"due_date": today, "task_status": "done"},
+        ),
+        SimpleNamespace(
+            ref_code="PT4", content="overdue", metadata={"due_date": overdue}
+        ),
         SimpleNamespace(ref_code="PT5", content="no-due", metadata={}),
     ]
 
@@ -114,6 +146,7 @@ async def test_fetch_tasks_filters_future_and_done(monkeypatch):
     fake_section = SimpleNamespace(PROJECT_TASKS="project_tasks")
     # Patch imports *inside* _fetch_tasks.
     import sys
+
     telos_db = sys.modules.setdefault("radbot.tools.telos.db", MagicMock())
     telos_models = sys.modules.setdefault("radbot.tools.telos.models", MagicMock())
     monkeypatch.setattr(telos_db, "list_section", fake_list)

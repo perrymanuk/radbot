@@ -115,7 +115,9 @@ class TerminalWSClient:
             if remaining <= 0:
                 break
             try:
-                raw = await asyncio.wait_for(self._ws.recv(), timeout=min(remaining, 2.0))
+                raw = await asyncio.wait_for(
+                    self._ws.recv(), timeout=min(remaining, 2.0)
+                )
                 text = self._process_frame(raw)
                 if text:
                     collected.append(text)

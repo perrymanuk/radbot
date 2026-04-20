@@ -7,7 +7,7 @@ All tools return ``{"status": "success", ...}`` or
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from google.adk.tools import FunctionTool
 
@@ -138,11 +138,17 @@ def add_lidarr_artist(
 
     quality_profiles = client.get_quality_profiles()
     if not quality_profiles:
-        return {"status": "error", "message": "No quality profiles configured in Lidarr"}
+        return {
+            "status": "error",
+            "message": "No quality profiles configured in Lidarr",
+        }
 
     metadata_profiles = client.get_metadata_profiles()
     if not metadata_profiles:
-        return {"status": "error", "message": "No metadata profiles configured in Lidarr"}
+        return {
+            "status": "error",
+            "message": "No metadata profiles configured in Lidarr",
+        }
 
     artist_data = {
         "artistName": artist_name,
@@ -208,11 +214,17 @@ def add_lidarr_album(
 
     quality_profiles = client.get_quality_profiles()
     if not quality_profiles:
-        return {"status": "error", "message": "No quality profiles configured in Lidarr"}
+        return {
+            "status": "error",
+            "message": "No quality profiles configured in Lidarr",
+        }
 
     metadata_profiles = client.get_metadata_profiles()
     if not metadata_profiles:
-        return {"status": "error", "message": "No metadata profiles configured in Lidarr"}
+        return {
+            "status": "error",
+            "message": "No metadata profiles configured in Lidarr",
+        }
 
     # Adding an album in Lidarr requires adding the artist with the
     # specific album selected for monitoring.

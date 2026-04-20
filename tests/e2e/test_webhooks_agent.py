@@ -26,7 +26,7 @@ class TestWebhooksAgent:
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show my webhooks")
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "webhook", "no webhook", "none", "list", "registered"
             )
@@ -43,7 +43,7 @@ class TestWebhooksAgent:
                 f"Create a webhook called '{hook_name}' with path suffix '{hook_name}' "
                 f"and prompt template 'Webhook fired: {{{{payload.event}}}}'"
             )
-            text = assert_response_not_empty(result)
+            assert_response_not_empty(result)
             assert_response_contains_any(
                 result, "webhook", "created", hook_name, "success", "registered"
             )

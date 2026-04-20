@@ -216,14 +216,16 @@ def batch_add_messages(
         if metadata is not None:
             metadata = json.dumps(metadata)
         values_list.append("(%s, %s, %s, %s, %s, %s::jsonb)")
-        params.extend([
-            session_id,
-            msg["role"],
-            msg["content"],
-            msg.get("agent_name"),
-            msg.get("user_id"),
-            metadata,
-        ])
+        params.extend(
+            [
+                session_id,
+                msg["role"],
+                msg["content"],
+                msg.get("agent_name"),
+                msg.get("user_id"),
+                metadata,
+            ]
+        )
 
     values_clause = ", ".join(values_list)
     sql = f"""
@@ -312,8 +314,11 @@ def get_messages_by_session_id(
 
 
 def create_or_update_session(
-    session_id: str, name: Optional[str] = None, user_id: Optional[str] = None,
-    preview: Optional[str] = None, description: Optional[str] = None,
+    session_id: str,
+    name: Optional[str] = None,
+    user_id: Optional[str] = None,
+    preview: Optional[str] = None,
+    description: Optional[str] = None,
     agent_name: Optional[str] = None,
 ) -> bool:
     """

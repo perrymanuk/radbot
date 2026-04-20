@@ -2,9 +2,8 @@
 Factory for creating MCP clients based on configuration.
 """
 
-import importlib
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict
 
 from radbot.config.config_loader import config_loader
 
@@ -13,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 class MCPClientError(Exception):
     """Exception raised for MCP client initialization errors."""
-
-    pass
 
 
 class MCPClientFactory:
@@ -183,7 +180,7 @@ class MCPClientFactory:
 
                     client_class = MCPSSEClient
                     logger.warning(
-                        f"MCP SDK WebSocketClient not available, falling back to standard client for server: {server_id}"
+                        f"MCP SDK WebSocketClient not available, falling back to standard client for server: {server_id}"  # noqa: E501
                     )
 
                 client_args = {"url": url}

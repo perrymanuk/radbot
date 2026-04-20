@@ -79,6 +79,7 @@ def test_enqueue_drops_when_queue_full(warn_log):
 
 def test_db_timeout_drops_batch(warn_log):
     """A db_writer raising OperationalError must NOT propagate; batch is dropped."""
+
     def boom(batch):
         raise psycopg2.OperationalError("statement timeout (mocked, no real wait)")
 

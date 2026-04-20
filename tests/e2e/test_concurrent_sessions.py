@@ -42,12 +42,16 @@ class TestConcurrentSessions:
                 if text:
                     success_count += 1
 
-            assert success_count >= 2, f"Expected at least 2/3 sessions to respond, got {success_count}"
+            assert (
+                success_count >= 2
+            ), f"Expected at least 2/3 sessions to respond, got {success_count}"
         finally:
             for ws in sessions:
                 await ws.close()
 
-    @pytest.mark.xfail(reason="Known: single user_id shares Qdrant memory across sessions")
+    @pytest.mark.xfail(
+        reason="Known: single user_id shares Qdrant memory across sessions"
+    )
     async def test_session_isolation(self, live_server):
         """Setting a name in session A should not leak to session B."""
         sid_a = str(uuid.uuid4())
@@ -64,9 +68,9 @@ class TestConcurrentSessions:
             # Ask in session B — should NOT know the name
             result_b = await ws_b.send_and_wait_response("What is my name?")
             text_b = result_b.get("response_text", "").lower()
-            assert "e2eisolationtestalpha" not in text_b, (
-                "Session B should not know session A's name"
-            )
+            assert (
+                "e2eisolationtestalpha" not in text_b
+            ), "Session B should not know session A's name"
         finally:
             await ws_a.close()
             await ws_b.close()

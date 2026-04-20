@@ -18,9 +18,8 @@ Security measures include:
 """
 
 import logging
-import shlex
 import subprocess
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # --- Security Configuration ---
 # CRITICAL: Define the *only* commands the agent is allowed to run in strict mode.
@@ -222,7 +221,7 @@ def execute_shell_command(
         path_traversal_risk = ".." in arg and ".." not in exempted_chars
 
         if risky_chars_present:
-            error_message = f"Error: Argument '{arg}' contains potentially unsafe characters: {', '.join(risky_chars_present)}"
+            error_message = f"Error: Argument '{arg}' contains potentially unsafe characters: {', '.join(risky_chars_present)}"  # noqa: E501
             logger.warning(f"Rejected unsafe argument for command '{command}': {arg}")
             return {
                 "stdout": "",
@@ -232,7 +231,7 @@ def execute_shell_command(
             }
 
         if path_traversal_risk:
-            error_message = f"Error: Argument '{arg}' contains path traversal sequences which are not allowed for this command."
+            error_message = f"Error: Argument '{arg}' contains path traversal sequences which are not allowed for this command."  # noqa: E501
             logger.warning(
                 f"Rejected path traversal in argument for command '{command}': {arg}"
             )

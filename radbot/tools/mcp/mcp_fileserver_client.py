@@ -4,20 +4,18 @@ import logging
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack
 from functools import partial
-from threading import RLock, Thread, local
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from threading import RLock, local
+from typing import Any, Dict, List, Optional, Tuple
 
 # Import from ADK 0.3.0 locations
 from google.adk.events import Event
 from google.adk.tools import FunctionTool
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
-from mcp.types import Tool as MCPTool
 
 from radbot.tools.mcp.mcp_fileserver_server import (
-    start_server,
     start_server_async,
 )
 
@@ -89,9 +87,7 @@ async def _create_fileserver_toolset_async() -> List[FunctionTool]:
 
     try:
         # Start the server and get the tools
-        server_process = await start_server_async(
-            exit_stack, root_dir, allow_write, allow_delete
-        )
+        await start_server_async(exit_stack, root_dir, allow_write, allow_delete)
 
         # Create and initialize the client session
         # Use a different command for stdio_client to avoid starting a Python process

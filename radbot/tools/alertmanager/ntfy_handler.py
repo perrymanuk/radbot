@@ -59,7 +59,9 @@ async def handle_alertmanager_message(message: Dict[str, Any]) -> None:
                 )
     else:
         # Non-standard format — treat the ntfy message as a single alert
-        logger.info("Alertmanager ntfy handler: non-standard format, creating synthetic alert")
+        logger.info(
+            "Alertmanager ntfy handler: non-standard format, creating synthetic alert"
+        )
         synthetic_alert = {
             "status": "firing",
             "labels": {

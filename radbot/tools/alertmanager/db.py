@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
 
-from radbot.db.connection import get_db_connection, get_db_cursor
+from radbot.db.connection import get_db_connection
 
 logger = logging.getLogger(__name__)
 
@@ -346,15 +346,13 @@ def list_policies() -> List[Dict[str, Any]]:
     """List all remediation policies."""
     with get_db_connection() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                """
+            cur.execute("""
                 SELECT policy_id, alertname_pattern, severity, action,
                        max_auto_remediations, window_minutes,
                        timeout_seconds, max_llm_calls, enabled, metadata
                 FROM alert_remediation_policies
                 ORDER BY created_at
-                """
-            )
+                """)
             results = []
             for row in cur.fetchall():
                 r = dict(row)
@@ -366,10 +364,15 @@ def list_policies() -> List[Dict[str, Any]]:
 def update_policy(policy_id: str, **fields) -> bool:
     """Update a policy's fields."""
     allowed = {
-        "alertname_pattern", "severity", "action",
-        "max_auto_remediations", "window_minutes",
-        "timeout_seconds", "max_llm_calls",
-        "enabled", "metadata",
+        "alertname_pattern",
+        "severity",
+        "action",
+        "max_auto_remediations",
+        "window_minutes",
+        "timeout_seconds",
+        "max_llm_calls",
+        "enabled",
+        "metadata",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -406,7 +409,9 @@ def delete_policy(policy_id: str) -> bool:
             return cur.rowcount > 0
 
 
-def get_matching_policy(alertname: str, severity: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def get_matching_policy(
+    alertname: str, severity: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
     """Find the first enabled policy matching the alertname (regex) and optional severity."""
     policies = list_policies()
     for p in policies:

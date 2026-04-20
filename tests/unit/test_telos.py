@@ -14,8 +14,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from radbot.tools.telos import loader as telos_loader
 from radbot.tools.telos.callback import (
     _BOOTSTRAP_STATE_KEY,
@@ -27,7 +25,6 @@ from radbot.tools.telos.models import (
     Entry,
     Section,
 )
-
 
 # ---------------------------------------------------------------------------
 # Markdown round-trip
@@ -68,9 +65,7 @@ class TestMarkdownRoundTrip:
             assert by_ref2.get(ref) == content
 
     def test_identity_single_entry(self):
-        entries = parse_telos_markdown(
-            "## IDENTITY\n\nLine one.\nLine two.\n"
-        )
+        entries = parse_telos_markdown("## IDENTITY\n\nLine one.\nLine two.\n")
         idents = [e for e in entries if e.section == Section.IDENTITY]
         assert len(idents) == 1
         assert idents[0].ref_code == IDENTITY_REF
@@ -121,8 +116,12 @@ def _fake_entry(
 class TestLoader:
     def test_empty_db_returns_empty_strings(self):
         grouped = {s: [] for s in Section}
-        with patch.object(telos_loader.telos_db, "list_all_active", return_value=grouped), \
-             patch.object(telos_loader.telos_db, "recent_journal", return_value=[]):
+        with (
+            patch.object(
+                telos_loader.telos_db, "list_all_active", return_value=grouped
+            ),
+            patch.object(telos_loader.telos_db, "recent_journal", return_value=[]),
+        ):
             anchor, full_block = telos_loader.build_telos_tiers()
         assert anchor == ""
         assert full_block == ""
@@ -145,8 +144,12 @@ class TestLoader:
         journal = [
             _fake_entry(Section.JOURNAL, "Wrote the Telos spec"),
         ]
-        with patch.object(telos_loader.telos_db, "list_all_active", return_value=grouped), \
-             patch.object(telos_loader.telos_db, "recent_journal", return_value=journal):
+        with (
+            patch.object(
+                telos_loader.telos_db, "list_all_active", return_value=grouped
+            ),
+            patch.object(telos_loader.telos_db, "recent_journal", return_value=journal),
+        ):
             anchor, full_block = telos_loader.build_telos_tiers()
 
         assert anchor
@@ -161,17 +164,17 @@ class TestLoader:
     def test_anchor_size_cap(self):
         # Pathological: long identity + long mission → anchor still under cap.
         grouped = {s: [] for s in Section}
-        grouped[Section.IDENTITY] = [
-            _fake_entry(Section.IDENTITY, "x" * 2000, "ME")
-        ]
-        grouped[Section.MISSION] = [
-            _fake_entry(Section.MISSION, "y" * 2000, "M1")
-        ]
+        grouped[Section.IDENTITY] = [_fake_entry(Section.IDENTITY, "x" * 2000, "ME")]
+        grouped[Section.MISSION] = [_fake_entry(Section.MISSION, "y" * 2000, "M1")]
         grouped[Section.GOALS] = [
             _fake_entry(Section.GOALS, f"goal {i}", f"G{i}") for i in range(20)
         ]
-        with patch.object(telos_loader.telos_db, "list_all_active", return_value=grouped), \
-             patch.object(telos_loader.telos_db, "recent_journal", return_value=[]):
+        with (
+            patch.object(
+                telos_loader.telos_db, "list_all_active", return_value=grouped
+            ),
+            patch.object(telos_loader.telos_db, "recent_journal", return_value=[]),
+        ):
             anchor, _ = telos_loader.build_telos_tiers()
         assert len(anchor.encode("utf-8")) <= telos_loader.ANCHOR_CAP_BYTES
 
@@ -182,11 +185,13 @@ class TestLoader:
         grouped[Section.GOALS] = [
             _fake_entry(Section.GOALS, "A" * 200, f"G{i}") for i in range(30)
         ]
-        journal = [
-            _fake_entry(Section.JOURNAL, "J" * 150) for _ in range(30)
-        ]
-        with patch.object(telos_loader.telos_db, "list_all_active", return_value=grouped), \
-             patch.object(telos_loader.telos_db, "recent_journal", return_value=journal):
+        journal = [_fake_entry(Section.JOURNAL, "J" * 150) for _ in range(30)]
+        with (
+            patch.object(
+                telos_loader.telos_db, "list_all_active", return_value=grouped
+            ),
+            patch.object(telos_loader.telos_db, "recent_journal", return_value=journal),
+        ):
             _, full_block = telos_loader.build_telos_tiers()
         assert len(full_block.encode("utf-8")) <= telos_loader.FULL_BLOCK_CAP_BYTES
 
@@ -302,9 +307,9 @@ class TestAgentWiring:
         # Each sub-agent's before_model_callback should not contain our callback.
         for sa in core.root_agent.sub_agents:
             before = sa.before_model_callback or []
-            assert inject_telos_context not in before, (
-                f"inject_telos_context leaked into sub-agent {sa.name}"
-            )
+            assert (
+                inject_telos_context not in before
+            ), f"inject_telos_context leaked into sub-agent {sa.name}"
 
     def test_telos_tools_on_beto(self):
         """Telos tools should be registered on beto's tool list."""
@@ -320,9 +325,9 @@ class TestAgentWiring:
         for tool in TELOS_TOOLS:
             fn = getattr(tool, "func", None)
             if fn:
-                assert fn.__name__ in beto_tool_fns, (
-                    f"Telos tool {fn.__name__} missing from beto"
-                )
+                assert (
+                    fn.__name__ in beto_tool_fns
+                ), f"Telos tool {fn.__name__} missing from beto"
 
 
 # ---------------------------------------------------------------------------
@@ -335,7 +340,9 @@ class TestToolsLayer:
         from radbot.tools.telos import telos_tools
 
         fake_row = _fake_entry(Section.JOURNAL, "Did a thing")
-        with patch.object(telos_tools.telos_db, "add_entry", return_value=fake_row) as mock_add:
+        with patch.object(
+            telos_tools.telos_db, "add_entry", return_value=fake_row
+        ) as mock_add:
             out = telos_tools.telos_add_journal("Did a thing", event_type="decision")
         assert out["status"] == "success"
         assert out["entry"]["content"] == "Did a thing"
@@ -346,7 +353,9 @@ class TestToolsLayer:
         from radbot.tools.telos import telos_tools
 
         fake_row = _fake_entry(
-            Section.GOALS, "Ship telos", "G1",
+            Section.GOALS,
+            "Ship telos",
+            "G1",
             metadata={"deadline": "2026-12-31"},
         )
         with patch.object(telos_tools.telos_db, "add_entry", return_value=fake_row):
@@ -360,7 +369,9 @@ class TestToolsLayer:
         from radbot.tools.telos import telos_tools
 
         fake = [_fake_entry(Section.GOALS, "x", "G1")]
-        with patch.object(telos_tools.telos_db, "list_section", return_value=fake) as mock_list:
+        with patch.object(
+            telos_tools.telos_db, "list_section", return_value=fake
+        ) as mock_list:
             out = telos_tools.telos_get_section("goals")
         assert out["status"] == "success"
         # list_section called with status='active' by default.
@@ -377,11 +388,15 @@ class TestToolsLayer:
         from radbot.tools.telos import telos_tools
 
         pred = _fake_entry(
-            Section.PREDICTIONS, "X will happen", "PRED1",
+            Section.PREDICTIONS,
+            "X will happen",
+            "PRED1",
             metadata={"probability": 0.9},
         )
         resolved = _fake_entry(
-            Section.PREDICTIONS, "X will happen", "PRED1",
+            Section.PREDICTIONS,
+            "X will happen",
+            "PRED1",
             metadata={"probability": 0.9, "resolution": "false"},
         )
         wrong = _fake_entry(Section.WRONG_ABOUT, "Miscalibrated on PRED1")
@@ -392,9 +407,11 @@ class TestToolsLayer:
             add_entry_calls.append((section, content, kwargs))
             return wrong
 
-        with patch.object(telos_tools.telos_db, "get_entry", return_value=pred), \
-             patch.object(telos_tools.telos_db, "update_entry", return_value=resolved), \
-             patch.object(telos_tools.telos_db, "add_entry", side_effect=fake_add_entry):
+        with (
+            patch.object(telos_tools.telos_db, "get_entry", return_value=pred),
+            patch.object(telos_tools.telos_db, "update_entry", return_value=resolved),
+            patch.object(telos_tools.telos_db, "add_entry", side_effect=fake_add_entry),
+        ):
             out = telos_tools.telos_resolve_prediction("PRED1", outcome=False)
 
         assert out["status"] == "success"
@@ -406,11 +423,15 @@ class TestToolsLayer:
         from radbot.tools.telos import telos_tools
 
         pred = _fake_entry(
-            Section.PREDICTIONS, "X will happen", "PRED1",
+            Section.PREDICTIONS,
+            "X will happen",
+            "PRED1",
             metadata={"probability": 0.5},
         )
         resolved = _fake_entry(
-            Section.PREDICTIONS, "X will happen", "PRED1",
+            Section.PREDICTIONS,
+            "X will happen",
+            "PRED1",
             metadata={"probability": 0.5, "resolution": "true"},
         )
 
@@ -420,9 +441,11 @@ class TestToolsLayer:
             add_entry_calls.append((section, content, kwargs))
             return _fake_entry(section, content)
 
-        with patch.object(telos_tools.telos_db, "get_entry", return_value=pred), \
-             patch.object(telos_tools.telos_db, "update_entry", return_value=resolved), \
-             patch.object(telos_tools.telos_db, "add_entry", side_effect=fake_add_entry):
+        with (
+            patch.object(telos_tools.telos_db, "get_entry", return_value=pred),
+            patch.object(telos_tools.telos_db, "update_entry", return_value=resolved),
+            patch.object(telos_tools.telos_db, "add_entry", side_effect=fake_add_entry),
+        ):
             out = telos_tools.telos_resolve_prediction("PRED1", outcome=True)
 
         assert out["status"] == "success"

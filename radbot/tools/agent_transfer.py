@@ -5,9 +5,8 @@ This module provides tools for transferring control between agents
 in a multi-agent system.
 """
 
-import inspect
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.agents import Agent
 
@@ -38,7 +37,7 @@ def handle_agent_transfers(agent, from_agent: str, request: str):
     # This prevents context confusion between agents by not forwarding the original prompt
     greeting = f"I am now {agent.name}. How can I help you today?"
     logger.info(
-        f"Agent transfer complete - request NOT forwarded to maintain context separation"
+        "Agent transfer complete - request NOT forwarded to maintain context separation"
     )
     return greeting
 

@@ -35,7 +35,10 @@ def add_video_to_kideo(
     """
     # Block YouTube Shorts
     if "/shorts/" in url:
-        return {"status": "error", "message": "YouTube Shorts are not allowed — only full-length videos"}
+        return {
+            "status": "error",
+            "message": "YouTube Shorts are not allowed — only full-length videos",
+        }
 
     logger.info(f"Adding video to Kideo: {url}")
     from radbot.tools.youtube.kideo_client import add_video
@@ -68,10 +71,12 @@ def add_videos_to_kideo_batch(
         On failure: {"status": "error", "message": "..."}
     """
     # Filter out YouTube Shorts
-    shorts = [u for u in urls if "/shorts/" in u]
     urls = [u for u in urls if "/shorts/" not in u]
     if not urls:
-        return {"status": "error", "message": "All URLs were YouTube Shorts — only full-length videos are allowed"}
+        return {
+            "status": "error",
+            "message": "All URLs were YouTube Shorts — only full-length videos are allowed",
+        }
 
     logger.info(f"Batch adding {len(urls)} videos to Kideo collection {collection_id}")
     from radbot.tools.youtube.kideo_client import add_videos_batch
@@ -179,7 +184,11 @@ def generate_video_tags(
         "status": "success",
         "tags": tags,
         "count": len(tags),
-        "message": f"Generated {len(tags)} tags: {', '.join(tags)}" if tags else "No tags generated",
+        "message": (
+            f"Generated {len(tags)} tags: {', '.join(tags)}"
+            if tags
+            else "No tags generated"
+        ),
     }
 
 
@@ -235,9 +244,7 @@ def get_kideo_popular_videos(
     """
     from radbot.tools.youtube.kideo_client import get_popular_videos
 
-    videos = get_popular_videos(
-        collection_id=collection_id, limit=limit, days=days
-    )
+    videos = get_popular_videos(collection_id=collection_id, limit=limit, days=days)
     return {
         "status": "success",
         "videos": videos,
@@ -314,7 +321,6 @@ def retag_untagged_kideo_videos() -> Dict[str, Any]:
         On failure: {"status": "error", "message": "..."}
     """
     from radbot.tools.youtube.kideo_client import list_videos, set_video_tags
-    from radbot.tools.youtube.tag_generator import generate_tags
 
     videos = list_videos(status="ready")
     untagged = [v for v in videos if not v.get("tags")]
@@ -338,8 +344,8 @@ def retag_untagged_kideo_videos() -> Dict[str, Any]:
         # Generate tags using title, channel, and optionally transcript
         from radbot.tools.youtube.tag_generator import (
             fetch_transcript,
-            generate_tags as _generate_tags,
         )
+        from radbot.tools.youtube.tag_generator import generate_tags as _generate_tags
 
         transcript = fetch_transcript(yt_video_id) if yt_video_id else None
         tags = _generate_tags(

@@ -8,7 +8,7 @@ to help the agent break down complex problems into steps and work through them l
 
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -203,26 +203,26 @@ def process_thinking(
     # Initial system prompt for thinking
     system_prompt = f"""
     I'll help you think through this problem step by step.
-    
+
     The problem to solve is: {prompt}
-    
+
     Break this down into logical steps. For each step:
     1. Think carefully about the current stage of reasoning
     2. Consider what information you have and what you need
     3. Identify any assumptions you're making
     4. Determine what follows logically from your current understanding
-    
+
     Start with "Step 1:" and proceed through each step of reasoning.
     After you've thought through the steps, provide a final conclusion.
-    
+
     Format your response like this:
-    
+
     Step 1: [Your first step of reasoning]
-    
+
     Step 2: [Your second step of reasoning]
-    
+
     ...
-    
+
     Conclusion: [Your final answer or conclusion]
     """
 

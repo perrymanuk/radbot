@@ -18,11 +18,10 @@ for unknown sections.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from .models import (
     IDENTITY_REF,
-    REF_PREFIX,
     SECTION_HEADERS,
     Entry,
     Section,

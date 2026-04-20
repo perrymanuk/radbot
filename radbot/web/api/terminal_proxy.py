@@ -158,9 +158,7 @@ class WorkspaceProxy:
             await client.stop_job(job_id)
             update_workspace_worker_status(self.workspace_id, "stopped")
             self._worker_url = None
-            logger.info(
-                "Stopped worker %s for workspace %s", job_id, self.workspace_id
-            )
+            logger.info("Stopped worker %s for workspace %s", job_id, self.workspace_id)
             return True
         except Exception as e:
             logger.error("Failed to stop workspace worker: %s", e)
@@ -191,7 +189,11 @@ class WorkspaceProxy:
             from radbot.worker.db import get_workspace_worker
 
             record = get_workspace_worker(self.workspace_id)
-            if record and record.get("worker_url") and record.get("status") == "healthy":
+            if (
+                record
+                and record.get("worker_url")
+                and record.get("status") == "healthy"
+            ):
                 return record["worker_url"]
         except Exception as e:
             logger.debug("DB workspace worker lookup failed: %s", e)

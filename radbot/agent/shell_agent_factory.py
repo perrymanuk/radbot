@@ -6,7 +6,7 @@ with secure shell command execution.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from google.adk.agents import Agent
 

@@ -4,11 +4,6 @@ Unit tests for MCP utilities.
 Tests the utility functions for working with Home Assistant MCP.
 """
 
-from unittest.mock import MagicMock, PropertyMock, patch
-
-import pytest
-
-from radbot.tools.mcp.mcp_tools import create_home_assistant_toolset
 from radbot.tools.mcp.mcp_utils import (
     check_home_assistant_entity,
     list_home_assistant_domains,

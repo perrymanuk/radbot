@@ -10,8 +10,7 @@ agent initialization code when adding new MCP servers.
 import asyncio
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from radbot.config.config_loader import config_loader
 from radbot.tools.mcp.mcp_client_factory import MCPClientError, MCPClientFactory
@@ -96,7 +95,6 @@ def load_dynamic_mcp_tools() -> List[Any]:
                         init_result = {"success": False, "error": None}
 
                         def init_async_client():
-                            nonlocal init_result
                             try:
                                 # This thread will have its own event loop
                                 loop = asyncio.new_event_loop()
@@ -213,7 +211,6 @@ def load_specific_mcp_tools(server_id: str) -> List[Any]:
                 init_result = {"success": False, "error": None}
 
                 def init_async_client():
-                    nonlocal init_result
                     try:
                         # This thread will have its own event loop
                         loop = asyncio.new_event_loop()

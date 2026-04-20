@@ -6,20 +6,19 @@ root agents, sub-agents, and web agents.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 # Import necessary components
 from google.adk.agents import Agent
-from google.adk.tools.transfer_to_agent_tool import transfer_to_agent
-
-# Configure logging
-logger = logging.getLogger(__name__)
 
 from radbot.agent.agent_base import FALLBACK_INSTRUCTION
 
 # Import our configuration modules
 from radbot.config import config_manager
 from radbot.config.settings import ConfigManager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class AgentFactory:
@@ -125,7 +124,6 @@ class AgentFactory:
         tools: Optional[List] = None,
         instruction_name: str = "main_agent",
         config: Optional[ConfigManager] = None,
-        register_tools: bool = True,
     ) -> Agent:
         """Create an agent specifically for the ADK web interface.
 
@@ -135,7 +133,6 @@ class AgentFactory:
             tools: List of tools to add to the agent
             instruction_name: Name of the instruction to load from config
             config: Optional ConfigManager instance (uses global if not provided)
-            register_tools: Whether to register common tool handlers
 
         Returns:
             Configured ADK Agent for web interface
@@ -151,8 +148,6 @@ class AgentFactory:
 
         # Initialize memory service for the web UI and store API keys
         try:
-            import os
-
             from radbot.memory.qdrant_memory import QdrantMemoryService
 
             memory_service = QdrantMemoryService()
@@ -168,68 +163,5 @@ class AgentFactory:
 
         except Exception as e:
             logger.warning(f"Failed to initialize memory service: {str(e)}")
-
-        # Register common tool handlers if requested
-        if register_tools:
-            try:
-                # Use the equivalent of RadBotAgent.register_tool_handlers but for a plain Agent
-                from radbot.tools.mcp.mcp_fileserver_client import (
-                    handle_fileserver_tool_call,
-                )
-                from radbot.tools.memory.memory_tools import (
-                    search_past_conversations,
-                    store_important_information,
-                )
-
-                # Register filesystem tool handlers
-                agent.register_tool_handler(
-                    "list_files",
-                    lambda params: handle_fileserver_tool_call("list_files", params),
-                )
-                agent.register_tool_handler(
-                    "read_file",
-                    lambda params: handle_fileserver_tool_call("read_file", params),
-                )
-                agent.register_tool_handler(
-                    "write_file",
-                    lambda params: handle_fileserver_tool_call("write_file", params),
-                )
-                agent.register_tool_handler(
-                    "delete_file",
-                    lambda params: handle_fileserver_tool_call("delete_file", params),
-                )
-                agent.register_tool_handler(
-                    "get_file_info",
-                    lambda params: handle_fileserver_tool_call("get_file_info", params),
-                )
-                agent.register_tool_handler(
-                    "search_files",
-                    lambda params: handle_fileserver_tool_call("search_files", params),
-                )
-                agent.register_tool_handler(
-                    "create_directory",
-                    lambda params: handle_fileserver_tool_call(
-                        "create_directory", params
-                    ),
-                )
-
-                # Register memory tools
-                agent.register_tool_handler(
-                    "search_past_conversations",
-                    lambda params: MessageToDict(search_past_conversations(params)),  # noqa: F821 — dead path; ADK 0.4 register_tool_handler API removed
-                )
-                agent.register_tool_handler(
-                    "store_important_information",
-                    lambda params: MessageToDict(store_important_information(params)),  # noqa: F821 — dead path; ADK 0.4 register_tool_handler API removed
-                )
-
-                # In ADK 0.4.0, agent transfers are handled natively
-                # No need to register custom transfer_to_agent handler
-
-                logger.info("Registered common tool handlers for web agent")
-            except Exception as e:
-                logger.warning(
-                    f"Error registering tool handlers for web agent: {str(e)}"
-                )
 
         return agent

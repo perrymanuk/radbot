@@ -217,43 +217,49 @@ def tools() -> list[mcp_types.Tool]:
     ]
 
 
-async def call(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "project_match":
         return [_do_match(arguments["cwd"])]
     if name == "project_list":
         return [_do_list()]
     if name == "project_set_path_patterns":
-        return [_do_set_path_patterns(
-            arguments["ref_code"],
-            list(arguments.get("path_patterns") or []),
-            arguments.get("wiki_path"),
-        )]
+        return [
+            _do_set_path_patterns(
+                arguments["ref_code"],
+                list(arguments.get("path_patterns") or []),
+                arguments.get("wiki_path"),
+            )
+        ]
     if name == "project_get_context":
         return [_do_get_context(arguments["ref_or_name"])]
     if name == "project_create":
-        return [_do_create(
-            arguments["name"],
-            arguments.get("priority"),
-            arguments.get("parent_goal"),
-            arguments.get("path_patterns"),
-            arguments.get("wiki_path"),
-        )]
+        return [
+            _do_create(
+                arguments["name"],
+                arguments.get("priority"),
+                arguments.get("parent_goal"),
+                arguments.get("path_patterns"),
+                arguments.get("wiki_path"),
+            )
+        ]
     if name == "project_update":
         return [_do_update(arguments)]
     if name == "project_archive":
-        return [_do_archive(
-            arguments["ref_code"],
-            arguments.get("reason"),
-            bool(arguments.get("cascade_children", False)),
-        )]
+        return [
+            _do_archive(
+                arguments["ref_code"],
+                arguments.get("reason"),
+                bool(arguments.get("cascade_children", False)),
+            )
+        ]
     if name == "project_merge":
-        return [_do_merge(
-            arguments["from_ref"],
-            arguments["into_ref"],
-            arguments.get("archive_reason"),
-        )]
+        return [
+            _do_merge(
+                arguments["from_ref"],
+                arguments["into_ref"],
+                arguments.get("archive_reason"),
+            )
+        ]
     if name == "project_list_children":
         return [_do_list_children(arguments["ref_code"])]
     raise KeyError(name)
@@ -297,9 +303,7 @@ def _do_match(cwd: str) -> mcp_types.TextContent:
 def _do_list() -> mcp_types.TextContent:
     projects = list(_active_projects())
     if not projects:
-        return mcp_types.TextContent(
-            type="text", text="_No active Telos projects._"
-        )
+        return mcp_types.TextContent(type="text", text="_No active Telos projects._")
     lines = [
         "## Telos projects (active)",
         "",
@@ -407,7 +411,8 @@ def _do_get_context(ref_or_name: str) -> mcp_types.TextContent:
         Section.JOURNAL, status=None, limit=50, order_by="created_at_desc"
     )
     related = [
-        e for e in journal_entries
+        e
+        for e in journal_entries
         if project.ref_code
         and project.ref_code in (e.metadata or {}).get("related_refs", [])
     ][:10]
@@ -470,8 +475,7 @@ def _active_children(ref_code: str) -> dict[str, list]:
         sec = getattr(Section, sec_name)
         rows = telos_db.list_section(sec, status="active")
         out[sec_name] = [
-            r for r in rows
-            if (r.metadata or {}).get("parent_project") == ref_code
+            r for r in rows if (r.metadata or {}).get("parent_project") == ref_code
         ]
     return out
 
@@ -617,7 +621,8 @@ def _do_merge(
         count = 0
         for row in rows:
             updated = telos_db.update_entry(
-                sec, row.ref_code,
+                sec,
+                row.ref_code,
                 metadata_merge={"parent_project": into_ref},
             )
             if updated is not None:

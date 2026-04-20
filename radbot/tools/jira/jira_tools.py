@@ -7,7 +7,7 @@ issues.  All tools return ``{"status": "success", ...}`` or
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 
@@ -133,9 +133,7 @@ def get_jira_issue(issue_key: str) -> Dict[str, Any]:
     fields = issue.get("fields", {})
     formatted["description"] = fields.get("description")
     formatted["labels"] = fields.get("labels", [])
-    formatted["components"] = [
-        c.get("name") for c in (fields.get("components") or [])
-    ]
+    formatted["components"] = [c.get("name") for c in (fields.get("components") or [])]
     formatted["fix_versions"] = [
         v.get("name") for v in (fields.get("fixVersions") or [])
     ]
@@ -198,7 +196,7 @@ def transition_jira_issue(
     if err:
         return err
 
-    result = client.set_issue_status(issue_key, status_name)
+    client.set_issue_status(issue_key, status_name)
     logger.info("Transitioned %s to '%s'", issue_key, status_name)
     return {
         "status": "success",

@@ -5,7 +5,6 @@ produce relevant tags for children's video curation.
 """
 
 import logging
-import re
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -132,9 +131,7 @@ Rules:
         raw = response.text.strip()
         # Parse comma-separated tags
         tags = [
-            tag.strip().lower().strip('"\'')
-            for tag in raw.split(",")
-            if tag.strip()
+            tag.strip().lower().strip("\"'") for tag in raw.split(",") if tag.strip()
         ]
         # Remove any tags that are too long or empty
         tags = [t for t in tags if 0 < len(t) <= 50]

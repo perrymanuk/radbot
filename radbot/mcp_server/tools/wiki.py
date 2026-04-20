@@ -139,19 +139,19 @@ def tools() -> list[mcp_types.Tool]:
     ]
 
 
-async def call(
-    name: str, arguments: dict[str, Any]
-) -> list[mcp_types.TextContent]:
+async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "wiki_read":
         return [_do_read(arguments["path"])]
     if name == "wiki_list":
         return [_do_list(arguments.get("glob", "**/*.md"))]
     if name == "wiki_search":
-        return [_do_search(
-            arguments["query"],
-            arguments.get("glob", "**/*.md"),
-            int(arguments.get("limit", 50)),
-        )]
+        return [
+            _do_search(
+                arguments["query"],
+                arguments.get("glob", "**/*.md"),
+                int(arguments.get("limit", 50)),
+            )
+        ]
     if name == "wiki_write":
         return [_do_write(arguments["path"], arguments["content"])]
     raise KeyError(name)
@@ -191,9 +191,7 @@ def _do_list(glob: str) -> mcp_types.TextContent:
         return _err(f"Bad glob `{glob}`: {e}")
 
     if not matches:
-        return mcp_types.TextContent(
-            type="text", text=f"_No files matching `{glob}`._"
-        )
+        return mcp_types.TextContent(type="text", text=f"_No files matching `{glob}`._")
 
     # Group by parent directory for readability
     by_dir: dict[str, list[str]] = {}
@@ -242,9 +240,7 @@ def _do_search(query: str, glob: str, limit: int) -> mcp_types.TextContent:
         return _err(f"Bad glob `{glob}`: {e}")
 
     if not hits:
-        return mcp_types.TextContent(
-            type="text", text=f"_No matches for `{query}`._"
-        )
+        return mcp_types.TextContent(type="text", text=f"_No matches for `{query}`._")
 
     lines = [f"## Wiki search for `{query}` ({len(hits)} hits)", ""]
     for rel, line_no, line in hits:

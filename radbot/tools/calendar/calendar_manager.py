@@ -8,10 +8,8 @@ from typing import Any, Dict, List, Optional, Union
 from radbot.tools.calendar.calendar_auth import (
     get_calendar_service,
     get_workspace_calendar_service,
-    validate_calendar_access,
 )
 from radbot.tools.calendar.calendar_operations import (
-    check_calendar_access,
     create_event,
     delete_event,
     get_calendar_availability,
@@ -78,7 +76,7 @@ class CalendarManager:
                         .execute()
                     )
                     logger.info(
-                        f"Successfully authenticated with Google Calendar as: {primary_calendar.get('summary', 'Unknown')}"
+                        f"Successfully authenticated with Google Calendar as: {primary_calendar.get('summary', 'Unknown')}"  # noqa: E501
                     )
                     return True
                 except Exception as e:
@@ -123,11 +121,9 @@ class CalendarManager:
             if self.workspace_service:
                 try:
                     # Try to get the primary calendar to confirm authentication worked
-                    primary_calendar = (
-                        self.workspace_service.calendars()
-                        .get(calendarId="primary")
-                        .execute()
-                    )
+                    self.workspace_service.calendars().get(
+                        calendarId="primary"
+                    ).execute()
                     logger.info(
                         f"Successfully authenticated with Google Workspace as: {email}"
                     )

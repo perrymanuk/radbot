@@ -6,17 +6,14 @@ capabilities via MCP Server integration.
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
-
-logger = logging.getLogger(__name__)
 
 from radbot.tools.mcp.mcp_entity_search import (
     create_find_ha_entities_tool,
     search_home_assistant_entities,
 )
-
-# Import necessary components
 from radbot.tools.mcp.mcp_homeassistant import create_home_assistant_toolset
+
+logger = logging.getLogger(__name__)
 
 
 def create_ha_mcp_enabled_agent(
@@ -53,7 +50,6 @@ def create_ha_mcp_enabled_agent(
             memory_tools = [search_past_conversations, store_important_information]
 
             # Check if memory tools are already in tools list
-            memory_tool_names = set([tool.__name__ for tool in memory_tools])
             existing_tool_names = set()
             for tool in tools:
                 if hasattr(tool, "__name__"):
@@ -72,7 +68,7 @@ def create_ha_mcp_enabled_agent(
         if entity_search_tool:
             tools.insert(1, entity_search_tool)
             logger.info(
-                f"Added wrapped entity search tool as backup with name: {getattr(entity_search_tool, 'name', 'unknown')}"
+                f"Added wrapped entity search tool as backup with name: {getattr(entity_search_tool, 'name', 'unknown')}"  # noqa: E501
             )
 
         # Try to add Home Assistant MCP tools (using ADK 0.3.0 API)
@@ -124,7 +120,7 @@ def create_ha_mcp_enabled_agent(
                                         "properties": {
                                             "entity_id": {
                                                 "type": "string",
-                                                "description": "The entity ID to control (e.g. light.kitchen, switch.fan)",
+                                                "description": "The entity ID to control (e.g. light.kitchen, switch.fan)",  # noqa: E501
                                             }
                                         },
                                         "required": ["entity_id"],
@@ -150,7 +146,7 @@ def create_ha_mcp_enabled_agent(
                                         "properties": {
                                             "entity_id": {
                                                 "type": "string",
-                                                "description": "The entity ID to control (e.g. light.kitchen, switch.fan)",
+                                                "description": "The entity ID to control (e.g. light.kitchen, switch.fan)",  # noqa: E501
                                             }
                                         },
                                         "required": ["entity_id"],

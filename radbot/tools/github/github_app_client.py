@@ -9,7 +9,6 @@ Uses GitHub App JWT authentication with short-lived installation tokens
 for repo clone/push operations.
 """
 
-import asyncio
 import logging
 import os
 import subprocess

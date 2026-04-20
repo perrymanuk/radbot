@@ -7,19 +7,15 @@ Radbot framework.
 """
 
 import asyncio
-import contextlib
-import inspect
 import json
 import logging
 import uuid
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 # Import from MCP SDK
 try:
-    import httpx
     from mcp import ClientSession
     from mcp.client.sse import sse_client
-    from mcp.types import Tool
 except ImportError:
     raise ImportError(
         "MCP Python SDK not installed. "
@@ -156,7 +152,9 @@ class MCPSSEClient:
                     self.session_id = str(uuid.uuid4())
                     separator = "?" if "?" not in self.message_endpoint else "&"
                     self.message_endpoint = f"{self.message_endpoint}{separator}session_id={self.session_id}"
-                logger.debug(f"Using fallback message endpoint: {self.message_endpoint}")
+                logger.debug(
+                    f"Using fallback message endpoint: {self.message_endpoint}"
+                )
 
                 # Send initialization request
                 logger.debug("Attempting direct HTTP initialization")
