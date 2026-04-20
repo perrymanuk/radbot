@@ -19,6 +19,7 @@ import InboxSummary, {
   type InboxSummaryData,
 } from "@/components/chat/InboxSummary";
 import { agentFor, type AgentIdentity } from "@/components/chat/agent-registry";
+import { useAppStore } from "@/stores/app-store";
 
 interface Props {
   message: Message;
@@ -36,10 +37,10 @@ const SYSTEM: AgentIdentity = {
   textClass: "text-terminal-red", bgClass: "bg-terminal-red/10 border-terminal-red/30",
 };
 
-function identityFor(message: Message): AgentIdentity {
+function identityFor(message: Message, sessionAgent: string | null): AgentIdentity {
   if (message.role === "user") return USER;
   if (message.role === "system") return SYSTEM;
-  return agentFor(message.agent);
+  return agentFor(message.agent ?? sessionAgent);
 }
 
 // ── AgentPill — left-column identity badge ──────────────
@@ -181,7 +182,11 @@ function formatTime(ts: number): string {
 }
 
 export default function ChatMessage({ message }: Props) {
-  const id = identityFor(message);
+  const sessionAgent = useAppStore((s) => {
+    const sess = s.sessions.find((x) => x.id === s.sessionId);
+    return sess?.agent_name ?? null;
+  });
+  const id = identityFor(message, sessionAgent);
   const lineCount = message.content.split("\n").length;
   const isAssistant = message.role === "assistant";
   const isSystem = message.role === "system";

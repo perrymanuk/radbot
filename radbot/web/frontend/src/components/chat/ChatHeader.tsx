@@ -104,14 +104,9 @@ export default function ChatHeader() {
               backgroundPosition: "60% 30%",
             }}
           />
-          <div className="hidden sm:flex items-baseline gap-2">
-            <h1 className="pixel-font text-[22px] text-txt-primary m-0 leading-none">
-              RADBOT
-            </h1>
-            <span className="inline-flex text-[9px] font-mono font-semibold tracking-[0.15em] text-[#ff9966] px-1.5 py-0.5 rounded-sm border border-[#ff9966]/40 bg-[#ff9966]/10">
-              BETO·v0.9
-            </span>
-          </div>
+          <h1 className="hidden sm:block pixel-font text-[22px] text-txt-primary m-0 leading-none">
+            RADBOT
+          </h1>
 
           {modelName && (
             <>
