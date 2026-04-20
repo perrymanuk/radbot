@@ -115,7 +115,7 @@ npm ci
 npm run lint                # eslint .
 npx tsc --noEmit            # TypeScript static type check
 npm run build               # catches import / prop-type issues missed by lint
-BASE_REF=origin/main npm run test:e2e:affected
+npm run test:e2e            # full Playwright suite (manual coverage-map was removed in EX25 / PT73)
 cd ../../..
 ```
 

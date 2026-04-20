@@ -55,9 +55,15 @@ export default function NotificationsPage() {
   const hasMore = notifications.length < total;
 
   return (
-    <div className="flex flex-col h-screen bg-bg-primary text-txt-primary">
+    <div
+      className="flex flex-col h-screen bg-bg-primary text-txt-primary"
+      data-test="notifications-page"
+    >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-bg-tertiary border-b border-border flex-shrink-0">
+      <div
+        className="flex items-center justify-between px-4 py-2.5 bg-bg-tertiary border-b border-border flex-shrink-0"
+        data-test="notifications-header"
+      >
         <div className="flex items-center gap-3">
           <a
             href="/"
@@ -97,7 +103,10 @@ export default function NotificationsPage() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {notifications.length === 0 && !loading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-txt-secondary">
+          <div
+            className="flex flex-col items-center justify-center h-64 text-txt-secondary"
+            data-test="notifications-empty-state"
+          >
             <span className="text-2xl mb-2 opacity-40">--</span>
             <span className="text-[0.8rem] font-mono">No notifications</span>
             <span className="text-[0.7rem] font-mono mt-1 opacity-60">

@@ -18,16 +18,17 @@ Authoritative spec for radbot's automated test suite, the Playwright browser e2e
 radbot/web/frontend/e2e/
 ├── playwright.config.ts            # 2 projects: anonymous + admin-authed; chromium-only
 ├── global-setup.ts                 # pre-flight: validate RADBOT_ADMIN_TOKEN + ANTHROPIC_API_KEY
-├── coverage-map.json               # source glob → spec mapping for selective runs
-├── select-affected.mjs             # `git diff` + micromatch resolver
 ├── fixtures/
 │   ├── admin-token.ts              # authAsAdmin(page) — sessionStorage injection
 │   ├── llm-judge.ts                # Anthropic Haiku grader with budget cap + injection defense
 │   ├── screenshot.ts               # snap(page, name) — outputs to SCREENSHOT_DIR
 │   └── ws-helpers.ts               # awaitAssistantMessage, sendChatMessage
 └── specs/
-    ├── chat.spec.ts                # one test per chat-scenarios.ts entry
+    ├── chat.spec.ts                # one test per chat-scenarios.ts entry (skipped — see #38)
     ├── chat-scenarios.ts           # {prompt, expect rubric, timeoutMs}
+    ├── terminal.spec.ts            # /terminal mount-only (no PTY/Nomad in CI)
+    ├── notifications.spec.ts       # /notifications mount
+    ├── projects.spec.ts            # projects page
     ├── admin.spec.ts               # admin-authed project
     └── admin-login.spec.ts         # anonymous project; drives login UI; only spec that does
 ```
@@ -38,29 +39,19 @@ Generated state (gitignored):
 - `test-results/` — traces, videos
 - `e2e/screens/` — screenshot capture dir (also overridden via `SCREENSHOT_DIR`)
 
-## Selective execution
+## Execution
 
-`coverage-map.json` schema:
+CI runs the full Playwright suite on every triggering PR:
 
-```json
-{
-  "specs": {
-    "specs/chat.spec.ts": ["src/pages/ChatPage.tsx", "src/components/chat/**", "..."],
-    "specs/admin.spec.ts": ["src/pages/AdminPage.tsx", "..."]
-  },
-  "alwaysRun": ["src/App.tsx", "src/stores/app-store.ts", "src/lib/api.ts", "..."]
-}
+```
+npx playwright test --config=e2e/playwright.config.ts
 ```
 
-`select-affected.mjs` rules (in order):
-1. If `git diff --name-only $BASE_REF...HEAD` fails → run full suite (safe).
-2. If diff is empty → run nothing.
-3. If any changed file matches an `alwaysRun` glob → run full suite.
-4. Otherwise: collect specs whose `specs[*]` patterns match any changed file.
-
-`BASE_REF` defaults to `origin/main`. Override locally with `BASE_REF=origin/feature-x make test-e2e-browser-affected`.
-
-When adding a new page (`src/pages/Foo.tsx`), `coverage-delta` gate fails the PR until the page is registered in `coverage-map.json` (either as a spec dependency or in `alwaysRun`).
+Manual per-page coverage mapping (the former `coverage-map.json` +
+`select-affected.mjs` selective-run layer) was removed (EX25 / PT73) — it
+was brittle under parallel refactors and masked drift when new pages landed
+without corresponding specs. New pages are expected to arrive with a spec
+in the same PR; the reviewer's job (not a CI glob) is to confirm it.
 
 ## LLM judge contract
 
@@ -125,9 +116,8 @@ Absent either condition, every job is skipped. No skipped/red noise.
 | `upstream-health` | — | no | Pre-flight Gemini + Anthropic 1-token ping; cancels workflow on upstream 5xx. |
 | `lint` | 10 | no | `make lint` + tool schema drift lint (`uv run python -m tests.schema.lint`) — EX17 / PT46. Fails on any drift from `tests/schema/snapshots/tool_schemas.snapshot.json`; regenerate locally with `--update`. |
 | `build` | 10 | no | `npm run build` |
-| `unit-tests` | 20 | no | `make test-unit && make test-integration` |
-| `coverage-delta` | 10 | no | New `src/pages/*.tsx` without coverage-map entry → 0/10. |
-| `functional-e2e` | 30 | no | Docker stack via `bootstrap-radbot-stack`, `npm run test:e2e:affected`, real Gemini + Anthropic. Failure artifact on disk + uploaded. |
+| `unit-tests` | 30 | no | `make test-unit && make test-integration` (absorbed the retired coverage-delta slot per PT74) |
+| `functional-e2e` | 30 | no | Docker stack via `bootstrap-radbot-stack`, runs the full Playwright suite (`npx playwright test --config=e2e/playwright.config.ts`) against real Gemini + Anthropic. Failure artifact on disk + uploaded. |
 | `visual-regression` | 20 | no | Dual checkout (main + PR), capture `@screenshot` specs into separate dirs, Anthropic vision compares pairs, emits 0–20. |
 | `aggregate` | sums | yes (must pass) | Tallies scores, posts sticky comment, sets `quality-pipeline/score` commit status, fails workflow if score < 70. Does **not** merge. |
 
@@ -175,7 +165,6 @@ Monitor monthly via aggregate job's `usage.json` artifact; revisit thresholds if
 |---|---|---|---|
 | Dev-server fast loop | `make test-e2e-browser-dev` | Vite :5173 + already-running FastAPI :8000 | Authoring specs; sub-second iteration |
 | Docker stack (CI parity) | `make test-e2e-browser` | Docker :8001 (built SPA served by FastAPI) | Pre-push sanity check |
-| Affected-only | `make test-e2e-browser-affected` | Docker :8001, only specs whose covered files changed | Default after editing a frontend file |
 | Interactive UI | `cd radbot/web/frontend && npm run test:e2e:ui` | Whatever `PLAYWRIGHT_BASE_URL` points at | Stepping through a flaky test |
 | Headed | `cd radbot/web/frontend && npm run test:e2e:headed` | Same | Visually debugging |
 

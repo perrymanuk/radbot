@@ -253,44 +253,9 @@ jobs:
         run: make test-unit && make test-integration
       - id: score
         if: always()
-        run: echo "score=${{ job.status == 'success' && '20' || '0' }}" >> "$GITHUB_OUTPUT"
-
-  coverage-delta:
-    needs: [guard, upstream-health]
-    if: needs.guard.outputs.run == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      score: ${{ steps.score.outputs.score }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Check new pages have coverage-map entries
-        run: |
-          set -e
-          BASE='${{ github.event.pull_request.base.sha }}'
-          MAP='radbot/web/frontend/e2e/coverage-map.json'
-          new_pages=$(git diff --name-only --diff-filter=A "$BASE" HEAD \
-                       | grep -E '^radbot/web/frontend/src/pages/.*\.tsx$' || true)
-          if [ -z "$new_pages" ]; then
-            echo "No new pages added; coverage-delta passes."
-            exit 0
-          fi
-          missing=()
-          for page in $new_pages; do
-            if ! grep -q "$page" "$MAP"; then
-              missing+=("$page")
-            fi
-          done
-          if [ ${#missing[@]} -gt 0 ]; then
-            echo "::error::New pages without coverage-map entries:"
-            printf '  - %s\n' "${missing[@]}"
-            echo "Add each to radbot/web/frontend/e2e/coverage-map.json before merging."
-            exit 1
-          fi
-      - id: score
-        if: always()
-        run: echo "score=${{ job.status == 'success' && '10' || '0' }}" >> "$GITHUB_OUTPUT"
+        # Was 20/100; absorbed the retired coverage-delta slot (PT73 / PT74)
+        # so the aggregate still tops out at 100 without a no-op job.
+        run: echo "score=${{ job.status == 'success' && '30' || '0' }}" >> "$GITHUB_OUTPUT"
 
   # ──────────────────────────────────────────────────────────────────────
   # Heavy gate: functional e2e against full Docker stack with real LLMs
@@ -335,25 +300,19 @@ jobs:
           radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
           tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           tailscale_oauth_secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
-      - name: Run affected Playwright specs
+      - name: Run Playwright specs
         working-directory: radbot/web/frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
         run: |
-          # Bypass the sh -c wrapper from the npm script — env propagation is
-          # finicky through nested wrappers, and we want playwright to see
-          # PLAYWRIGHT_BASE_URL directly.
           echo "PLAYWRIGHT_BASE_URL=$PLAYWRIGHT_BASE_URL"
-          SPECS=$(node e2e/select-affected.mjs)
-          echo "Affected specs: '$SPECS'"
           # --config explicit because playwright.config.ts lives in e2e/, not
           # this cwd (radbot/web/frontend). Without it, Playwright doesn't
           # find the config and silently falls back to defaults — including
           # an undefined baseURL.
-          npx playwright test --config=e2e/playwright.config.ts $SPECS
+          npx playwright test --config=e2e/playwright.config.ts
       - name: Collect failure artifacts
         if: failure()
         run: |
@@ -517,7 +476,6 @@ jobs:
       - lint
       - build
       - unit-tests
-      - coverage-delta
       - functional-e2e
       - visual-regression
     if: always() && needs.guard.outputs.run == 'true'
@@ -541,7 +499,6 @@ jobs:
           LINT: ${{ needs.lint.outputs.score }}
           BUILD: ${{ needs.build.outputs.score }}
           UNIT: ${{ needs.unit-tests.outputs.score }}
-          COVERAGE: ${{ needs.coverage-delta.outputs.score }}
           FUNCTIONAL: ${{ needs.functional-e2e.outputs.score }}
           VISUAL: ${{ needs.visual-regression.outputs.score }}
           BLOCKED: ${{ needs.path-guard.outputs.auto_merge_blocked }}
@@ -549,7 +506,7 @@ jobs:
           SECRET_SCAN: ${{ needs.secret-scan.result }}
         run: |
           set -e
-          score=$(( ${LINT:-0} + ${BUILD:-0} + ${UNIT:-0} + ${COVERAGE:-0} + ${FUNCTIONAL:-0} + ${VISUAL:-0} ))
+          score=$(( ${LINT:-0} + ${BUILD:-0} + ${UNIT:-0} + ${FUNCTIONAL:-0} + ${VISUAL:-0} ))
           # If any required check failed, total is capped
           if [ "$SECRET_SCAN" != "success" ]; then
             score=0
@@ -562,8 +519,7 @@ jobs:
             echo "|---|---:|"
             echo "| Lint | ${LINT:-0}/10 |"
             echo "| Build | ${BUILD:-0}/10 |"
-            echo "| Unit + integration tests | ${UNIT:-0}/20 |"
-            echo "| Coverage delta | ${COVERAGE:-0}/10 |"
+            echo "| Unit + integration tests | ${UNIT:-0}/30 |"
             echo "| Functional e2e | ${FUNCTIONAL:-0}/30 |"
             echo "| Visual regression | ${VISUAL:-0}/20 |"
             echo "| **Total** | **$score / 100** |"
