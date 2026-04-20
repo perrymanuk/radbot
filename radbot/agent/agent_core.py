@@ -33,6 +33,10 @@ from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+from radbot.callbacks.terse_protocol import (
+    terse_protocol_after_model_callback,
+    terse_protocol_before_model_callback,
+)
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
@@ -162,12 +166,32 @@ _before_cbs = [
     scrub_empty_content_before_model,
     sanitize_tool_schemas_before_model,
 ]
+# Terse JSON Protocol (EX21 / PT56 / PT58): instruct sub-agents to emit
+# compact JSON and re-hydrate it for Beto. Gated at runtime by
+# ``is_terse_protocol_enabled()`` so these callbacks are safe to register
+# with the flag off. Scoped to natural-language sub-agents only — ADK
+# built-ins (search_agent, code_execution_agent) return structured outputs
+# that the protocol would corrupt.
+# Scout is also excluded: per EX21 the protocol applies only to casa,
+# planner, comms, axel, kidsvid. Scout emits structured plans (and can be
+# a session root on its own), which the terse-JSON-to-Beto contract would
+# mangle.
+_TERSE_PROTOCOL_EXCLUDED = {"search_agent", "code_execution_agent", "scout"}
 for sa in all_sub_agents:
+    terse_applies = sa.name not in _TERSE_PROTOCOL_EXCLUDED
     if not sa.after_model_callback:
-        sa.after_model_callback = _after_cbs
+        sa.after_model_callback = (
+            _after_cbs + [terse_protocol_after_model_callback]
+            if terse_applies
+            else _after_cbs
+        )
     # Replace any existing before_model_callback (typically just scrub...) with
     # our combined list so the scope-to-turn filter runs first.
-    sa.before_model_callback = _before_cbs
+    sa.before_model_callback = (
+        _before_cbs + [terse_protocol_before_model_callback]
+        if terse_applies
+        else _before_cbs
+    )
 
 # Create the root agent with ALL sub-agents in the constructor
 root_agent = Agent(
