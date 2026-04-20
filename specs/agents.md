@@ -216,6 +216,7 @@ All assembly happens in `radbot/agent/agent_core.py` at module import time:
 5. **Before construction**, callbacks are attached to each sub-agent:
    - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model, sanitize_tool_schemas_before_model]`
    - `after_model_callback = [handle_empty_response_after_model, telemetry_after_model_callback]`
+   - Natural-language sub-agents (casa, planner, comms, axel, kidsvid) additionally get `terse_protocol_before_model_callback` + `terse_protocol_after_model_callback` appended. These are runtime-gated by `config:agent.terse_protocol_enabled` (env override: `RADBOT_TERSE_PROTOCOL_ENABLED`), so registering them is safe when the flag is off. Excluded: `search_agent`, `code_execution_agent` (structured outputs that the protocol would corrupt) and `scout` (emits plans, and can be a session root).
 6. Root `Agent(...)` is constructed — ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting `parent_agent` on every sub-agent
 
 **Critical**: agents added to `sub_agents` after construction are NOT part of the mesh — `transfer_to_agent` will not find them. See `docs/implementation/session_id_tracking.md` for history.
@@ -261,6 +262,8 @@ From `config/default_configs/instructions/main_agent.md`:
 | `inject_telos_context` | `tools/telos/callback.py` | beto only (before_model) | Inject Telos anchor every turn + full block on first turn of session into `system_instruction` |
 | `handle_empty_response_after_model` | `callbacks/empty_content_callback.py` | all (after_model) | Replace empty model responses with a "still thinking" marker |
 | `telemetry_after_model_callback` | `callbacks/telemetry_callback.py` | all (after_model) | Record token usage + cost in `llm_usage_log` with `session_id` |
+| `terse_protocol_before_model_callback` | `callbacks/terse_protocol.py` | casa/planner/comms/axel/kidsvid (before_model) | Append Terse JSON Protocol instruction to `llm_request.config.system_instruction` when `config:agent.terse_protocol_enabled` is true. Compresses sub-agent → Beto commentary; pass-through array preserves exact tool-result strings verbatim. |
+| `terse_protocol_after_model_callback` | `callbacks/terse_protocol.py` | casa/planner/comms/axel/kidsvid (after_model) | Re-hydrate the sub-agent's terse JSON into Beto-friendly markdown (`**Summary:**` / `**Pass-through:**`). Degrades gracefully on malformed / truncated JSON. |
 | `tool_call_repair_callback` | `callbacks/tool_call_repair_callback.py` | (available, not wired by default) | Repair malformed function calls |
 
 ## Key Files
@@ -277,5 +280,6 @@ From `config/default_configs/instructions/main_agent.md`:
 | `tools/adk_builtin/code_execution_tool.py` | `code_execution_agent` factory |
 | `callbacks/scope_to_current_turn.py` | Per-turn context scoping for sub-agents |
 | `callbacks/sanitize_tool_schemas.py` | Strip the non-standard `additional_properties` key from tool parameter schemas before Gemini rejects them |
+| `callbacks/terse_protocol.py` | Terse JSON Protocol: sub-agent output compression (before_model injects instruction, after_model re-hydrates). Gated by `config:agent.terse_protocol_enabled`. |
 | `tools/telos/callback.py` | Inject Telos user-context into beto's `system_instruction` (anchor every turn, full block session-start) |
 | `tools/shared/card_protocol.py` | `radbot:<kind>` fenced-block card emission |
