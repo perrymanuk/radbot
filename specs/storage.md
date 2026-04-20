@@ -57,6 +57,18 @@ Semantic memory via `radbot/memory/enhanced_memory/`.
 - **Embedding model**: `gemini-embedding-001` with `output_dimensionality=768`
 - **Scoping**: Per-agent memory via `source_agent` tag (see `create_agent_memory_tools()`)
 - **User ID**: Fixed `"web_user"` across all sessions (single-user system)
+- **Indexed payload fields**: `user_id`, `timestamp`, `memory_type`, `source_agent`, `memory_class` (all KEYWORD except `timestamp` which is DATETIME)
+
+### Memory type taxonomy (EX4)
+
+Each Qdrant point carries two orthogonal tags:
+
+- `memory_type` — content category (`conversation_turn`, `user_query`, `important_fact`, `user_preference`, `general`, …). Used by existing filters.
+- `memory_class` — trust/decay taxonomy: `episodic` (things that happened; default), `implicit` (inferred, agent-written), `explicit` (user-stated, durable).
+
+Default at write time: `_create_memory_point` stamps `memory_class="episodic"` when metadata omits it. `store_important_information` / `store_agent_memory` default to `"explicit"` since they're user-authorized writes. Points written before EX4 have no `memory_class` in payload; `search_memory` treats them as `episodic` on read, so no migration is required.
+
+`search_memory` accepts `filter_conditions["memory_class"]` as either a single string (MatchValue) or a list (MatchAny). Agent-facing search tools (`search_past_conversations`, `search_agent_memory`) accept a `memory_class` parameter (str or list, `"all"` disables the filter).
 
 ## Credential Store
 

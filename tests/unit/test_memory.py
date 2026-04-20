@@ -220,6 +220,89 @@ class TestQdrantMemoryService:
             assert results[0]["text"] == "Test memory"
             assert results[0]["memory_type"] == "test"
             assert results[0]["relevance_score"] == 0.95
+            # Old point with no memory_class in payload defaults to episodic.
+            assert results[0]["memory_class"] == "episodic"
+
+    @patch("radbot.memory.qdrant_memory.QdrantClient")
+    @patch("radbot.memory.qdrant_memory.get_embedding_model")
+    def test_create_memory_point_tags_memory_class(self, mock_get_model, mock_client):
+        """_create_memory_point should write memory_class into the payload."""
+        mock_model = MagicMock()
+        mock_model.vector_size = 768
+        mock_get_model.return_value = mock_model
+
+        mock_client_instance = MagicMock()
+        mock_client.return_value = mock_client_instance
+        collections_response = MagicMock()
+        collections_response.collections = []
+        mock_client_instance.get_collections.return_value = collections_response
+
+        with patch("radbot.memory.qdrant_memory.embed_text") as mock_embed:
+            mock_embed.return_value = [0.0] * 768
+            service = QdrantMemoryService(collection_name="t")
+
+            # Explicit class propagates
+            point = service._create_memory_point(
+                user_id="u",
+                text="wife is allergic to shellfish",
+                metadata={"memory_type": "important_fact", "memory_class": "explicit"},
+            )
+            assert point.payload["memory_class"] == "explicit"
+
+            # Missing class defaults to episodic
+            point2 = service._create_memory_point(
+                user_id="u", text="hello", metadata=None
+            )
+            assert point2.payload["memory_class"] == "episodic"
+
+    @patch("radbot.memory.qdrant_memory.QdrantClient")
+    @patch("radbot.memory.qdrant_memory.get_embedding_model")
+    def test_search_memory_builds_memory_class_filter(
+        self, mock_get_model, mock_client
+    ):
+        """filter_conditions['memory_class'] becomes a FieldCondition on the query."""
+        mock_model = MagicMock()
+        mock_model.vector_size = 768
+        mock_get_model.return_value = mock_model
+
+        mock_client_instance = MagicMock()
+        mock_client.return_value = mock_client_instance
+        collections_response = MagicMock()
+        collections_response.collections = []
+        mock_client_instance.get_collections.return_value = collections_response
+
+        mock_query_response = MagicMock()
+        mock_query_response.points = []
+        mock_client_instance.query_points.return_value = mock_query_response
+
+        with patch("radbot.memory.qdrant_memory.embed_text") as mock_embed:
+            mock_embed.return_value = [0.0] * 768
+            service = QdrantMemoryService(collection_name="t")
+
+            # Single class -> MatchValue
+            service.search_memory(
+                app_name="beto",
+                user_id="u",
+                query="q",
+                filter_conditions={"memory_class": "explicit"},
+            )
+            qf = mock_client_instance.query_points.call_args.kwargs["query_filter"]
+            keys = [c.key for c in qf.must]
+            assert "memory_class" in keys
+            mc_cond = next(c for c in qf.must if c.key == "memory_class")
+            assert mc_cond.match.value == "explicit"
+
+            # List of classes -> MatchAny
+            mock_client_instance.query_points.reset_mock()
+            service.search_memory(
+                app_name="beto",
+                user_id="u",
+                query="q",
+                filter_conditions={"memory_class": ["explicit", "implicit"]},
+            )
+            qf2 = mock_client_instance.query_points.call_args.kwargs["query_filter"]
+            mc_cond2 = next(c for c in qf2.must if c.key == "memory_class")
+            assert list(mc_cond2.match.any) == ["explicit", "implicit"]
 
 
 class TestMemoryTools:
@@ -285,12 +368,147 @@ class TestMemoryTools:
 
         # Verify result
         assert result["status"] == "success"
+        # Default memory_class for store_important_information is 'explicit'.
         mock_memory_service._create_memory_point.assert_called_once_with(
             user_id="user123",
             text="Important test fact",
-            metadata={"memory_type": "important_fact"},
+            metadata={"memory_type": "important_fact", "memory_class": "explicit"},
         )
         mock_memory_service.client.upsert.assert_called_once()
+
+    def test_store_important_information_with_memory_class(self):
+        """store_important_information should pass memory_class through metadata."""
+        mock_context = MagicMock()
+        mock_memory_service = MagicMock()
+        mock_invocation_ctx = MagicMock()
+        mock_invocation_ctx.memory_service = mock_memory_service
+        mock_invocation_ctx.user_id = "user123"
+        mock_context._invocation_context = mock_invocation_ctx
+        mock_memory_service._create_memory_point.return_value = MagicMock()
+
+        result = store_important_information(
+            information="User runs deploys on Fridays",
+            memory_type="user_preference",
+            memory_class="implicit",
+            tool_context=mock_context,
+        )
+
+        assert result["status"] == "success"
+        mock_memory_service._create_memory_point.assert_called_once_with(
+            user_id="user123",
+            text="User runs deploys on Fridays",
+            metadata={"memory_type": "user_preference", "memory_class": "implicit"},
+        )
+
+    def test_store_important_information_rejects_invalid_memory_class(self):
+        """Invalid memory_class values should return a structured error."""
+        mock_context = MagicMock()
+        mock_memory_service = MagicMock()
+        mock_invocation_ctx = MagicMock()
+        mock_invocation_ctx.memory_service = mock_memory_service
+        mock_invocation_ctx.user_id = "user123"
+        mock_context._invocation_context = mock_invocation_ctx
+
+        result = store_important_information(
+            information="whatever",
+            memory_class="archival",  # not in the EX4 taxonomy
+            tool_context=mock_context,
+        )
+
+        assert result["status"] == "error"
+        assert "memory_class" in result["error_message"]
+        mock_memory_service._create_memory_point.assert_not_called()
+
+    def test_search_past_conversations_passes_memory_class_filter(self):
+        """memory_class arg should show up in the filter_conditions passed to the service."""
+        mock_context = MagicMock()
+        mock_memory_service = MagicMock()
+        mock_invocation_ctx = MagicMock()
+        mock_invocation_ctx.memory_service = mock_memory_service
+        mock_invocation_ctx.user_id = "user123"
+        mock_invocation_ctx.app_name = "beto"
+        mock_context._invocation_context = mock_invocation_ctx
+
+        mock_memory_service.search_memory.return_value = []
+
+        search_past_conversations(
+            query="kids' allergies",
+            memory_class="explicit",
+            tool_context=mock_context,
+        )
+
+        call_kwargs = mock_memory_service.search_memory.call_args.kwargs
+        assert call_kwargs["filter_conditions"]["memory_class"] == "explicit"
+
+    def test_search_past_conversations_memory_class_list(self):
+        """memory_class can be a list for multi-class filtering (explicit+implicit)."""
+        mock_context = MagicMock()
+        mock_memory_service = MagicMock()
+        mock_invocation_ctx = MagicMock()
+        mock_invocation_ctx.memory_service = mock_memory_service
+        mock_invocation_ctx.user_id = "user123"
+        mock_invocation_ctx.app_name = "beto"
+        mock_context._invocation_context = mock_invocation_ctx
+        mock_memory_service.search_memory.return_value = []
+
+        search_past_conversations(
+            query="preferences",
+            memory_class=["explicit", "implicit"],
+            tool_context=mock_context,
+        )
+
+        call_kwargs = mock_memory_service.search_memory.call_args.kwargs
+        assert call_kwargs["filter_conditions"]["memory_class"] == [
+            "explicit",
+            "implicit",
+        ]
+
+    def test_search_past_conversations_memory_class_all_disables_filter(self):
+        """memory_class='all' should not add a filter."""
+        mock_context = MagicMock()
+        mock_memory_service = MagicMock()
+        mock_invocation_ctx = MagicMock()
+        mock_invocation_ctx.memory_service = mock_memory_service
+        mock_invocation_ctx.user_id = "user123"
+        mock_invocation_ctx.app_name = "beto"
+        mock_context._invocation_context = mock_invocation_ctx
+        mock_memory_service.search_memory.return_value = []
+
+        search_past_conversations(
+            query="anything",
+            memory_class="all",
+            tool_context=mock_context,
+        )
+
+        call_kwargs = mock_memory_service.search_memory.call_args.kwargs
+        assert "memory_class" not in call_kwargs["filter_conditions"]
+
+    def test_search_past_conversations_untagged_points_default_to_episodic(self):
+        """Results missing memory_class should surface as 'episodic' for backward compat."""
+        mock_context = MagicMock()
+        mock_memory_service = MagicMock()
+        mock_invocation_ctx = MagicMock()
+        mock_invocation_ctx.memory_service = mock_memory_service
+        mock_invocation_ctx.user_id = "user123"
+        mock_invocation_ctx.app_name = "beto"
+        mock_context._invocation_context = mock_invocation_ctx
+
+        # Simulate an old point with no memory_class field.
+        mock_memory_service.search_memory.return_value = [
+            {
+                "text": "old memory from before the taxonomy existed",
+                "memory_type": "conversation_turn",
+                "relevance_score": 0.8,
+                "timestamp": "2024-06-01T00:00:00",
+            }
+        ]
+
+        result = search_past_conversations(
+            query="anything", tool_context=mock_context
+        )
+
+        assert result["status"] == "success"
+        assert result["memories"][0]["memory_class"] == "episodic"
 
 
 # Restore the original PayloadSchemaType at the end of tests
