@@ -30,7 +30,7 @@ Optional arguments:
 
 1. **Pre-flight** — confirm clean working tree, derive slug.
 2. **Worktree** — `git worktree add /tmp/radbot-ship-<slug> -b ship/<slug> origin/main`.
-3. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e:affected`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them).
+3. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them).
 4. **Spec sync check** — for every changed source file, verify the corresponding `specs/*.md` is in the diff (per `CLAUDE.md` Spec ↔ code map).
 5. **Secret scan** — regex on staged + unstaged files (`AKIA…`, `ghp_…`, `sk-ant-…`, etc.). Hard stop on match.
 6. **Commit + push** — conventional-commit message, push to `ship/<slug>`.

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { wsSend } from "@/hooks/use-websocket";
 import { useSTT } from "@/hooks/use-stt";
+import { autoNameSession } from "@/lib/api";
 import CommandSuggestions from "./CommandSuggestions";
 import EmojiSuggestions from "./EmojiSuggestions";
 import { Icon } from "./icons";
@@ -11,6 +12,7 @@ const COMMANDS = [
   { name: "/sessions", description: "Toggle sessions panel" },
   { name: "/events", description: "Toggle events panel" },
   { name: "/clear", description: "Clear conversation history" },
+  { name: "/name", description: "Auto-title this session from its history" },
   { name: "/help", description: "Show available commands" },
 ];
 
@@ -80,6 +82,32 @@ export default function ChatInput() {
         case "clear":
           clearMessages();
           break;
+        case "name": {
+          const sid = useAppStore.getState().sessionId;
+          if (!sid) {
+            addMessage({ id: uuid(), role: "system", content: "No active session to rename.", timestamp: Date.now() });
+            break;
+          }
+          addMessage({ id: uuid(), role: "system", content: "Generating session title…", timestamp: Date.now() });
+          autoNameSession(sid)
+            .then((res) => {
+              if (res.status === "success") {
+                useAppStore.setState((s) => ({
+                  sessions: s.sessions.map((sess) =>
+                    sess.id === sid ? { ...sess, name: res.name } : sess,
+                  ),
+                }));
+                addMessage({ id: uuid(), role: "system", content: `Renamed session to "${res.name}"`, timestamp: Date.now() });
+              } else {
+                addMessage({ id: uuid(), role: "system", content: `Rename failed: ${res.detail}`, timestamp: Date.now() });
+              }
+            })
+            .catch((e: unknown) => {
+              const msg = e instanceof Error ? e.message : String(e);
+              addMessage({ id: uuid(), role: "system", content: `Rename failed: ${msg}`, timestamp: Date.now() });
+            });
+          break;
+        }
         case "help": {
           let msg = "**Available Commands:**\n\n";
           COMMANDS.forEach((c) => {

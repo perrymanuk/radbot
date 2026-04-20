@@ -62,6 +62,19 @@ export async function renameSession(
   await updateSession(sessionId, { name });
 }
 
+export async function autoNameSession(
+  sessionId: string,
+): Promise<
+  | { status: "success"; name: string }
+  | { status: "error"; detail: string }
+> {
+  const res = await fetch(`${BASE}/api/sessions/${sessionId}/auto-name`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  return res.json();
+}
+
 // ── Messages ──────────────────────────────────────────────
 export async function fetchMessages(
   sessionId: string,
