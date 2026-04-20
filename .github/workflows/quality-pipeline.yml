@@ -205,6 +205,8 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras
       - run: make lint
+      - name: Tool schema drift lint (EX17 / PT46)
+        run: uv run python -m tests.schema.lint
       - id: score
         if: always()
         run: echo "score=${{ job.status == 'success' && '10' || '0' }}" >> "$GITHUB_OUTPUT"

@@ -123,7 +123,7 @@ Absent either condition, every job is skipped. No skipped/red noise.
 | `secret-scan` | — | yes | gitleaks + trufflehog on the diff. Failure caps total score at 0. |
 | `path-guard` | — | yes (sets flag) | Sets `auto_merge_blocked=true` if hard-block paths touched. |
 | `upstream-health` | — | no | Pre-flight Gemini + Anthropic 1-token ping; cancels workflow on upstream 5xx. |
-| `lint` | 10 | no | `make lint` |
+| `lint` | 10 | no | `make lint` + tool schema drift lint (`uv run python -m tests.schema.lint`) — EX17 / PT46. Fails on any drift from `tests/schema/snapshots/tool_schemas.snapshot.json`; regenerate locally with `--update`. |
 | `build` | 10 | no | `npm run build` |
 | `unit-tests` | 20 | no | `make test-unit && make test-integration` |
 | `coverage-delta` | 10 | no | New `src/pages/*.tsx` without coverage-map entry → 0/10. |
