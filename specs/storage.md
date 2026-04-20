@@ -46,8 +46,8 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 
 All schemas idempotent via `init_*_schema()` with `CREATE TABLE IF NOT EXISTS` (or the `init_table_schema()` helper in `tools/shared/db_schema.py`). Called from:
 
-- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, telemetry, notifications, llm_usage_log, alerts)
-- `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history)
+- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, telemetry, notifications, llm_usage_log, alerts). Wired only on beto's root callback; scout-rooted sessions never fire it, so any table written to by scout-root callbacks (e.g. `telemetry_events`) must also be initialized at web-side startup below.
+- `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history, credential store, `llm_usage_log`, `telemetry_events`). Runs unconditionally on process start so scout-rooted sessions get the tables they log to.
 - `worker/__main__.py` — worker-side schema init (calls directly, not via ADK callback)
 
 ## Qdrant
