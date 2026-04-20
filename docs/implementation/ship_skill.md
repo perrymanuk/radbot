@@ -30,7 +30,7 @@ Optional arguments:
 
 1. **Pre-flight** — confirm clean working tree, derive slug.
 2. **Worktree** — `git worktree add /tmp/radbot-ship-<slug> -b ship/<slug> origin/main`.
-3. **Local gates (cheap subset)** — `make lint`, `make test-unit`, `npm run build`, `npm run test:e2e:affected`. Skips visual regression and chat-quality (CI handles them).
+3. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e:affected`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them).
 4. **Spec sync check** — for every changed source file, verify the corresponding `specs/*.md` is in the diff (per `CLAUDE.md` Spec ↔ code map).
 5. **Secret scan** — regex on staged + unstaged files (`AKIA…`, `ghp_…`, `sk-ant-…`, etc.). Hard stop on match.
 6. **Commit + push** — conventional-commit message, push to `ship/<slug>`.
@@ -38,7 +38,7 @@ Optional arguments:
 8. **Watch workflow** — `gh run watch` (server-side stream, not polling).
 9. **Read score** — from commit status `quality-pipeline/score` (NOT the sticky comment, which is forgeable — see `docs/implementation/ci-security.md`).
 10. **CI fix loop** — up to 3 attempts to address pipeline feedback.
-11. **Auto-merge** — confirms once with you (unless `--auto-yes`), verifies the workflow's aggregate enabled `--auto`, reports.
+11. **Merge (user-authenticated)** — confirms once with you (unless `--auto-yes`), verifies `auto-merge-eligible` label + `aggregate` SUCCESS + score ≥ 90, then runs `gh pr merge --squash --delete-branch` from your shell. Not performed inside CI — a merge authored by `GITHUB_TOKEN` does not trigger the `Build and Push Docker Image` workflow (GitHub's recursion guard), so running the merge locally is what makes deploys fire.
 12. **Cleanup** — reminds you the worktree exists; offers to remove on confirmation.
 
 ## Recovery from common failures
@@ -51,6 +51,9 @@ The sticky PR comment lists per-gate scores. Identify which gate cost you the po
 
 ### "path-guard blocked auto-merge"
 You touched a sensitive path (admin.py, credentials/, deps, …). This is correct — these always require human merge. The skill posts the offending paths in its summary; review the PR by hand and merge with `gh pr merge <num> --squash`.
+
+### "Score ≥ 90 but docker-build didn't fire after the merge"
+Pre–2026-04-20 behavior: the workflow's aggregate job called `gh pr merge --auto` itself, and `GITHUB_TOKEN`-authored merges don't trigger downstream `push` workflows. The skill now merges from your shell to avoid this. If you're seeing this on a new PR, check that Phase 11 actually ran (the skill should have invoked `gh pr merge` locally) — if the PR merged without your shell running the command, something else merged it and you'll need to push an empty commit to `main` to trigger the deploy.
 
 ### "CI fix loop hit max attempts"
 The skill stops after 3 failed CI attempts and hands control back to you. Inspect the artifacts, fix manually, push. Re-run `/ship` if you want it to take over again from the watch step.

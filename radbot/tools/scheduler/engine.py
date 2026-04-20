@@ -89,6 +89,15 @@ class SchedulerEngine:
         except Exception as e:
             logger.error(f"Error loading reminders from DB: {e}")
 
+        # Register default proactive primitives (Dream + Heartbeat).
+        # Never allowed to block scheduler startup.
+        try:
+            from radbot.tools.scheduler.defaults import register_default_jobs
+
+            register_default_jobs(self)
+        except Exception as e:
+            logger.error(f"Error registering default proactive jobs: {e}")
+
         self._scheduler.start()
         self._started = True
         logger.info("SchedulerEngine started")

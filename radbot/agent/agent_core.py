@@ -215,18 +215,22 @@ logger.info(
 # chat_sessions.agent_name; the Runner is constructed with the matching
 # root here. Scout still exists as a sub-agent under beto for the
 # "quick research detour mid-beto-chat" case — this is a **second** scout
-# instance, separate Python object, with its own sub-agent tree.
+# instance, separate Python object.
+#
+# No sub-agent tree needed: scout does grounded Google Search via the
+# ``grounded_search`` FunctionTool (``tools/web_research/grounded_search.py``),
+# not by transferring to a search sub-agent. The sub-agent approach hangs
+# scout sessions — ``search_agent`` has ``disallow_transfer_to_parent=True``
+# (grounding tools can't mix with function declarations), which terminates
+# the workflow when scout is root instead of returning control for the
+# synthesis turn. Beto's tree keeps the ``search_agent`` peer sub-agent
+# because there the return-to-root flow works (search_agent's parent is beto,
+# not scout).
 # ---------------------------------------------------------------------------
-
-# Scout's own grounded-search child. Can't reuse beto's search_agent — ADK
-# binds a sub_agent to one parent. Same tool (ADK google_search), different
-# Python instance.
-scout_search_agent = create_search_agent(name="search_agent")
 
 scout_root_agent = create_research_agent(
     name="scout",
     as_root=True,
-    sub_agents=[scout_search_agent],
 )
 if memory_service:
     scout_root_agent._memory_service = memory_service

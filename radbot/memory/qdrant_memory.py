@@ -173,6 +173,21 @@ class QdrantMemoryService(BaseMemoryService):
                                 "source_agent index already exists or failed: %s",
                                 idx_err,
                             )
+                        # Ensure memory_class index exists on existing collections
+                        try:
+                            self.client.create_payload_index(
+                                collection_name=self.collection_name,
+                                field_name="memory_class",
+                                field_schema=models.PayloadSchemaType.KEYWORD,
+                            )
+                            logger.info(
+                                "Created memory_class index on existing collection"
+                            )
+                        except Exception as idx_err:
+                            logger.debug(
+                                "memory_class index already exists or failed: %s",
+                                idx_err,
+                            )
                         return
 
                 # Create the collection
@@ -209,6 +224,12 @@ class QdrantMemoryService(BaseMemoryService):
                 self.client.create_payload_index(
                     collection_name=self.collection_name,
                     field_name="source_agent",
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="memory_class",
                     field_schema=models.PayloadSchemaType.KEYWORD,
                 )
 
@@ -373,12 +394,17 @@ class QdrantMemoryService(BaseMemoryService):
         current_time = datetime.datetime.now().isoformat()
 
         # Create basic payload
+        # memory_class is the EX4 taxonomy tag (episodic/implicit/explicit) —
+        # orthogonal to memory_type (which remains a content-category).
         payload = {
             "user_id": user_id,
             "text": text,
             "timestamp": current_time,
             "memory_type": (
                 metadata.get("memory_type", "general") if metadata else "general"
+            ),
+            "memory_class": (
+                metadata.get("memory_class", "episodic") if metadata else "episodic"
             ),
         }
 
@@ -447,6 +473,23 @@ class QdrantMemoryService(BaseMemoryService):
                         )
                     )
 
+                if "memory_class" in filter_conditions:
+                    mc_val = filter_conditions["memory_class"]
+                    if isinstance(mc_val, (list, tuple, set)):
+                        must_conditions.append(
+                            models.FieldCondition(
+                                key="memory_class",
+                                match=models.MatchAny(any=list(mc_val)),
+                            )
+                        )
+                    else:
+                        must_conditions.append(
+                            models.FieldCondition(
+                                key="memory_class",
+                                match=models.MatchValue(value=mc_val),
+                            )
+                        )
+
                 if "min_timestamp" in filter_conditions:
                     must_conditions.append(
                         models.FieldCondition(
@@ -482,10 +525,13 @@ class QdrantMemoryService(BaseMemoryService):
                 payload = result.payload
 
                 # Create a result entry with the score
+                # Backward compat: points written before memory_class existed
+                # default to 'episodic' per EX4.
                 entry = {
                     "text": payload.get("text", ""),
                     "relevance_score": result.score,
                     "memory_type": payload.get("memory_type", "general"),
+                    "memory_class": payload.get("memory_class", "episodic"),
                     "timestamp": payload.get("timestamp"),
                 }
 

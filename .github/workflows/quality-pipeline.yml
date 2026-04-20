@@ -596,22 +596,13 @@ jobs:
             -f state=$([ "$SCORE" -ge 70 ] && echo success || echo failure) \
             -f context="quality-pipeline/score" \
             -f description="$SCORE / 100"
-      - name: Auto-merge if eligible
-        if: |
-          needs.path-guard.outputs.auto_merge_blocked != 'true' &&
-          needs.secret-scan.result == 'success' &&
-          contains(github.event.pull_request.labels.*.name, 'auto-merge-eligible')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SCORE: ${{ steps.tally.outputs.score }}
-        run: |
-          if [ "$SCORE" -ge 90 ]; then
-            gh pr merge ${{ github.event.pull_request.number }} \
-              --repo ${{ github.repository }} \
-              --auto --squash --delete-branch
-          else
-            echo "Score $SCORE < 90; auto-merge not enabled."
-          fi
+      # NOTE: Auto-merge is NOT performed inside this workflow.
+      # Merges authored by GITHUB_TOKEN do not fire downstream `push`
+      # workflows (including `Build and Push Docker Image`), so merging from
+      # CI silently skips deploys. The `/ship` skill (or a human) runs
+      # `gh pr merge` from a user-authenticated shell once the score is ≥ 90
+      # and `auto-merge-eligible` is applied. See
+      # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
       - name: Fail workflow if score < 70
         env:
           SCORE: ${{ steps.tally.outputs.score }}

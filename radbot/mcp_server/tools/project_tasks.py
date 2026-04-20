@@ -161,6 +161,46 @@ def tools() -> list[mcp_types.Tool]:
                 "additionalProperties": False,
             },
         ),
+        mcp_types.Tool(
+            name="exploration_update",
+            description=(
+                "Update an exploration in place. `content` (required) "
+                "replaces the exploration's body — typically the full "
+                "5-role plan markdown, often with a `## Council Review` "
+                "trailer. Other fields shallow-merge into metadata. Pass "
+                "empty string to clear an optional field."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ref_code": {"type": "string"},
+                    "content": {"type": "string"},
+                    "parent_project": {"type": "string"},
+                    "parent_milestone": {"type": "string"},
+                },
+                "required": ["ref_code", "content"],
+                "additionalProperties": False,
+            },
+        ),
+        mcp_types.Tool(
+            name="exploration_archive",
+            description=(
+                "Archive (soft-delete) an exploration. Used when a research "
+                "thread is closed — either because the plan it captured has "
+                "been implemented or because the question is no longer "
+                "relevant. Stashes `reason` into `metadata.archived_reason`. "
+                "Never hard-deletes."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "ref_code": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["ref_code"],
+                "additionalProperties": False,
+            },
+        ),
     ]
 
 
@@ -200,6 +240,15 @@ async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextConte
                 arguments["parent_project"],
                 arguments["topic"],
                 arguments.get("notes"),
+            )
+        ]
+    if name == "exploration_update":
+        return [_do_exploration_update(arguments)]
+    if name == "exploration_archive":
+        return [
+            _do_exploration_archive(
+                arguments["ref_code"],
+                arguments.get("reason"),
             )
         ]
     raise KeyError(name)
@@ -437,4 +486,59 @@ def _do_exploration_add(
             f"Added exploration `{row.ref_code}` under `{parent_project}` — "
             f"{clean_topic!r}"
         ),
+    )
+
+
+def _do_exploration_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    ref_code = arguments["ref_code"]
+    content = (arguments.get("content") or "").strip()
+    if not content:
+        return _err("`content` is required and must not be whitespace.")
+
+    meta: dict[str, Any] = {}
+    for key in ("parent_project", "parent_milestone"):
+        if key in arguments and arguments[key] is not None:
+            # Empty string → remove key via shallow JSONB merge with null.
+            meta[key] = arguments[key] if arguments[key] != "" else None
+
+    # Validate parent refs if being set (non-empty)
+    if meta.get("parent_project"):
+        _p, err = _require_project(meta["parent_project"])
+        if err is not None:
+            return err
+    if meta.get("parent_milestone"):
+        _ms, err = _require_milestone(meta["parent_milestone"])
+        if err is not None:
+            return err
+
+    row = telos_db.update_entry(
+        Section.EXPLORATIONS,
+        ref_code,
+        content=content,
+        metadata_merge=meta or None,
+    )
+    if row is None:
+        return _err(f"No exploration with ref_code `{ref_code}`.")
+    bits = ["content updated"]
+    if meta:
+        bits.append(f"metadata_merge={meta}")
+    return mcp_types.TextContent(
+        type="text",
+        text=f"Updated exploration `{ref_code}` — {' · '.join(bits)}",
+    )
+
+
+def _do_exploration_archive(ref_code: str, reason: str | None) -> mcp_types.TextContent:
+    from radbot.tools.telos import db as telos_db
+    from radbot.tools.telos.models import Section
+
+    ok = telos_db.archive_entry(Section.EXPLORATIONS, ref_code, reason=reason or None)
+    if not ok:
+        return _err(f"No exploration with ref_code `{ref_code}`.")
+    tail = f" (reason: {reason})" if reason else ""
+    return mcp_types.TextContent(
+        type="text", text=f"Archived exploration `{ref_code}`.{tail}"
     )

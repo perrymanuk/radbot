@@ -23,7 +23,8 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/telos/` | 18 | beto | `telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_add_journal`, `telos_add_prediction`, `telos_resolve_prediction`, `telos_note_wrong`, `telos_note_taste`, `telos_add_wisdom`, `telos_add_idea`, `telos_upsert_identity`, `telos_add_entry`, `telos_update_entry`, `telos_add_goal`, `telos_complete_goal`, `telos_archive`, `telos_import_markdown` |
 | `tools/telos/` (scout subset) | 11 | scout | `SCOUT_TELOS_TOOLS` = reads (`telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_list_projects`, `telos_get_project`, `telos_list_tasks`) + plan writes (`telos_add_exploration`, `telos_add_task`, `telos_add_milestone`, `telos_add_journal`). Excludes persona/goal mutation, archiving, and project meta-management — those stay on beto. |
 | `tools/wiki/` | 3 | scout | `wiki_list`, `wiki_search`, `wiki_read` — FunctionTool wrappers over `radbot.mcp_server.tools.wiki` handlers. Read-only; sanitizes returned text via `sanitize_external_content(strictness="strict")`. |
-| `tools/web_research/` | 1 | scout | `web_fetch` — guardrailed http(s) fetch: domain blocklist (pastebin, requestbin, webhook.site, ngrok, …), private-IP + localhost + file:// blocked, 256KB cap, 10s timeout, max 3 redirects (each re-validated), `sanitize_external_content(strictness="strict")` on body. Raw web search (Tavily/Brave) tracked as PRJ1/PT19. |
+| `tools/web_research/` | 2 | scout | `grounded_search` — Gemini + Google Search grounding as a direct FunctionTool (returns `{answer, citations: [{title, url}], model}`); bypasses the sub-agent hop so scout keeps her turn. `web_fetch` — guardrailed http(s) fetch: domain blocklist (pastebin, requestbin, webhook.site, ngrok, …), private-IP + localhost + file:// blocked, 256KB cap, 10s timeout, max 3 redirects (each re-validated), `sanitize_external_content(strictness="strict")` on body. Raw web search providers (Tavily/Brave) tracked as PRJ1/PT19. |
+| `tools/divergent_ideation/` | 1 | scout | `divergent_ideation(problem_statement)` — fans three persona-scoped LLM calls (Pragmatic, Contrarian, Wildcard) out in parallel via `asyncio.gather` with a per-call `asyncio.wait_for` 15s timeout. Returns `{pragmatic_path, contrarian_path, wildcard_path, errors[]}`; failed/timed-out personas yield an `Error: …` string and listed in `errors[]` instead of crashing the tool. Persona prompts are encapsulated inside the module so they don't leak into Scout's system prompt. Inspired by lateral inhibition / DMN ideation patterns; see `explorations: EX5` and `project_tasks: PT28` in Telos. |
 | `tools/council/` | 5 | scout | Plan Council: `critique_architecture` (Archie — design fit), `critique_safety` (Sentry — blast radius), `critique_feasibility` (Impl — scope/tests), `critique_ux_dx` (Echo — on-demand UI/DX lens), `should_convene_council` (heuristic trigger). Each critic issues a Gemini call with a persona prompt + `response_schema` enforcing `{verdict, findings:[{priority P0-P3, area, issue, suggestion}], strengths}`. Scout orchestrates 3 rounds (parallel R1 + R2, self-synthesis R3); see `specs/agents.md` § Scout Plan Council for the full flow. |
 | `tools/webhooks/` | 3 | tracker | `create_webhook`, `list_webhooks`, `delete_webhook` |
 | `tools/overseerr/` | 4 | casa | `search_overseerr_media`, `get_overseerr_media_details`, `request_overseerr_media`, `list_overseerr_requests` |
@@ -56,10 +57,10 @@ Created per-agent via `create_agent_memory_tools(agent_name)`. Scoped by `source
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `search_agent_memory` | `query`, `max_results`, `time_window_days`, `memory_type` | Search this agent's scoped memories |
-| `store_agent_memory` | `information`, `memory_type` | Store memory in agent's namespace |
+| `search_agent_memory` | `query`, `max_results`, `time_window_days`, `memory_type`, `memory_class` | Search this agent's scoped memories |
+| `store_agent_memory` | `information`, `memory_type`, `memory_class` | Store memory in agent's namespace |
 
-Global variants (`search_past_conversations`, `store_important_information`) exist but are not currently assigned to any agent.
+`memory_class` (EX4 taxonomy): `episodic` / `implicit` / `explicit` — orthogonal to `memory_type`. See `specs/storage.md` § Memory type taxonomy. Defaults: `explicit` on store (user-authorized), unfiltered on search. Global variants (`search_past_conversations`, `store_important_information`) accept the same parameters.
 
 ### telos project hierarchy — `tools/telos/telos_tools.py`
 
@@ -150,6 +151,15 @@ Uses WebSocket client (`ha_websocket_client.py`) for Lovelace CRUD.
 | `create_scheduled_task` | `name`, `cron_expression`, `prompt`, `description` |
 | `list_scheduled_tasks` | — |
 | `delete_scheduled_task` | `task_id` |
+
+Default proactive primitives (not LLM-callable; native APScheduler jobs registered by `tools/scheduler/defaults.py` inside `SchedulerEngine.start()`):
+
+| Job | Default cron | Implementation | Config section |
+|-----|--------------|----------------|----------------|
+| Dream (memory consolidation) | `0 3 * * *` | `tools/memory/memory_consolidation.py::run_dream` | `config:dream` (`enabled`, `cron_expression`, `lookback_hours`, `promote`) |
+| Heartbeat (morning digest) | `0 8 * * *` | `tools/heartbeat/digest.py::assemble_digest` + `tools/heartbeat/delivery.py::deliver_digest` (ntfy) | `config:heartbeat` (`enabled`, `cron_expression`, `horizon_hours`) |
+
+Dream eTAMP safety: low-trust points (`trust=low` or `source ∈ {alert,webhook}`) are excluded from promotion candidacy; `promote=True` surfaces candidate IDs only — never writes to durable storage without user confirmation.
 
 ### reminders — `tools/reminders/reminder_tools.py`
 
@@ -360,7 +370,7 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 - **stdio**: `uv run python -m radbot.mcp_server` (local, no auth)
 - **HTTP/SSE**: `GET /mcp/sse` + `POST /mcp/messages/` mounted on the FastAPI app (bearer token)
 
-**Tool surface** (28, all returning markdown `TextContent`):
+**Tool surface** (30, all returning markdown `TextContent`):
 
 | Group | Tools |
 |---|---|
@@ -368,7 +378,7 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 | Wiki (at `$RADBOT_WIKI_PATH`) | `wiki_read`, `wiki_list`, `wiki_search`, `wiki_write` (strict path sanitization) |
 | Projects (read) | `project_match(cwd)`, `project_list`, `project_get_context`, `project_list_children`, `project_set_path_patterns` |
 | Projects (mutate) | `project_create`, `project_update`, `project_archive(cascade_children?)`, `project_merge(from_ref, into_ref)` |
-| Project hierarchy (mutate) | `milestone_add`, `milestone_complete`, `task_add`, `task_update`, `task_complete`, `task_archive`, `exploration_add` |
+| Project hierarchy (mutate) | `milestone_add`, `milestone_complete`, `task_add`, `task_update`, `task_complete`, `task_archive`, `exploration_add`, `exploration_update`, `exploration_archive` |
 | Tasks / schedule | `list_tasks`, `list_reminders`, `list_scheduled_tasks` |
 | Memory | `search_memory` (Qdrant, default scope=`beto`, pass `agent_scope="all"` to widen) |
 

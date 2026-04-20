@@ -6,12 +6,15 @@ These tools allow agents to interact with the memory system.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from google.adk.tools.tool_context import ToolContext
 from qdrant_client import models
 
 logger = logging.getLogger(__name__)
+
+# EX4 taxonomy — the only valid values for the `memory_class` payload tag.
+VALID_MEMORY_CLASSES = {"episodic", "implicit", "explicit"}
 
 
 def _get_memory_service_and_user_id(tool_context):
@@ -75,6 +78,7 @@ def search_past_conversations(
     time_window_days: Optional[int] = None,
     tool_context: Optional[ToolContext] = None,
     memory_type: Optional[str] = None,
+    memory_class: Optional[Union[str, List[str]]] = None,
     limit: Optional[int] = None,
     return_stats_only: bool = False,
 ) -> Dict[str, Any]:
@@ -120,6 +124,15 @@ def search_past_conversations(
         # Add memory_type filter if specified and not "all"
         if memory_type and memory_type.lower() != "all":
             filter_conditions["memory_type"] = memory_type
+
+        # Add memory_class filter (EX4 taxonomy: episodic/implicit/explicit).
+        # Accepts a single class or a list. "all" disables filtering.
+        if memory_class:
+            if isinstance(memory_class, str):
+                if memory_class.lower() != "all":
+                    filter_conditions["memory_class"] = memory_class
+            else:
+                filter_conditions["memory_class"] = list(memory_class)
 
         # Handle return_stats_only to provide memory statistics
         if return_stats_only:
@@ -199,6 +212,8 @@ def search_past_conversations(
                 # Basic memory info
                 memory_text = entry.get("text", "")
                 memory_type = entry.get("memory_type", "unknown")
+                # Backward compat: untagged points default to episodic.
+                memory_class_val = entry.get("memory_class", "episodic")
                 relevance = entry.get("relevance_score", 0)
 
                 # Format timestamp if present
@@ -216,6 +231,7 @@ def search_past_conversations(
                 formatted_entry = {
                     "text": memory_text,
                     "type": memory_type,
+                    "memory_class": memory_class_val,
                     "relevance_score": relevance,
                     "date": date_str,
                 }
@@ -254,6 +270,7 @@ def search_past_conversations(
 def store_important_information(
     information: str,
     memory_type: str = "important_fact",
+    memory_class: str = "explicit",
     metadata: Optional[Dict[str, Any]] = None,
     tool_context: Optional[ToolContext] = None,
 ) -> Dict[str, Any]:
@@ -265,7 +282,12 @@ def store_important_information(
 
     Args:
         information: The text information to store
-        memory_type: Type of memory (e.g., 'important_fact', 'user_preference')
+        memory_type: Content category (e.g., 'important_fact', 'user_preference')
+        memory_class: EX4 taxonomy tag — 'episodic' (things that happened),
+            'implicit' (inferred preferences, agent-written), or 'explicit'
+            (facts stated directly by the user). Defaults to 'explicit' since
+            this tool is typically invoked when the user states something
+            durable.
         metadata: Additional metadata to store with the information
         tool_context: Tool context for accessing memory service
 
@@ -277,9 +299,19 @@ def store_important_information(
         if not memory_service:
             return {"status": "error", "error_message": "Memory service not available."}
 
+        if memory_class not in VALID_MEMORY_CLASSES:
+            return {
+                "status": "error",
+                "error_message": (
+                    f"Invalid memory_class '{memory_class}'. "
+                    f"Must be one of: {sorted(VALID_MEMORY_CLASSES)}"
+                ),
+            }
+
         # Create metadata if not provided
         metadata = metadata or {}
         metadata["memory_type"] = memory_type
+        metadata["memory_class"] = memory_class
 
         # Create the memory point
         point = memory_service._create_memory_point(
@@ -293,7 +325,10 @@ def store_important_information(
 
         return {
             "status": "success",
-            "message": f"Successfully stored information as {memory_type}.",
+            "message": (
+                f"Successfully stored information as {memory_type} "
+                f"(class={memory_class})."
+            ),
         }
 
     except Exception as e:

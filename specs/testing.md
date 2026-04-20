@@ -129,13 +129,13 @@ Absent either condition, every job is skipped. No skipped/red noise.
 | `coverage-delta` | 10 | no | New `src/pages/*.tsx` without coverage-map entry → 0/10. |
 | `functional-e2e` | 30 | no | Docker stack via `bootstrap-radbot-stack`, `npm run test:e2e:affected`, real Gemini + Anthropic. Failure artifact on disk + uploaded. |
 | `visual-regression` | 20 | no | Dual checkout (main + PR), capture `@screenshot` specs into separate dirs, Anthropic vision compares pairs, emits 0–20. |
-| `aggregate` | sums | yes (must pass) | Tallies, posts sticky comment, sets commit status, calls `gh pr merge --auto`, fails if score < 70. |
+| `aggregate` | sums | yes (must pass) | Tallies scores, posts sticky comment, sets `quality-pipeline/score` commit status, fails workflow if score < 70. Does **not** merge. |
 
-Maximum score: 100. Fail floor: 70. Auto-merge floor: 90.
+Maximum score: 100. Fail floor: 70. Merge floor (advisory, enforced outside CI): 90.
 
 ### Hard-block paths (`path-guard`)
 
-Auto-merge is **unconditionally disabled** for PRs touching:
+The `auto-merge-eligible` label is **unconditionally ignored** (and the PR comment flags the touched paths) for PRs touching:
 - `radbot/credentials/**` — encryption store, key handling
 - `radbot/web/api/admin.py` — admin auth surface
 - `radbot/db/**`, `**/*.sql`, any new `init_*_schema()` — migrations
@@ -148,15 +148,17 @@ Auto-merge is **unconditionally disabled** for PRs touching:
 
 PR comment names the offending paths so the user knows exactly why human merge is required.
 
-### Auto-merge
+### Merge (performed outside CI)
 
-`gh pr merge --auto --squash --delete-branch` runs only when:
+The workflow does **not** merge PRs. A `gh pr merge` call authored by `GITHUB_TOKEN` does not fire downstream `push` workflows (including `Build and Push Docker Image`), so merging from inside CI silently skips deploys — see [GitHub's `GITHUB_TOKEN` docs](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow).
+
+Instead, a user-authenticated `gh pr merge --squash --delete-branch` is run from the developer's shell (typically by the `/ship` skill's Phase 11) once all of:
 - `auto-merge-eligible` label is applied (separate from `run-e2e`)
-- `score ≥ 90`
+- `aggregate` job concluded `SUCCESS` with `score ≥ 90`
 - `secret-scan` succeeded
 - `path-guard.auto_merge_blocked != true`
 
-Auto-merge then waits for branch protection checks before actually merging — this workflow controls the *enable*, not the merge itself.
+Because the push is authored by a real user PAT, `Build and Push Docker Image` fires normally on `main`.
 
 ### Cost envelope
 
