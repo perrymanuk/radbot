@@ -101,7 +101,11 @@ class TelemetryService:
         self._worker: Optional[threading.Thread] = None
         self._start_lock = threading.Lock()
         self._stopping = threading.Event()
-        self._last_warn_at = 0.0
+        # None sentinel (not 0.0): on Linux `time.monotonic()` is seconds
+        # since boot, which on a freshly-booted CI runner can be < 60, so
+        # `now - 0.0 < WARN_THROTTLE_S` would silently throttle the very
+        # first warning. `None` means "never warned yet — always log".
+        self._last_warn_at: Optional[float] = None
         self._warn_lock = threading.Lock()
 
     # ------------------------------------------------------------------ public
@@ -194,7 +198,10 @@ class TelemetryService:
     def _warn_throttled(self, msg: str) -> None:
         now = time.monotonic()
         with self._warn_lock:
-            if now - self._last_warn_at < WARN_THROTTLE_S:
+            if (
+                self._last_warn_at is not None
+                and now - self._last_warn_at < WARN_THROTTLE_S
+            ):
                 return
             self._last_warn_at = now
         logger.warning(msg)
