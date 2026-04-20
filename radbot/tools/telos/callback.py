@@ -58,9 +58,42 @@ def inject_telos_context(callback_context: Any, llm_request: Any) -> Optional[An
 
         if injection:
             _append_to_system_instruction(llm_request, injection)
+            _record_injection_telemetry(
+                anchor=anchor or "",
+                full_block=full_block if (is_first_turn and full_block) else "",
+                injection=injection,
+                is_first_turn=bool(is_first_turn and full_block),
+            )
     except Exception as e:
         logger.warning("inject_telos_context error (non-fatal): %s", e)
     return None
+
+
+def _approx_tokens(text: str) -> int:
+    """Crude token estimate (~4 chars/token). Cheap, no tokenizer dependency."""
+    if not text:
+        return 0
+    return max(1, len(text) // 4)
+
+
+def _record_injection_telemetry(
+    *, anchor: str, full_block: str, injection: str, is_first_turn: bool
+) -> None:
+    """Enqueue Telos context-injection token counts. Never raises."""
+    try:
+        from radbot.tools.telemetry import get_telemetry_service
+
+        get_telemetry_service().enqueue(
+            "context_injection",
+            {
+                "anchor_tokens": _approx_tokens(anchor),
+                "full_block_tokens": _approx_tokens(full_block),
+                "total_tokens": _approx_tokens(injection),
+                "is_first_turn": bool(is_first_turn),
+            },
+        )
+    except Exception as e:
+        logger.debug("context-injection telemetry enqueue failed (non-fatal): %s", e)
 
 
 def _get_state(callback_context: Any) -> Any:

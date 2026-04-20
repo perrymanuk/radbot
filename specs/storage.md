@@ -21,6 +21,7 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `notifications` | `tools/notifications/db.py` | `notification_id` (UUID), `type` (`scheduled_task`/`reminder`/`alert`/`ntfy_outbound`/`ntfy_inbound`), `title`, `message`, `source_id`, `session_id`, `priority`, `read` (BOOLEAN), `metadata` (JSONB), `created_at` |
 | `llm_usage_log` | `telemetry/db.py` | `id`, `created_at`, `agent_name`, `model`, `prompt_tokens`, `cached_tokens`, `output_tokens`, `cost_usd`, `cost_without_cache_usd`, `session_id` (nullable), `run_label` |
+| `telemetry_events` | `tools/telemetry/db.py` | `event_id` (UUID), `event_type` (TEXT), `payload` (JSONB — integers/bools only, validated by strict Pydantic), `created_at` (TIMESTAMPTZ). Append-only baseline metrics for Dream + Context Injection (PT30 / EX7). No retention cron — payloads are tiny and kept indefinitely for longitudinal tracking. |
 | `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 | `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
@@ -45,7 +46,7 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 
 All schemas idempotent via `init_*_schema()` with `CREATE TABLE IF NOT EXISTS` (or the `init_table_schema()` helper in `tools/shared/db_schema.py`). Called from:
 
-- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, notifications, llm_usage_log, alerts)
+- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, telemetry, notifications, llm_usage_log, alerts)
 - `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history)
 - `worker/__main__.py` — worker-side schema init (calls directly, not via ADK callback)
 

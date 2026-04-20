@@ -55,8 +55,29 @@ async def _run_dream_job() -> None:
         promote = bool(cfg.get("promote", False))
         result = await run_dream(lookback_hours=lookback, promote=promote)
         logger.info("Dream job finished: %s", result)
+        _record_dream_telemetry(result)
     except Exception as e:
         logger.error("Dream job failed: %s", e, exc_info=True)
+
+
+def _record_dream_telemetry(result: Dict[str, Any]) -> None:
+    """Enqueue the integer aggregates from a Dream pass. Never raises."""
+    try:
+        from radbot.tools.telemetry import get_telemetry_service
+
+        get_telemetry_service().enqueue(
+            "dream_pass_complete",
+            {
+                "scanned": int(result.get("scanned", 0)),
+                "clusters": int(result.get("clusters", 0)),
+                "consolidated": int(result.get("consolidated", 0)),
+                "archived": int(result.get("archived", 0)),
+                "skipped_low_trust": int(result.get("skipped_low_trust", 0)),
+                "promotion_candidates": int(result.get("promotion_candidates", 0)),
+            },
+        )
+    except Exception as e:
+        logger.debug("dream telemetry enqueue failed (non-fatal): %s", e)
 
 
 async def _run_heartbeat_job() -> None:
