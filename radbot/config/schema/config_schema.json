@@ -93,6 +93,11 @@
               "description": "Model for agentic coder specialized agent",
               "default": "gemini-2.5-pro"
             },
+            "naming_model": {
+              "type": "string",
+              "description": "Cheap model used by the session auto-naming service (radbot/services/session_naming.py). Falls back to main_model when unset. Overridable at runtime via RADBOT_NAMING_MODEL.",
+              "default": "gemini-2.5-flash"
+            },
             "utility_agent_model": {
               "type": "string",
               "description": "Model for utility specialized agent",

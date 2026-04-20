@@ -83,6 +83,29 @@ def register_messages_router(app):
         if not request:
             raise HTTPException(status_code=400, detail="Message content is required")
 
+        # /name intercept: generate a short title from recent history. Runs
+        # before role validation so the UI can send role="user" without the
+        # message being persisted as chat history.
+        if request.content and request.content.strip() == "/name":
+            from radbot.services.session_naming import auto_name_session
+
+            ok, result = auto_name_session(session_id)
+            session_name = result if ok else None
+            system_text = (
+                f"Renamed session to \u201c{result}\u201d"
+                if ok
+                else f"Rename failed: {result}"
+            )
+            return {
+                "status": "success" if ok else "error",
+                "message_id": None,
+                "system_message": {
+                    "role": "system",
+                    "content": system_text,
+                },
+                "session_name": session_name,
+            }
+
         # Validate role
         if request.role not in ("user", "assistant", "system"):
             raise HTTPException(

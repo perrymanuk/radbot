@@ -78,7 +78,7 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 | File | Prefix | Purpose |
 |------|--------|---------|
 | `api/sessions.py` | `/api/sessions` | Session CRUD + `GET /{id}/stats` (token/cost totals) + reset |
-| `api/messages.py` | `/api/messages` | Chat message history |
+| `api/messages.py` | `/api/messages` | Chat message history + `/name` slash-command intercept (POST body `content="/name"` short-circuits role validation, calls `radbot.services.session_naming.auto_name_session`, returns `{status, message_id: null, system_message, session_name}` so the sidebar can update reactively) |
 | `api/events.py` | `/api/events` | Event log per session |
 | `api/agent_info.py` | `/api/agents` + `/api/claude` | Dynamic agent roster (reads live `root_agent.sub_agents`) + Claude metadata |
 | `api/session/memory_api.py` | `/api/memory` | Memory store/recall |
