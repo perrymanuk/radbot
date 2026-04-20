@@ -1,0 +1,5079 @@
+{
+  "snapshot_id": "radbot-tool-schemas-v1",
+  "description": "Import-time schema of every agent tool. Regenerate with `uv run python -m tests.schema.lint --update` and review the diff.",
+  "tools": [
+    {
+      "name": "check_nomad_service_health",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "service_name": {
+            "title": "Service Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_name"
+        ],
+        "title": "check_nomad_service_healthInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "claude_code_continue",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "work_folder": {
+            "title": "Work Folder",
+            "type": "string"
+          }
+        },
+        "required": [
+          "prompt",
+          "session_id",
+          "work_folder"
+        ],
+        "title": "claude_code_continueInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "claude_code_execute",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "work_folder": {
+            "title": "Work Folder",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Id"
+          }
+        },
+        "required": [
+          "prompt",
+          "work_folder"
+        ],
+        "title": "claude_code_executeInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "claude_code_plan",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "work_folder": {
+            "title": "Work Folder",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Id"
+          }
+        },
+        "required": [
+          "prompt",
+          "work_folder"
+        ],
+        "title": "claude_code_planInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "clone_repository",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "owner": {
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "title": "Repo",
+            "type": "string"
+          },
+          "branch": {
+            "default": "main",
+            "title": "Branch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "clone_repositoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "code_execution_tool",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "code_execution_toolInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "commit_and_push",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "work_folder": {
+            "title": "Work Folder",
+            "type": "string"
+          },
+          "commit_message": {
+            "title": "Commit Message",
+            "type": "string"
+          },
+          "branch": {
+            "default": "main",
+            "title": "Branch",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_folder",
+          "commit_message"
+        ],
+        "title": "commit_and_pushInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "execute_shell_command",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "arguments": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Arguments"
+          },
+          "timeout": {
+            "default": 60,
+            "title": "Timeout",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "title": "execute_shell_commandInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "generate_documentation",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          },
+          "output_format": {
+            "default": "markdown",
+            "title": "Output Format",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_path"
+        ],
+        "title": "generate_documentationInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_info_func",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "get_info_funcInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_nomad_allocation_logs",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task"
+          },
+          "log_type": {
+            "default": "stderr",
+            "title": "Log Type",
+            "type": "string"
+          },
+          "lines": {
+            "default": 100,
+            "title": "Lines",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "get_nomad_allocation_logsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_nomad_job_status",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "get_nomad_job_statusInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_directory_func",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "path": {
+            "default": "",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "title": "list_directory_funcInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_nomad_jobs",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Prefix"
+          }
+        },
+        "title": "list_nomad_jobsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_workspaces",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {},
+        "title": "list_workspacesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "plan_nomad_job_update",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_hcl": {
+            "title": "Job Hcl",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "job_hcl"
+        ],
+        "title": "plan_nomad_job_updateInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "read_file_func",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "read_file_funcInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "restart_nomad_allocation",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "restart_nomad_allocationInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "run_tests",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "test_file": {
+            "title": "Test File",
+            "type": "string"
+          },
+          "test_pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Test Pattern"
+          }
+        },
+        "required": [
+          "test_file"
+        ],
+        "title": "run_testsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_func",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          },
+          "exclude_patterns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Exclude Patterns"
+          }
+        },
+        "required": [
+          "path",
+          "pattern"
+        ],
+        "title": "search_funcInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "submit_nomad_job_update",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "job_spec_json": {
+            "title": "Job Spec Json",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "job_spec_json"
+        ],
+        "title": "submit_nomad_job_updateInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "validate_code",
+      "agent": "axel",
+      "json_schema": {
+        "properties": {
+          "file_path": {
+            "title": "File Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_path"
+        ],
+        "title": "validate_codeInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_entry",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata"
+          },
+          "ref_code": {
+            "default": "",
+            "title": "Ref Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "content"
+        ],
+        "title": "telos_add_entryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_exploration",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          },
+          "parent_project": {
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "parent_project"
+        ],
+        "title": "telos_add_explorationInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_goal",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "deadline": {
+            "default": "",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "kpi": {
+            "default": "",
+            "title": "Kpi",
+            "type": "string"
+          },
+          "parent_problem": {
+            "default": "",
+            "title": "Parent Problem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "telos_add_goalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_idea",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "idea": {
+            "title": "Idea",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idea"
+        ],
+        "title": "telos_add_ideaInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_journal",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "event_type": {
+            "default": "",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "related_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Related Refs"
+          }
+        },
+        "required": [
+          "entry"
+        ],
+        "title": "telos_add_journalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_milestone",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "parent_project": {
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "deadline": {
+            "default": "",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "details": {
+            "default": "",
+            "title": "Details",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "parent_project"
+        ],
+        "title": "telos_add_milestoneInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_prediction",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "claim": {
+            "title": "Claim",
+            "type": "string"
+          },
+          "probability": {
+            "title": "Probability",
+            "type": "number"
+          },
+          "deadline": {
+            "default": "",
+            "title": "Deadline",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim",
+          "probability"
+        ],
+        "title": "telos_add_predictionInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_task",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "parent_project": {
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "parent_milestone": {
+            "default": "",
+            "title": "Parent Milestone",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
+          "task_status": {
+            "default": "backlog",
+            "title": "Task Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "parent_project"
+        ],
+        "title": "telos_add_taskInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_wisdom",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "principle": {
+            "title": "Principle",
+            "type": "string"
+          },
+          "origin": {
+            "default": "",
+            "title": "Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principle"
+        ],
+        "title": "telos_add_wisdomInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_archive",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "ref_code"
+        ],
+        "title": "telos_archiveInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_archive_task",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_code"
+        ],
+        "title": "telos_archive_taskInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_complete_goal",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "resolution": {
+            "default": "",
+            "title": "Resolution",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_code"
+        ],
+        "title": "telos_complete_goalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_complete_milestone",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "resolution": {
+            "default": "",
+            "title": "Resolution",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_code"
+        ],
+        "title": "telos_complete_milestoneInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_complete_task",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_code"
+        ],
+        "title": "telos_complete_taskInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_entry",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "ref_code"
+        ],
+        "title": "telos_get_entryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_full",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {},
+        "title": "telos_get_fullInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_project",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "ref_or_name": {
+            "title": "Ref Or Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_or_name"
+        ],
+        "title": "telos_get_projectInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_section",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "include_inactive": {
+            "default": false,
+            "title": "Include Inactive",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "section"
+        ],
+        "title": "telos_get_sectionInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_import_markdown",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "markdown_text": {
+            "title": "Markdown Text",
+            "type": "string"
+          },
+          "replace": {
+            "default": false,
+            "title": "Replace",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "markdown_text"
+        ],
+        "title": "telos_import_markdownInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_list_projects",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {},
+        "title": "telos_list_projectsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_list_tasks",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "parent_project": {
+            "default": "",
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "parent_milestone": {
+            "default": "",
+            "title": "Parent Milestone",
+            "type": "string"
+          },
+          "task_status": {
+            "default": "",
+            "title": "Task Status",
+            "type": "string"
+          },
+          "include_inactive": {
+            "default": false,
+            "title": "Include Inactive",
+            "type": "boolean"
+          }
+        },
+        "title": "telos_list_tasksInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_note_taste",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "sentiment": {
+            "title": "Sentiment",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "item",
+          "sentiment"
+        ],
+        "title": "telos_note_tasteInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_note_wrong",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "thing": {
+            "title": "Thing",
+            "type": "string"
+          },
+          "why": {
+            "default": "",
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "thing"
+        ],
+        "title": "telos_note_wrongInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_resolve_prediction",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "boolean"
+          },
+          "actual_value": {
+            "default": "",
+            "title": "Actual Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_code",
+          "outcome"
+        ],
+        "title": "telos_resolve_predictionInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_search_journal",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "telos_search_journalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_update_entry",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "metadata_merge": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata Merge"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "ref_code"
+        ],
+        "title": "telos_update_entryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_upsert_identity",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "title": "Name",
+            "type": "string"
+          },
+          "location": {
+            "default": "",
+            "title": "Location",
+            "type": "string"
+          },
+          "role": {
+            "default": "",
+            "title": "Role",
+            "type": "string"
+          },
+          "pronouns": {
+            "default": "",
+            "title": "Pronouns",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "telos_upsert_identityInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "add_lidarr_album",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "foreign_album_id": {
+            "title": "Foreign Album Id",
+            "type": "string"
+          },
+          "album_title": {
+            "title": "Album Title",
+            "type": "string"
+          },
+          "foreign_artist_id": {
+            "title": "Foreign Artist Id",
+            "type": "string"
+          },
+          "artist_name": {
+            "title": "Artist Name",
+            "type": "string"
+          },
+          "monitored": {
+            "default": true,
+            "title": "Monitored",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "foreign_album_id",
+          "album_title",
+          "foreign_artist_id",
+          "artist_name"
+        ],
+        "title": "add_lidarr_albumInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "add_lidarr_artist",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "foreign_artist_id": {
+            "title": "Foreign Artist Id",
+            "type": "string"
+          },
+          "artist_name": {
+            "title": "Artist Name",
+            "type": "string"
+          },
+          "monitored": {
+            "default": true,
+            "title": "Monitored",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "foreign_artist_id",
+          "artist_name"
+        ],
+        "title": "add_lidarr_artistInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "add_to_picnic_cart",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "count": {
+            "default": 1,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id"
+        ],
+        "title": "add_to_picnic_cartInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "clear_picnic_cart",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {},
+        "title": "clear_picnic_cartInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_ha_dashboard",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "url_path": {
+            "title": "Url Path",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "require_admin": {
+            "default": false,
+            "title": "Require Admin",
+            "type": "boolean"
+          },
+          "show_in_sidebar": {
+            "default": true,
+            "title": "Show In Sidebar",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "url_path",
+          "title"
+        ],
+        "title": "create_ha_dashboardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_ha_dashboard",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "dashboard_id": {
+            "title": "Dashboard Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dashboard_id"
+        ],
+        "title": "delete_ha_dashboardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "function",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "search_term": {
+            "title": "Search Term",
+            "type": "string"
+          },
+          "domain_filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Domain Filter"
+          }
+        },
+        "required": [
+          "search_term"
+        ],
+        "title": "search_ha_entitiesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_ha_dashboard_config",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "url_path": {
+            "default": "",
+            "title": "Url Path",
+            "type": "string"
+          }
+        },
+        "title": "get_ha_dashboard_configInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_overseerr_media_details",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "tmdb_id": {
+            "title": "Tmdb Id",
+            "type": "integer"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tmdb_id",
+          "media_type"
+        ],
+        "title": "get_overseerr_media_detailsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_picnic_cart",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {},
+        "title": "get_picnic_cartInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_picnic_delivery_details",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "delivery_id": {
+            "title": "Delivery Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "delivery_id"
+        ],
+        "title": "get_picnic_delivery_detailsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_picnic_delivery_slots",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {},
+        "title": "get_picnic_delivery_slotsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_picnic_order_history",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {},
+        "title": "get_picnic_order_historyInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_ha_dashboards",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {},
+        "title": "list_ha_dashboardsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_lidarr_quality_profiles",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {},
+        "title": "list_lidarr_quality_profilesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_overseerr_requests",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "max_results": {
+            "default": 20,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "filter_status": {
+            "default": "all",
+            "title": "Filter Status",
+            "type": "string"
+          }
+        },
+        "title": "list_overseerr_requestsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "remove_from_picnic_cart",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "product_id": {
+            "title": "Product Id",
+            "type": "string"
+          },
+          "count": {
+            "default": 1,
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "product_id"
+        ],
+        "title": "remove_from_picnic_cartInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "request_overseerr_media",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "tmdb_id": {
+            "title": "Tmdb Id",
+            "type": "integer"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "seasons": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Seasons"
+          }
+        },
+        "required": [
+          "tmdb_id",
+          "media_type"
+        ],
+        "title": "request_overseerr_mediaInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "save_ha_dashboard_config",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "config": {
+            "title": "Config",
+            "type": "string"
+          },
+          "url_path": {
+            "default": "",
+            "title": "Url Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "title": "save_ha_dashboard_configInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_lidarr_album",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_lidarr_albumInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_lidarr_artist",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_lidarr_artistInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_overseerr_media",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "page": {
+            "default": 1,
+            "title": "Page",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_overseerr_mediaInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_picnic_product",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_picnic_productInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "set_picnic_delivery_slot",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "slot_id": {
+            "title": "Slot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot_id"
+        ],
+        "title": "set_picnic_delivery_slotInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "show_ha_device_card",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "area": {
+            "title": "Area",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Detail"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "brightness_pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Brightness Pct"
+          }
+        },
+        "required": [
+          "entity_id",
+          "name",
+          "area",
+          "state"
+        ],
+        "title": "show_ha_device_cardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "show_media_card",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tmdb_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tmdb Id"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Media Type"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "year_range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year Range"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resolution"
+          },
+          "format_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Format Label"
+          },
+          "content_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content Rating"
+          },
+          "season_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Season Count"
+          },
+          "episode_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Episode Count"
+          },
+          "episode_runtime": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Episode Runtime"
+          },
+          "on_server_have": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "On Server Have"
+          },
+          "on_server_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "On Server Total"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Progress"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subtitle"
+          },
+          "poster_accent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Poster Accent"
+          },
+          "poster_badge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Poster Badge"
+          },
+          "poster_footer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Poster Footer"
+          },
+          "poster_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Poster Title"
+          },
+          "poster_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Poster Url"
+          }
+        },
+        "required": [
+          "title",
+          "kind",
+          "status"
+        ],
+        "title": "show_media_cardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "show_season_breakdown",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "show": {
+            "title": "Show",
+            "type": "string"
+          },
+          "seasons": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Seasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "show",
+          "seasons"
+        ],
+        "title": "show_season_breakdownInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "show_video_card",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "video_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Video Id"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Seconds"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Published At"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thumbnail Url"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "View Count"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tags"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subtitle"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "kideo_video_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kideo Video Id"
+          }
+        },
+        "required": [
+          "title",
+          "source",
+          "url"
+        ],
+        "title": "show_video_cardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "submit_shopping_list_to_picnic",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "project_name": {
+            "default": "Groceries",
+            "title": "Project Name",
+            "type": "string"
+          }
+        },
+        "title": "submit_shopping_list_to_picnicInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "update_ha_dashboard",
+      "agent": "casa",
+      "json_schema": {
+        "properties": {
+          "dashboard_id": {
+            "title": "Dashboard Id",
+            "type": "integer"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "require_admin": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Require Admin"
+          },
+          "show_in_sidebar": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Show In Sidebar"
+          }
+        },
+        "required": [
+          "dashboard_id"
+        ],
+        "title": "update_ha_dashboardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "add_jira_comment",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "comment": {
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key",
+          "comment"
+        ],
+        "title": "add_jira_commentInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_email_wrapper",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "get_email_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_issue_transitions",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_issue_transitionsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_jira_issue",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key"
+        ],
+        "title": "get_jira_issueInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_emails_wrapper",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "max_results": {
+            "default": 10,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "label": {
+            "default": "INBOX",
+            "title": "Label",
+            "type": "string"
+          },
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account"
+          }
+        },
+        "title": "list_emails_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_gmail_accounts_wrapper",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {},
+        "title": "list_gmail_accounts_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_my_jira_issues",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Priority"
+          },
+          "max_results": {
+            "default": 20,
+            "title": "Max Results",
+            "type": "integer"
+          }
+        },
+        "title": "list_my_jira_issuesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_emails_wrapper",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 10,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Account"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_emails_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_jira_issues",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "jql": {
+            "title": "Jql",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 20,
+            "title": "Max Results",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jql"
+        ],
+        "title": "search_jira_issuesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "transition_jira_issue",
+      "agent": "comms",
+      "json_schema": {
+        "properties": {
+          "issue_key": {
+            "title": "Issue Key",
+            "type": "string"
+          },
+          "status_name": {
+            "title": "Status Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_key",
+          "status_name"
+        ],
+        "title": "transition_jira_issueInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "add_video_to_kideo",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "collection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Collection Id"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "add_video_to_kideoInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "add_videos_to_kideo_batch",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "urls": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Urls",
+            "type": "array"
+          },
+          "collection_id": {
+            "title": "Collection Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "urls",
+          "collection_id"
+        ],
+        "title": "add_videos_to_kideo_batchInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_kideo_collection",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "color": {
+            "default": "#4F46E5",
+            "title": "Color",
+            "type": "string"
+          },
+          "icon": {
+            "default": "star",
+            "title": "Icon",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "create_kideo_collectionInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "generate_video_tags",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "video_id": {
+            "title": "Video Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "channel_title": {
+            "default": "",
+            "title": "Channel Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "video_id",
+          "title"
+        ],
+        "title": "generate_video_tagsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_kideo_channel_stats",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "collection_id": {
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days"
+          }
+        },
+        "required": [
+          "collection_id"
+        ],
+        "title": "get_kideo_channel_statsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_kideo_popular_videos",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "collection_id": {
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days"
+          }
+        },
+        "required": [
+          "collection_id"
+        ],
+        "title": "get_kideo_popular_videosInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_kideo_tag_stats",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "collection_id": {
+            "title": "Collection Id",
+            "type": "string"
+          },
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Days"
+          }
+        },
+        "required": [
+          "collection_id"
+        ],
+        "title": "get_kideo_tag_statsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_youtube_channel_info",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "channel_id": {
+            "title": "Channel Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel_id"
+        ],
+        "title": "get_youtube_channel_infoInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_youtube_video_details",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "video_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Video Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "video_ids"
+        ],
+        "title": "get_youtube_video_detailsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_curiositystream_categories",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {},
+        "title": "list_curiositystream_categoriesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_kideo_collections",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {},
+        "title": "list_kideo_collectionsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "retag_untagged_kideo_videos",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {},
+        "title": "retag_untagged_kideo_videosInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_curiositystream",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 10,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "kid_friendly_only": {
+            "default": true,
+            "title": "Kid Friendly Only",
+            "type": "boolean"
+          },
+          "categories": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Categories"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_curiositystreamInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_youtube_videos",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 10,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "safe_search": {
+            "default": "strict",
+            "title": "Safe Search",
+            "type": "string"
+          },
+          "video_duration": {
+            "default": "medium",
+            "title": "Video Duration",
+            "type": "string"
+          },
+          "order": {
+            "default": "relevance",
+            "title": "Order",
+            "type": "string"
+          },
+          "channel_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel Id"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_youtube_videosInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "set_kideo_video_tags",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "video_id": {
+            "title": "Video Id",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "video_id",
+          "tags"
+        ],
+        "title": "set_kideo_video_tagsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "show_video_card",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "video_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Video Id"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channel"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Seconds"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Published At"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Thumbnail Url"
+          },
+          "view_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "View Count"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tags"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subtitle"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "kideo_video_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kideo Video Id"
+          }
+        },
+        "required": [
+          "title",
+          "source",
+          "url"
+        ],
+        "title": "show_video_cardInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "kidsvid",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "check_calendar_availability_wrapper",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "calendar_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Calendar Ids"
+          },
+          "days_ahead": {
+            "default": 7,
+            "title": "Days Ahead",
+            "type": "integer"
+          },
+          "is_workspace": {
+            "default": false,
+            "title": "Is Workspace",
+            "type": "boolean"
+          }
+        },
+        "title": "check_calendar_availability_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_calendar_event_wrapper",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "start_time": {
+            "title": "Start Time",
+            "type": "string"
+          },
+          "end_time": {
+            "title": "End Time",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location"
+          },
+          "attendees": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Attendees"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Calendar Id"
+          },
+          "timezone": {
+            "default": "UTC",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "is_workspace": {
+            "default": false,
+            "title": "Is Workspace",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "summary",
+          "start_time",
+          "end_time"
+        ],
+        "title": "create_calendar_event_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_reminder",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "remind_at": {
+            "default": "",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "delay_minutes": {
+            "default": 0,
+            "title": "Delay Minutes",
+            "type": "number"
+          },
+          "timezone_name": {
+            "default": "America/Los_Angeles",
+            "title": "Timezone Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "create_reminderInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_scheduled_task",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "cron_expression": {
+            "title": "Cron Expression",
+            "type": "string"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "agent_name": {
+            "default": "beto",
+            "title": "Agent Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "cron_expression",
+          "prompt"
+        ],
+        "title": "create_scheduled_taskInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "create_webhook",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path_suffix": {
+            "title": "Path Suffix",
+            "type": "string"
+          },
+          "prompt_template": {
+            "title": "Prompt Template",
+            "type": "string"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Secret"
+          }
+        },
+        "required": [
+          "name",
+          "path_suffix",
+          "prompt_template"
+        ],
+        "title": "create_webhookInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_calendar_event_wrapper",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Calendar Id"
+          },
+          "is_workspace": {
+            "default": false,
+            "title": "Is Workspace",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_id"
+        ],
+        "title": "delete_calendar_event_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_reminder",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "reminder_id": {
+            "title": "Reminder Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reminder_id"
+        ],
+        "title": "delete_reminderInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_scheduled_task",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "title": "delete_scheduled_taskInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "delete_webhook",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "webhook_id": {
+            "title": "Webhook Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "title": "delete_webhookInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "function",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "city": {
+            "default": "UTC",
+            "title": "City",
+            "type": "string"
+          }
+        },
+        "title": "get_current_timeInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_calendar_events_wrapper",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Calendar Id"
+          },
+          "max_results": {
+            "default": 10,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Query"
+          },
+          "days_ahead": {
+            "default": 7,
+            "title": "Days Ahead",
+            "type": "integer"
+          },
+          "is_workspace": {
+            "default": false,
+            "title": "Is Workspace",
+            "type": "boolean"
+          }
+        },
+        "title": "list_calendar_events_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_reminders",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "status": {
+            "default": "pending",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "list_remindersInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_scheduled_tasks",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {},
+        "title": "list_scheduled_tasksInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_webhooks",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {},
+        "title": "list_webhooksInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "update_calendar_event_wrapper",
+      "agent": "planner",
+      "json_schema": {
+        "properties": {
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Summary"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Time"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Location"
+          },
+          "attendees": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Attendees"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Calendar Id"
+          },
+          "timezone": {
+            "default": "UTC",
+            "title": "Timezone",
+            "type": "string"
+          },
+          "is_workspace": {
+            "default": false,
+            "title": "Is Workspace",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "event_id"
+        ],
+        "title": "update_calendar_event_wrapperInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "critique_architecture",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "prior_round_findings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Prior Round Findings"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "critique_architectureInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "critique_feasibility",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "prior_round_findings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Prior Round Findings"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "critique_feasibilityInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "critique_safety",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "prior_round_findings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Prior Round Findings"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "critique_safetyInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "critique_ux_dx",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "prior_round_findings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Prior Round Findings"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "critique_ux_dxInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "divergent_ideation",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "problem_statement": {
+            "title": "Problem Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "problem_statement"
+        ],
+        "title": "divergent_ideationInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "grounded_search",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "grounded_searchInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "repo_map",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "repo_name": {
+            "title": "Repo Name",
+            "type": "string"
+          },
+          "subpath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          },
+          "languages": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Languages"
+          },
+          "max_files": {
+            "default": 200,
+            "title": "Max Files",
+            "type": "integer"
+          },
+          "max_symbols_per_file": {
+            "default": 50,
+            "title": "Max Symbols Per File",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "repo_name"
+        ],
+        "title": "repo_mapInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "repo_read",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "repo_name": {
+            "title": "Repo Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "start_line": {
+            "default": 1,
+            "title": "Start Line",
+            "type": "integer"
+          },
+          "end_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "End Line"
+          },
+          "max_lines": {
+            "default": 500,
+            "title": "Max Lines",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "repo_name",
+          "path"
+        ],
+        "title": "repo_readInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "repo_references",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "symbol": {
+            "title": "Symbol",
+            "type": "string"
+          },
+          "repo_name": {
+            "title": "Repo Name",
+            "type": "string"
+          },
+          "subpath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          },
+          "file_glob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File Glob"
+          },
+          "max_results": {
+            "default": 200,
+            "title": "Max Results",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "symbol",
+          "repo_name"
+        ],
+        "title": "repo_referencesInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "repo_search",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "repo_name": {
+            "title": "Repo Name",
+            "type": "string"
+          },
+          "subpath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          },
+          "file_glob": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "File Glob"
+          },
+          "max_matches": {
+            "default": 50,
+            "title": "Max Matches",
+            "type": "integer"
+          },
+          "context_lines": {
+            "default": 3,
+            "title": "Context Lines",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "repo_name"
+        ],
+        "title": "repo_searchInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "repo_sync",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "repo_url": {
+            "title": "Repo Url",
+            "type": "string"
+          },
+          "repo_name": {
+            "title": "Repo Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo_url",
+          "repo_name"
+        ],
+        "title": "repo_syncInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_agent_memory",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 5,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "time_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Window Days"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Type"
+          },
+          "memory_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Class"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "should_convene_council",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "should_convene_councilInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "store_agent_memory",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "information": {
+            "title": "Information",
+            "type": "string"
+          },
+          "memory_type": {
+            "default": "important_fact",
+            "title": "Memory Type",
+            "type": "string"
+          },
+          "memory_class": {
+            "default": "explicit",
+            "title": "Memory Class",
+            "type": "string"
+          }
+        },
+        "required": [
+          "information"
+        ],
+        "title": "store_agent_memoryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_exploration",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          },
+          "parent_project": {
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "parent_project"
+        ],
+        "title": "telos_add_explorationInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_journal",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "entry": {
+            "title": "Entry",
+            "type": "string"
+          },
+          "event_type": {
+            "default": "",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "related_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Related Refs"
+          }
+        },
+        "required": [
+          "entry"
+        ],
+        "title": "telos_add_journalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_milestone",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "parent_project": {
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "deadline": {
+            "default": "",
+            "title": "Deadline",
+            "type": "string"
+          },
+          "details": {
+            "default": "",
+            "title": "Details",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "parent_project"
+        ],
+        "title": "telos_add_milestoneInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_add_task",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "parent_project": {
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "parent_milestone": {
+            "default": "",
+            "title": "Parent Milestone",
+            "type": "string"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
+            "type": "string"
+          },
+          "category": {
+            "default": "",
+            "title": "Category",
+            "type": "string"
+          },
+          "task_status": {
+            "default": "backlog",
+            "title": "Task Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "parent_project"
+        ],
+        "title": "telos_add_taskInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_entry",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "ref_code"
+        ],
+        "title": "telos_get_entryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_full",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {},
+        "title": "telos_get_fullInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_project",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "ref_or_name": {
+            "title": "Ref Or Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref_or_name"
+        ],
+        "title": "telos_get_projectInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_get_section",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "include_inactive": {
+            "default": false,
+            "title": "Include Inactive",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "section"
+        ],
+        "title": "telos_get_sectionInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_list_projects",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {},
+        "title": "telos_list_projectsInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_list_tasks",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "parent_project": {
+            "default": "",
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "parent_milestone": {
+            "default": "",
+            "title": "Parent Milestone",
+            "type": "string"
+          },
+          "task_status": {
+            "default": "",
+            "title": "Task Status",
+            "type": "string"
+          },
+          "include_inactive": {
+            "default": false,
+            "title": "Include Inactive",
+            "type": "boolean"
+          }
+        },
+        "title": "telos_list_tasksInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_search_journal",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "telos_search_journalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "web_fetch",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "web_fetchInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_list",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "glob": {
+            "default": "**/*.md",
+            "title": "Glob",
+            "type": "string"
+          }
+        },
+        "title": "wiki_listInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_read",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "wiki_readInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "wiki_search",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "glob": {
+            "default": "**/*.md",
+            "title": "Glob",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "wiki_searchInput",
+        "type": "object"
+      }
+    }
+  ],
+  "skipped": [
+    {
+      "name": "finish_task",
+      "agent": "axel",
+      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
+    },
+    {
+      "name": "load_artifacts",
+      "agent": "axel",
+      "reason": "unsupported: don't know how to extract a schema from LoadArtifactsTool (module google.adk.tools.load_artifacts_tool)"
+    },
+    {
+      "name": "finish_task",
+      "agent": "casa",
+      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
+    },
+    {
+      "name": "finish_task",
+      "agent": "comms",
+      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
+    },
+    {
+      "name": "finish_task",
+      "agent": "kidsvid",
+      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
+    },
+    {
+      "name": "finish_task",
+      "agent": "planner",
+      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
+    },
+    {
+      "name": "finish_task",
+      "agent": "scout",
+      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
+    },
+    {
+      "name": "google_search",
+      "agent": "search_agent",
+      "reason": "unsupported: don't know how to extract a schema from GoogleSearchTool (module google.adk.tools.google_search_tool)"
+    }
+  ]
+}
