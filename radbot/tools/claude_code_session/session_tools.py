@@ -43,7 +43,9 @@ def _snapshot(session: BackgroundSession, new_text: str) -> Dict[str, Any]:
         "pending_question": session.pending_question,
         "session_id": session.session_id,
         "return_code": session.return_code,
-        "stderr": "".join(session.stderr_chunks)[-2000:] if session.stderr_chunks else "",
+        "stderr": (
+            "".join(session.stderr_chunks)[-2000:] if session.stderr_chunks else ""
+        ),
     }
 
 

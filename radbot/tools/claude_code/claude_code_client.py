@@ -528,9 +528,7 @@ class ClaudeCodeClient:
             await proc.wait()
             session.return_code = proc.returncode
             if session.status != "waiting_for_input":
-                session.status = (
-                    "complete" if (proc.returncode or 0) == 0 else "error"
-                )
+                session.status = "complete" if (proc.returncode or 0) == 0 else "error"
             logger.info(
                 "Claude background session finished: job_id=%s rc=%s session=%s",
                 session.job_id,
@@ -547,9 +545,7 @@ class ClaudeCodeClient:
                 chunk = await proc.stderr.readline()
                 if not chunk:
                     break
-                session.stderr_chunks.append(
-                    chunk.decode("utf-8", errors="replace")
-                )
+                session.stderr_chunks.append(chunk.decode("utf-8", errors="replace"))
         except Exception as e:
             logger.debug("stderr reader error: %s", e)
 
