@@ -15,6 +15,14 @@ import sys
 
 
 def main() -> int:
+    # Merge DB-stored config (admin UI saves integrations.github there) into
+    # the in-memory ConfigLoader. Without this, only file-based config.yaml is
+    # visible — and integrations.github lives in the credential store, not the
+    # bootstrap config.
+    from radbot.config.config_loader import config_loader
+
+    config_loader.load_db_config()
+
     from radbot.tools.github.github_app_client import get_github_client
 
     client = get_github_client()
