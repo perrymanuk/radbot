@@ -161,6 +161,26 @@ _CLAUDE_FALLBACK_PATHS = (
 )
 
 
+def _get_github_token() -> Optional[str]:
+    """Fetch a short-lived GitHub App installation token for subprocess injection.
+
+    Returns None (with a debug log) if the GitHub App integration is not
+    configured — callers should degrade gracefully. The returned token is
+    never written to logs.
+    """
+    try:
+        from radbot.tools.github.github_app_client import get_github_client
+
+        client = get_github_client()
+        if client is None:
+            logger.debug("GitHub App client not configured — skipping token injection")
+            return None
+        return client._get_installation_token()
+    except Exception as e:
+        logger.debug("GitHub App token unavailable: %s", e)
+        return None
+
+
 def _resolve_claude_cli() -> Optional[str]:
     """Locate the ``claude`` CLI executable.
 
@@ -226,7 +246,7 @@ class ClaudeCodeClient:
         else:
             self._token, _ = _get_auth_token()
 
-    def _build_env(self) -> Dict[str, str]:
+    def _build_env(self, inject_github_token: bool = False) -> Dict[str, str]:
         """Build the subprocess environment with auth + sandbox flags."""
         env = os.environ.copy()
         if self._token:
@@ -237,6 +257,14 @@ class ClaudeCodeClient:
                 _write_auth_token_files(self._token)
         if os.getuid() == 0:
             env["IS_SANDBOX"] = "1"
+        if inject_github_token:
+            gh_token = _get_github_token()
+            if gh_token:
+                env["GH_TOKEN"] = gh_token
+                env["GITHUB_TOKEN"] = gh_token
+                logger.debug("GitHub App token injected into subprocess env")
+            else:
+                logger.warning("inject_github_token=True but no GitHub App token available")
         return env
 
     async def run_plan(
@@ -436,6 +464,7 @@ class ClaudeCodeClient:
         working_dir: str,
         prompt: str,
         session_id: Optional[str] = None,
+        inject_github_token: bool = False,
     ) -> BackgroundSession:
         """Spawn a long-running Claude Code CLI session in the background.
 
@@ -448,6 +477,10 @@ class ClaudeCodeClient:
             working_dir: Working directory for the Claude Code session
             prompt: Initial prompt
             session_id: Optional CLI session ID for ``--resume``
+            inject_github_token: When True, fetch a GitHub App installation
+                token and inject it as GH_TOKEN and GITHUB_TOKEN so the
+                Claude Code subprocess can push branches and open PRs without
+                interactive auth prompts.
 
         Returns:
             BackgroundSession tracking the running process.
@@ -467,7 +500,7 @@ class ClaudeCodeClient:
             cmd.extend(["--resume", session_id])
         cmd.extend(["-p", prompt])
 
-        env = self._build_env()
+        env = self._build_env(inject_github_token=inject_github_token)
 
         logger.info(
             "Starting background Claude Code session (cwd=%s, resume=%s)",
