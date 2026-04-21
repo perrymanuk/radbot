@@ -97,7 +97,7 @@ export function useWebSocket(sessionId: string | null) {
 
         // Request history
         ws.send(
-          JSON.stringify({ type: "history_request", limit: 50 }),
+          JSON.stringify({ type: "history_request", limit: 200 }),
         );
       };
 

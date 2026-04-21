@@ -949,14 +949,14 @@ async def websocket_endpoint(
             )
 
         # Process history_request messages
-        async def handle_history_request(limit=50):
+        async def handle_history_request(limit=200):
             logger.debug(
                 f"Handling history request for session {session_id}, limit={limit}"
             )
 
             # Try to load history from persistent database first
             try:
-                db_messages = chat_operations.get_messages_by_session_id(
+                db_messages = chat_operations.get_recent_messages_by_session_id(
                     session_id=session_id, limit=limit
                 )
                 if db_messages:

@@ -1164,8 +1164,9 @@ class SessionRunner:
 
             from radbot.web.db import chat_operations
 
-            db_messages = chat_operations.get_messages_by_session_id(
-                self.session_id, limit=30
+            MAX_HISTORY = 15
+            db_messages = chat_operations.get_recent_messages_by_session_id(
+                self.session_id, limit=MAX_HISTORY
             )
             if not db_messages:
                 logger.debug("No DB history found for session %s", self.session_id)
@@ -1176,8 +1177,7 @@ class SessionRunner:
                 if hasattr(self._root_agent, "name")
                 else self.agent_name
             )
-            MAX_HISTORY = 15
-            recent = db_messages[-MAX_HISTORY:]
+            recent = db_messages
 
             loaded = 0
             current_invocation_id = str(uuid.uuid4())
