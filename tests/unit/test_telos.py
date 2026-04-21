@@ -479,9 +479,7 @@ class TestToolsLayer:
     def test_update_entry_invalid_status(self):
         from radbot.tools.telos import telos_tools
 
-        out = telos_tools.telos_update_entry(
-            "explorations", "EX1", status="flying"
-        )
+        out = telos_tools.telos_update_entry("explorations", "EX1", status="flying")
         assert out["status"] == "error"
         assert "flying" in out["message"]
 
@@ -557,9 +555,17 @@ class TestScoutTelosTools:
             telos_update_entry_tool,
         )
 
-        tool_fns = {getattr(t, "func", None).__name__ for t in SCOUT_TELOS_TOOLS if getattr(t, "func", None)}
-        assert "telos_update_entry" in tool_fns, "telos_update_entry missing from SCOUT_TELOS_TOOLS"
-        assert "telos_delete_entry" in tool_fns, "telos_delete_entry missing from SCOUT_TELOS_TOOLS"
+        tool_fns = {
+            getattr(t, "func", None).__name__
+            for t in SCOUT_TELOS_TOOLS
+            if getattr(t, "func", None)
+        }
+        assert (
+            "telos_update_entry" in tool_fns
+        ), "telos_update_entry missing from SCOUT_TELOS_TOOLS"
+        assert (
+            "telos_delete_entry" in tool_fns
+        ), "telos_delete_entry missing from SCOUT_TELOS_TOOLS"
 
         # FunctionTool objects are present by identity.
         assert telos_update_entry_tool in SCOUT_TELOS_TOOLS

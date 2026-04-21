@@ -601,7 +601,9 @@ def telos_delete_entry(section: str, ref_code: str, reason: str = "") -> Dict[st
 
     def _do():
         if sec not in _SCOUT_WRITABLE_SECTIONS:
-            valid = ", ".join(s.value for s in sorted(_SCOUT_WRITABLE_SECTIONS, key=lambda s: s.value))
+            valid = ", ".join(
+                s.value for s in sorted(_SCOUT_WRITABLE_SECTIONS, key=lambda s: s.value)
+            )
             return {
                 "status": "error",
                 "message": (
