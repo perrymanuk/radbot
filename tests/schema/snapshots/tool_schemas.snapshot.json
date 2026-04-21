@@ -4354,6 +4354,45 @@
       }
     },
     {
+      "name": "poll_claude_session",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "poll_claude_sessionInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "reply_claude_session",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "reply"
+        ],
+        "title": "reply_claude_sessionInput",
+        "type": "object"
+      }
+    },
+    {
       "name": "repo_map",
       "agent": "scout",
       "json_schema": {
@@ -4658,6 +4697,40 @@
           "plan"
         ],
         "title": "should_convene_councilInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "start_claude_session",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "target_dir": {
+            "title": "Target Dir",
+            "type": "string"
+          },
+          "resume_session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resume Session Id"
+          }
+        },
+        "required": [
+          "prompt",
+          "target_dir"
+        ],
+        "title": "start_claude_sessionInput",
         "type": "object"
       }
     },
