@@ -126,13 +126,41 @@ def _git_env() -> Dict[str, str]:
     }
 
 
+def _maybe_authenticate_github_url(url: str) -> str:
+    """Rewrite a github.com URL to use a GitHub App installation token.
+
+    No-op for non-github hosts or when the App is not configured. Lets us
+    clone private repos the App has been granted access to (e.g. perrymanuk/*)
+    and lifts the unauthenticated-rate-limit ceiling for public ones.
+    """
+    parsed = urlparse(url)
+    if (parsed.hostname or "").lower() != "github.com":
+        return url
+    try:
+        from radbot.config.config_loader import config_loader
+
+        config_loader.load_db_config()
+        from radbot.tools.github.github_app_client import get_github_client
+
+        client = get_github_client()
+        if client is None:
+            return url
+        token = client._get_installation_token()
+    except Exception as e:
+        logger.debug("GitHub App token mint failed, falling back to anon clone: %s", e)
+        return url
+    return f"https://x-access-token:{token}@github.com{parsed.path}"
+
+
 def repo_sync(repo_url: str, repo_name: str) -> Dict[str, Any]:
-    """Clone or fast-forward-pull a public git repo into ``/data/repos/<repo_name>``.
+    """Clone or fast-forward-pull a git repo into ``/data/repos/<repo_name>``.
 
     Args:
-        repo_url: Full https URL to a public repo. Allowlisted hosts:
-            github.com, gitlab.com, bitbucket.org, codeberg.org, git.sr.ht.
-            Credentials embedded in the URL are rejected.
+        repo_url: Full https URL. Allowlisted hosts: github.com, gitlab.com,
+            bitbucket.org, codeberg.org, git.sr.ht. Credentials embedded in
+            the URL are rejected. github.com URLs are transparently rewritten
+            to use the configured GitHub App installation token, which enables
+            cloning private repos the App has access to.
         repo_name: Local directory name (alnum, dot, dash, underscore — no slashes).
 
     Returns:
@@ -149,12 +177,23 @@ def repo_sync(repo_url: str, repo_name: str) -> Dict[str, Any]:
     if not git:
         return {"status": "error", "error": "git binary not found on PATH"}
 
+    auth_url = _maybe_authenticate_github_url(url)
+
     if (target / ".git").exists():
         action = "pull"
+        # Refresh the remote URL so a previously-minted (now-expired) token is
+        # replaced with a fresh one before pulling.
+        subprocess.run(
+            [git, "-C", str(target), "remote", "set-url", "origin", auth_url],
+            check=False,
+            capture_output=True,
+            timeout=10,
+            env=_git_env(),
+        )
         cmd = [git, "-C", str(target), "pull", "--ff-only", "--depth=1", "origin"]
     else:
         action = "clone"
-        cmd = [git, "clone", "--depth=1", "--single-branch", url, str(target)]
+        cmd = [git, "clone", "--depth=1", "--single-branch", auth_url, str(target)]
 
     try:
         proc = subprocess.run(
@@ -171,11 +210,15 @@ def repo_sync(repo_url: str, repo_name: str) -> Dict[str, Any]:
             "error": f"{action} timed out after {_GIT_TIMEOUT_S}s",
         }
 
+    # Strip any leaked installation token from git's output before returning.
+    def _redact(s: str) -> str:
+        return re.sub(r"x-access-token:[A-Za-z0-9_]+@", "x-access-token:***@", s)
+
     if proc.returncode != 0:
         return {
             "status": "error",
             "action": action,
-            "error": (proc.stderr or proc.stdout or "").strip()[:2000],
+            "error": _redact((proc.stderr or proc.stdout or "").strip())[:2000],
         }
 
     head = subprocess.run(
@@ -191,7 +234,7 @@ def repo_sync(repo_url: str, repo_name: str) -> Dict[str, Any]:
         "path": str(target),
         "action": action,
         "commit": head.stdout.strip(),
-        "output": (proc.stdout + proc.stderr).strip()[:2000],
+        "output": _redact((proc.stdout + proc.stderr).strip())[:2000],
     }
 
 
