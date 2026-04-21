@@ -151,9 +151,46 @@ def _ensure_onboarding_complete(workspace_dir: Optional[str] = None) -> None:
         logger.debug("Failed to write %s: %s", settings_json, e)
 
 
+# Common install paths checked when the CLI isn't on PATH. Covers the Dockerfile
+# symlink (`/usr/local/bin/claude`), distro packaging, and NPM global defaults
+# for both root and user installs.
+_CLAUDE_FALLBACK_PATHS = (
+    "/usr/local/bin/claude",
+    "/usr/bin/claude",
+    "/opt/homebrew/bin/claude",
+)
+
+
+def _resolve_claude_cli() -> Optional[str]:
+    """Locate the ``claude`` CLI executable.
+
+    Resolution order:
+      1. ``CLAUDE_CLI_PATH`` env var (explicit override)
+      2. ``shutil.which("claude")`` on the inherited PATH
+      3. A short list of common install paths (container symlink, brew, npm)
+      4. ``~/.npm-global/bin/claude`` (per-user npm prefix)
+    """
+    override = os.environ.get("CLAUDE_CLI_PATH")
+    if override and os.path.isfile(override) and os.access(override, os.X_OK):
+        return override
+
+    found = shutil.which("claude")
+    if found:
+        return found
+
+    from pathlib import Path
+
+    candidates = list(_CLAUDE_FALLBACK_PATHS)
+    candidates.append(str(Path.home() / ".npm-global" / "bin" / "claude"))
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
 def _claude_cli_available() -> bool:
-    """Check whether the ``claude`` CLI is on PATH."""
-    return shutil.which("claude") is not None
+    """Check whether the ``claude`` CLI can be located."""
+    return _resolve_claude_cli() is not None
 
 
 @dataclass
@@ -224,7 +261,8 @@ class ClaudeCodeClient:
         Returns:
             Dict with output, session_id, return_code, stderr
         """
-        cmd = ["claude", "--print", "--verbose", "--output-format", "stream-json"]
+        claude_bin = _resolve_claude_cli() or "claude"
+        cmd = [claude_bin, "--print", "--verbose", "--output-format", "stream-json"]
         if session_id:
             cmd.extend(["--resume", session_id])
         cmd.extend(["-p", prompt])
@@ -251,8 +289,9 @@ class ClaudeCodeClient:
         Returns:
             Dict with output, session_id, return_code, stderr
         """
+        claude_bin = _resolve_claude_cli() or "claude"
         cmd = [
-            "claude",
+            claude_bin,
             "--print",
             "--verbose",
             "--output-format",
@@ -297,7 +336,7 @@ class ClaudeCodeClient:
                 "output": "",
                 "session_id": None,
                 "return_code": -1,
-                "stderr": "claude CLI not found on PATH",
+                "stderr": "claude CLI not found — set CLAUDE_CLI_PATH or install the CLI",
             }
 
         output_parts: list[str] = []
@@ -415,8 +454,9 @@ class ClaudeCodeClient:
         """
         _ensure_onboarding_complete(working_dir)
 
+        claude_bin = _resolve_claude_cli() or "claude"
         cmd = [
-            "claude",
+            claude_bin,
             "--print",
             "--verbose",
             "--output-format",
@@ -575,7 +615,7 @@ def get_claude_code_status() -> Dict[str, Any]:
     if not cli_available:
         return {
             "status": "error",
-            "message": "claude CLI not found on PATH",
+            "message": "claude CLI not found — set CLAUDE_CLI_PATH or install the CLI",
             "cli_available": False,
             "token_configured": token_configured,
         }
@@ -598,8 +638,9 @@ def get_claude_code_status() -> Dict[str, Any]:
         else:
             env["CLAUDE_CODE_OAUTH_TOKEN"] = token
 
+        claude_bin = _resolve_claude_cli() or "claude"
         result = subprocess.run(
-            ["claude", "auth", "status"],
+            [claude_bin, "auth", "status"],
             capture_output=True,
             text=True,
             timeout=10,
