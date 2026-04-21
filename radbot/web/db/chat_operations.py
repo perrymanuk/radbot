@@ -313,6 +313,58 @@ def get_messages_by_session_id(
         return []
 
 
+def get_recent_messages_by_session_id(
+    session_id: str, limit: int = 50
+) -> List[Dict[str, Any]]:
+    """
+    Get the most recent N messages for a session, returned in chronological (ASC) order.
+
+    Used by WebSocket history load and agent-context rehydration, where the
+    tail of the conversation matters — not the head. Unlike
+    get_messages_by_session_id (which is ASC + offset-paginated for forward
+    scrollback), this runs DESC LIMIT then re-sorts ASC so the caller can feed
+    the result straight into the UI / LLM context.
+    """
+    if isinstance(session_id, str):
+        try:
+            session_id = uuid.UUID(session_id)
+        except ValueError:
+            logger.error(f"Invalid session_id format: {session_id}")
+            return []
+
+    sql = f"""
+        SELECT * FROM (
+            SELECT message_id, session_id, role, content, agent_name,
+                   timestamp, user_id, metadata
+            FROM {CHAT_SCHEMA}.chat_messages
+            WHERE session_id = %s
+            ORDER BY timestamp DESC
+            LIMIT %s
+        ) sub
+        ORDER BY timestamp ASC;
+    """
+
+    try:
+        with get_chat_db_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute(sql, (session_id, limit))
+                results = cursor.fetchall()
+
+                messages = []
+                for row in results:
+                    message = dict(row)
+                    message["message_id"] = str(message["message_id"])
+                    message["session_id"] = str(message["session_id"])
+                    if message["timestamp"]:
+                        message["timestamp"] = message["timestamp"].isoformat()
+                    messages.append(message)
+
+                return messages
+    except Exception as e:
+        logger.error(f"Error getting recent messages for session {session_id}: {e}")
+        return []
+
+
 def create_or_update_session(
     session_id: str,
     name: Optional[str] = None,
