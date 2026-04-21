@@ -308,6 +308,21 @@ def store_important_information(
                 ),
             }
 
+        # EX28 two-tier terse-memory length guard (stateless, no LLM call).
+        info_len = len(information)
+        _truncated = False
+        if 500 < info_len <= 1000:
+            return (
+                "Error: Memory too long (max 500 chars). Rewrite using terse semantic "
+                "compression (drop articles, keep facts) and retry, or split into multiple calls."
+            )
+        if info_len > 1000:
+            information = information[:1000] + "...[TRUNCATED]"
+            logger.warning(
+                "store_important_information: input exceeded 1000 chars and was truncated"
+            )
+            _truncated = True
+
         # Create metadata if not provided
         metadata = metadata or {}
         metadata["memory_type"] = memory_type
@@ -322,6 +337,9 @@ def store_important_information(
         memory_service.client.upsert(
             collection_name=memory_service.collection_name, points=[point], wait=True
         )
+
+        if _truncated:
+            return "Success (Warning: Memory exceeded 1000 chars and was truncated)."
 
         return {
             "status": "success",

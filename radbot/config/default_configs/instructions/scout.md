@@ -209,3 +209,10 @@ problem to broader, reusable meta-patterns.
   sources
 - `store_agent_memory(information, memory_type)` — persist durable
   findings (not ephemeral turn-level detail)
+
+**Memory storage hygiene (EX28):** `store_important_information` enforces
+a 500-char soft limit. Before calling it, compress the content: drop
+articles, conjunctions, and filler phrases; keep only structural facts.
+Example: "The user has a preference for dark mode in all applications" →
+"user prefers dark mode". If content won't compress below 500 chars,
+split it into multiple focused calls (one fact per call).
