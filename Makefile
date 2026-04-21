@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-affected test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean test-mutation-diff
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -45,7 +45,6 @@ help:
 	@echo "e2e test targets (Docker-based):"
 	@echo "  make test-e2e                     # API e2e: pytest tests/e2e against Docker stack"
 	@echo "  make test-e2e-browser             # Browser e2e: Playwright against Docker stack at :8001"
-	@echo "  make test-e2e-browser-affected    # Same, but only specs whose covered files changed"
 	@echo "  make test-e2e-browser-dev         # Browser e2e against Vite dev server (no Docker)"
 	@echo "  make test-e2e-up                  # Start docker stack for manual test runs"
 	@echo "  make test-e2e-down                # Tear down docker stack"
@@ -70,6 +69,29 @@ test-unit:
 
 test-integration:
 	$(PYTEST) tests/integration
+
+# Diff-scoped mutation testing (EX18 / PT49).
+# Runs mutmut ONLY on radbot/*.py files changed vs DIFF_BASE (default: origin/main),
+# then pipes results through scripts/mutation-summary.py for agent-readable output.
+#
+# Usage:
+#   make test-mutation-diff                    # diff vs origin/main
+#   make test-mutation-diff DIFF_BASE=HEAD~1   # diff vs previous commit
+#   make test-mutation-diff MIN_SCORE=80       # fail if score < 80%
+#
+# Never run global mutation testing in this repo — it breaks pipelines on timeout.
+DIFF_BASE ?= origin/main
+MIN_SCORE ?= 70
+test-mutation-diff:
+	@CHANGED=$$(git diff --name-only --diff-filter=AM $(DIFF_BASE)...HEAD -- 'radbot/*.py' ':!radbot/web/frontend/*'); \
+	if [ -z "$$CHANGED" ]; then \
+		echo "No changed radbot/*.py files vs $(DIFF_BASE); skipping."; \
+		exit 0; \
+	fi; \
+	echo "Mutating (diff vs $(DIFF_BASE)):"; echo "$$CHANGED" | sed 's/^/  /'; \
+	PATHS=$$(echo "$$CHANGED" | paste -sd,); \
+	$(UV) run mutmut run --paths-to-mutate="$$PATHS" --runner="$(PYTEST) -x -q tests/unit" || true; \
+	$(PYTHON) scripts/mutation-summary.py --min-score $(MIN_SCORE)
 
 # Internal helper: bring stack up, seed dev credentials, restart, wait healthy.
 # Used by test-e2e and test-e2e-browser to share the bootstrap step.
@@ -100,17 +122,6 @@ test-e2e-browser: _test-e2e-prepare
 	cd radbot/web/frontend && PLAYWRIGHT_BASE_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
 		RADBOT_ADMIN_TOKEN=$$(cd ../../../ && grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
 		npm run test:e2e ; \
-	EXIT_CODE=$$? ; \
-	cd ../../.. && docker compose down ; \
-	exit $$EXIT_CODE
-
-# Browser e2e — only the specs whose covered files changed vs origin/main.
-test-e2e-browser-affected: _test-e2e-prepare
-	cd radbot/web/frontend && npm run build
-	cd radbot/web/frontend && PLAYWRIGHT_BASE_URL=http://localhost:$${RADBOT_EXPOSED_PORT:-8001} \
-		RADBOT_ADMIN_TOKEN=$$(cd ../../../ && grep '^RADBOT_ADMIN_TOKEN=' .env | cut -d= -f2-) \
-		BASE_REF=$${BASE_REF:-origin/main} \
-		npm run test:e2e:affected ; \
 	EXIT_CODE=$$? ; \
 	cd ../../.. && docker compose down ; \
 	exit $$EXIT_CODE

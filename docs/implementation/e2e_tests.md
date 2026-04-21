@@ -5,16 +5,8 @@ How-to for working with the Playwright suite. Spec is in `specs/testing.md`.
 ## Adding a new spec
 
 1. Add the file to `radbot/web/frontend/e2e/specs/your-feature.spec.ts`.
-2. Add an entry to `radbot/web/frontend/e2e/coverage-map.json`:
-   ```json
-   "specs/your-feature.spec.ts": [
-     "radbot/web/frontend/src/pages/YourFeaturePage.tsx",
-     "radbot/web/frontend/src/components/your-feature/**",
-     "radbot/web/api/your_feature.py"
-   ]
-   ```
-3. If your feature changes a shared file (`App.tsx`, `app-store.ts`, `lib/api.ts`, …), add it to `alwaysRun` so any change to it triggers the full suite.
-4. Add `data-test` attributes to the React components you assert on. Naming: `kebab-case-feature-element` (e.g. `your-feature-submit`).
+2. Add `data-test` attributes to the React components you assert on. Naming: `kebab-case-feature-element` (e.g. `your-feature-submit`). Register new attributes in `specs/web.md` § `data-test` attribute convention.
+3. That's it — CI runs the full suite every run (EX25 / PT73 removed the manual coverage-map layer). No mapping step required.
 
 ## Adding a new chat scenario
 
@@ -37,7 +29,6 @@ The judge model uses your `expect` rubric verbatim. Be specific. Vague rubrics p
 |---|---|---|
 | Dev-server fast loop | `make test-e2e-browser-dev` | Authoring or debugging a spec; sub-second iteration |
 | Docker stack (CI parity) | `make test-e2e-browser` | Pre-push sanity check |
-| Affected-only against Docker | `make test-e2e-browser-affected` | Default after editing a frontend file |
 | Interactive UI | `cd radbot/web/frontend && npm run test:e2e:ui` | Stepping through a flaky test |
 | Headed | `cd radbot/web/frontend && npm run test:e2e:headed` | Watch the browser |
 
@@ -46,19 +37,6 @@ Prerequisites:
 - `ANTHROPIC_API_KEY` exported in shell or `.env.local`.
 - `GEMINI_API_KEY` in your dev DB credential store (already there if `make test-e2e` works).
 - One-time: `cd radbot/web/frontend && npm install && npx playwright install chromium`.
-
-## Selective run (how it picks specs)
-
-`select-affected.mjs` runs `git diff --name-only $BASE_REF...HEAD`, matches against `coverage-map.json`, and:
-
-- If the diff hits any `alwaysRun` glob → runs the full suite.
-- Else collects specs whose `specs[*]` patterns match → runs that subset.
-- If no specs match and no `alwaysRun` was hit → exits 0 with no run.
-
-Override the base ref:
-```bash
-BASE_REF=origin/feature-x make test-e2e-browser-affected
-```
 
 ## Failure triage
 

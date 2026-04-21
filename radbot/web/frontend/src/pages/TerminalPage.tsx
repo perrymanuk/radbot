@@ -195,9 +195,12 @@ export default function TerminalPage() {
   }, [activeTerminalId, activeSession, workspaces, sessions, showKillConfirm, handleKillRequest, createScratchWorkspace, openTerminal, setActiveTerminalId]);
 
   return (
-    <div className="flex flex-col h-full bg-bg-primary">
+    <div className="flex flex-col h-full bg-bg-primary" data-test="terminal-page">
       {/* Header bar */}
-      <div className="flex items-center px-2 py-1 bg-bg-tertiary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10 gap-2">
+      <div
+        className="flex items-center px-2 py-1 bg-bg-tertiary border-b border-border min-h-[44px] md:min-h-[40px] flex-shrink-0 z-10 gap-2"
+        data-test="terminal-header"
+      >
         {/* Left: title + status */}
         <div className="flex items-center gap-2 flex-shrink-0">
           <a

@@ -93,6 +93,11 @@
               "description": "Model for agentic coder specialized agent",
               "default": "gemini-2.5-pro"
             },
+            "naming_model": {
+              "type": "string",
+              "description": "Cheap model used by the session auto-naming service (radbot/services/session_naming.py). Falls back to main_model when unset. Overridable at runtime via RADBOT_NAMING_MODEL.",
+              "default": "gemini-2.5-flash"
+            },
             "utility_agent_model": {
               "type": "string",
               "description": "Model for utility specialized agent",
@@ -113,6 +118,11 @@
         "use_vertex_ai": {
           "type": "boolean",
           "description": "Whether to use Vertex AI for model API access",
+          "default": false
+        },
+        "terse_protocol_enabled": {
+          "type": "boolean",
+          "description": "Enable the Terse JSON Protocol for sub-agent \u2192 Beto output compression. Attaches before/after model callbacks to casa, planner, comms, axel, and kidsvid. Env override: RADBOT_TERSE_PROTOCOL_ENABLED.",
           "default": false
         },
         "vertex_project": {

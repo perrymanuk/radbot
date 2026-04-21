@@ -77,7 +77,7 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 
 | File | Prefix | Purpose |
 |------|--------|---------|
-| `api/sessions.py` | `/api/sessions` | Session CRUD + `GET /{id}/stats` (token/cost totals) + reset |
+| `api/sessions.py` | `/api/sessions` | Session CRUD + `GET /{id}/stats` (token/cost totals) + reset + `POST /{id}/auto-name` (backs the UI's `/name` slash command — calls `radbot.services.session_naming.auto_name_session` and returns `{status: "success", name}` or `{status: "error", detail}`; 200 in both cases so the client can surface the reason inline) |
 | `api/messages.py` | `/api/messages` | Chat message history |
 | `api/events.py` | `/api/events` | Event log per session |
 | `api/agent_info.py` | `/api/agents` + `/api/claude` | Dynamic agent roster (reads live `root_agent.sub_agents`) + Claude metadata |
@@ -224,6 +224,7 @@ Visualizes the Telos project hierarchy: project → milestones → tasks (groupe
 - **Task status buckets**: canonical set is `inprogress | backlog | done`, with a catch-all `other` bucket for non-canonical values (data hygiene surface until the status field is canonicalized in the DB).
 - **API client**: `lib/telos-api.ts` — typed fetch wrappers for the two unauth'd read endpoints. No admin bearer.
 - **Header link**: `ChatHeader.tsx` PROJ button next to TERM.
+- **Per-agent mascot**: `ChatHeader.tsx` swaps mascot image + wordmark based on the active session's `agent_name` — `scout` → `scout.jpeg` + `SCOUT`, otherwise → `radbot.png` + `RADBOT`. Source images in `radbot/web/frontend/public/`.
 
 ### Admin Panel Modules (`components/admin/panels/`)
 
@@ -298,5 +299,7 @@ Currently seeded:
 - `chat-input`, `chat-send` (`components/chat/ChatInput.tsx`)
 - `message-assistant`, `message-user`, `message-system` + `data-agent` attribute (`components/chat/ChatMessage.tsx`)
 - `admin-login-prompt`, `admin-login-error`, `admin-token-input`, `admin-token-submit`, `admin-dashboard`, `admin-sidebar`, `admin-group-<group>`, `admin-nav-<id>` + `data-status` (`pages/AdminPage.tsx`)
+- `terminal-page`, `terminal-header` (`pages/TerminalPage.tsx`)
+- `notifications-page`, `notifications-header`, `notifications-empty-state` (`pages/NotificationsPage.tsx`)
 
 Add a new `data-test` attribute when writing the first spec that needs to assert on the element. Screenshot fixtures live alongside specs at `radbot/web/frontend/e2e/fixtures/screenshot.ts`. See `specs/testing.md` for the full e2e architecture.

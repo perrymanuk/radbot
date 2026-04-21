@@ -61,6 +61,7 @@ dev = [
     "pytest-mock>=3.10.0",
     "pytest-asyncio>=0.24.0",
     "pytest-timeout>=2.3.0",
+    "mutmut>=2.5.0",                   # Diff-scoped mutation testing (EX18 / PT49)
 ]
 
 web = [

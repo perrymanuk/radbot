@@ -89,6 +89,15 @@ def _build_scout_toolkit() -> List[Any]:
     except Exception as e:
         logger.warning("Scout: divergent_ideation unavailable: %s", e)
 
+    # Claude Code async kickoff/poll/reply — lets Scout hand a finalized plan
+    # to Claude Code without blocking her turn. See EX26 / PT77 in Telos.
+    try:
+        from radbot.tools.claude_code_session import CLAUDE_SESSION_TOOLS
+
+        toolkit.extend(CLAUDE_SESSION_TOOLS)
+    except Exception as e:
+        logger.warning("Scout: claude_code_session tools unavailable: %s", e)
+
     return toolkit
 
 

@@ -43,18 +43,56 @@ WATCH_TIMEOUT_MIN=20
 
 ## Phase 2 — Branch + worktree
 
+### 2a. Pre-flight the main checkout
+
+Before creating any worktree, audit `$REPO_ROOT` for *unrelated* dirty state:
+
+```bash
+cd $REPO_ROOT
+git status --porcelain
+```
+
+Compare the dirty files against what the user actually wants to ship (ask the user to confirm the scope if ambiguous). If there are modified or untracked files that are NOT part of this ship (e.g. leftovers from a previous abandoned ship, or separate in-progress work), **stop and ask** — do not silently sweep them into the worktree and do not discard them. Typical resolutions:
+
+- Stash the unrelated work under a named entry (`git stash push -u -m "<description>" -- <files>`)
+- Move it to its own branch
+- Commit it separately first
+
+Only proceed once every dirty file in `$REPO_ROOT` is either (a) part of this ship or (b) explicitly acknowledged by the user as safe to leave behind.
+
+### 2b. Create the worktree
+
 ```bash
 cd $REPO_ROOT
 git fetch origin $DEFAULT_BRANCH
 git worktree add $WORKTREE_ROOT/radbot-ship-$SLUG -b ship/$SLUG origin/$DEFAULT_BRANCH
-cd $WORKTREE_ROOT/radbot-ship-$SLUG
 ```
 
 If `ship/$SLUG` already exists, ask whether to reuse (`-B` to reset) or create with a `-N` suffix.
 
-Apply the user's pending work into the worktree:
-- If the work is on a branch already → skip the worktree and just push that branch.
-- If it's in the main checkout → cherry-pick or copy modified files. Confirm with user before any destructive operation.
+### 2c. Hand off the work via stash (atomic — no leftovers)
+
+This is the step where prior versions of /ship left a mess. The *only* supported hand-off is a named stash, which moves the work out of `$REPO_ROOT` atomically:
+
+```bash
+# Still in $REPO_ROOT. List the exact files to ship (never -A).
+STASH_MSG="ship/$SLUG handoff"
+git stash push -u -m "$STASH_MSG" -- <each-changed-file>
+
+# Now $REPO_ROOT is clean. Apply the stash inside the worktree.
+cd $WORKTREE_ROOT/radbot-ship-$SLUG
+git stash show -p --include-untracked "stash@{0}" | git apply --index
+# Drop the stash only after confirming the worktree tree looks right:
+git stash drop "stash@{0}"
+```
+
+If work was already on a branch → skip this entire section and just `git push -u origin <branch>` from that branch instead of creating a ship/ branch.
+
+**Invariants after 2c:**
+- `cd $REPO_ROOT && git status --porcelain` → empty
+- `cd $WORKTREE_ROOT/radbot-ship-$SLUG && git status --porcelain` → shows the handed-off changes
+
+If either invariant fails, stop and ask.
 
 From here, every command runs in the worktree.
 
@@ -77,7 +115,7 @@ npm ci
 npm run lint                # eslint .
 npx tsc --noEmit            # TypeScript static type check
 npm run build               # catches import / prop-type issues missed by lint
-BASE_REF=origin/main npm run test:e2e:affected
+npm run test:e2e            # full Playwright suite (manual coverage-map was removed in EX25 / PT73)
 cd ../../..
 ```
 
@@ -251,6 +289,10 @@ The skill has NO authority to bypass branch protection or path-guard — it only
 
 ## Phase 12 — Cleanup
 
+Cleanup has two halves. **Both** must run after a successful merge or the main checkout drifts out of sync with `origin/main` and the next /ship invocation sees phantom "leftover" changes.
+
+### 12a. Remove the worktree
+
 Remind the user the worktree is at `$WORKTREE_ROOT/radbot-ship-$SLUG` and offer to remove on confirmation:
 
 ```bash
@@ -259,6 +301,22 @@ git worktree remove $WORKTREE_ROOT/radbot-ship-$SLUG
 ```
 
 Don't auto-clean — the user may want to inspect.
+
+### 12b. Fast-forward the main checkout (only if the PR was merged)
+
+If Phase 11 merged the PR, sync `$REPO_ROOT` to the new `origin/main` so the next session starts from a clean, current tree:
+
+```bash
+cd $REPO_ROOT
+# Sanity check: main checkout should be clean. If it isn't, something leaked —
+# stop and ask rather than pulling over dirty state.
+test -z "$(git status --porcelain)" || { echo "WARN: $REPO_ROOT is dirty — skipping pull, investigate"; exit 0; }
+git switch $DEFAULT_BRANCH 2>/dev/null || true
+git fetch origin $DEFAULT_BRANCH
+git pull --ff-only origin $DEFAULT_BRANCH
+```
+
+Skip 12b entirely on `--manual-merge` or if Phase 11 did not merge (score < threshold, user aborted, etc.) — the user owns the main checkout state in those cases.
 
 ---
 

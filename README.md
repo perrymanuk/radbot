@@ -248,9 +248,6 @@ make test-e2e   # spins stack, seeds creds from your dev DB, runs pytest, tears 
 # Full suite against Docker stack at :8001
 make test-e2e-browser
 
-# Only specs whose covered files changed vs origin/main (recommended default)
-make test-e2e-browser-affected
-
 # Fast dev loop against Vite :5173 + already-running FastAPI :8000 (no Docker)
 make test-e2e-browser-dev
 ```

@@ -10,6 +10,7 @@ Tools:
 - ``repo_sync`` / ``repo_search`` — PT34 (clone + ripgrep neighborhood matches).
 - ``repo_map`` — PT35 (universal-ctags structural skeleton per file).
 - ``repo_references`` — PT35 (ctags-for-defs + rg-word-boundary for usages).
+- ``repo_read`` — PT36 (jailed file-slice read so Scout can quote a specific range).
 
 EX9 originally specified GitHub's ``stack-graphs`` for cross-file references.
 That project is archived/source-only — no prebuilt binaries — so we use
@@ -579,14 +580,133 @@ def repo_references(
     }
 
 
+_READ_MAX_LINES = 2000  # absolute hard cap per call
+_READ_DEFAULT_LINES = 500  # default slice when caller doesn't specify
+_READ_LINE_TRUNC = 4096  # individual line cap (chars)
+_READ_BINARY_PROBE_BYTES = 8192  # how much we sniff for binary detection
+
+
+def _looks_binary(path: Path) -> bool:
+    """Return True if the first ``_READ_BINARY_PROBE_BYTES`` contain a NUL byte."""
+    try:
+        with path.open("rb") as fh:
+            chunk = fh.read(_READ_BINARY_PROBE_BYTES)
+    except OSError:
+        return False
+    return b"\x00" in chunk
+
+
+def repo_read(
+    repo_name: str,
+    path: str,
+    start_line: int = 1,
+    end_line: Optional[int] = None,
+    max_lines: int = _READ_DEFAULT_LINES,
+) -> Dict[str, Any]:
+    """Read a slice of a text file from a synced repo.
+
+    Use this after ``repo_map`` / ``repo_search`` / ``repo_references`` give
+    you a ``(path, line)`` of interest, when you want to actually quote the
+    surrounding code.
+
+    Args:
+        repo_name: Name of a previously-synced repo under ``/data/repos``.
+        path: Repo-relative path to a text file.
+        start_line: 1-indexed first line to return. Default 1.
+        end_line: 1-indexed last line (inclusive). If omitted, reads
+            ``min(max_lines, _READ_MAX_LINES)`` lines from ``start_line``.
+        max_lines: Cap when ``end_line`` is omitted (1..2000). Default 500.
+
+    Returns:
+        ``{status, repo_name, path, total_lines, start, end, lines:
+        [{n, text, truncated?}], truncated_range, eof}``. Long individual
+        lines are truncated to 4096 chars and marked with ``truncated: true``.
+        Refuses binary files (NUL byte in the first 8KB).
+    """
+    try:
+        repo_dir = _validate_repo_name(repo_name)
+        if not repo_dir.exists():
+            return {
+                "status": "error",
+                "error": f"repo {repo_name!r} not synced; call repo_sync first",
+            }
+        target = _validate_subpath(repo_dir, path)
+    except ValueError as e:
+        return {"status": "error", "error": str(e)}
+
+    if not target.exists():
+        return {"status": "error", "error": f"path {path!r} does not exist"}
+    if not target.is_file():
+        return {"status": "error", "error": f"path {path!r} is not a regular file"}
+    if _looks_binary(target):
+        return {"status": "error", "error": f"path {path!r} appears to be binary"}
+
+    try:
+        start_line = max(1, int(start_line))
+    except (TypeError, ValueError):
+        return {"status": "error", "error": "start_line must be an integer ≥ 1"}
+    max_lines = max(1, min(_READ_MAX_LINES, int(max_lines)))
+
+    if end_line is None:
+        end_line_eff = start_line + max_lines - 1
+    else:
+        try:
+            end_line_eff = max(start_line, int(end_line))
+        except (TypeError, ValueError):
+            return {
+                "status": "error",
+                "error": "end_line must be an integer ≥ start_line",
+            }
+        # Even when end_line is given, refuse to ship more than the absolute cap.
+        end_line_eff = min(end_line_eff, start_line + _READ_MAX_LINES - 1)
+
+    lines_out: List[Dict[str, Any]] = []
+    total_lines = 0
+    eof = False
+    try:
+        with target.open("r", encoding="utf-8", errors="replace") as fh:
+            for n, raw in enumerate(fh, start=1):
+                total_lines = n
+                if n < start_line:
+                    continue
+                if n > end_line_eff:
+                    # Keep counting so total_lines is accurate, but stop collecting.
+                    continue
+                text = raw.rstrip("\n")
+                if len(text) > _READ_LINE_TRUNC:
+                    lines_out.append(
+                        {"n": n, "text": text[:_READ_LINE_TRUNC], "truncated": True}
+                    )
+                else:
+                    lines_out.append({"n": n, "text": text})
+            eof = total_lines <= end_line_eff
+    except OSError as e:
+        return {"status": "error", "error": f"read failed: {e}"}
+
+    return {
+        "status": "success",
+        "repo_name": repo_name,
+        "path": str(target.relative_to(repo_dir)),
+        "total_lines": total_lines,
+        "start": start_line,
+        "end": min(end_line_eff, total_lines),
+        "lines": lines_out,
+        "truncated_range": (end_line_eff - start_line + 1) >= _READ_MAX_LINES
+        and not eof,
+        "eof": eof,
+    }
+
+
 repo_sync_tool = FunctionTool(repo_sync)
 repo_search_tool = FunctionTool(repo_search)
 repo_map_tool = FunctionTool(repo_map)
 repo_references_tool = FunctionTool(repo_references)
+repo_read_tool = FunctionTool(repo_read)
 
 REPO_EXPLORATION_TOOLS: List[Any] = [
     repo_sync_tool,
     repo_search_tool,
     repo_map_tool,
     repo_references_tool,
+    repo_read_tool,
 ]

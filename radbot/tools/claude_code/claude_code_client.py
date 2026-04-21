@@ -13,7 +13,9 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import Any, Dict, Optional
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -149,9 +151,70 @@ def _ensure_onboarding_complete(workspace_dir: Optional[str] = None) -> None:
         logger.debug("Failed to write %s: %s", settings_json, e)
 
 
+# Common install paths checked when the CLI isn't on PATH. Covers the Dockerfile
+# symlink (`/usr/local/bin/claude`), distro packaging, and NPM global defaults
+# for both root and user installs.
+_CLAUDE_FALLBACK_PATHS = (
+    "/usr/local/bin/claude",
+    "/usr/bin/claude",
+    "/opt/homebrew/bin/claude",
+)
+
+
+def _resolve_claude_cli() -> Optional[str]:
+    """Locate the ``claude`` CLI executable.
+
+    Resolution order:
+      1. ``CLAUDE_CLI_PATH`` env var (explicit override)
+      2. ``shutil.which("claude")`` on the inherited PATH
+      3. A short list of common install paths (container symlink, brew, npm)
+      4. ``~/.npm-global/bin/claude`` (per-user npm prefix)
+    """
+    override = os.environ.get("CLAUDE_CLI_PATH")
+    if override and os.path.isfile(override) and os.access(override, os.X_OK):
+        return override
+
+    found = shutil.which("claude")
+    if found:
+        return found
+
+    from pathlib import Path
+
+    candidates = list(_CLAUDE_FALLBACK_PATHS)
+    candidates.append(str(Path.home() / ".npm-global" / "bin" / "claude"))
+    for path in candidates:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
 def _claude_cli_available() -> bool:
-    """Check whether the ``claude`` CLI is on PATH."""
-    return shutil.which("claude") is not None
+    """Check whether the ``claude`` CLI can be located."""
+    return _resolve_claude_cli() is not None
+
+
+@dataclass
+class BackgroundSession:
+    """State for a long-running Claude Code CLI session.
+
+    Spawned by ``ClaudeCodeClient.start_background_session`` and managed by
+    a reader task that consumes the stream-json stdout. Poll the ``output``
+    / ``status`` / ``waiting_for_input`` fields; reply by writing to
+    ``proc.stdin`` via ``ClaudeCodeClient.send_input``.
+    """
+
+    job_id: str
+    proc: asyncio.subprocess.Process
+    working_dir: str
+    status: str = "running"  # running | waiting_for_input | complete | error
+    output: List[str] = field(default_factory=list)
+    stderr_chunks: List[str] = field(default_factory=list)
+    session_id: Optional[str] = None
+    return_code: Optional[int] = None
+    waiting_for_input: bool = False
+    pending_question: Optional[str] = None
+    reader_task: Optional[asyncio.Task] = None
+    stderr_task: Optional[asyncio.Task] = None
 
 
 class ClaudeCodeClient:
@@ -162,6 +225,19 @@ class ClaudeCodeClient:
             self._token = oauth_token
         else:
             self._token, _ = _get_auth_token()
+
+    def _build_env(self) -> Dict[str, str]:
+        """Build the subprocess environment with auth + sandbox flags."""
+        env = os.environ.copy()
+        if self._token:
+            if self._token.startswith("sk-ant-api"):
+                env["ANTHROPIC_API_KEY"] = self._token
+            else:
+                env["CLAUDE_CODE_OAUTH_TOKEN"] = self._token
+                _write_auth_token_files(self._token)
+        if os.getuid() == 0:
+            env["IS_SANDBOX"] = "1"
+        return env
 
     async def run_plan(
         self,
@@ -185,7 +261,8 @@ class ClaudeCodeClient:
         Returns:
             Dict with output, session_id, return_code, stderr
         """
-        cmd = ["claude", "--print", "--verbose", "--output-format", "stream-json"]
+        claude_bin = _resolve_claude_cli() or "claude"
+        cmd = [claude_bin, "--print", "--verbose", "--output-format", "stream-json"]
         if session_id:
             cmd.extend(["--resume", session_id])
         cmd.extend(["-p", prompt])
@@ -212,8 +289,9 @@ class ClaudeCodeClient:
         Returns:
             Dict with output, session_id, return_code, stderr
         """
+        claude_bin = _resolve_claude_cli() or "claude"
         cmd = [
-            "claude",
+            claude_bin,
             "--print",
             "--verbose",
             "--output-format",
@@ -236,20 +314,7 @@ class ClaudeCodeClient:
         Reads stdout line-by-line, collecting text content from stream-json
         events. Extracts session_id from the output for --resume support.
         """
-        env = os.environ.copy()
-        if self._token:
-            if self._token.startswith("sk-ant-api"):
-                # Standard Anthropic API key (sk-ant-api*)
-                env["ANTHROPIC_API_KEY"] = self._token
-            else:
-                # OAuth token (sk-ant-oat*) or setup-token: use OAuth path.
-                # ANTHROPIC_API_KEY must NOT be set — it disables OAuth mode.
-                env["CLAUDE_CODE_OAUTH_TOKEN"] = self._token
-                _write_auth_token_files(self._token)
-        # Allow --dangerously-skip-permissions when running as root inside a
-        # container.  Claude Code checks for IS_SANDBOX=1 to permit this.
-        if os.getuid() == 0:
-            env["IS_SANDBOX"] = "1"
+        env = self._build_env()
 
         logger.info(
             "Running Claude Code: %s (cwd=%s)",
@@ -271,7 +336,7 @@ class ClaudeCodeClient:
                 "output": "",
                 "session_id": None,
                 "return_code": -1,
-                "stderr": "claude CLI not found on PATH",
+                "stderr": "claude CLI not found — set CLAUDE_CLI_PATH or install the CLI",
             }
 
         output_parts: list[str] = []
@@ -364,6 +429,182 @@ class ClaudeCodeClient:
             "stderr": stderr_text,
         }
 
+    # ── Background session (kickoff / poll / reply) ─────────────
+
+    async def start_background_session(
+        self,
+        working_dir: str,
+        prompt: str,
+        session_id: Optional[str] = None,
+    ) -> BackgroundSession:
+        """Spawn a long-running Claude Code CLI session in the background.
+
+        Runs with ``--dangerously-skip-permissions`` so routine file/bash
+        operations don't hang waiting for approval. Output is collected by
+        a reader task; the caller polls via the returned ``BackgroundSession``
+        and replies to prompt events by writing to ``proc.stdin``.
+
+        Args:
+            working_dir: Working directory for the Claude Code session
+            prompt: Initial prompt
+            session_id: Optional CLI session ID for ``--resume``
+
+        Returns:
+            BackgroundSession tracking the running process.
+        """
+        _ensure_onboarding_complete(working_dir)
+
+        claude_bin = _resolve_claude_cli() or "claude"
+        cmd = [
+            claude_bin,
+            "--print",
+            "--verbose",
+            "--output-format",
+            "stream-json",
+            "--dangerously-skip-permissions",
+        ]
+        if session_id:
+            cmd.extend(["--resume", session_id])
+        cmd.extend(["-p", prompt])
+
+        env = self._build_env()
+
+        logger.info(
+            "Starting background Claude Code session (cwd=%s, resume=%s)",
+            working_dir,
+            session_id or "(new)",
+        )
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=working_dir,
+            env=env,
+        )
+
+        session = BackgroundSession(
+            job_id=str(uuid.uuid4()),
+            proc=proc,
+            working_dir=working_dir,
+            session_id=session_id,
+        )
+        session.reader_task = asyncio.create_task(self._consume_stdout(session))
+        session.stderr_task = asyncio.create_task(self._consume_stderr(session))
+        return session
+
+    async def _consume_stdout(self, session: BackgroundSession) -> None:
+        """Parse stream-json stdout line-by-line and update session state."""
+        total = 0
+        proc = session.proc
+        assert proc.stdout is not None
+        try:
+            while True:
+                line = await proc.stdout.readline()
+                if not line:
+                    break
+                line_str = line.decode("utf-8", errors="replace").strip()
+                if not line_str:
+                    continue
+
+                try:
+                    event = json.loads(line_str)
+                except json.JSONDecodeError:
+                    if total < _MAX_OUTPUT_CHARS:
+                        session.output.append(line_str)
+                        total += len(line_str)
+                    continue
+
+                if "session_id" in event and event["session_id"]:
+                    session.session_id = event["session_id"]
+
+                event_type = event.get("type", "")
+
+                # Detect prompt/question events — CLI is waiting for a reply.
+                # Multiple possible signals: explicit permission/input request
+                # event types, or AskUserQuestion-style tool_use blocks.
+                if event_type in {
+                    "permission_request",
+                    "input_request",
+                    "ask_user_question",
+                }:
+                    session.waiting_for_input = True
+                    session.status = "waiting_for_input"
+                    session.pending_question = (
+                        event.get("question")
+                        or event.get("prompt")
+                        or event.get("message")
+                        or line_str
+                    )
+
+                if event_type in {"assistant", "result"}:
+                    for block in event.get("content", []) or []:
+                        btype = block.get("type")
+                        if btype == "text" and total < _MAX_OUTPUT_CHARS:
+                            text = block.get("text", "")
+                            session.output.append(text)
+                            total += len(text)
+                        elif btype == "tool_use":
+                            tool_name = (block.get("name") or "").lower()
+                            if "askuserquestion" in tool_name or tool_name in {
+                                "ask_user_question",
+                                "ask",
+                            }:
+                                session.waiting_for_input = True
+                                session.status = "waiting_for_input"
+                                session.pending_question = json.dumps(
+                                    block.get("input") or {}
+                                )
+                    if event_type == "result":
+                        result_text = event.get("result", "")
+                        if result_text and total < _MAX_OUTPUT_CHARS:
+                            session.output.append(result_text)
+                            total += len(result_text)
+        except Exception as e:
+            logger.warning("Claude background reader error: %s", e)
+            session.stderr_chunks.append(f"[reader error] {e}")
+        finally:
+            await proc.wait()
+            session.return_code = proc.returncode
+            if session.status != "waiting_for_input":
+                session.status = "complete" if (proc.returncode or 0) == 0 else "error"
+            logger.info(
+                "Claude background session finished: job_id=%s rc=%s session=%s",
+                session.job_id,
+                session.return_code,
+                session.session_id or "(none)",
+            )
+
+    async def _consume_stderr(self, session: BackgroundSession) -> None:
+        """Drain stderr into the session log."""
+        proc = session.proc
+        assert proc.stderr is not None
+        try:
+            while True:
+                chunk = await proc.stderr.readline()
+                if not chunk:
+                    break
+                session.stderr_chunks.append(chunk.decode("utf-8", errors="replace"))
+        except Exception as e:
+            logger.debug("stderr reader error: %s", e)
+
+    async def send_input(self, session: BackgroundSession, reply: str) -> None:
+        """Write a reply to the session's stdin and flush.
+
+        Raises:
+            RuntimeError if stdin is not available (process ended or pipe closed).
+        """
+        proc = session.proc
+        if proc.stdin is None or proc.stdin.is_closing():
+            raise RuntimeError("stdin not available on this session")
+        payload = reply if reply.endswith("\n") else reply + "\n"
+        proc.stdin.write(payload.encode("utf-8"))
+        await proc.stdin.drain()
+        session.waiting_for_input = False
+        session.pending_question = None
+        session.status = "running"
+
 
 def get_claude_code_status() -> Dict[str, Any]:
     """Check whether Claude Code CLI is available and token actually works."""
@@ -374,7 +615,7 @@ def get_claude_code_status() -> Dict[str, Any]:
     if not cli_available:
         return {
             "status": "error",
-            "message": "claude CLI not found on PATH",
+            "message": "claude CLI not found — set CLAUDE_CLI_PATH or install the CLI",
             "cli_available": False,
             "token_configured": token_configured,
         }
@@ -397,8 +638,9 @@ def get_claude_code_status() -> Dict[str, Any]:
         else:
             env["CLAUDE_CODE_OAUTH_TOKEN"] = token
 
+        claude_bin = _resolve_claude_cli() or "claude"
         result = subprocess.run(
-            ["claude", "auth", "status"],
+            [claude_bin, "auth", "status"],
             capture_output=True,
             text=True,
             timeout=10,

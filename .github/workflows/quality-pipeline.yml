@@ -205,6 +205,8 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras
       - run: make lint
+      - name: Tool schema drift lint (EX17 / PT46)
+        run: uv run python -m tests.schema.lint
       - id: score
         if: always()
         run: echo "score=${{ job.status == 'success' && '10' || '0' }}" >> "$GITHUB_OUTPUT"
@@ -251,7 +253,9 @@ jobs:
         run: make test-unit && make test-integration
       - id: score
         if: always()
-        run: echo "score=${{ job.status == 'success' && '20' || '0' }}" >> "$GITHUB_OUTPUT"
+        # Was 20/100; absorbed the retired coverage-delta slot (PT73 / PT74)
+        # so the aggregate still tops out at 100 without a no-op job.
+        run: echo "score=${{ job.status == 'success' && '30' || '0' }}" >> "$GITHUB_OUTPUT"
 
   # ──────────────────────────────────────────────────────────────────────
   # Heavy gate: functional e2e against full Docker stack with real LLMs
@@ -296,25 +300,19 @@ jobs:
           radbot_credential_key: ${{ secrets.RADBOT_CREDENTIAL_KEY }}
           tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           tailscale_oauth_secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
-      - name: Run affected Playwright specs
+      - name: Run Playwright specs
         working-directory: radbot/web/frontend
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:8001
           RADBOT_ADMIN_TOKEN: ${{ secrets.RADBOT_ADMIN_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
         run: |
-          # Bypass the sh -c wrapper from the npm script — env propagation is
-          # finicky through nested wrappers, and we want playwright to see
-          # PLAYWRIGHT_BASE_URL directly.
           echo "PLAYWRIGHT_BASE_URL=$PLAYWRIGHT_BASE_URL"
-          SPECS=$(node e2e/select-affected.mjs)
-          echo "Affected specs: '$SPECS'"
           # --config explicit because playwright.config.ts lives in e2e/, not
           # this cwd (radbot/web/frontend). Without it, Playwright doesn't
           # find the config and silently falls back to defaults — including
           # an undefined baseURL.
-          npx playwright test --config=e2e/playwright.config.ts $SPECS
+          npx playwright test --config=e2e/playwright.config.ts
       - name: Collect failure artifacts
         if: failure()
         run: |
@@ -521,10 +519,10 @@ jobs:
             echo "|---|---:|"
             echo "| Lint | ${LINT:-0}/10 |"
             echo "| Build | ${BUILD:-0}/10 |"
-            echo "| Unit + integration tests | ${UNIT:-0}/20 |"
+            echo "| Unit + integration tests | ${UNIT:-0}/30 |"
             echo "| Functional e2e | ${FUNCTIONAL:-0}/30 |"
             echo "| Visual regression | ${VISUAL:-0}/20 |"
-            echo "| **Total** | **$score / 90** |"
+            echo "| **Total** | **$score / 100** |"
             echo
             echo "Required: secret-scan=$SECRET_SCAN, path-guard auto_merge_blocked=$BLOCKED"
             if [ "$BLOCKED" = "true" ]; then

@@ -190,6 +190,24 @@ def register_sessions_router(app):
                 status_code=500, detail=f"Error creating session: {str(e)}"
             )
 
+    @router.post("/{session_id}/auto-name")
+    async def auto_name_session_endpoint(session_id: str = Path(...)):
+        """Generate and persist a short title for a session from its recent history.
+
+        Backs the UI's ``/name`` slash command. See
+        ``radbot.services.session_naming.auto_name_session`` for the behavior.
+        Returns ``{status: "success", name}`` on success or
+        ``{status: "error", detail}`` on failure — we keep it 200 in both
+        cases so the client can surface the reason as a system message
+        without branching on HTTP status.
+        """
+        from radbot.services.session_naming import auto_name_session
+
+        ok, result = auto_name_session(session_id)
+        if ok:
+            return {"status": "success", "name": result}
+        return {"status": "error", "detail": result}
+
     @router.put("/{session_id}/rename", response_model=SessionMetadata)
     async def update_session(
         session_id: str = Path(...),

@@ -189,11 +189,13 @@ export function AgentModelsPanel() {
 
   const [mainModel, setMainModel] = useState("");
   const [subAgentModel, setSubAgentModel] = useState("");
+  const [namingModel, setNamingModel] = useState("");
   const [googleCloudProject, setGoogleCloudProject] = useState("");
   const [enableSearch, setEnableSearch] = useState(false);
   const [enableCodeExec, setEnableCodeExec] = useState(false);
   const [sessionMode, setSessionMode] = useState(false);
   const [maxWorkers, setMaxWorkers] = useState("10");
+  const [terseProtocolEnabled, setTerseProtocolEnabled] = useState(false);
   // Map of config_key ("casa_agent") → override string ("" = inherit default)
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [overridesOpen, setOverridesOpen] = useState(false);
@@ -213,11 +215,15 @@ export function AgentModelsPanel() {
     if (agent.main_model) setMainModel(agent.main_model);
     else if (agent.model) setMainModel(agent.model); // legacy fallback
     if (agent.sub_agent_model) setSubAgentModel(agent.sub_agent_model);
+    if (agent.agent_models?.naming_model !== undefined) {
+      setNamingModel(agent.agent_models.naming_model || "");
+    }
     if (agent.google_cloud_project !== undefined) setGoogleCloudProject(agent.google_cloud_project || "");
     if (agent.enable_adk_search !== undefined) setEnableSearch(!!agent.enable_adk_search);
     if (agent.enable_adk_code_execution !== undefined) setEnableCodeExec(!!agent.enable_adk_code_execution);
     if (agent.session_mode !== undefined) setSessionMode(agent.session_mode === "remote");
     if (agent.max_session_workers !== undefined) setMaxWorkers(String(agent.max_session_workers));
+    if (agent.terse_protocol_enabled !== undefined) setTerseProtocolEnabled(!!agent.terse_protocol_enabled);
 
     const agentModels = agent.agent_models || {};
     const init: Record<string, string> = {};
@@ -243,6 +249,7 @@ export function AgentModelsPanel() {
       for (const [k, v] of Object.entries(overrides)) {
         if (v.trim()) agentModels[k] = v.trim();
       }
+      if (namingModel.trim()) agentModels.naming_model = namingModel.trim();
 
       await mergeConfigSection("agent", {
         main_model: mainModel,
@@ -252,6 +259,7 @@ export function AgentModelsPanel() {
         enable_adk_code_execution: enableCodeExec,
         session_mode: sessionMode ? "remote" : "local",
         max_session_workers: parseInt(maxWorkers, 10) || 10,
+        terse_protocol_enabled: terseProtocolEnabled,
         agent_models: agentModels,
       });
 
@@ -285,6 +293,13 @@ export function AgentModelsPanel() {
           />
         </FormRow>
         <FormInput
+          label="Session Naming Model"
+          value={namingModel}
+          onChange={setNamingModel}
+          placeholder="gemini-2.5-flash (leave blank to inherit Main Model)"
+          datalist={modelOptions}
+        />
+        <FormInput
           label="Google Cloud Project ID"
           value={googleCloudProject}
           onChange={setGoogleCloudProject}
@@ -307,6 +322,20 @@ export function AgentModelsPanel() {
             placeholder="10"
           />
         )}
+      </Card>
+
+      <Card title="Sub-Agent Output">
+        <Note>
+          Terse JSON Protocol: casa, planner, comms, axel, and kidsvid emit compressed JSON
+          (<code>summary</code> + <code>pass_through</code>) that Beto re-hydrates into prose.
+          Reduces sub-agent output tokens. Env override:{" "}
+          <code>RADBOT_TERSE_PROTOCOL_ENABLED</code>.
+        </Note>
+        <FormToggle
+          label="Enable Terse JSON Protocol"
+          checked={terseProtocolEnabled}
+          onChange={setTerseProtocolEnabled}
+        />
       </Card>
 
       {/* Collapsible Per-Agent Model Overrides */}

@@ -47,6 +47,10 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
 export default function ChatHeader() {
   const status = useAppStore((s) => s.connectionStatus);
   const agentInfo = useAppStore((s) => s.agentInfo);
+  const sessionAgent = useAppStore((s) => {
+    const sess = s.sessions.find((x) => x.id === s.sessionId);
+    return sess?.agent_name ?? "beto";
+  });
   const togglePanel = useAppStore((s) => s.togglePanel);
   const setActivePanel = useAppStore((s) => s.setActivePanel);
   const activePanel = useAppStore((s) => s.activePanel);
@@ -99,13 +103,16 @@ export default function ChatHeader() {
             aria-hidden
             className="mascot-sticker block w-[32px] h-[32px] sm:w-[38px] sm:h-[38px] flex-none rounded-md border-2 border-[#ff9966] bg-cover"
             style={{
-              backgroundImage: "url(/static/dist/radbot.png)",
-              backgroundSize: "260%",
-              backgroundPosition: "60% 30%",
+              backgroundImage:
+                sessionAgent === "scout"
+                  ? "url(/static/dist/scout.jpeg)"
+                  : "url(/static/dist/radbot.png)",
+              backgroundSize: sessionAgent === "scout" ? "140%" : "260%",
+              backgroundPosition: sessionAgent === "scout" ? "50% 30%" : "60% 30%",
             }}
           />
           <h1 className="hidden sm:block pixel-font text-[22px] text-txt-primary m-0 leading-none">
-            RADBOT
+            {sessionAgent === "scout" ? "SCOUT" : "RADBOT"}
           </h1>
 
           {modelName && (

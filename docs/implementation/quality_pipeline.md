@@ -19,8 +19,7 @@ Adding the label after a PR is opened: GH fires `pull_request.labeled`, the work
 | Upstream health | `upstream-health` | — | no | Pre-flight Gemini + Anthropic ping; cancels workflow on 5xx. |
 | Lint | `lint` | 10 | no | `make lint` |
 | Build | `build` | 10 | no | `npm run build` |
-| Unit + integration | `unit-tests` | 20 | no | `make test-unit && make test-integration` |
-| Coverage delta | `coverage-delta` | 10 | no | New `src/pages/*.tsx` requires `coverage-map.json` entry |
+| Unit + integration | `unit-tests` | 30 | no | `make test-unit && make test-integration` (absorbed the retired coverage-delta slot per PT74) |
 | Functional e2e | `functional-e2e` | 30 | no | Playwright against full Docker stack with real LLMs |
 | Visual regression | `visual-regression` | 20 | no | Anthropic vision diff of `@screenshot` specs |
 
@@ -72,9 +71,6 @@ Almost always one of:
 ### `visual-regression` low score on a styling-only PR
 Anthropic vision is reading the screenshots literally. Tighten the rubric in `scripts/visual_regression_compare.py` SYSTEM_PROMPT, or accept the deduction (visual regression is noisy by design — that's why it caps at 20 not 30).
 
-### `coverage-delta` fails
-You added a new `src/pages/*.tsx` without registering it. Edit `radbot/web/frontend/e2e/coverage-map.json` — either add a spec mapping or list it in `alwaysRun`.
-
 ### `secret-scan` fails
 gitleaks/trufflehog detected a possible credential in your diff. **Stop**. Rotate the credential immediately even if it was a false positive (assume any string matching the pattern leaked). Use `git history` rewrite + force-push only with explicit user permission.
 
@@ -98,7 +94,7 @@ To change the author allowlist:
 ## Local equivalent
 
 There isn't one for the aggregate score — devs run individual gates manually:
-- `make lint` / `make test-unit` / `make build-frontend` / `make test-e2e-browser-affected`
+- `make lint` / `make test-unit` / `make build-frontend` / `make test-e2e-browser`
 - The workflow is the pipeline definition; no duplication in shell scripts.
 
 For pre-PR validation: `/ship` skill runs the cheap subset locally before pushing.

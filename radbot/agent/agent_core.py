@@ -33,6 +33,10 @@ from radbot.callbacks.scope_to_current_turn import (
     scope_sub_agent_context_callback,
 )
 from radbot.callbacks.telemetry_callback import telemetry_after_model_callback
+from radbot.callbacks.terse_protocol import (
+    terse_protocol_after_model_callback,
+    terse_protocol_before_model_callback,
+)
 from radbot.config.config_loader import config_loader
 
 # Import memory tools and services
@@ -162,12 +166,49 @@ _before_cbs = [
     scrub_empty_content_before_model,
     sanitize_tool_schemas_before_model,
 ]
+# Terse JSON Protocol (EX21 / PT56 / PT58): instruct sub-agents to emit
+# compact JSON and re-hydrate it for Beto. Gated at runtime by
+# ``is_terse_protocol_enabled()`` so these callbacks are safe to register
+# with the flag off.
+#
+# Exclusions — the protocol attaches to the complement of this set:
+#   * search_agent / code_execution_agent — ADK built-ins with structured
+#     outputs that the protocol would corrupt.
+#   * scout — emits structured plans; can also be a session root on its
+#     own, where the terse-JSON-to-Beto contract doesn't apply.
+#   * casa / comms / kidsvid (PT62) — transactional / tool-heavy domain
+#     agents whose native output is already compact. EX20 telemetry
+#     showed casa looping 53× on a single light switch under the
+#     protocol because weaker Gemini variants can't juggle tool-call
+#     mode and JSON-emission mode simultaneously. The compression
+#     target (long prose commentary) doesn't match these agents'
+#     traffic profile, so overhead > savings.
+#
+# Remaining agents with the protocol attached: axel (long implementation
+# prose) and planner (mixed) — where there is actual compression headroom.
+_TERSE_PROTOCOL_EXCLUDED = {
+    "search_agent",
+    "code_execution_agent",
+    "scout",
+    "casa",
+    "comms",
+    "kidsvid",
+}
 for sa in all_sub_agents:
+    terse_applies = sa.name not in _TERSE_PROTOCOL_EXCLUDED
     if not sa.after_model_callback:
-        sa.after_model_callback = _after_cbs
+        sa.after_model_callback = (
+            _after_cbs + [terse_protocol_after_model_callback]
+            if terse_applies
+            else _after_cbs
+        )
     # Replace any existing before_model_callback (typically just scrub...) with
     # our combined list so the scope-to-turn filter runs first.
-    sa.before_model_callback = _before_cbs
+    sa.before_model_callback = (
+        _before_cbs + [terse_protocol_before_model_callback]
+        if terse_applies
+        else _before_cbs
+    )
 
 # Create the root agent with ALL sub-agents in the constructor
 root_agent = Agent(
