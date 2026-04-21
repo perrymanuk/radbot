@@ -572,6 +572,56 @@ def telos_archive(section: str, ref_code: str, reason: str = "") -> Dict[str, An
     return _wrap(f"archive {section}:{ref_code}", _do)
 
 
+# Sections Scout is allowed to write to — and therefore also allowed to delete from.
+_SCOUT_WRITABLE_SECTIONS = {
+    Section.EXPLORATIONS,
+    Section.PROJECT_TASKS,
+    Section.MILESTONES,
+    Section.JOURNAL,
+}
+
+
+def telos_delete_entry(section: str, ref_code: str, reason: str = "") -> Dict[str, Any]:
+    """
+    Soft-delete (archive) a Telos entry that Scout created. Scout can only
+    delete from the sections it writes to: explorations, project_tasks,
+    milestones, journal. Confirmation REQUIRED.
+
+    For other sections use telos_archive (beto only).
+
+    Args:
+        section: Target section — must be one of explorations, project_tasks,
+            milestones, or journal.
+        ref_code: The ref_code of the entry to delete (e.g. "EX3", "PT12").
+        reason: Optional explanation stored in metadata.archived_reason.
+    """
+    sec, err = _section_or_error(section)
+    if err:
+        return err
+
+    def _do():
+        if sec not in _SCOUT_WRITABLE_SECTIONS:
+            valid = ", ".join(
+                s.value for s in sorted(_SCOUT_WRITABLE_SECTIONS, key=lambda s: s.value)
+            )
+            return {
+                "status": "error",
+                "message": (
+                    f"Scout can only delete from: {valid}. "
+                    "Use telos_archive (beto) for other sections."
+                ),
+            }
+        ok = telos_db.archive_entry(sec, ref_code, reason=reason or None)
+        if not ok:
+            return {
+                "status": "error",
+                "message": f"No entry {ref_code} in {sec.value}.",
+            }
+        return {"status": "success", "deleted": f"{sec.value}:{ref_code}"}
+
+    return _wrap(f"delete {section}:{ref_code}", _do)
+
+
 def telos_import_markdown(markdown_text: str, replace: bool = False) -> Dict[str, Any]:
     """
     Bulk-load a Telos markdown file. Parses canonical Telos format (## SECTION
@@ -928,6 +978,7 @@ telos_update_entry_tool = FunctionTool(telos_update_entry)
 telos_add_goal_tool = FunctionTool(telos_add_goal)
 telos_complete_goal_tool = FunctionTool(telos_complete_goal)
 telos_archive_tool = FunctionTool(telos_archive)
+telos_delete_entry_tool = FunctionTool(telos_delete_entry)
 telos_import_markdown_tool = FunctionTool(telos_import_markdown)
 
 # Project hierarchy tools (replace the deprecated tools/todo module)
@@ -995,4 +1046,7 @@ SCOUT_TELOS_TOOLS = [
     telos_add_task_tool,
     telos_add_milestone_tool,
     telos_add_journal_tool,
+    # plan edits: update or soft-delete Scout's own entries
+    telos_update_entry_tool,
+    telos_delete_entry_tool,
 ]
