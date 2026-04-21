@@ -189,6 +189,7 @@ export function AgentModelsPanel() {
 
   const [mainModel, setMainModel] = useState("");
   const [subAgentModel, setSubAgentModel] = useState("");
+  const [namingModel, setNamingModel] = useState("");
   const [googleCloudProject, setGoogleCloudProject] = useState("");
   const [enableSearch, setEnableSearch] = useState(false);
   const [enableCodeExec, setEnableCodeExec] = useState(false);
@@ -214,6 +215,9 @@ export function AgentModelsPanel() {
     if (agent.main_model) setMainModel(agent.main_model);
     else if (agent.model) setMainModel(agent.model); // legacy fallback
     if (agent.sub_agent_model) setSubAgentModel(agent.sub_agent_model);
+    if (agent.agent_models?.naming_model !== undefined) {
+      setNamingModel(agent.agent_models.naming_model || "");
+    }
     if (agent.google_cloud_project !== undefined) setGoogleCloudProject(agent.google_cloud_project || "");
     if (agent.enable_adk_search !== undefined) setEnableSearch(!!agent.enable_adk_search);
     if (agent.enable_adk_code_execution !== undefined) setEnableCodeExec(!!agent.enable_adk_code_execution);
@@ -245,6 +249,7 @@ export function AgentModelsPanel() {
       for (const [k, v] of Object.entries(overrides)) {
         if (v.trim()) agentModels[k] = v.trim();
       }
+      if (namingModel.trim()) agentModels.naming_model = namingModel.trim();
 
       await mergeConfigSection("agent", {
         main_model: mainModel,
@@ -287,6 +292,13 @@ export function AgentModelsPanel() {
             datalist={modelOptions}
           />
         </FormRow>
+        <FormInput
+          label="Session Naming Model"
+          value={namingModel}
+          onChange={setNamingModel}
+          placeholder="gemini-2.5-flash (leave blank to inherit Main Model)"
+          datalist={modelOptions}
+        />
         <FormInput
           label="Google Cloud Project ID"
           value={googleCloudProject}
