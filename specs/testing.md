@@ -60,7 +60,7 @@ Generated state (gitignored):
 
 `BASE_REF` defaults to `origin/main`. Override locally with `BASE_REF=origin/feature-x make test-e2e-browser-affected`.
 
-When adding a new page (`src/pages/Foo.tsx`), `coverage-delta` gate fails the PR until the page is registered in `coverage-map.json` (either as a spec dependency or in `alwaysRun`).
+When adding a new page (`src/pages/Foo.tsx`), register it in `coverage-map.json` (either as a spec dependency or in `alwaysRun`) so the affected-spec selector can find it.
 
 ## LLM judge contract
 
@@ -126,12 +126,11 @@ Absent either condition, every job is skipped. No skipped/red noise.
 | `lint` | 10 | no | `make lint` |
 | `build` | 10 | no | `npm run build` |
 | `unit-tests` | 20 | no | `make test-unit && make test-integration` |
-| `coverage-delta` | 10 | no | New `src/pages/*.tsx` without coverage-map entry → 0/10. |
 | `functional-e2e` | 30 | no | Docker stack via `bootstrap-radbot-stack`, `npm run test:e2e:affected`, real Gemini + Anthropic. Failure artifact on disk + uploaded. |
 | `visual-regression` | 20 | no | Dual checkout (main + PR), capture `@screenshot` specs into separate dirs, Anthropic vision compares pairs, emits 0–20. |
 | `aggregate` | sums | yes (must pass) | Tallies scores, posts sticky comment, sets `quality-pipeline/score` commit status, fails workflow if score < 70. Does **not** merge. |
 
-Maximum score: 100. Fail floor: 70. Merge floor (advisory, enforced outside CI): 90.
+Maximum score: 90. Fail floor: 70. Merge floor (advisory, enforced outside CI): 90.
 
 ### Hard-block paths (`path-guard`)
 

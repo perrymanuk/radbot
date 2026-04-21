@@ -451,3 +451,128 @@ class TestToolsLayer:
         assert out["status"] == "success"
         assert out["miscalibrated"] is False
         assert not any(sec == Section.WRONG_ABOUT for sec, _, _ in add_entry_calls)
+
+    # --- telos_update_entry ---
+
+    def test_update_entry_success(self):
+        from radbot.tools.telos import telos_tools
+
+        updated = _fake_entry(Section.EXPLORATIONS, "Updated topic", "EX1")
+        with patch.object(
+            telos_tools.telos_db, "update_entry", return_value=updated
+        ) as mock_update:
+            out = telos_tools.telos_update_entry(
+                "explorations", "EX1", content="Updated topic"
+            )
+        assert out["status"] == "success"
+        assert out["entry"]["content"] == "Updated topic"
+        mock_update.assert_called_once()
+
+    def test_update_entry_not_found(self):
+        from radbot.tools.telos import telos_tools
+
+        with patch.object(telos_tools.telos_db, "update_entry", return_value=None):
+            out = telos_tools.telos_update_entry("explorations", "EX999")
+        assert out["status"] == "error"
+        assert "EX999" in out["message"]
+
+    def test_update_entry_invalid_status(self):
+        from radbot.tools.telos import telos_tools
+
+        out = telos_tools.telos_update_entry(
+            "explorations", "EX1", status="flying"
+        )
+        assert out["status"] == "error"
+        assert "flying" in out["message"]
+
+    def test_update_entry_invalid_section(self):
+        from radbot.tools.telos import telos_tools
+
+        out = telos_tools.telos_update_entry("not_real", "X1")
+        assert out["status"] == "error"
+
+    # --- telos_delete_entry ---
+
+    def test_delete_entry_success_exploration(self):
+        from radbot.tools.telos import telos_tools
+
+        with patch.object(
+            telos_tools.telos_db, "archive_entry", return_value=True
+        ) as mock_arch:
+            out = telos_tools.telos_delete_entry("explorations", "EX3", reason="stale")
+        assert out["status"] == "success"
+        assert out["deleted"] == "explorations:EX3"
+        mock_arch.assert_called_once_with(
+            telos_tools.Section.EXPLORATIONS, "EX3", reason="stale"
+        )
+
+    def test_delete_entry_success_project_task(self):
+        from radbot.tools.telos import telos_tools
+
+        with patch.object(telos_tools.telos_db, "archive_entry", return_value=True):
+            out = telos_tools.telos_delete_entry("project_tasks", "PT7")
+        assert out["status"] == "success"
+        assert "project_tasks:PT7" in out["deleted"]
+
+    def test_delete_entry_not_found(self):
+        from radbot.tools.telos import telos_tools
+
+        with patch.object(telos_tools.telos_db, "archive_entry", return_value=False):
+            out = telos_tools.telos_delete_entry("explorations", "EX99")
+        assert out["status"] == "error"
+        assert "EX99" in out["message"]
+
+    def test_delete_entry_blocked_for_restricted_section(self):
+        from radbot.tools.telos import telos_tools
+
+        # Goals are beto-only; Scout must not be able to delete them.
+        out = telos_tools.telos_delete_entry("goals", "G1")
+        assert out["status"] == "error"
+        assert "Scout" in out["message"]
+
+    def test_delete_entry_blocked_for_identity(self):
+        from radbot.tools.telos import telos_tools
+
+        out = telos_tools.telos_delete_entry("identity", "ME")
+        assert out["status"] == "error"
+        assert "Scout" in out["message"]
+
+    def test_delete_entry_invalid_section(self):
+        from radbot.tools.telos import telos_tools
+
+        out = telos_tools.telos_delete_entry("not_real", "X1")
+        assert out["status"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# SCOUT_TELOS_TOOLS list completeness
+# ---------------------------------------------------------------------------
+
+
+class TestScoutTelosTools:
+    def test_scout_tools_include_update_and_delete(self):
+        from radbot.tools.telos.telos_tools import (
+            SCOUT_TELOS_TOOLS,
+            telos_delete_entry_tool,
+            telos_update_entry_tool,
+        )
+
+        tool_fns = {getattr(t, "func", None).__name__ for t in SCOUT_TELOS_TOOLS if getattr(t, "func", None)}
+        assert "telos_update_entry" in tool_fns, "telos_update_entry missing from SCOUT_TELOS_TOOLS"
+        assert "telos_delete_entry" in tool_fns, "telos_delete_entry missing from SCOUT_TELOS_TOOLS"
+
+        # FunctionTool objects are present by identity.
+        assert telos_update_entry_tool in SCOUT_TELOS_TOOLS
+        assert telos_delete_entry_tool in SCOUT_TELOS_TOOLS
+
+    def test_scout_tools_count(self):
+        from radbot.tools.telos.telos_tools import SCOUT_TELOS_TOOLS
+
+        # Was 11; now 13 after adding update + delete.
+        assert len(SCOUT_TELOS_TOOLS) == 13
+
+    def test_scout_delete_not_in_telos_tools(self):
+        """telos_delete_entry is scout-scoped; it should NOT appear in the full beto list."""
+        from radbot.tools.telos.telos_tools import TELOS_TOOLS, telos_delete_entry_tool
+
+        assert telos_delete_entry_tool not in TELOS_TOOLS
