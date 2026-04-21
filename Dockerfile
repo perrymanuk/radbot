@@ -70,7 +70,10 @@ RUN mkdir -p /data/repos
 # Copy Node.js binary + Claude Code CLI (no npm/nodesource needed at runtime)
 COPY --from=claude-code-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=claude-code-build /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s ../lib/node_modules/@anthropic-ai/claude-code/cli.js /usr/local/bin/claude
+# Upstream @anthropic-ai/claude-code ships its entry at `bin/claude.exe`
+# (a Node script — the .exe name is cross-platform, not Windows-specific).
+# Keep this in sync with the package's "bin" field in its package.json.
+RUN ln -s ../lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe /usr/local/bin/claude
 
 # Copy Claude Code onboarding state
 COPY --from=claude-code-build /root/.claude /root/.claude
