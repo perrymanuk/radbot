@@ -35,6 +35,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && chmod +x /out/ast-grep /out/sg \
     && rm -rf /var/lib/apt/lists/*
 
+# Stage 3b: Fetch gh CLI prebuilt binary (static linux_amd64 tarball).
+# Used by Claude Code / axel workflows for PR operations. Auth happens at
+# runtime via GH_TOKEN — see /usr/local/bin/gh-token helper below.
+FROM debian:bookworm-slim AS gh-cli-bin
+ARG GH_CLI_VERSION=2.90.0
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    && curl -fsSL -o /tmp/gh.tar.gz \
+       "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz" \
+    && tar -xzf /tmp/gh.tar.gz -C /tmp \
+    && mv "/tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh \
+    && chmod +x /usr/local/bin/gh \
+    && rm -rf /var/lib/apt/lists/* /tmp/gh.tar.gz "/tmp/gh_${GH_CLI_VERSION}_linux_amd64"
+
 # Stage 3: Install Python dependencies (build tools available here only)
 FROM python:3.14-slim AS python-builder
 
@@ -67,6 +81,13 @@ COPY --from=ast-grep-bin /out/ast-grep /usr/local/bin/ast-grep
 COPY --from=ast-grep-bin /out/sg /usr/local/bin/sg
 RUN mkdir -p /data/repos
 
+# GitHub CLI (PT79) — for PR operations from Claude Code / axel workflows.
+COPY --from=gh-cli-bin /usr/local/bin/gh /usr/local/bin/gh
+
+# Global git identity for container-originated commits (PT79).
+RUN git config --global user.name "radbot" \
+    && git config --global user.email "radbot@local"
+
 # Copy Node.js binary + Claude Code CLI (no npm/nodesource needed at runtime)
 COPY --from=claude-code-build /usr/local/bin/node /usr/local/bin/node
 COPY --from=claude-code-build /usr/local/lib/node_modules /usr/local/lib/node_modules
@@ -93,10 +114,17 @@ COPY agent.py .
 # Copy built frontend assets into the static directory
 COPY --from=frontend-build /frontend/dist radbot/web/static/dist/
 
+# Helper script (PT79): mint a short-lived GitHub App installation token
+# using the existing radbot.tools.github.github_app_client. Intended use:
+#     GH_TOKEN=$(gh-token) gh pr list
+COPY scripts/gh_token.py /usr/local/bin/gh-token
+RUN chmod +x /usr/local/bin/gh-token
+
 # Environment
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    GH_PROMPT_DISABLED=1
 
 EXPOSE 8000
 
