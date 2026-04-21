@@ -4900,6 +4900,33 @@
       }
     },
     {
+      "name": "telos_delete_entry",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "ref_code"
+        ],
+        "title": "telos_delete_entryInput",
+        "type": "object"
+      }
+    },
+    {
       "name": "telos_get_entry",
       "agent": "scout",
       "json_schema": {
@@ -5027,6 +5054,51 @@
           "query"
         ],
         "title": "telos_search_journalInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "telos_update_entry",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "ref_code": {
+            "title": "Ref Code",
+            "type": "string"
+          },
+          "content": {
+            "default": "",
+            "title": "Content",
+            "type": "string"
+          },
+          "metadata_merge": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metadata Merge"
+          },
+          "status": {
+            "default": "",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "ref_code"
+        ],
+        "title": "telos_update_entryInput",
         "type": "object"
       }
     },
