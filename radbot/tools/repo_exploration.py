@@ -126,29 +126,30 @@ def _git_env() -> Dict[str, str]:
     }
 
 
-def _maybe_authenticate_github_url(url: str) -> str:
+def _authenticate_github_url(url: str) -> str:
     """Rewrite a github.com URL to use a GitHub App installation token.
 
-    No-op for non-github hosts or when the App is not configured. Lets us
-    clone private repos the App has been granted access to (e.g. perrymanuk/*)
-    and lifts the unauthenticated-rate-limit ceiling for public ones.
+    Non-github hosts pass through unchanged. For github.com, the GitHub App
+    MUST be configured — we don't silently fall back to anonymous clones,
+    because that hides config drift and fails confusingly on private repos.
+    Raises RuntimeError if the App can't mint a token.
     """
     parsed = urlparse(url)
     if (parsed.hostname or "").lower() != "github.com":
         return url
-    try:
-        from radbot.config.config_loader import config_loader
 
-        config_loader.load_db_config()
-        from radbot.tools.github.github_app_client import get_github_client
+    from radbot.config.config_loader import config_loader
 
-        client = get_github_client()
-        if client is None:
-            return url
-        token = client._get_installation_token()
-    except Exception as e:
-        logger.debug("GitHub App token mint failed, falling back to anon clone: %s", e)
-        return url
+    config_loader.load_db_config()
+    from radbot.tools.github.github_app_client import get_github_client
+
+    client = get_github_client()
+    if client is None:
+        raise RuntimeError(
+            "GitHub App not configured — set integrations.github via the admin UI "
+            "(/admin/) or GITHUB_APP_ID/GITHUB_INSTALLATION_ID/GITHUB_APP_PRIVATE_KEY env vars"
+        )
+    token = client._get_installation_token()
     return f"https://x-access-token:{token}@github.com{parsed.path}"
 
 
@@ -177,7 +178,10 @@ def repo_sync(repo_url: str, repo_name: str) -> Dict[str, Any]:
     if not git:
         return {"status": "error", "error": "git binary not found on PATH"}
 
-    auth_url = _maybe_authenticate_github_url(url)
+    try:
+        auth_url = _authenticate_github_url(url)
+    except RuntimeError as e:
+        return {"status": "error", "error": str(e)}
 
     if (target / ".git").exists():
         action = "pull"
