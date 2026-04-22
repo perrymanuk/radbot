@@ -425,10 +425,12 @@ class SessionRunner:
 
             # Initialize variables for collecting event data
             final_response = None
+            root_final_response = None  # Prefer text authored by the root agent
             last_text_response = None  # Track last non-empty text from any model event
             processed_events = []
             raw_response = None
             handoffs: list[dict] = []  # collected agent transfers for inline chips
+            root_agent_name = (self.agent_name or "beto").lower()
 
             for event in events:
                 # Extract event type and create a base event object
@@ -466,6 +468,9 @@ class SessionRunner:
                     ):
                         if text:
                             final_response = text
+                            author = str(getattr(event, "author", "")).lower()
+                            if author == root_agent_name:
+                                root_final_response = text
                         # Save raw response for later use if needed
                         if hasattr(event, "raw_response"):
                             raw_response = event.raw_response
@@ -538,6 +543,12 @@ class SessionRunner:
                         f"Error processing malformed function call: {str(e)}",
                         exc_info=True,
                     )
+
+            # Prefer the root agent's final response over a sub-agent's stray
+            # final text (e.g. a greeting from a transferred-to agent that
+            # never returned control to the root).
+            if root_final_response:
+                final_response = root_final_response
 
             # Fall back to last non-empty text from any model response event
             if not final_response and last_text_response:
