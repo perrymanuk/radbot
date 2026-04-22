@@ -264,7 +264,9 @@ class ClaudeCodeClient:
                 env["GITHUB_TOKEN"] = gh_token
                 logger.debug("GitHub App token injected into subprocess env")
             else:
-                logger.warning("inject_github_token=True but no GitHub App token available")
+                logger.warning(
+                    "inject_github_token=True but no GitHub App token available"
+                )
         return env
 
     async def run_plan(
