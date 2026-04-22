@@ -92,7 +92,13 @@ export default function ChatHeader() {
     }
   };
 
-  const modelName = agentInfo?.model ?? "";
+  const agentKey = sessionAgent.endsWith("_agent") ? sessionAgent : `${sessionAgent}_agent`;
+  const modelName =
+    (sessionAgent === "beto"
+      ? agentInfo?.model
+      : agentInfo?.agent_models?.[agentKey]) ??
+    agentInfo?.model ??
+    "";
 
   return (
     <>
