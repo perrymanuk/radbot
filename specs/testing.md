@@ -8,9 +8,86 @@ Authoritative spec for radbot's automated test suite, the Playwright browser e2e
 |---|---|---|
 | Unit (Python) | `tests/unit/` | every PR via `unit-tests` gate; `make test-unit` locally |
 | Integration (Python) | `tests/integration/` | every PR via `unit-tests` gate; `make test-integration` locally |
-| API e2e (Python) | `tests/e2e/` | every PR via `unit-tests` gate; `make test-e2e` locally (Docker stack) |
+| API e2e (Python) | `tests/e2e/` | every PR via `unit-tests` gate; `make test-e2e` locally (Docker stack **or** in-process) |
 | Browser e2e (Playwright TS) | `radbot/web/frontend/e2e/` | every PR via `functional-e2e` gate; `make test-e2e-browser` locally |
 | Visual regression (Anthropic vision) | `scripts/visual_regression_compare.py` driven by CI | `visual-regression` gate; not run locally |
+
+## API e2e — in-process hybrid architecture (EX31 / PT37)
+
+`tests/e2e/` supports two execution modes controlled by `RADBOT_TEST_URL`.
+
+### External mode (Docker stack)
+
+Set `RADBOT_TEST_URL=http://localhost:8001`.  Tests connect via real HTTP and
+WebSocket to an external Docker stack.  This is the default CI mode
+(`make test-e2e`).
+
+### In-process mode (cassette-backed, deterministic)
+
+Omit `RADBOT_TEST_URL`.  The FastAPI ASGI app runs inside the test process:
+
+- **HTTP** — `httpx.AsyncClient(transport=httpx.ASGITransport(app=app))`
+- **WebSocket** — `starlette.testclient.TestClient.websocket_connect()` wrapped
+  via `asyncio.to_thread` so async tests are not blocked.
+
+Backing services (PostgreSQL, Qdrant) are still required via Docker — only
+the Python app moves in-process.  The `genai_interceptor` fixture (from
+`tests/e2e/cassettes.py`) is activated before the app is imported so that
+`google.genai.Client` is replaced with the `InterceptorClient`.
+
+#### ADK Replay Interceptor (`tests/e2e/cassettes.py`)
+
+`InterceptorClient` is a drop-in for `google.genai.Client`.  It intercepts:
+
+| Method | Cassette prefix |
+|---|---|
+| `aio.models.generate_content(model, contents, config)` | `gen_<sha256>.json` |
+| `aio.models.generate_content_stream(model, contents, config)` | `stream_<sha256>.json` |
+
+The cassette key is a 32-character SHA-256 hex digest of
+`json.dumps({model, serialised_contents, serialised_config})`.
+
+Cassettes live in `tests/e2e/cassettes/` and are committed to the repo.
+
+**Record mode** (`RADBOT_RECORD_CASSETTES=1`):
+- Proxies calls to the real `google.genai.Client` (requires live API key).
+- Saves each response/chunk list to disk with API keys scrubbed.
+
+**Replay mode** (no env var, default):
+- Loads cassette by hash; fails with `FileNotFoundError` if missing.
+- No network calls; runs instantly.
+
+**Scrubbing**: values at keys `api_key`, `key`, `authorization`,
+`x-goog-api-key`, `token`, `secret` are replaced with `***SCRUBBED***`
+before writing.
+
+#### WebSocket helper (`tests/e2e/helpers/ws_client.py`)
+
+`WSTestClient` now exposes two constructors:
+
+```python
+# External mode (unchanged)
+ws = await WSTestClient.connect(live_server, session_id)
+
+# In-process mode (new)
+ws = await WSTestClient.connect_inprocess(asgi_app, session_id)
+```
+
+Both present the same async interface: `send_message`, `send_and_wait_response`,
+`send_heartbeat`, `request_history`, `recv_until`, `close`.
+
+#### Fixture wiring in `conftest.py`
+
+```
+genai_interceptor (session)   ← patches google.genai.Client
+    └─ asgi_app (session)     ← imports radbot.web.app AFTER patch
+         └─ client (session)  ← httpx.AsyncClient with ASGITransport
+         └─ live_server        ← None in in-process mode
+```
+
+The `RADBOT_TEST_URL` hard-fail in `pytest_configure` has been removed; a
+warning is emitted instead.  Tests that need an external service are still
+auto-skipped via the `requires_*` markers and `service_checks.py`.
 
 ## Browser e2e — directory layout
 

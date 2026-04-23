@@ -4620,6 +4620,57 @@
       }
     },
     {
+      "name": "run_claude_session",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "target_dir": {
+            "title": "Target Dir",
+            "type": "string"
+          },
+          "task_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Task Ref"
+          },
+          "custom_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Custom Prompt"
+          },
+          "auto_ship": {
+            "default": true,
+            "title": "Auto Ship",
+            "type": "boolean"
+          },
+          "timeout": {
+            "default": 90,
+            "title": "Timeout",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target_dir"
+        ],
+        "title": "run_claude_sessionInput",
+        "type": "object"
+      }
+    },
+    {
       "name": "search_agent_memory",
       "agent": "scout",
       "json_schema": {
