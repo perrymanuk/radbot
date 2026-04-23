@@ -1,10 +1,25 @@
 """
 Core fixtures for RadBot e2e tests.
 
-E2e tests always run against an external Docker compose stack via RADBOT_TEST_URL.
-The stack must be running before tests start (use `make test-e2e` to automate this).
+Two execution modes are supported:
+
+**External mode** (original)
+    ``RADBOT_TEST_URL`` is set to the base URL of a running Docker stack.
+    Tests connect via real HTTP/WebSocket to the external process.
+
+**In-process mode** (new — for cassette-backed deterministic testing)
+    ``RADBOT_TEST_URL`` is *not* set.  The FastAPI app is started inside the
+    test process via ``httpx.ASGITransport`` (HTTP) and
+    ``starlette.testclient.TestClient`` (WebSocket).  The genai interceptor in
+    ``tests/e2e/cassettes.py`` is activated automatically so Gemini API calls
+    are replayed from JSON cassettes without any live API key.
+
+    Backing services (PostgreSQL, Qdrant) must still be reachable — only the
+    Python app moves in-process.  Set ``RADBOT_RECORD_CASSETTES=1`` to record
+    new cassettes (requires live GOOGLE_API_KEY / GEMINI_API_KEY).
 """
 
+import asyncio
 import os
 import uuid
 
@@ -12,34 +27,25 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from tests.e2e.helpers.service_checks import (
-    is_calendar_available,
-    is_claude_code_available,
-    is_gemini_available,
-    is_github_available,
-    is_gmail_available,
-    is_ha_reachable,
-    is_jira_reachable,
-    is_lidarr_reachable,
-    is_nomad_available,
-    is_ntfy_available,
-    is_overseerr_reachable,
-    is_picnic_available,
-    is_stt_available,
-    is_tts_available,
-)
+# ---------------------------------------------------------------------------
+# Mode detection
+# ---------------------------------------------------------------------------
 
-# External server URL — required for all e2e tests
-RADBOT_TEST_URL = os.environ.get("RADBOT_TEST_URL", "")
+RADBOT_TEST_URL: str = os.environ.get("RADBOT_TEST_URL", "").rstrip("/")
+INPROCESS: bool = not bool(RADBOT_TEST_URL)
 
 
 def pytest_configure(config):
-    """Fail early if RADBOT_TEST_URL is not set."""
-    if not os.environ.get("RADBOT_TEST_URL"):
-        raise pytest.UsageError(
-            "RADBOT_TEST_URL is required for e2e tests. "
-            "Use `make test-e2e` to start the Docker stack and run tests, "
-            "or set RADBOT_TEST_URL manually for a running instance."
+    """Warn (no longer hard-fail) when RADBOT_TEST_URL is absent.
+
+    In-process mode is the fallback; tests that require external services
+    will be auto-skipped via the service-availability markers below.
+    """
+    if not RADBOT_TEST_URL:
+        config.addinivalue_line(
+            "markers",
+            "e2e: end-to-end tests (running in in-process mode — "
+            "RADBOT_TEST_URL not set)",
         )
 
 
@@ -54,30 +60,92 @@ def pytest_addoption(parser):
 
 
 # ---------------------------------------------------------------------------
-# httpx client (real HTTP transport against external server)
+# In-process ASGI app (only created when INPROCESS=True)
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def genai_interceptor():
+    """Thin shim: delegate to the cassettes module interceptor.
+
+    Defined here so conftest auto-wires it before ``asgi_app``.  If
+    cassettes.py is not importable (e.g. google.genai not installed) the
+    fixture silently skips patching.
+    """
+    try:
+        from tests.e2e.cassettes import patch_genai_client  # noqa: PLC0415
+
+        with patch_genai_client():
+            yield
+    except ImportError:
+        yield
+
+
+@pytest.fixture(scope="session")
+def asgi_app(genai_interceptor):
+    """Return the FastAPI ASGI application for in-process testing.
+
+    The ``genai_interceptor`` dependency ensures the genai.Client patch is
+    in place before any ADK runner is created.
+    """
+    if not INPROCESS:
+        return None
+    from radbot.web.app import app  # noqa: PLC0415
+
+    return app
+
+
+# ---------------------------------------------------------------------------
+# httpx client
+# ---------------------------------------------------------------------------
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def client():
-    """Async httpx client targeting the Docker stack."""
-    async with httpx.AsyncClient(
-        base_url=RADBOT_TEST_URL,
-        timeout=30.0,
-    ) as c:
-        yield c
+async def client(asgi_app):
+    """Async httpx client.
+
+    * External mode: connects to ``RADBOT_TEST_URL`` (Docker stack).
+    * In-process mode: uses ``httpx.ASGITransport`` against the ASGI app.
+    """
+    if INPROCESS:
+        transport = httpx.ASGITransport(app=asgi_app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+            timeout=30.0,
+        ) as c:
+            yield c
+    else:
+        async with httpx.AsyncClient(
+            base_url=RADBOT_TEST_URL,
+            timeout=30.0,
+        ) as c:
+            yield c
 
 
 # ---------------------------------------------------------------------------
 # Live server URL (needed for WebSocket tests)
 # ---------------------------------------------------------------------------
+
+
 @pytest.fixture(scope="session")
-def live_server():
-    """Return the base URL for WebSocket connections."""
+def live_server(asgi_app):
+    """Return the base URL for WebSocket connections.
+
+    * External mode: the Docker stack URL.
+    * In-process mode: ``None`` — callers must use ``asgi_app`` directly
+      (via ``WSTestClient.connect_inprocess``).
+    """
+    if INPROCESS:
+        return None
     return RADBOT_TEST_URL
 
 
 # ---------------------------------------------------------------------------
 # Admin auth header
 # ---------------------------------------------------------------------------
+
+
 @pytest.fixture(scope="session")
 def admin_token():
     """Return the admin bearer token from env."""
@@ -93,6 +161,8 @@ def admin_headers(admin_token):
 # ---------------------------------------------------------------------------
 # Test isolation helpers
 # ---------------------------------------------------------------------------
+
+
 @pytest.fixture
 def test_prefix():
     """Unique prefix for test data to avoid collisions."""
@@ -146,6 +216,25 @@ async def cleanup(client, admin_headers):
 # ---------------------------------------------------------------------------
 # Service availability auto-skip fixtures
 # ---------------------------------------------------------------------------
+
+from tests.e2e.helpers.service_checks import (  # noqa: E402
+    is_calendar_available,
+    is_claude_code_available,
+    is_gemini_available,
+    is_github_available,
+    is_gmail_available,
+    is_ha_reachable,
+    is_jira_reachable,
+    is_lidarr_reachable,
+    is_nomad_available,
+    is_ntfy_available,
+    is_overseerr_reachable,
+    is_picnic_available,
+    is_stt_available,
+    is_tts_available,
+)
+
+
 @pytest.fixture(scope="session")
 def ha_available():
     return is_ha_reachable()
@@ -230,7 +319,7 @@ def pytest_collection_modifyitems(config, items):
         "requires_claude_code": is_claude_code_available,
     }
 
-    _cache = {}
+    _cache: dict[str, bool] = {}
 
     for item in items:
         for marker_name, check_fn in marker_checks.items():
