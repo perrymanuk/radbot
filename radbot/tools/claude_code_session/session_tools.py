@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
@@ -60,20 +61,24 @@ async def start_claude_session(
     prompt: str,
     target_dir: str,
     resume_session_id: Optional[str] = None,
+    inject_github_token: bool = False,
 ) -> Dict[str, Any]:
     """Kick off a Claude Code CLI session in the background and return a job_id.
 
     The session runs with ``--dangerously-skip-permissions`` so routine file /
     bash operations don't hang on approval. Returns immediately — Scout must
-    ``poll_claude_session`` to check progress and collect output.
+    ``poll_claude_session`` or ``wait_claude_session`` to collect output.
 
     Args:
         prompt: The plan / instructions for Claude Code to execute.
         target_dir: Working directory the CLI runs inside.
         resume_session_id: Optional CLI ``session_id`` to resume an earlier run.
+        inject_github_token: When True, fetch a GitHub App installation token
+            and inject it as GH_TOKEN / GITHUB_TOKEN so the subprocess can
+            push branches and open PRs without interactive auth prompts.
 
     Returns:
-        ``{status, job_id, message}`` — job_id is used for poll/reply.
+        ``{status, job_id, message}`` — job_id is used for poll/reply/wait.
     """
     try:
         client = ClaudeCodeClient()
@@ -81,6 +86,7 @@ async def start_claude_session(
             working_dir=target_dir,
             prompt=prompt,
             session_id=resume_session_id,
+            inject_github_token=inject_github_token,
         )
         _SESSIONS[session.job_id] = session
         _CURSORS[session.job_id] = 0
@@ -261,9 +267,62 @@ async def run_claude_session(
     return snap
 
 
+_WAIT_POLL_INTERVAL = 5  # seconds between internal polls
+_WAIT_MAX_TIMEOUT = 600  # hard cap: 10 minutes
+
+
+async def wait_claude_session(
+    job_id: str,
+    timeout_seconds: int = 300,
+) -> Dict[str, Any]:
+    """Block until a background Claude Code session leaves the running state.
+
+    Polls internally every 5 seconds so Scout doesn't have to implement its
+    own polling loop. Returns as soon as ``job_status`` becomes ``complete``,
+    ``error``, or ``waiting_for_input`` — or when the timeout is reached.
+
+    The timeout is capped at 600 seconds (10 minutes) regardless of the
+    value passed in, so Scout's MCP turn cannot hang indefinitely.
+
+    Args:
+        job_id: The id returned by ``start_claude_session``.
+        timeout_seconds: Maximum time to wait in seconds (capped at 600).
+
+    Returns:
+        Same dict as ``poll_claude_session``, plus ``timed_out: bool``.
+    """
+    session = _SESSIONS.get(job_id)
+    if session is None:
+        return {"status": "error", "message": f"Unknown job_id: {job_id}"}
+
+    effective_timeout = min(timeout_seconds, _WAIT_MAX_TIMEOUT)
+    deadline = time.monotonic() + effective_timeout
+
+    while session.status == "running":
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(_WAIT_POLL_INTERVAL, remaining))
+
+    timed_out = session.status == "running"
+
+    cursor = _CURSORS.get(job_id, 0)
+    chunks = session.output[cursor:]
+    _CURSORS[job_id] = len(session.output)
+    snap = _snapshot(session, "".join(chunks))
+    snap["timed_out"] = timed_out
+    if timed_out:
+        snap["message"] = (
+            f"Session still running after {effective_timeout}s — "
+            "call wait_claude_session again or poll_claude_session to continue"
+        )
+    return snap
+
+
 CLAUDE_SESSION_TOOLS = [
     FunctionTool(run_claude_session),
     FunctionTool(start_claude_session),
     FunctionTool(poll_claude_session),
     FunctionTool(reply_claude_session),
+    FunctionTool(wait_claude_session),
 ]

@@ -4724,6 +4724,11 @@
             ],
             "default": null,
             "title": "Resume Session Id"
+          },
+          "inject_github_token": {
+            "default": false,
+            "title": "Inject Github Token",
+            "type": "boolean"
           }
         },
         "required": [
@@ -5099,6 +5104,28 @@
           "ref_code"
         ],
         "title": "telos_update_entryInput",
+        "type": "object"
+      }
+    },
+    {
+      "name": "wait_claude_session",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "default": 300,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "wait_claude_sessionInput",
         "type": "object"
       }
     },

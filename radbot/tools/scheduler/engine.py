@@ -7,6 +7,7 @@ Results are pushed to active WebSocket connections.
 """
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -15,6 +16,22 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
 logger = logging.getLogger(__name__)
+
+_HANDOFF_FENCE_RE = re.compile(
+    r"```radbot:handoff\s*\n\{[^`]*?\}\s*\n```\s*", re.DOTALL
+)
+
+
+def _strip_handoff_chips(text: str) -> str:
+    """Remove UI-only ``radbot:handoff`` fenced blocks from captured text.
+
+    These fences are prepended by session_runner for the live web UI; they
+    render as raw JSON in notifications, ntfy, and chat history.
+    """
+    if not text:
+        return text
+    return _HANDOFF_FENCE_RE.sub("", text).lstrip()
+
 
 # Singleton instance
 _instance: Optional["SchedulerEngine"] = None
@@ -285,7 +302,7 @@ class SchedulerEngine:
             )
             result = await runner.process_message(prompt)
 
-            response = result.get("response", "")
+            response = _strip_handoff_chips(result.get("response", ""))
             events = result.get("events", [])
 
             # 5. Persist assistant response to DB
