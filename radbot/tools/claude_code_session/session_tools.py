@@ -14,6 +14,7 @@ via the custom ``CLAUDE_CODE_OAUTH_TOKEN`` flow already wired into
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Dict, Optional
 
@@ -23,6 +24,12 @@ from radbot.tools.claude_code.claude_code_client import (
     BackgroundSession,
     ClaudeCodeClient,
 )
+
+# Hard cap on bounded-sync execution — MCP turn budgets are typically 60–120s.
+# Past this point we yield a job_id and hand off to poll/reply.
+_RUN_SYNC_CAP_SECONDS = 90
+# Poll interval while waiting for completion / waiting_for_input inside the cap.
+_RUN_SYNC_POLL_INTERVAL = 0.25
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +150,119 @@ async def reply_claude_session(job_id: str, reply: str) -> Dict[str, Any]:
     return snap
 
 
+def _synthesize_prompt(
+    task_ref: Optional[str],
+    custom_prompt: Optional[str],
+    auto_ship: bool,
+) -> str:
+    """Build the prompt passed to Claude Code.
+
+    Priority:
+    1. ``custom_prompt`` wins outright (ad-hoc debugging).
+    2. Otherwise ``task_ref`` (e.g. ``"PT38"``) is rendered as
+       ``execute PT38``, with ``and use /ship when complete`` appended
+       when ``auto_ship`` is set — which routes Claude Code into the
+       telos-review Stage 4 + ship skill flow.
+    """
+    if custom_prompt:
+        return custom_prompt
+    if not task_ref:
+        raise ValueError("run_claude_session requires either task_ref or custom_prompt")
+    base = f"execute {task_ref}"
+    if auto_ship:
+        return f"{base} and use /ship when complete"
+    return base
+
+
+async def run_claude_session(
+    target_dir: str,
+    task_ref: Optional[str] = None,
+    custom_prompt: Optional[str] = None,
+    auto_ship: bool = True,
+    timeout: int = _RUN_SYNC_CAP_SECONDS,
+) -> Dict[str, Any]:
+    """Run a Claude Code session bounded-synchronously.
+
+    Spawns the CLI via ``start_background_session`` (so it inherits the
+    JIT MCP/skills bootstrap and masked token injection), waits up to
+    ``timeout`` seconds, and returns one of:
+
+    - **Completed** — final output in the same turn, session cleaned up.
+    - **Waiting for input** — ``waiting_for_input=True``, ``job_id`` set;
+      reply via ``reply_claude_session(job_id, reply)``.
+    - **Cap exceeded** — ``job_status='running'``, ``job_id`` set;
+      continue via ``poll_claude_session(job_id)`` /
+      ``reply_claude_session(job_id, ...)``.
+
+    Args:
+        target_dir: Working directory for the Claude Code session.
+        task_ref: Telos task reference (e.g. ``"PT38"``). Rendered into
+            ``execute <ref>`` unless ``custom_prompt`` is given.
+        custom_prompt: Ad-hoc prompt; overrides ``task_ref`` synthesis.
+        auto_ship: When using ``task_ref``, append the ``/ship`` directive.
+        timeout: Seconds to block before yielding a ``job_id``. Capped
+            at ``_RUN_SYNC_CAP_SECONDS`` to respect MCP turn budgets.
+
+    Returns:
+        Dict with ``status``, ``job_id``, ``job_status``, ``output``,
+        ``waiting_for_input``, ``pending_question``, ``session_id``,
+        ``return_code``, ``stderr``, and ``completed`` (bool).
+    """
+    try:
+        prompt = _synthesize_prompt(task_ref, custom_prompt, auto_ship)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+
+    # Clamp timeout to the hard cap so callers can't block indefinitely.
+    timeout = max(1, min(timeout, _RUN_SYNC_CAP_SECONDS))
+
+    try:
+        client = ClaudeCodeClient()
+        session = await client.start_background_session(
+            working_dir=target_dir,
+            prompt=prompt,
+        )
+    except Exception as e:
+        logger.error("run_claude_session failed to start: %s", e)
+        return {"status": "error", "message": str(e)}
+
+    _SESSIONS[session.job_id] = session
+    _CURSORS[session.job_id] = 0
+
+    # Wait for a terminal/paused state up to the cap.
+    deadline = asyncio.get_event_loop().time() + timeout
+    while asyncio.get_event_loop().time() < deadline:
+        if session.status in {"complete", "error", "waiting_for_input"}:
+            break
+        await asyncio.sleep(_RUN_SYNC_POLL_INTERVAL)
+
+    # Drain what we have so far.
+    cursor = _CURSORS.get(session.job_id, 0)
+    new_text = "".join(session.output[cursor:])
+    _CURSORS[session.job_id] = len(session.output)
+    snap = _snapshot(session, new_text)
+
+    if session.status in {"complete", "error"}:
+        # Terminal — drop from the registry.
+        _SESSIONS.pop(session.job_id, None)
+        _CURSORS.pop(session.job_id, None)
+        snap["completed"] = True
+        snap["message"] = (
+            "Claude Code session finished within the cap."
+            if session.status == "complete"
+            else "Claude Code session errored within the cap."
+        )
+    else:
+        snap["completed"] = False
+        snap["message"] = (
+            "Cap or prompt reached — continue with poll_claude_session(job_id) "
+            "or reply_claude_session(job_id, reply). job_id is kept alive."
+        )
+    return snap
+
+
 CLAUDE_SESSION_TOOLS = [
+    FunctionTool(run_claude_session),
     FunctionTool(start_claude_session),
     FunctionTool(poll_claude_session),
     FunctionTool(reply_claude_session),

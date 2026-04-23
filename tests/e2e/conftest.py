@@ -19,7 +19,6 @@ Two execution modes are supported:
     new cassettes (requires live GOOGLE_API_KEY / GEMINI_API_KEY).
 """
 
-import asyncio
 import os
 import uuid
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import websockets
 
@@ -27,7 +27,7 @@ class WSTestClient:
     """Lightweight WebSocket client for testing the RadBot WS endpoint."""
 
     def __init__(self, ws=None, *, _inprocess_ws=None):
-        self._ws = ws                    # websockets connection (external)
+        self._ws = ws  # websockets connection (external)
         self._inprocess_ws = _inprocess_ws  # starlette WebSocketTestSession
         self.received: List[Dict[str, Any]] = []
 
@@ -240,9 +240,7 @@ class WSTestClient:
         """Close the WebSocket connection."""
         if self._inprocess_ws is not None:
             try:
-                await asyncio.to_thread(
-                    self._inprocess_ws.__exit__, None, None, None
-                )
+                await asyncio.to_thread(self._inprocess_ws.__exit__, None, None, None)
             except Exception:
                 pass
         elif self._ws is not None:

@@ -14,14 +14,9 @@ Tests cover:
 from __future__ import annotations
 
 import json
-import os
-import pathlib
-import tempfile
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers — import cassettes with CASSETTES_DIR pointed at a tmp dir
@@ -259,9 +254,9 @@ def test_interceptor_client_has_aio_models():
 
 @pytest.mark.asyncio
 async def test_generate_content_replay(tmp_cassettes_dir, monkeypatch):
-    import tests.e2e.cassettes as cmod  # noqa: PLC0415
-
     from google.genai import types as _gt  # noqa: PLC0415
+
+    import tests.e2e.cassettes as cmod  # noqa: PLC0415
 
     # Build a minimal serialisable response
     fake_resp = _gt.GenerateContentResponse(
@@ -300,9 +295,9 @@ async def test_generate_content_replay(tmp_cassettes_dir, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_generate_content_stream_replay(tmp_cassettes_dir, monkeypatch):
-    import tests.e2e.cassettes as cmod  # noqa: PLC0415
-
     from google.genai import types as _gt  # noqa: PLC0415
+
+    import tests.e2e.cassettes as cmod  # noqa: PLC0415
 
     def _make_chunk(text: str) -> dict:
         chunk = _gt.GenerateContentResponse(
@@ -370,6 +365,7 @@ async def test_generate_content_stream_missing_cassette_raises(tmp_cassettes_dir
 
 def test_patch_genai_client_replaces_client_class():
     import google.genai as _genai  # noqa: PLC0415
+
     import tests.e2e.cassettes as cmod  # noqa: PLC0415
 
     original = _genai.Client
@@ -382,6 +378,7 @@ def test_patch_genai_client_replaces_client_class():
 
 def test_patch_genai_client_sets_real_class():
     import google.genai as _genai  # noqa: PLC0415
+
     import tests.e2e.cassettes as cmod  # noqa: PLC0415
 
     original = _genai.Client

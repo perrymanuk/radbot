@@ -73,9 +73,7 @@ def _to_jsonable(obj: Any) -> Any:
             pass
     if hasattr(obj, "__dict__"):
         return {
-            k: _to_jsonable(v)
-            for k, v in vars(obj).items()
-            if not k.startswith("_")
+            k: _to_jsonable(v) for k, v in vars(obj).items() if not k.startswith("_")
         }
     return str(obj)
 
@@ -225,9 +223,7 @@ class _MockAio:
     """Drop-in for ``client.aio``."""
 
     def __init__(self, real_aio: Any = None) -> None:
-        self.models = _MockAioModels(
-            real_aio.models if real_aio is not None else None
-        )
+        self.models = _MockAioModels(real_aio.models if real_aio is not None else None)
 
 
 class InterceptorClient:
