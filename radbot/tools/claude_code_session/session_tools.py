@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from radbot.tools.claude_code.claude_code_client import (
     BackgroundSession,
@@ -32,7 +34,38 @@ _RUN_SYNC_CAP_SECONDS = 90
 # Poll interval while waiting for completion / waiting_for_input inside the cap.
 _RUN_SYNC_POLL_INTERVAL = 0.25
 
+# Regex enforced on every Claude Code session kickoff. EX35: scout must dispatch
+# work via a Telos ref (Project Task or Exploration), never via raw prompt.
+_TASK_REF_RE = re.compile(r"^(PT|EX)\d+$")
+
 logger = logging.getLogger(__name__)
+
+
+class ClaudeSessionRequest(BaseModel):
+    """Strict parameter envelope for Claude Code session kickoff (EX35).
+
+    Forces every dispatch through a Telos reference so scout cannot smuggle a
+    raw bash command, multi-line plan, or one-off prompt into Claude Code —
+    closing the escape hatch that bypassed the bipartite review loop.
+    """
+
+    task_ref: str = Field(
+        ...,
+        description="Telos ref code — must match ^(PT|EX)\\d+$ (e.g. 'PT96', 'EX35').",
+    )
+    target_dir: str = Field(..., description="Working directory for the CLI subprocess.")
+
+    @field_validator("task_ref")
+    @classmethod
+    def _validate_task_ref(cls, v: str) -> str:
+        if not _TASK_REF_RE.match(v):
+            raise ValueError(
+                f"task_ref must match ^(PT|EX)\\d+$ (got {v!r}). "
+                "Pass a Telos task or exploration ref (e.g. 'PT96'), not a raw prompt. "
+                "If no task exists, draft one with telos_add_task first."
+            )
+        return v
+
 
 # Module-level session registry. Job IDs live for the lifetime of the process;
 # a restart drops in-flight sessions (acceptable — Scout can restart them).
@@ -58,8 +91,9 @@ def _snapshot(session: BackgroundSession, new_text: str) -> Dict[str, Any]:
 
 
 async def start_claude_session(
-    prompt: str,
+    task_ref: str,
     target_dir: str,
+    auto_ship: bool = True,
     resume_session_id: Optional[str] = None,
     inject_github_token: bool = False,
 ) -> Dict[str, Any]:
@@ -69,21 +103,37 @@ async def start_claude_session(
     bash operations don't hang on approval. Returns immediately — Scout must
     ``poll_claude_session`` or ``wait_claude_session`` to collect output.
 
+    The prompt is **always synthesized** from ``task_ref`` (e.g. ``"PT96"`` →
+    ``"execute PT96 and use /ship when complete"``). Raw prompts are not
+    accepted — every dispatch must go through a Telos reference. See EX35.
+
     Args:
-        prompt: The plan / instructions for Claude Code to execute.
+        task_ref: Telos task / exploration ref code (must match
+            ``^(PT|EX)\\d+$``). Rendered into ``execute <ref>`` for the CLI.
         target_dir: Working directory the CLI runs inside.
+        auto_ship: When True, append ``and use /ship when complete`` so the
+            session routes into the ship-it skill flow on success.
         resume_session_id: Optional CLI ``session_id`` to resume an earlier run.
         inject_github_token: When True, fetch a GitHub App installation token
             and inject it as GH_TOKEN / GITHUB_TOKEN so the subprocess can
             push branches and open PRs without interactive auth prompts.
 
     Returns:
-        ``{status, job_id, message}`` — job_id is used for poll/reply/wait.
+        ``{status, job_id, message}`` on success, or
+        ``{status: 'error', message: <validation error>}`` if ``task_ref`` is
+        malformed (caught from Pydantic so the agent loop does not crash).
     """
+    try:
+        request = ClaudeSessionRequest(task_ref=task_ref, target_dir=target_dir)
+    except ValidationError as e:
+        return {"status": "error", "message": str(e)}
+
+    prompt = _synthesize_prompt(request.task_ref, auto_ship)
+
     try:
         client = ClaudeCodeClient()
         session = await client.start_background_session(
-            working_dir=target_dir,
+            working_dir=request.target_dir,
             prompt=prompt,
             session_id=resume_session_id,
             inject_github_token=inject_github_token,
@@ -156,24 +206,14 @@ async def reply_claude_session(job_id: str, reply: str) -> Dict[str, Any]:
     return snap
 
 
-def _synthesize_prompt(
-    task_ref: Optional[str],
-    custom_prompt: Optional[str],
-    auto_ship: bool,
-) -> str:
-    """Build the prompt passed to Claude Code.
+def _synthesize_prompt(task_ref: str, auto_ship: bool) -> str:
+    """Render a validated ``task_ref`` into the Claude Code CLI prompt.
 
-    Priority:
-    1. ``custom_prompt`` wins outright (ad-hoc debugging).
-    2. Otherwise ``task_ref`` (e.g. ``"PT38"``) is rendered as
-       ``execute PT38``, with ``and use /ship when complete`` appended
-       when ``auto_ship`` is set — which routes Claude Code into the
-       telos-review Stage 4 + ship skill flow.
+    ``"PT38"`` becomes ``"execute PT38"``, with ``and use /ship when complete``
+    appended when ``auto_ship`` is set so the session routes into the
+    telos-review Stage 4 + ship skill flow. ``task_ref`` is assumed to have
+    passed :class:`ClaudeSessionRequest` validation already.
     """
-    if custom_prompt:
-        return custom_prompt
-    if not task_ref:
-        raise ValueError("run_claude_session requires either task_ref or custom_prompt")
     base = f"execute {task_ref}"
     if auto_ship:
         return f"{base} and use /ship when complete"
@@ -181,9 +221,8 @@ def _synthesize_prompt(
 
 
 async def run_claude_session(
+    task_ref: str,
     target_dir: str,
-    task_ref: Optional[str] = None,
-    custom_prompt: Optional[str] = None,
     auto_ship: bool = True,
     timeout: int = _RUN_SYNC_CAP_SECONDS,
 ) -> Dict[str, Any]:
@@ -200,24 +239,31 @@ async def run_claude_session(
       continue via ``poll_claude_session(job_id)`` /
       ``reply_claude_session(job_id, ...)``.
 
+    Like :func:`start_claude_session`, the prompt is always synthesized from
+    ``task_ref``. Raw prompts are not accepted — see EX35.
+
     Args:
+        task_ref: Telos task / exploration ref code (must match
+            ``^(PT|EX)\\d+$``). Rendered into ``execute <ref>`` for the CLI.
         target_dir: Working directory for the Claude Code session.
-        task_ref: Telos task reference (e.g. ``"PT38"``). Rendered into
-            ``execute <ref>`` unless ``custom_prompt`` is given.
-        custom_prompt: Ad-hoc prompt; overrides ``task_ref`` synthesis.
-        auto_ship: When using ``task_ref``, append the ``/ship`` directive.
+        auto_ship: Append ``and use /ship when complete`` to route the
+            session into the ship-it skill flow on success.
         timeout: Seconds to block before yielding a ``job_id``. Capped
             at ``_RUN_SYNC_CAP_SECONDS`` to respect MCP turn budgets.
 
     Returns:
-        Dict with ``status``, ``job_id``, ``job_status``, ``output``,
-        ``waiting_for_input``, ``pending_question``, ``session_id``,
-        ``return_code``, ``stderr``, and ``completed`` (bool).
+        On invalid ``task_ref``: ``{status: 'error', message: <reason>}``
+        (Pydantic ``ValidationError`` is caught so the agent loop survives).
+        Otherwise a dict with ``status``, ``job_id``, ``job_status``,
+        ``output``, ``waiting_for_input``, ``pending_question``,
+        ``session_id``, ``return_code``, ``stderr``, and ``completed`` (bool).
     """
     try:
-        prompt = _synthesize_prompt(task_ref, custom_prompt, auto_ship)
-    except ValueError as e:
+        request = ClaudeSessionRequest(task_ref=task_ref, target_dir=target_dir)
+    except ValidationError as e:
         return {"status": "error", "message": str(e)}
+
+    prompt = _synthesize_prompt(request.task_ref, auto_ship)
 
     # Clamp timeout to the hard cap so callers can't block indefinitely.
     timeout = max(1, min(timeout, _RUN_SYNC_CAP_SECONDS))
@@ -225,7 +271,7 @@ async def run_claude_session(
     try:
         client = ClaudeCodeClient()
         session = await client.start_background_session(
-            working_dir=target_dir,
+            working_dir=request.target_dir,
             prompt=prompt,
         )
     except Exception as e:
