@@ -23,7 +23,6 @@ from radbot.tools.claude_code_session.session_tools import (
     start_claude_session,
 )
 
-
 # ---------------------------------------------------------------------------
 # Schema validator
 # ---------------------------------------------------------------------------
@@ -141,9 +140,7 @@ def test_start_claude_session_synthesizes_prompt_from_task_ref() -> None:
 
     with patch.object(session_tools, "ClaudeCodeClient", return_value=fake_client):
         result = _run(
-            start_claude_session(
-                task_ref="PT96", target_dir="/work", auto_ship=True
-            )
+            start_claude_session(task_ref="PT96", target_dir="/work", auto_ship=True)
         )
 
     assert result["status"] == "success"
@@ -161,11 +158,7 @@ def test_start_claude_session_omits_ship_when_auto_ship_false() -> None:
     fake_client.start_background_session = AsyncMock(return_value=fake)
 
     with patch.object(session_tools, "ClaudeCodeClient", return_value=fake_client):
-        _run(
-            start_claude_session(
-                task_ref="EX35", target_dir="/work", auto_ship=False
-            )
-        )
+        _run(start_claude_session(task_ref="EX35", target_dir="/work", auto_ship=False))
 
     kwargs = fake_client.start_background_session.await_args.kwargs
     assert kwargs["prompt"] == "execute EX35"

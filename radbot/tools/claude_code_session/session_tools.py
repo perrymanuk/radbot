@@ -53,7 +53,9 @@ class ClaudeSessionRequest(BaseModel):
         ...,
         description="Telos ref code — must match ^(PT|EX)\\d+$ (e.g. 'PT96', 'EX35').",
     )
-    target_dir: str = Field(..., description="Working directory for the CLI subprocess.")
+    target_dir: str = Field(
+        ..., description="Working directory for the CLI subprocess."
+    )
 
     @field_validator("task_ref")
     @classmethod
