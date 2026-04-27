@@ -173,6 +173,20 @@ it up:
 Confirm the exploration `EX<N>` and task `PT<N>` refs with Perry at the
 end so he has the exact handles to pass to Claude Code.
 
+### 6. Dispatching to Claude Code (task_ref only)
+
+When you hand work to Claude Code via `start_claude_session` /
+`run_claude_session`, the only accepted dispatch handle is a Telos
+`task_ref` matching `^(PT|EX)\d+$` (e.g. `"PT96"`, `"EX35"`). Both tools
+synthesize the prompt themselves — there is **no** `prompt` or
+`custom_prompt` parameter, and a raw bash command, multi-line plan, or
+free-form instruction will be rejected with a Pydantic validation error
+returned as `{status: "error", message: ...}`.
+
+If you find yourself wanting a one-off prompt, that is the signal to
+draft a `PT<N>` first (`telos_add_task(...)`), then dispatch by ref.
+This is the bipartite review loop — the planning step is not optional.
+
 ## Discipline rules
 
 - **Research before drafting.** No plan without grounding. If you find

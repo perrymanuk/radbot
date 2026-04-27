@@ -4624,33 +4624,13 @@
       "agent": "scout",
       "json_schema": {
         "properties": {
+          "task_ref": {
+            "title": "Task Ref",
+            "type": "string"
+          },
           "target_dir": {
             "title": "Target Dir",
             "type": "string"
-          },
-          "task_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Task Ref"
-          },
-          "custom_prompt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Custom Prompt"
           },
           "auto_ship": {
             "default": true,
@@ -4664,6 +4644,7 @@
           }
         },
         "required": [
+          "task_ref",
           "target_dir"
         ],
         "title": "run_claude_sessionInput",
@@ -4756,13 +4737,18 @@
       "agent": "scout",
       "json_schema": {
         "properties": {
-          "prompt": {
-            "title": "Prompt",
+          "task_ref": {
+            "title": "Task Ref",
             "type": "string"
           },
           "target_dir": {
             "title": "Target Dir",
             "type": "string"
+          },
+          "auto_ship": {
+            "default": true,
+            "title": "Auto Ship",
+            "type": "boolean"
           },
           "resume_session_id": {
             "anyOf": [
@@ -4783,7 +4769,7 @@
           }
         },
         "required": [
-          "prompt",
+          "task_ref",
           "target_dir"
         ],
         "title": "start_claude_sessionInput",
