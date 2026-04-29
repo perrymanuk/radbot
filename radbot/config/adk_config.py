@@ -23,15 +23,21 @@ logger = logging.getLogger(__name__)
 # Global configuration manager
 config = ConfigManager()
 
-# Models that support `ThinkingConfig(include_thoughts=True)`. Gemini 2.5+
-# exposes the model's reasoning trace as `part.thought=True` chunks; older
-# models (1.5, 2.0) silently ignore the flag or 400 on it depending on
-# backend, so we never send it for them.
+# Family prefixes for models that support `ThinkingConfig(include_thoughts=True)`.
+# Any Gemini 2.5+ release exposes the model's reasoning trace as
+# `part.thought=True` chunks; older lines (1.5, 2.0) silently ignore the flag
+# or 400 on it depending on backend, so we never send it for them.
+#
+# Use family-level prefixes (with trailing hyphen) so dated/preview suffixes
+# like `gemini-2.5-flash-001` or `gemini-3.1-pro-preview` match without
+# enumerating every release tag.
 THINKING_CAPABLE_MODELS = (
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-3-pro",
+    "gemini-2.5-",
+    "gemini-3-",
+    "gemini-3.0-",
+    "gemini-3.1-",
+    "gemini-4-",
+    "gemini-4.0-",
 )
 
 
