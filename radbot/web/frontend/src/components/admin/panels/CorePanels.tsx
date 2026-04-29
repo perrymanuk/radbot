@@ -196,6 +196,7 @@ export function AgentModelsPanel() {
   const [sessionMode, setSessionMode] = useState(false);
   const [maxWorkers, setMaxWorkers] = useState("10");
   const [terseProtocolEnabled, setTerseProtocolEnabled] = useState(false);
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
   // Map of config_key ("casa_agent") → override string ("" = inherit default)
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [overridesOpen, setOverridesOpen] = useState(false);
@@ -224,6 +225,7 @@ export function AgentModelsPanel() {
     if (agent.session_mode !== undefined) setSessionMode(agent.session_mode === "remote");
     if (agent.max_session_workers !== undefined) setMaxWorkers(String(agent.max_session_workers));
     if (agent.terse_protocol_enabled !== undefined) setTerseProtocolEnabled(!!agent.terse_protocol_enabled);
+    if (agent.thinking_enabled !== undefined) setThinkingEnabled(!!agent.thinking_enabled);
 
     const agentModels = agent.agent_models || {};
     const init: Record<string, string> = {};
@@ -260,6 +262,7 @@ export function AgentModelsPanel() {
         session_mode: sessionMode ? "remote" : "local",
         max_session_workers: parseInt(maxWorkers, 10) || 10,
         terse_protocol_enabled: terseProtocolEnabled,
+        thinking_enabled: thinkingEnabled,
         agent_models: agentModels,
       });
 
@@ -335,6 +338,22 @@ export function AgentModelsPanel() {
           label="Enable Terse JSON Protocol"
           checked={terseProtocolEnabled}
           onChange={setTerseProtocolEnabled}
+        />
+      </Card>
+
+      <Card title="Chain-of-Thought">
+        <Note>
+          Streams the Gemini model's internal reasoning as a collapsible{" "}
+          <code>&lt;radbot:thoughts&gt;</code> block in chat messages. Only takes
+          effect on Gemini 2.5+ models in the allowlist (
+          <code>gemini-2.5-pro/flash/flash-lite</code>, <code>gemini-3-pro</code>);
+          older or non-Gemini models silently ignore the flag. Increases output
+          token cost.
+        </Note>
+        <FormToggle
+          label="Enable Gemini Chain-of-Thought"
+          checked={thinkingEnabled}
+          onChange={setThinkingEnabled}
         />
       </Card>
 
