@@ -181,8 +181,11 @@ def _process_model_response_event(event):
     """Process a model response event using ADK 1.x structures."""
     event_data = {"category": "model_response", "summary": "Model Response"}
 
-    # Extract text from content
+    # Extract text from content. Strictly fork `part.thought` chunks (model
+    # internal reasoning) into `thought_text` so TTS / display only see the
+    # clean response stream.
     text = ""
+    thought_text = ""
 
     # Handle message.content structure (legacy ADK format)
     if hasattr(event, "message"):
@@ -198,15 +201,14 @@ def _process_model_response_event(event):
                 hasattr(event.message.content, "parts") and event.message.content.parts
             ):
                 for part in event.message.content.parts:
-                    if (
-                        hasattr(part, "text")
-                        and part.text
-                        and not _is_thought_part(part)
-                    ):
-                        text += part.text
+                    if hasattr(part, "text") and part.text:
+                        if _is_thought_part(part):
+                            thought_text += part.text
+                        else:
+                            text += part.text
 
     # Fall back to direct content (ADK 1.x primary format)
-    if not text and hasattr(event, "content"):
+    if not text and not thought_text and hasattr(event, "content"):
         # Handle content as string
         if isinstance(event.content, str):
             text = event.content
@@ -216,10 +218,15 @@ def _process_model_response_event(event):
         # Handle content with parts
         elif hasattr(event.content, "parts") and event.content.parts:
             for part in event.content.parts:
-                if hasattr(part, "text") and part.text and not _is_thought_part(part):
-                    text += part.text
+                if hasattr(part, "text") and part.text:
+                    if _is_thought_part(part):
+                        thought_text += part.text
+                    else:
+                        text += part.text
 
     event_data["text"] = text
+    if thought_text:
+        event_data["thought_text"] = thought_text
 
     # Check if it's a final response - handle both property and method in ADK 0.4.0
     is_final = False

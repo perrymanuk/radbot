@@ -9,6 +9,7 @@ import {
   SeasonBreakdownCard,
   HaDeviceCard,
   VideoCard,
+  ThoughtCard,
   type MediaCardData,
   type SeasonBreakdownData,
   type HaDevice,
@@ -181,13 +182,27 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+// Backend prepends a `<radbot:thoughts>...</radbot:thoughts>` block when
+// Gemini Chain-of-Thought is enabled. Pull it out so it can render as a
+// dedicated card and never reaches TTS / the markdown body.
+const THOUGHTS_BLOCK = /<radbot:thoughts>([\s\S]*?)<\/radbot:thoughts>\s*/;
+
+function splitThoughts(content: string): { thoughts: string | null; body: string } {
+  const m = content.match(THOUGHTS_BLOCK);
+  if (!m) return { thoughts: null, body: content };
+  const thoughts = m[1].trim();
+  const body = content.replace(THOUGHTS_BLOCK, "").replace(/^\n+/, "");
+  return { thoughts: thoughts || null, body };
+}
+
 export default function ChatMessage({ message }: Props) {
   const sessionAgent = useAppStore((s) => {
     const sess = s.sessions.find((x) => x.id === s.sessionId);
     return sess?.agent_name ?? null;
   });
   const id = identityFor(message, sessionAgent);
-  const lineCount = message.content.split("\n").length;
+  const { thoughts, body: bodyContent } = splitThoughts(message.content);
+  const lineCount = bodyContent.split("\n").length;
   const isAssistant = message.role === "assistant";
   const isSystem = message.role === "system";
 
@@ -214,13 +229,14 @@ export default function ChatMessage({ message }: Props) {
         {/* Right-side action cluster */}
         {isAssistant && (
           <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-            <TTSButton text={message.content} />
+            <TTSButton text={bodyContent} />
           </div>
         )}
       </header>
 
       {/* Body — flush to the pill column via the article's padding */}
       <div className="font-sans text-txt-primary text-[0.8125rem] sm:text-[0.875rem] leading-[1.55] [overflow-wrap:anywhere]">
+        {thoughts && <ThoughtCard text={thoughts} />}
         <CollapsibleContent lineCount={lineCount}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -318,7 +334,7 @@ export default function ChatMessage({ message }: Props) {
               strong: ({ children }) => <strong className="font-bold text-terminal-amber">{children}</strong>,
             }}
           >
-            {message.content}
+            {bodyContent}
           </ReactMarkdown>
         </CollapsibleContent>
       </div>

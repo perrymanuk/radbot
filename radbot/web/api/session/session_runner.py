@@ -27,6 +27,7 @@ from google.genai.types import Content, Part  # noqa: E402
 # up the agent tree; unknown names fall back to beto.
 from radbot.agent.agent_core import get_root_agent  # noqa: E402
 from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
+from radbot.config.adk_config import get_thinking_config  # noqa: E402
 from radbot.web.api.malformed_function_handler import (  # noqa: E402
     extract_text_from_malformed_function,
 )
@@ -69,6 +70,12 @@ class SessionRunner:
         # beto on any unknown name (so legacy rows or typos don't strand
         # sessions).
         self._root_agent = get_root_agent(agent_name)
+
+        # Optionally enable Gemini Chain-of-Thought streaming. Gated by
+        # config:agent.thinking_enabled + a model allowlist; returns None
+        # when disabled or unsupported, so this is a no-op for older models
+        # or when the flag is off.
+        self._apply_thinking_config(self._root_agent)
 
         # Create artifact service for this session
         self.artifact_service = InMemoryArtifactService()
@@ -131,6 +138,40 @@ class SessionRunner:
             )
         except Exception as e:
             logger.warning(f"Could not enable context caching: {e}")
+
+    def _apply_thinking_config(self, agent):
+        """Attach a ``ThinkingConfig`` to ``agent.generate_content_config``
+        when CoT streaming is enabled and the agent's model supports it.
+
+        We mutate the existing ``GenerateContentConfig`` (preserving fields
+        like ``temperature``) rather than replacing it. If the agent has no
+        config object, we leave it alone — the gate is opt-in and we want
+        zero behavior change when off.
+        """
+        try:
+            from google.genai.types import GenerateContentConfig
+
+            model = getattr(agent, "model", None) or ""
+            thinking = get_thinking_config(model)
+            if not thinking:
+                return
+            existing = getattr(agent, "generate_content_config", None)
+            if isinstance(existing, GenerateContentConfig):
+                # Pydantic model — copy with the new field merged.
+                agent.generate_content_config = existing.model_copy(
+                    update={"thinking_config": thinking}
+                )
+            else:
+                agent.generate_content_config = GenerateContentConfig(
+                    thinking_config=thinking
+                )
+            logger.info(
+                "Enabled Gemini CoT (include_thoughts=True) for agent=%s model=%s",
+                getattr(agent, "name", "?"),
+                model,
+            )
+        except Exception as e:
+            logger.warning("Failed to apply ThinkingConfig: %s", e)
 
     def _log_agent_tree(self):
         """Log the agent tree structure for debugging."""
@@ -430,6 +471,7 @@ class SessionRunner:
             processed_events = []
             raw_response = None
             handoffs: list[dict] = []  # collected agent transfers for inline chips
+            thought_chunks: list[str] = []  # Gemini CoT chunks (part.thought=True)
             root_agent_name = (self.agent_name or "beto").lower()
 
             for event in events:
@@ -458,6 +500,9 @@ class SessionRunner:
                 elif event_type == "model_response":
                     event_data.update(_process_model_response_event(event))
                     text = event_data.get("text", "")
+                    thought = event_data.get("thought_text", "")
+                    if thought:
+                        thought_chunks.append(thought)
                     # Track the last non-empty text from any model response event
                     if text:
                         last_text_response = text
@@ -605,6 +650,19 @@ class SessionRunner:
                     chips.append(f"```radbot:handoff\n{json.dumps(h)}\n```")
                 if chips:
                     final_response = "\n".join(chips) + "\n\n" + final_response
+
+            # Prepend Chain-of-Thought block. We use an XML-like tag rather
+            # than a triple-backtick fence because thoughts often contain
+            # their own code fences which would prematurely close it.
+            # Emit before the handoff chips so handoff badges still render
+            # at the top of the message body.
+            if thought_chunks and final_response:
+                thoughts_block = (
+                    "<radbot:thoughts>\n"
+                    + "".join(thought_chunks).rstrip()
+                    + "\n</radbot:thoughts>"
+                )
+                final_response = thoughts_block + "\n\n" + final_response
 
             # Filter events: keep non-model events (tool_call, agent_transfer, etc.)
             # but only include the FINAL model_response to avoid duplicate chat messages

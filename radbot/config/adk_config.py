@@ -10,6 +10,7 @@ from typing import Optional
 
 # ADK and GenAI imports
 from google.genai.client import Client
+from google.genai.types import ThinkingConfig
 
 from radbot.config.config_loader import config_loader
 
@@ -21,6 +22,44 @@ logger = logging.getLogger(__name__)
 
 # Global configuration manager
 config = ConfigManager()
+
+# Models that support `ThinkingConfig(include_thoughts=True)`. Gemini 2.5+
+# exposes the model's reasoning trace as `part.thought=True` chunks; older
+# models (1.5, 2.0) silently ignore the flag or 400 on it depending on
+# backend, so we never send it for them.
+THINKING_CAPABLE_MODELS = (
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3-pro",
+)
+
+
+def _model_supports_thinking(model: str) -> bool:
+    if not model:
+        return False
+    m = model.lower()
+    return any(m.startswith(prefix) for prefix in THINKING_CAPABLE_MODELS)
+
+
+def get_thinking_config(model: str) -> Optional[ThinkingConfig]:
+    """Return a ``ThinkingConfig`` if Chain-of-Thought streaming is enabled
+    for ``model``, else ``None``.
+
+    Gated by ``config:agent.thinking_enabled`` (default False) AND a static
+    model allowlist. Either gate failing yields ``None`` so the GenAI call
+    never sends an unsupported field.
+    """
+    agent_cfg = config_loader.get_agent_config()
+    if not agent_cfg.get("thinking_enabled", False):
+        return None
+    if not _model_supports_thinking(model):
+        logger.debug(
+            "thinking_enabled=true but model %r is not in allowlist; skipping",
+            model,
+        )
+        return None
+    return ThinkingConfig(include_thoughts=True)
 
 
 def get_google_api_key() -> Optional[str]:

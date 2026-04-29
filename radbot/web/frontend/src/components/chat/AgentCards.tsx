@@ -1133,3 +1133,52 @@ function VideoActions({ v }: { v: VideoCardData }) {
     </>
   );
 }
+
+// ─────────────────────────────────────────────────────────
+// ThoughtCard — render Gemini Chain-of-Thought from a
+// `<radbot:thoughts>...</radbot:thoughts>` block. Collapsed by
+// default; height-capped so a long reasoning trace can't blow out
+// the chat viewport. While `streaming` is true the summary shows an
+// animated indicator; once the final response lands we settle to a
+// static "View reasoning" label.
+// ─────────────────────────────────────────────────────────
+export function ThoughtCard({
+  text,
+  streaming = false,
+}: {
+  text: string;
+  streaming?: boolean;
+}) {
+  const label = streaming ? "Thinking" : "View reasoning";
+  return (
+    <details className="my-2 rounded-sm border border-border bg-bg-secondary/60">
+      <summary
+        className={cn(
+          "cursor-pointer select-none list-none px-2.5 py-1.5",
+          "font-mono text-[0.65rem] tracking-[0.12em] uppercase",
+          "text-txt-secondary hover:text-txt-primary transition-colors",
+          "flex items-center gap-1.5",
+        )}
+      >
+        <Icon.sparkle size={11} className={cn(streaming && "animate-pulse")} />
+        <span className={cn(streaming && "animate-pulse")}>{label}</span>
+        {streaming && (
+          <span className="ml-1 inline-flex gap-[2px] text-txt-secondary/70">
+            <span className="animate-bounce" style={{ animationDelay: "0ms" }}>·</span>
+            <span className="animate-bounce" style={{ animationDelay: "120ms" }}>·</span>
+            <span className="animate-bounce" style={{ animationDelay: "240ms" }}>·</span>
+          </span>
+        )}
+      </summary>
+      <pre
+        className={cn(
+          "px-3 py-2 m-0 max-h-[260px] overflow-y-auto",
+          "font-mono text-[0.72rem] leading-[1.5] whitespace-pre-wrap break-words",
+          "text-txt-secondary border-t border-border bg-black/40",
+        )}
+      >
+        {text}
+      </pre>
+    </details>
+  );
+}
