@@ -59,8 +59,9 @@ async def detailed_health_check(response: Response):
 
     # 2. Check Agent Initialization (Critical)
     try:
-        from radbot.agent.agent_core import root_agent
+        from radbot.agent.assembly import _resolve_assembly
 
+        root_agent = _resolve_assembly().root_agent
         if root_agent:
             components["agent"] = ComponentStatus(
                 status="ok", details={"name": root_agent.name}
@@ -81,7 +82,7 @@ async def detailed_health_check(response: Response):
 
     # 3. Check Memory Service (Qdrant) (Non-critical for startup, but important)
     try:
-        from radbot.agent.agent_core import memory_service
+        from radbot.agent.assembly import memory_service
 
         if memory_service and hasattr(memory_service, "client"):
             # Simple check: get collections

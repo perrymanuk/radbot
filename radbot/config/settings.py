@@ -149,9 +149,9 @@ class ConfigManager:
         # (scout_root_agent, …) + all of their sub-agents. Deduplicate by
         # object identity so shared sub-agents aren't patched twice.
         try:
-            from radbot.agent.agent_core import ROOT_AGENTS
+            from radbot.agent.assembly import _resolve_assembly
 
-            roots = list(ROOT_AGENTS.values())
+            roots = list(_resolve_assembly().root_agents.values())
         except Exception:
             roots = []
 

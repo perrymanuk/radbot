@@ -57,12 +57,13 @@ def create_scheduled_task(
     except (ValueError, KeyError) as e:
         return {"status": "error", "message": f"Invalid cron expression: {e}"}
 
-    from radbot.agent.agent_core import ROOT_AGENTS
+    from radbot.agent.assembly import _resolve_assembly
 
-    if agent_name not in ROOT_AGENTS:
+    root_agents = _resolve_assembly().root_agents
+    if agent_name not in root_agents:
         return {
             "status": "error",
-            "message": f"Unknown agent_name '{agent_name}'. Valid: {sorted(ROOT_AGENTS.keys())}",
+            "message": f"Unknown agent_name '{agent_name}'. Valid: {sorted(root_agents.keys())}",
         }
 
     try:

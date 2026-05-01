@@ -85,9 +85,9 @@ def _walk_agents(root: Any) -> list[tuple[str, Any]]:
 
 
 def _load_root_agent() -> Any:
-    from radbot.agent.agent_core import root_agent
+    from radbot.agent.assembly import build_default_assembly
 
-    return root_agent
+    return build_default_assembly().root_agent
 
 
 def build_snapshot() -> ToolSchemaSet:

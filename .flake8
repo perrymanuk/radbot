@@ -19,6 +19,10 @@ per-file-ignores =
     # isn't syntactically possible (comment would become part of the string).
     radbot/agent/research_agent/instructions.py:E501
     radbot/tools/alertmanager/processor.py:E501
+    # Entry-point files where load_dotenv() runs before any radbot.config
+    # import — every module-level import below is intentionally after a
+    # non-import statement.
+    radbot/web/app.py:E402
 
 # Standard exclusions
 exclude =
