@@ -206,11 +206,6 @@ export MCP_FS_ROOT_DIR=/path/to/accessible/directory
 make run-web
 ```
 
-Run the CLI:
-```
-make run-cli
-```
-
 ### Frontend Development
 
 ```
@@ -272,7 +267,6 @@ See `specs/testing.md`, `docs/implementation/quality_pipeline.md`, and `docs/imp
 - `/radbot/web`: FastAPI server, WebSocket handler, React frontend
 - `/radbot/web/frontend`: React SPA source (Vite + TypeScript + Tailwind)
 - `/radbot/config`: Configuration schema and credential store
-- `/radbot/cli`: Command-line interface
 - `/docs/implementation`: Detailed implementation documentation
 - `/tests`: Unit and integration tests
 

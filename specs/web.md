@@ -24,7 +24,7 @@ Terminal: Browser ◄──WS──► FastAPI terminal.py ──► WorkspacePr
 
 ### Per-Session Root Agent (2026-04-19)
 
-Chat sessions choose their root agent at creation time; the choice is stored on `chat_sessions.agent_name` (values: `beto` | `scout`, default `beto`). `SessionRunner.__init__(user_id, session_id, agent_name)` resolves the root via `radbot.agent.agent_core.get_root_agent(agent_name)` (registry: `ROOT_AGENTS = {"beto": root_agent, "scout": scout_root_agent}`), and derives ADK `app_name` from the selected root's `name`. Unknown names fall back to beto.
+Chat sessions choose their root agent at creation time; the choice is stored on `chat_sessions.agent_name` (values: `beto` | `scout`, default `beto`). `SessionRunner.__init__(user_id, session_id, agent_name)` resolves the root via `radbot.agent.assembly.get_root_agent(agent_name)` (registry: `ROOT_AGENTS = {"beto": root_agent, "scout": scout_root_agent}`), and derives ADK `app_name` from the selected root's `name`. Unknown names fall back to beto.
 
 - `agent_name` is **immutable** for a session's lifetime — the ADK session-service partition is keyed by `app_name`, so changing it would strand the session.
 - `POST /api/sessions/create` rejects unknown `agent_name` values with 400.

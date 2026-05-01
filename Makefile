@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-cli run-web run-web-custom run-scheduler dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean test-mutation-diff
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-web run-web-custom dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean test-mutation-diff
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -18,10 +18,8 @@ help:
 	@echo "test-integration: Run only integration tests"
 	@echo "lint           : Run all linting checks (flake8, mypy, black, isort)"
 	@echo "format         : Auto-format code with black and isort"
-	@echo "run-cli        : Start the radbot CLI interface"
 	@echo "run-web        : Start the radbot web interface using ADK"
 	@echo "run-web-custom : Start the custom FastAPI web interface"
-	@echo "run-scheduler  : Run the scheduler with optional arguments (use ARGS=\"--your-args\")"
 	@echo "setup-frontend : Install React frontend npm dependencies"
 	@echo "dev-frontend   : Start the Vite dev server (proxies API to FastAPI)"
 	@echo "build-frontend : Build the React frontend for production"
@@ -30,10 +28,8 @@ help:
 	@echo "Example usage:"
 	@echo "  make setup              # Install development dependencies"
 	@echo "  make test               # Run all tests"
-	@echo "  make run-cli            # Start the interactive CLI"
 	@echo "  make run-web            # Start the web interface using ADK"
 	@echo "  make run-web-custom     # Start the custom FastAPI web interface"
-	@echo "  make run-scheduler ARGS=\"--additional-args\""
 	@echo ""
 	@echo "Docker targets:"
 	@echo "  make docker-build   # Build the radbot Docker image"
@@ -154,17 +150,11 @@ format:
 	$(UV) run black radbot tests
 	$(UV) run isort radbot tests
 
-run-cli:
-	$(PYTHON) -m radbot.cli.main
-
 run-web: setup setup-web
 	$(ADK) web
-	
+
 run-web-custom: setup setup-web
 	$(PYTHON) -m radbot.web --reload
-
-run-scheduler:
-	$(PYTHON) -m radbot.cli.scheduler $(ARGS)
 
 setup-frontend:
 	cd radbot/web/frontend && npm install
