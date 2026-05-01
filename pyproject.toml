@@ -48,6 +48,12 @@ dependencies = [
     # Removed gcsa due to dependency conflict with ADK (tzlocal version conflict)
     "youtube-transcript-api>=1.2.4",
     "pydantic-ai>=0.0.14",                  # Required for SemanticDistiller strict-schema LLM calls
+    # Pin anyio < 5: anyio 5.0.0 (released 2026-04-23) tightened thread/event-loop
+    # coupling for Python 3.14 in a way that breaks fastapi.run_in_threadpool —
+    # every HTTP request hits `anyio.NoEventLoopError` under our 3.14-slim image.
+    # Caught in production by the v0.164 deploy. Pin until anyio 5 + fastapi 0.110+
+    # ship a compatible release.
+    "anyio>=4.0.0,<5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -67,6 +73,7 @@ dev = [
 web = [
     "fastapi>=0.110.0",
     "uvicorn>=0.27.1",
+    "wsproto>=1.2.0",   # uvicorn ws=wsproto — see start_server() comment
     "jinja2>=3.1.4",
     "starlette>=0.36.0",
     "python-multipart>=0.0.9",
