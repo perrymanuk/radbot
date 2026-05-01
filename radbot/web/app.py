@@ -217,6 +217,19 @@ async def _startup():
         # Memory service is initialized first (uses DB-merged Qdrant config),
         # then build_default_assembly attaches it to every root agent in the
         # registry. This call is idempotent across the process lifetime.
+        # Build the assembly in a worker thread so any sync agent factory
+        # that re-enters the event loop (notably the generic MCP client's
+        # nest_asyncio + loop.run_until_complete dance for SSE transport)
+        # gets its own fresh event loop instead of corrupting the lifespan
+        # task's loop. Concrete failure mode this guards against (caught
+        # in prod 2026-05-01): when an MCP server target was unreachable,
+        # the orphaned `httpx.AsyncClient.aclose()` cleanup raised
+        # `RuntimeError: Cannot enter into task while another task is
+        # being executed` under Python 3.14, wedged the asyncio backend
+        # pointer, and made every subsequent `run_in_threadpool()` call
+        # fail with `anyio.NoEventLoopError`. With the executor in place,
+        # the failed cleanup runs in the worker thread's loop and never
+        # touches ours.
         try:
             from radbot.agent.assembly import (
                 build_default_assembly,
@@ -224,7 +237,11 @@ async def _startup():
             )
 
             mem_svc = initialize_memory_service()
-            assembly = build_default_assembly(memory_service=mem_svc)
+            loop = asyncio.get_running_loop()
+            assembly = await loop.run_in_executor(
+                None,
+                lambda: build_default_assembly(memory_service=mem_svc),
+            )
             logger.info(
                 "Agent assembly built: root=%s, sub_agents=%d, alternate_roots=%d",
                 assembly.root_agent.name,
