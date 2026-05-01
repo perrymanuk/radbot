@@ -19,6 +19,7 @@ import logging
 import os
 import time
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -72,6 +73,24 @@ from radbot.web.api.webhooks import router as webhooks_router
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """ASGI lifespan: build state on startup, tear it down on shutdown.
+
+    Replaces the previous `@app.on_event("startup"/"shutdown")` decorator
+    pattern. The legacy decorators are deprecated in modern FastAPI and
+    were observed silently no-op'ing under the production runtime
+    (Python 3.14 + new dep set), causing `build_default_assembly()` to
+    never run and every request to fail. Lifespan is the supported,
+    non-deprecated path.
+    """
+    await _startup()
+    try:
+        yield
+    finally:
+        await _shutdown()
+
+
 def create_app():
     """Create and configure the FastAPI application.
 
@@ -83,6 +102,7 @@ def create_app():
         title="RadBot Web Interface",
         description="Web interface for interacting with RadBot agent",
         version="0.1.0",
+        lifespan=lifespan,
     )
 
     # Register API routers immediately after app creation
@@ -127,10 +147,13 @@ def create_app():
 app = create_app()
 
 
-# Define a startup event to initialize database schema and MCP servers
-@app.on_event("startup")
-async def initialize_app_startup():
-    """Initialize database schema and MCP server tools on application startup."""
+async def _startup():
+    """Initialize database schema, agent assembly, and MCP servers on startup.
+
+    Invoked by the ASGI lifespan context manager. Logs explicit progress
+    so a silent no-op (the v0.164 incident) is visible from the alloc logs.
+    """
+    logger.info("Lifespan startup: begin")
     try:
         # Log environment banner
         from radbot.config.config_loader import config_loader as _cl
@@ -370,11 +393,19 @@ async def initialize_app_startup():
 
     except Exception as e:
         logger.error(f"Failed during application startup: {str(e)}", exc_info=True)
+        raise
+
+    # Mount static files now that all routes are registered.
+    try:
+        mount_static_files()
+    except Exception as static_err:
+        logger.error(f"Error mounting static files: {static_err}", exc_info=True)
+
+    logger.info("Lifespan startup: complete")
 
 
-@app.on_event("shutdown")
-async def shutdown_scheduler():
-    """Shut down the scheduler engine gracefully."""
+async def _shutdown():
+    """Tear down scheduler, ntfy subscriber, and terminal sessions."""
     try:
         from radbot.tools.scheduler.engine import SchedulerEngine
 
@@ -385,10 +416,6 @@ async def shutdown_scheduler():
     except Exception as e:
         logger.error(f"Error shutting down scheduler engine: {e}", exc_info=True)
 
-
-@app.on_event("shutdown")
-async def shutdown_ntfy_subscriber():
-    """Stop the ntfy subscriber on shutdown."""
     try:
         from radbot.tools.ntfy.ntfy_subscriber import stop_ntfy_subscriber
 
@@ -397,10 +424,6 @@ async def shutdown_ntfy_subscriber():
     except Exception as e:
         logger.error(f"Error shutting down ntfy subscriber: {e}", exc_info=True)
 
-
-@app.on_event("shutdown")
-async def shutdown_terminals():
-    """Kill all terminal PTY sessions on shutdown."""
     try:
         TerminalManager.get_instance().kill_all()
     except Exception as e:
@@ -461,13 +484,6 @@ def mount_static_files():
         logger.debug("Static files mounted successfully")
     except Exception as e:
         logger.error(f"Error mounting static files: {str(e)}", exc_info=True)
-
-
-# Schedule static files mounting after all other routes are registered
-@app.on_event("startup")
-async def mount_static_files_on_startup():
-    """Mount static files during application startup after routes are registered."""
-    mount_static_files()
 
 
 # WebSocket connection manager
@@ -1198,4 +1214,15 @@ def start_server(host: str = "0.0.0.0", port: int = 8000, reload: bool = False):
     # Events router is already registered during module initialization
 
     logger.info(f"Starting RadBot web server on {host}:{port}")
-    uvicorn.run("radbot.web.app:app", host=host, port=port, reload=reload)
+    # ws="wsproto" forces the wsproto WebSocket protocol implementation.
+    # The default `auto` picks the legacy `websockets` library when installed,
+    # whose handler raises `RuntimeError: Timeout should be used inside a task`
+    # under Python 3.14. wsproto is unaffected. We can't drop the `websockets`
+    # dep — it's used for the Home Assistant WebSocket client.
+    uvicorn.run(
+        "radbot.web.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+        ws="wsproto",
+    )
