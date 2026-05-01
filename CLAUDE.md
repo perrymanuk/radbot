@@ -112,7 +112,6 @@ radbot/
 │   └── db.py                     # session_workers + workspace_workers table CRUD
 ├── callbacks/                    # ADK callback handlers
 ├── cache/                        # Response caching
-├── cli/                          # CLI entry point
 └── filesystem/                   # Filesystem utilities
 ```
 
@@ -210,7 +209,6 @@ Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own poo
 | Command | Description |
 |---|---|
 | `uv run python -m radbot.web` / `make run-web` | Start FastAPI web server |
-| `uv run python -m radbot` / `make run-cli` | Start CLI interface |
 | `uv run python -m radbot.worker --session-id <UUID>` | Start headless A2A session worker |
 | `make dev-frontend` | Vite dev server at :5173 (proxies to FastAPI :8000) |
 | `make build-frontend` | Build React SPA → `radbot/web/static/dist/` |
@@ -313,7 +311,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ## Logging Standard
 
-All logging is centralized in `radbot/logging_config.py`. Entry points (`web/__main__.py`, `cli/main.py`) call `setup_logging()` once at startup. **No other file should call `logging.basicConfig()`.**
+All logging is centralized in `radbot/logging_config.py`. Entry points (e.g. `web/__main__.py`, `worker/__main__.py`) call `setup_logging()` once at startup. **No other file should call `logging.basicConfig()`.**
 
 ### Format
 
@@ -337,7 +335,7 @@ Exception tracebacks are included in an `"exc"` field when present.
 
 1. **One INFO per operation** — e.g. one INFO when all MCP tools are loaded, not one per tool
 2. **No INFO in hot loops** — event processing, per-message handling, per-entity iteration → DEBUG
-3. **`logging.basicConfig()` only in entry points** — `web/__main__.py` and `cli/main.py`
+3. **`logging.basicConfig()` only in entry points** — `web/__main__.py` and `worker/__main__.py`
 4. **Use `LOG_LEVEL` env var** to control verbosity at runtime (default: `INFO`)
 5. **Keep WARNING/ERROR unchanged** — never downgrade these without good reason
 

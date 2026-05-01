@@ -46,9 +46,8 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 
 All schemas idempotent via `init_*_schema()` with `CREATE TABLE IF NOT EXISTS` (or the `init_table_schema()` helper in `tools/shared/db_schema.py`). Called from:
 
-- `agent_tools_setup.py:setup_before_agent_call()` — beto-side schema init (todo, scheduler, webhook, reminder, telos, telemetry, notifications, llm_usage_log, alerts)
-- `web/app.py:initialize_app_startup()` — web-side schema init (session workers, workspace workers, chat history)
-- `worker/__main__.py` — worker-side schema init (calls directly, not via ADK callback)
+- `tools/schemas.py:init_all_schemas()` — fail-loud central registry, invoked once at FastAPI startup (`web/app.py:initialize_app_startup()`) and once per pytest session (autouse fixture in `tests/conftest.py`).
+- `worker/__main__.py` — worker-side schema init (calls directly during bootstrap).
 
 ## Qdrant
 
