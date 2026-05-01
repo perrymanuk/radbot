@@ -299,13 +299,16 @@ class TestAgentWiring:
     def test_callback_on_beto_only(self):
         """inject_telos_context should be in root agent's before_model_callback,
         and absent from the shared sub-agent _before_cbs."""
-        import radbot.agent.agent_core as core
+        from radbot.agent.assembly import build_default_assembly
 
-        assert inject_telos_context in core.root_agent.before_model_callback
+        core_assembly = build_default_assembly()
+        core_root = core_assembly.root_agent
+
+        assert inject_telos_context in core_root.before_model_callback
 
         # Sub-agents use _before_cbs (name is module-private but stable).
         # Each sub-agent's before_model_callback should not contain our callback.
-        for sa in core.root_agent.sub_agents:
+        for sa in core_root.sub_agents:
             before = sa.before_model_callback or []
             assert (
                 inject_telos_context not in before
@@ -313,11 +316,14 @@ class TestAgentWiring:
 
     def test_telos_tools_on_beto(self):
         """Telos tools should be registered on beto's tool list."""
-        import radbot.agent.agent_core as core
+        from radbot.agent.assembly import build_default_assembly
+
+        core_assembly = build_default_assembly()
+        core_root = core_assembly.root_agent
         from radbot.tools.telos import TELOS_TOOLS
 
         beto_tool_fns = set()
-        for t in core.root_agent.tools:
+        for t in core_root.tools:
             fn = getattr(t, "func", None)
             if fn:
                 beto_tool_fns.add(fn.__name__)

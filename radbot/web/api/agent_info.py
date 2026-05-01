@@ -54,9 +54,11 @@ def _enumerate_sub_agents() -> List[Dict[str, Any]]:
     automatically without frontend edits.
     """
     try:
-        from agent import root_agent  # root-level re-export
+        from radbot.agent.assembly import _resolve_assembly
+
+        root_agent = _resolve_assembly().root_agent
     except Exception as e:
-        logger.warning("Could not import root_agent for sub-agent enumeration: %s", e)
+        logger.warning("Could not resolve root_agent for sub-agent enumeration: %s", e)
         return []
 
     sub_agents = getattr(root_agent, "sub_agents", None) or []

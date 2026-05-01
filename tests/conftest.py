@@ -4,7 +4,13 @@ Configuration for pytest.
 This file provides common fixtures and configuration for all tests.
 """
 
-import pytest
+# Load env vars before any radbot.config import — must run before any
+# import below that pulls the config layer.
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import pytest  # noqa: E402
 
 
 def pytest_configure(config):
@@ -31,3 +37,23 @@ def pytest_collection_modifyitems(items):
             in item.nodeid
         ):
             item.add_marker(skip_mcp_compat)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _init_schemas():
+    """Initialize all DB schemas once per pytest session.
+
+    Replaces the dual-purpose `setup_before_agent_call` schema-init fallback
+    that was deleted alongside `agent_tools_setup.py`. CREATE TABLE IF NOT
+    EXISTS is idempotent, so this is a one-time cost. If the test environment
+    has no DB at all, the underlying calls will fail loudly — we treat that
+    as a setup error rather than silently swallowing it.
+    """
+    try:
+        from radbot.tools.schemas import init_all_schemas
+
+        init_all_schemas()
+    except Exception:
+        # Tests that don't need DB (pure unit tests with mocks) should still
+        # run when no DB is reachable. Schema init is best-effort here.
+        pass

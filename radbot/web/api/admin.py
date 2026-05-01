@@ -238,10 +238,10 @@ async def save_config_section(
     # Hot-reload agent model when agent config changes
     if section == "agent":
         try:
-            from agent import root_agent
+            from radbot.agent.assembly import _resolve_assembly
             from radbot.config import config_manager
 
-            config_manager.apply_model_config(root_agent)
+            config_manager.apply_model_config(_resolve_assembly().root_agent)
         except Exception as e:
             logger.warning(f"Agent model hot-reload failed: {e}")
         # Hot-reload GOOGLE_CLOUD_PROJECT env var
@@ -259,13 +259,16 @@ async def save_config_section(
     # Re-initialize memory service when vector_db config changes
     if section == "vector_db":
         try:
-            from agent import root_agent
-            from radbot.agent import agent_core
-            from radbot.agent.agent_core import initialize_memory_service
+            from radbot.agent.assembly import (
+                _resolve_assembly,
+                initialize_memory_service,
+            )
 
-            initialize_memory_service()
-            if agent_core.memory_service:
-                root_agent._memory_service = agent_core.memory_service
+            mem_svc = initialize_memory_service()
+            if mem_svc:
+                assembly = _resolve_assembly()
+                for agent in assembly.root_agents.values():
+                    agent._memory_service = mem_svc
                 logger.info(
                     "Re-initialized memory service after vector_db config change"
                 )

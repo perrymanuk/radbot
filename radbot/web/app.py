@@ -2,7 +2,17 @@
 Main FastAPI application for RadBot web interface.
 
 This module defines the FastAPI application for the RadBot web interface.
+
+Entry-point file: `load_dotenv()` runs first so any radbot.config import
+that follows reads from the orchestrator-provided env. All module-level
+imports below are therefore intentionally after a non-import statement.
 """
+
+# ruff: noqa: E402
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import asyncio
 import logging
@@ -137,72 +147,11 @@ async def initialize_app_startup():
         logger.info(f"  qdrant  : {_qdrant_coll}")
         logger.info("=" * 60)
 
-        # First initialize the chat history database schema
-        logger.debug("Initializing chat history database schema...")
-        try:
-            from radbot.web.db import chat_operations
+        # All database schemas in one fail-loud call. Idempotent
+        # (CREATE TABLE IF NOT EXISTS); structural failures crash boot.
+        from radbot.tools.schemas import init_all_schemas
 
-            success = chat_operations.create_schema_if_not_exists()
-            if success:
-                logger.debug("Chat history database schema initialized")
-            else:
-                logger.warning("Failed to initialize chat history database schema")
-        except Exception as db_error:
-            logger.error(
-                f"Error initializing chat history database: {str(db_error)}",
-                exc_info=True,
-            )
-            # Continue app startup even if database initialization fails
-
-        # Initialize scheduler and webhook database schemas
-        logger.debug("Initializing scheduler database schema...")
-        try:
-            from radbot.tools.scheduler.db import (
-                init_pending_results_schema,
-                init_scheduler_schema,
-            )
-
-            init_scheduler_schema()
-            init_pending_results_schema()
-            logger.debug("Scheduler database schema initialized")
-        except Exception as sched_err:
-            logger.error(
-                f"Error initializing scheduler database: {str(sched_err)}",
-                exc_info=True,
-            )
-
-        logger.debug("Initializing webhook database schema...")
-        try:
-            from radbot.tools.webhooks.db import init_webhook_schema
-
-            init_webhook_schema()
-            logger.debug("Webhook database schema initialized")
-        except Exception as wh_err:
-            logger.error(
-                f"Error initializing webhook database: {str(wh_err)}", exc_info=True
-            )
-
-        logger.debug("Initializing reminder database schema...")
-        try:
-            from radbot.tools.reminders.db import init_reminder_schema
-
-            init_reminder_schema()
-            logger.debug("Reminder database schema initialized")
-        except Exception as rem_err:
-            logger.error(
-                f"Error initializing reminder database: {str(rem_err)}", exc_info=True
-            )
-
-        logger.debug("Initializing telos database schema...")
-        try:
-            from radbot.tools.telos.db import init_telos_schema
-
-            init_telos_schema()
-            logger.debug("Telos database schema initialized")
-        except Exception as telos_err:
-            logger.error(
-                f"Error initializing telos database: {str(telos_err)}", exc_info=True
-            )
+        init_all_schemas()
 
         # One-shot idempotent migration of legacy todo tables into Telos
         # (section=projects + section=project_tasks). Safe on every boot:
@@ -215,101 +164,6 @@ async def initialize_app_startup():
         except Exception as mig_err:
             logger.error(
                 f"todo→telos migration failed (non-fatal): {mig_err}", exc_info=True
-            )
-
-        logger.debug("Initializing coder workspaces database schema...")
-        try:
-            from radbot.tools.claude_code.db import init_coder_schema
-
-            init_coder_schema()
-            logger.debug("Coder workspaces database schema initialized")
-        except Exception as coder_err:
-            logger.error(
-                f"Error initializing coder workspaces database: {str(coder_err)}",
-                exc_info=True,
-            )
-
-        logger.debug("Initializing notification database schema...")
-        try:
-            from radbot.tools.notifications.db import init_notification_schema
-
-            init_notification_schema()
-            logger.debug("Notification database schema initialized")
-        except Exception as notif_err:
-            logger.error(
-                f"Error initializing notification database: {str(notif_err)}",
-                exc_info=True,
-            )
-
-        logger.debug("Initializing alert database schema...")
-        try:
-            from radbot.tools.alertmanager.db import init_alert_schema
-
-            init_alert_schema()
-            logger.debug("Alert database schema initialized")
-        except Exception as alert_err:
-            logger.error(
-                f"Error initializing alert database: {str(alert_err)}",
-                exc_info=True,
-            )
-
-        logger.debug("Initializing usage telemetry database schema...")
-        try:
-            from radbot.telemetry.db import init_usage_schema
-
-            init_usage_schema()
-            logger.debug("Usage telemetry database schema initialized")
-        except Exception as usage_err:
-            logger.error(
-                f"Error initializing usage telemetry database: {str(usage_err)}",
-                exc_info=True,
-            )
-
-        # PT30 baseline telemetry (`telemetry_events`). Previously only
-        # initialized by `setup_before_agent_call` on beto's before-agent
-        # callback — so scout-rooted sessions (which don't wire that
-        # callback) dropped every batch with "relation telemetry_events
-        # does not exist". CREATE TABLE IF NOT EXISTS is idempotent, so
-        # eager startup init is safe.
-        logger.debug("Initializing PT30 telemetry_events schema...")
-        try:
-            from radbot.tools.telemetry import init_telemetry_schema
-
-            init_telemetry_schema()
-            logger.debug("telemetry_events schema initialized")
-        except Exception as tel_err:
-            logger.error(
-                f"Error initializing telemetry_events schema: {str(tel_err)}",
-                exc_info=True,
-            )
-
-        # Initialize session workers schema
-        logger.debug("Initializing session workers database schema...")
-        try:
-            from radbot.worker.db import (
-                init_session_workers_schema,
-                init_workspace_workers_schema,
-            )
-
-            init_session_workers_schema()
-            init_workspace_workers_schema()
-            logger.debug("Session/workspace workers database schemas initialized")
-        except Exception as sw_err:
-            logger.error(
-                f"Error initializing session workers database: {str(sw_err)}",
-                exc_info=True,
-            )
-
-        # Initialize credential store schema
-        logger.debug("Initializing credential store schema...")
-        try:
-            from radbot.credentials.store import CredentialStore
-
-            CredentialStore.init_schema()
-            logger.debug("Credential store schema initialized")
-        except Exception as cred_err:
-            logger.error(
-                f"Error initializing credential store: {str(cred_err)}", exc_info=True
             )
 
         # Load config overrides from the credential store DB
@@ -336,30 +190,31 @@ async def initialize_app_startup():
         except Exception as fs_err:
             logger.warning(f"Error reloading filesystem config: {fs_err}")
 
-        # Re-initialize memory service now that DB config (including Qdrant host) is loaded
+        # Build the agent assembly now that DB config + credential store are loaded.
+        # Memory service is initialized first (uses DB-merged Qdrant config),
+        # then build_default_assembly attaches it to every root agent in the
+        # registry. This call is idempotent across the process lifetime.
         try:
-            from agent import root_agent
-            from radbot.agent.agent_core import (
+            from radbot.agent.assembly import (
+                build_default_assembly,
                 initialize_memory_service,
             )
 
-            initialize_memory_service()
-            # Re-attach to root_agent
-            from radbot.agent import agent_core
+            mem_svc = initialize_memory_service()
+            assembly = build_default_assembly(memory_service=mem_svc)
+            logger.info(
+                "Agent assembly built: root=%s, sub_agents=%d, alternate_roots=%d",
+                assembly.root_agent.name,
+                len(assembly.root_agent.sub_agents or []),
+                len(assembly.root_agents) - 1,
+            )
+        except Exception as build_err:
+            logger.error(f"Failed to build agent assembly: {build_err}", exc_info=True)
+            raise
 
-            if agent_core.memory_service:
-                root_agent._memory_service = agent_core.memory_service
-                for _root in agent_core.ROOT_AGENTS.values():
-                    _root._memory_service = agent_core.memory_service
-                logger.debug("Re-initialized memory service with DB config overrides")
-        except Exception as mem_err:
-            logger.warning(f"Error re-initializing memory service: {mem_err}")
-
-        # Refresh config_manager and apply DB model overrides to root agent
+        # Apply DB model overrides to the freshly assembled root agent.
         try:
-            from agent import root_agent
-
-            config_manager.apply_model_config(root_agent)
+            config_manager.apply_model_config(assembly.root_agent)
         except Exception as model_err:
             logger.warning(f"Error applying DB model config: {model_err}")
 
@@ -375,11 +230,11 @@ async def initialize_app_startup():
             logger.warning(f"Error re-initializing environment: {env_err}")
 
         # Prune disabled MCP server tools from the root agent.
-        # The root agent is created at import time using config.yaml, before DB
+        # Sub-agent factories load tools using config.yaml, before DB
         # config overrides are loaded. This step removes tools from MCP servers
         # that were disabled via the /admin UI (stored in DB).
         try:
-            from agent import root_agent
+            root_agent = assembly.root_agent
             from radbot.config.config_loader import config_loader as _cl
             from radbot.tools.mcp.dynamic_tools_loader import _MCP_TOOL_BLOCKLIST
 
@@ -1100,8 +955,10 @@ async def websocket_endpoint(
 
                 # Handle explicit agent targeting if present
                 if target_agent:
-                    # Import agent transfer tool
-                    from agent import root_agent  # Import from root module
+                    # Resolve the assembled root agent at request time.
+                    from radbot.agent.assembly import _resolve_assembly
+
+                    root_agent = _resolve_assembly().root_agent
                     from radbot.tools.agent_transfer import (
                         find_agent_by_name,
                         process_request,

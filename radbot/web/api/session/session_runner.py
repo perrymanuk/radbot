@@ -23,9 +23,9 @@ from google.adk.sessions import InMemorySessionService  # noqa: E402
 from google.genai.types import Content, Part  # noqa: E402
 
 # Registry of available session roots (keyed by agent_name stored on
-# chat_sessions). get_root_agent imports agent.py transitively, which sets
-# up the agent tree; unknown names fall back to beto.
-from radbot.agent.agent_core import get_root_agent  # noqa: E402
+# chat_sessions). get_root_agent resolves through the cached Assembly
+# (built during web startup); unknown names fall back to beto.
+from radbot.agent.assembly import get_root_agent  # noqa: E402
 from radbot.agent.runner import RadbotRunner as Runner  # noqa: E402
 from radbot.config.adk_config import get_thinking_config  # noqa: E402
 from radbot.web.api.malformed_function_handler import (  # noqa: E402

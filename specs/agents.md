@@ -33,7 +33,7 @@ Beto owns **all project/task management directly** via Telos tools (projects, mi
 
 | Agent | Factory | Model | Tool Count | Purpose |
 |-------|---------|-------|------------|---------|
-| **beto** | `agent/agent_core.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 29 | Orchestrator, routes to specialists; owns Telos (persistent user context + project hierarchy) |
+| **beto** | `agent/assembly.py` | `config_manager.get_main_model()` (default `gemini-2.5-pro`) | 29 | Orchestrator, routes to specialists; owns Telos (persistent user context + project hierarchy) |
 | **casa** | `agent/home_agent/factory.py` | `resolve_agent_model("casa_agent")` | ~37 | Smart home, media, music, grocery, card emission |
 | **planner** | `agent/planner_agent/factory.py` | `resolve_agent_model("planner_agent")` | 17 | Calendar, scheduling, reminders, webhooks |
 | **comms** | `agent/comms_agent/factory.py` | `resolve_agent_model("comms_agent")` | 12 | Email (Gmail), Jira |
@@ -106,7 +106,7 @@ Emits UI cards inline with replies. Casa ships the movie/TV/HA card tools; kidsv
 | ADK | 1 | `load_artifacts` |
 | Shell | 1 | `get_shell_tool(strict_mode=True)` (when `enable_code_execution=True`) |
 
-`enable_code_execution=True` is set in `specialized_agent_factory._create_axel_agent`.
+`enable_code_execution=True` is set in `radbot/agent/execution_agent/factory.py:create_axel_agent` (the manifest entry in `assembly.py:AGENT_DEFS` calls into it).
 
 ### kidsvid — Children's Video Curation
 
@@ -181,9 +181,9 @@ Chat sessions can run with either **beto** or **scout** as the root agent. The c
 - **beto session** (default) — full orchestrator tree; routes to any sub-agent (casa, planner, comms, axel, kidsvid, scout-as-subagent, search_agent, code_execution_agent). Used for general chat and cross-domain work.
 - **scout session** — skips beto's routing layer for extended back-and-forth planning. Scout is root with **no sub-agent tree** — she does grounded Google Search via the `grounded_search` FunctionTool (direct Gemini call with search grounding), not via a search sub-agent. No re-routing tax per turn, full conversation history stays with scout.
 
-Registry: `radbot.agent.agent_core.ROOT_AGENTS` maps `agent_name` → root agent object. `get_root_agent(name)` resolves it, falling back to beto on unknown names.
+Registry: `radbot.agent.assembly.Assembly.root_agents` maps `agent_name` → root agent object. `get_root_agent(name)` resolves it through the cached assembly, falling back to beto on unknown names.
 
-Scout is a **second Python instance** when acting as root (ADK binds each sub-agent to one parent). `agent_core.py` constructs both:
+Scout is a **second Python instance** when acting as root (ADK binds each sub-agent to one parent). `assembly.py` declares two `AgentDef` entries pointing at `create_research_agent` with different flags:
 
 - `scout_agent = create_research_agent(name="scout", as_subagent=False)` — beto's sub-agent (for quick research detours mid-beto-chat)
 - `scout_root_agent = create_research_agent(name="scout", as_root=True)` — root of scout sessions (no sub-agents — uses `grounded_search` FunctionTool instead)
@@ -208,19 +208,60 @@ Scout is a **second Python instance** when acting as root (ADK binds each sub-ag
 
 ## Creation Flow
 
-All assembly happens in `radbot/agent/agent_core.py` at module import time:
+Assembly is **manifest-driven**. The shape of the agent graph lives in
+`radbot/agent/assembly.py:AGENT_DEFS` — one `AgentDef(name, factory, role,
+terse_protocol, gemini_only)` per agent. `build_default_assembly()` walks
+the manifest, attaches the standard callback stack per role, and
+constructs beto last with all sub-agents passed to the constructor.
 
-1. `create_agent_memory_tools("beto")` — beto's 2 memory tools
-2. `create_search_agent()`, `create_code_execution_agent()`, `create_research_agent(name="scout", as_subagent=False)` — the three "peer" sub-agents
-3. `create_specialized_agents()` builds the domain agents in order: casa → planner → comms → axel → kidsvid. None-returning factories are filtered out.
-4. `all_sub_agents` = builtin sub-agents + specialized — passed to the root `Agent(...)` constructor
-5. **Before construction**, callbacks are attached to each sub-agent:
-   - `before_model_callback = [scope_sub_agent_context_callback, scrub_empty_content_before_model, sanitize_tool_schemas_before_model]`
-   - `after_model_callback = [handle_empty_response_after_model, telemetry_after_model_callback]`
-   - `axel` and `planner` additionally get `terse_protocol_before_model_callback` + `terse_protocol_after_model_callback` appended. These are runtime-gated by `config:agent.terse_protocol_enabled` (env override: `RADBOT_TERSE_PROTOCOL_ENABLED`), so registering them is safe when the flag is off. Excluded: `search_agent` / `code_execution_agent` (structured outputs the protocol would corrupt), `scout` (emits plans; can also be a session root), and `casa` / `comms` / `kidsvid` (PT62 — transactional / tool-heavy agents whose native output is already compact; EX20 telemetry showed the protocol *hurt* these agents because weaker Gemini variants couldn't juggle tool-call mode and JSON-emission mode simultaneously).
-6. Root `Agent(...)` is constructed — ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting `parent_agent` on every sub-agent
+### Lifecycle
 
-**Critical**: agents added to `sub_agents` after construction are NOT part of the mesh — `transfer_to_agent` will not find them. See `docs/implementation/session_id_tracking.md` for history.
+`build_default_assembly(memory_service)` is called **exactly once** during
+FastAPI startup (`web/app.py:initialize_app_startup`) AFTER `load_db_config()`
+and `initialize_memory_service()`. The result is cached on a module-level
+slot. The top-level `agent.py` is a lazy proxy: each access of
+`agent.root_agent` resolves through `_resolve_assembly()`. Pre-build access
+raises `RuntimeError` rather than silently returning a half-initialized stub.
+
+Tests use the autouse session fixture in `tests/conftest.py` to run
+`init_all_schemas()`, then call `build_default_assembly()` (or
+`build_assembly(custom_defs)`) when they need an assembled agent.
+
+### Manifest walk
+
+For each `AgentDef`:
+- `role="subagent"` or `role="builtin"` — call the factory; attach the
+  standard sub-agent callback stack (`scope_sub_agent_context_callback`,
+  `scrub_empty_content_before_model`, `sanitize_tool_schemas_before_model`,
+  + `handle_empty_response_after_model`, `telemetry_after_model_callback`).
+  If `terse_protocol=True`, also append the terse-protocol before/after
+  callbacks. Failure raises (deploy-blocker — sub-agent missing breaks
+  routing).
+- `role="root"` (other than beto) — call the factory and add to
+  `root_agents`. Factory failure logs ERROR and omits from the registry.
+  `get_root_agent("scout")` falls back to beto if unavailable.
+
+After all sub-agents are assembled, `_build_beto(sub_agents)` constructs
+beto with the full sub-agent list passed to the `Agent(...)` constructor.
+ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting
+`parent_agent` on every sub-agent.
+
+**Critical**: agents added to `sub_agents` after construction are NOT part
+of the mesh — `transfer_to_agent` will not find them. See
+`docs/implementation/session_id_tracking.md` for history.
+
+### Terse JSON Protocol
+
+`AgentDef.terse_protocol=True` only on `axel` and `planner`. Excluded:
+`search_agent` / `code_execution_agent` (structured outputs the protocol
+would corrupt), `scout` (emits plans; can also be a session root), and
+`casa` / `comms` / `kidsvid` (PT62 — transactional / tool-heavy agents
+whose native output is already compact; EX20 telemetry showed the
+protocol *hurt* these agents because weaker Gemini variants couldn't
+juggle tool-call mode and JSON-emission mode simultaneously). The
+callbacks themselves remain runtime-gated by
+`config:agent.terse_protocol_enabled` (env override:
+`RADBOT_TERSE_PROTOCOL_ENABLED`).
 
 ## Per-Turn Context Scoping
 
@@ -255,7 +296,6 @@ From `config/default_configs/instructions/main_agent.md`:
 
 | Callback | File | Applied To | Purpose |
 |----------|------|------------|---------|
-| `setup_before_agent_call` | `agent/agent_tools_setup.py` | beto (before_agent) | DB schema init; HA client warm-up |
 | `sanitize_before_model_callback` | `callbacks/sanitize_callback.py` | beto (before_model) | Strip PII / sensitive tokens |
 | `scrub_empty_content_before_model` | `callbacks/empty_content_callback.py` | all (before_model) | Drop Content entries with empty text parts (Gemini API errors) |
 | `scope_sub_agent_context_callback` | `callbacks/scope_to_current_turn.py` | sub-agents only (before_model) | Trim to current turn |
@@ -271,10 +311,11 @@ From `config/default_configs/instructions/main_agent.md`:
 
 | File | Purpose |
 |------|---------|
-| `agent/agent_core.py` | Root agent creation, sub-agent assembly, callback wiring |
-| `agent/agent_tools_setup.py` | DB schema init callback, search/code/scout creation |
-| `agent/specialized_agent_factory.py` | Domain agent creation (casa, planner, comms, axel, kidsvid) |
-| `agent/{domain}_agent/factory.py` | Per-domain agent factory function |
+| `agent/assembly.py` | Manifest (`AGENT_DEFS`), `build_default_assembly()`, callback wiring, `Assembly` dataclass, lazy `_resolve_assembly()` |
+| `agent.py` (top-level) | Lazy proxy — `__getattr__` resolves `root_agent` / `ROOT_AGENTS` through `_resolve_assembly()` after web startup runs |
+| `tools/schemas.py` | Centralized DB schema init (`init_all_schemas()`); replaces the per-domain init blocks formerly inlined in `web/app.py` and the `setup_before_agent_call` fallback |
+| `agent/{domain}_agent/factory.py` | Per-domain agent factory function (each `AgentDef` calls into one of these) |
+| `agent/factory_utils.py` | `load_tools()` — degradation policy for tool-module import failures |
 | `agent/shared.py` | `load_agent_instruction`, `resolve_agent_model`, task/transfer instruction helpers |
 | `config/default_configs/instructions/*.md` | Agent instruction files (main_agent.md, casa.md, planner.md, comms.md, axel.md, scout.md, kidsvid.md) |
 | `tools/adk_builtin/search_tool.py` | `search_agent` factory |

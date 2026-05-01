@@ -178,3 +178,28 @@ def create_execution_agent(
         # Return the ExecutionAgent wrapper
         logger.info(f"Returning ExecutionAgent wrapper for {name}")
         return execution_agent
+
+
+def create_axel_agent() -> Optional[Agent]:
+    """Build axel as a sub-agent of beto with the standard execution toolkit.
+
+    Used by `radbot.agent.assembly.AGENT_DEFS`. Resolves axel's model from
+    config (`axel_agent_model` → `axel_agent` → `sub_model`), wires the full
+    execution toolkit, and enables shell + code execution.
+    """
+    from radbot.agent.execution_agent.tools import execution_tools
+
+    axel_model = config_manager.get_agent_model("axel_agent_model")
+    if not axel_model:
+        axel_model = config_manager.get_agent_model("axel_agent")
+        if not axel_model:
+            axel_model = config_manager.get_sub_model()
+
+    return create_execution_agent(
+        name="axel",
+        model=axel_model,
+        tools=execution_tools,
+        as_subagent=True,
+        enable_code_execution=True,
+        app_name="beto",
+    )

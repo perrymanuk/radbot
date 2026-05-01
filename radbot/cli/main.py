@@ -211,26 +211,28 @@ async def setup_agent() -> Optional[RadBotAgent]:
     except Exception as e:
         logger.warning(f"Could not reload filesystem config: {e}")
 
-    # Initialize memory service now that DB config is loaded
+    # Initialize memory service and build the agent assembly now that DB
+    # config is loaded. CLI is a legacy entry path scheduled for removal in
+    # PR2; this keeps it functional in the meantime.
     try:
-        from agent import root_agent
-        from radbot.agent import agent_core
-        from radbot.agent.agent_core import initialize_memory_service
+        from radbot.agent.assembly import (
+            build_default_assembly,
+            initialize_memory_service,
+        )
 
-        initialize_memory_service()
-        if agent_core.memory_service:
-            root_agent._memory_service = agent_core.memory_service
-            logger.debug("Initialized memory service with DB config")
+        mem_svc = initialize_memory_service()
+        assembly = build_default_assembly(memory_service=mem_svc)
+        root_agent = assembly.root_agent
     except Exception as e:
-        logger.warning(f"Could not initialize memory service: {e}")
+        logger.warning(f"Could not build agent assembly: {e}")
+        root_agent = None
 
     # Refresh config_manager and apply DB model overrides to root agent
-    try:
-        from agent import root_agent
-
-        config_manager.apply_model_config(root_agent)
-    except Exception as model_err:
-        logger.warning(f"Error applying DB model config: {model_err}")
+    if root_agent is not None:
+        try:
+            config_manager.apply_model_config(root_agent)
+        except Exception as model_err:
+            logger.warning(f"Error applying DB model config: {model_err}")
 
     # Re-run environment setup now that full config (including DB overrides) is loaded
     try:

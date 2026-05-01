@@ -79,10 +79,9 @@ Admin UI → `PUT /api/config/{section}` → `config_loader.load_db_config()` �
 ```
 radbot/
 ├── agent/                        # Agent definitions and setup
-│   ├── agent_core.py             # Root agent (beto) creation — orchestrator only
-│   ├── agent_initializer.py      # Basic ADK imports and config
-│   ├── agent_tools_setup.py      # Schema init callback, search/code/scout creation
-│   ├── specialized_agent_factory.py  # Creates all domain agents (casa, planner, comms, axel, kidsvid)
+│   ├── assembly.py               # Manifest (AGENT_DEFS), build_default_assembly(), Assembly dataclass, lazy _resolve_assembly()
+│   ├── factory_utils.py          # load_tools() — silent skip on per-tool-module import failure
+│   ├── shared.py                 # load_agent_instruction, resolve_agent_model, task/transfer instruction helpers
 │   ├── home_agent/               # Casa agent (Home Assistant + Overseerr + Picnic + Lidarr)
 │   ├── planner_agent/            # Planner agent (Calendar + Scheduler + Reminders + Webhooks)
 │   ├── comms_agent/              # Comms agent (Gmail + Jira)
@@ -127,7 +126,7 @@ Project / milestone / task / exploration management stays on beto (Telos-backed)
 
 | Agent | Factory location | Tools | Purpose |
 |---|---|---|---|
-| **beto** (root) | `agent/agent_core.py` | 2 memory + 27 telos | Orchestrator, routes to specialists; owns Telos (identity, mission, goals, projects + milestones + project_tasks + explorations, journal, …) |
+| **beto** (root) | `agent/assembly.py` | 2 memory + 27 telos | Orchestrator, routes to specialists; owns Telos (identity, mission, goals, projects + milestones + project_tasks + explorations, journal, …) |
 | **casa** | `agent/home_agent/factory.py` | 6 HA REST (default) **OR** HA MCP (~19 built-in + user scripts, dynamic; opt-in via `integrations.home_assistant.use_mcp=true`) + 6 HA Dashboard + 4 Overseerr + 5 Lidarr + 10 Picnic + 4 cards + 2 memory | Smart home, media requests, music, grocery. HA MCP path enables HA's native Assist intent tools (HassLightSet, HassClimateSetTemperature, HassMediaSearchAndPlay, etc.) once explicitly toggled. |
 | **planner** | `agent/planner_agent/factory.py` | 1 time + 5 calendar + 3 scheduler + 3 reminder + 3 webhook + 2 memory | Calendar, scheduling, reminders, webhook triggers |
 | **comms** | `agent/comms_agent/factory.py` | 4 gmail + 6 jira + 2 memory | Email, issue tracking |
@@ -243,11 +242,10 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 1. Create `radbot/tools/<module>/` with `__init__.py`, `db.py`, `<module>_tools.py`
 2. Add tools to the appropriate **domain agent factory** (e.g., `radbot/agent/home_agent/factory.py`)
-3. Add `init_<module>_schema()` call in `setup_before_agent_call()` in `agent_tools_setup.py`
+3. Add `(label, "radbot.tools.<module>.db", "init_<module>_schema")` to `SCHEMA_INITS` in `radbot/tools/schemas.py`
 4. If REST API needed: create `radbot/web/api/<module>.py` router, register in `app.py`
-5. Add schema init to `initialize_app_startup()` in `app.py`
-6. **Store all integration config in DB credential store** — NOT in `config.yaml`
-7. **Do NOT add tools to `agent_initializer.py` or `agent_core.py`** — beto is a pure orchestrator
+5. **Store all integration config in DB credential store** — NOT in `config.yaml`
+6. **Do NOT add tools directly to `agent/assembly.py`** — beto is a pure orchestrator; per-domain tools live on the corresponding sub-agent factory
 
 ### New domain agent
 
@@ -255,8 +253,8 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 2. Follow pattern from `radbot/agent/home_agent/factory.py`
 3. Add `create_agent_memory_tools("<domain>")` for scoped memory
 4. Create instruction file: `radbot/config/default_configs/instructions/<domain>.md`
-5. Add factory call in `radbot/agent/specialized_agent_factory.py` (returns agents, does NOT mutate root)
-6. The new agent is automatically included in `agent_core.py`'s pre-construction assembly
+5. Add an `AgentDef(name=..., factory=..., role="subagent", terse_protocol=...)` entry to `AGENT_DEFS` in `radbot/agent/assembly.py`. The factory closure imports your `create_<domain>_agent()` lazily.
+6. `build_default_assembly()` automatically picks up the new entry, attaches the standard sub-agent callback stack, and includes the agent under beto.
 7. Add agent to routing table in `instructions/main_agent.md`
 
 ### New Admin UI integration
@@ -291,7 +289,8 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 - **google-adk 2.0.0a3** with V1 LlmAgent mode (default, permanently). We previously kept `mode='task'` on domain agents and adaptive V1/V2 instructions anticipating a flip to V2, but ADK is **removing** V2 `_Mesh` (see [google/adk-python#5283](https://github.com/google/adk-python/issues/5283), closed 2026-04-16: "we are removing v2_Mesh in our latest version of workflow. And will by default use the v1 llm agent."). Do NOT set `ADK_DISABLE_V1_LLM_AGENT=true` — it breaks `transfer_to_agent` because V2 `_Mesh.run_node_impl` exits the coordinator generator before `execute_tools` can fire. `mode='task'` on sub-agents is a no-op under V1 and kept only to avoid churn.
 - **google-genai 1.72.0** is installed — NOT `google-generativeai` (different package/API)
-- **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the routing graph is built in `model_post_init`. See `agent_core.py`.
+- **ADK 2.0 sub-agent assembly**: ALL sub-agents MUST be passed to the root Agent constructor. Do NOT add agents to `sub_agents` after construction — the routing graph is built in `model_post_init`. See `radbot/agent/assembly.py:_build_beto`.
+- **Assembly lifecycle**: `build_default_assembly()` runs ONCE during web startup (after `load_db_config()` + `initialize_memory_service()`). The top-level `agent.py` is a lazy proxy — `agent.root_agent` resolves through `_resolve_assembly()`. Module-level `from agent import root_agent` evaluates `__getattr__` at import time and crashes pre-startup; **always import inside function bodies** or use `from radbot.agent.assembly import _resolve_assembly` and resolve at call time. Tests call `build_default_assembly()` (or `build_assembly(custom_defs)` for stub manifests) explicitly.
 - **ADK 2.0 app_name validation**: App names must be valid Python identifiers (letters, digits, underscores). No hyphens.
 - **ADK `@tool` decorator removed**: `google.adk.tools.decorators.tool` no longer exists in 2.0. Use `FunctionTool` wrapper instead. Existing code has try/except fallbacks.
 - **BuiltInCodeExecutor**: Use `code_executor=BuiltInCodeExecutor()` on Agent, not as a tool
