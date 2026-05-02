@@ -7,8 +7,6 @@ This package provides various tools for the Radbot agent.
 # Re-export tools from subpackages
 from radbot.tools.basic import get_current_time
 from radbot.tools.homeassistant import (
-    HomeAssistantRESTClient,
-    get_ha_client,
     get_ha_entity_state,
     list_ha_entities,
     search_ha_entities,
@@ -31,8 +29,6 @@ __all__ = [
     # Basic tools
     "get_current_time",
     # Home Assistant tools
-    "get_ha_client",
-    "HomeAssistantRESTClient",
     "search_ha_entities",
     "list_ha_entities",
     "get_ha_entity_state",

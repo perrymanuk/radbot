@@ -169,9 +169,9 @@ def _get_github_token() -> Optional[str]:
     never written to logs.
     """
     try:
-        from radbot.tools.github.github_app_client import get_github_client
+        from radbot.clients.provider import get_provider
 
-        client = get_github_client()
+        client = get_provider().github
         if client is None:
             logger.debug("GitHub App client not configured — skipping token injection")
             return None

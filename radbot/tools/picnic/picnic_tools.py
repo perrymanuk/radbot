@@ -12,10 +12,14 @@ from typing import Any, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
 
+from radbot.clients.provider import get_provider
 from radbot.tools.shared.client_utils import client_or_error
 from radbot.tools.shared.tool_decorator import tool_error_handler
 
-from .picnic_client import get_picnic_client
+
+def _get_picnic():
+    return get_provider().picnic
+
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +94,7 @@ def search_picnic_product(
         On success: {"status": "success", "results": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -117,7 +121,7 @@ def get_picnic_cart() -> Dict[str, Any]:
         On success: {"status": "success", "items": [...], "total_price": N, "item_count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -155,7 +159,7 @@ def add_to_picnic_cart(
         On success: {"status": "success", "message": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -186,7 +190,7 @@ def remove_from_picnic_cart(
         On success: {"status": "success", "message": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -206,7 +210,7 @@ def clear_picnic_cart() -> Dict[str, Any]:
         On success: {"status": "success", "message": "Cart cleared"}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -223,7 +227,7 @@ def get_picnic_delivery_slots() -> Dict[str, Any]:
         On success: {"status": "success", "slots": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -271,7 +275,7 @@ def set_picnic_delivery_slot(
         On success: {"status": "success", "message": "Order placed for slot ..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -335,7 +339,7 @@ def submit_shopping_list_to_picnic(
         On success: {"status": "success", "matched": [...], "unmatched": [...], "cart_total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -482,7 +486,7 @@ def get_picnic_lists() -> Dict[str, Any]:
         On success: {"status": "success", "lists": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -531,7 +535,7 @@ def get_picnic_list_details(
         On success: {"status": "success", "list": {...}, "items": [...]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -566,7 +570,7 @@ def get_picnic_order_history() -> Dict[str, Any]:
         On success: {"status": "success", "deliveries": [...], "count": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 
@@ -602,7 +606,7 @@ def get_picnic_delivery_details(
         On success: {"status": "success", "delivery": {...}, "items": [...]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_picnic_client, "Picnic")
+    client, err = client_or_error(_get_picnic, "Picnic")
     if err:
         return err
 

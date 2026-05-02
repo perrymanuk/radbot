@@ -317,9 +317,9 @@ class TerminalManager:
             return local_path
 
         try:
-            from radbot.tools.github.github_app_client import get_github_client
+            from radbot.clients.provider import get_provider
 
-            client = get_github_client()
+            client = get_provider().github
             if not client:
                 raise ValueError("GitHub App not configured — cannot clone workspace")
 

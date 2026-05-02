@@ -10,7 +10,7 @@ import time
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional
 
-from radbot.tools.homeassistant.ha_client_singleton import get_ha_client
+from radbot.clients.provider import get_provider
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class HomeAssistantStateCache:
         Returns:
             True if update successful, False otherwise
         """
-        client = get_ha_client()
+        client = get_provider().ha_rest
         if not client:
             logger.error("Cannot update cache: Home Assistant client not configured.")
             return False

@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 from fastapi import APIRouter, HTTPException, Path
 from pydantic import BaseModel
 
-from radbot.tools.homeassistant.ha_client_singleton import get_ha_client
+from radbot.clients.provider import get_provider
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def _to_card(state_obj: Dict[str, Any]) -> Dict[str, Any]:
 
 @router.get("/state/{entity_id}")
 async def get_entity_state(entity_id: str = Path(...)) -> Dict[str, Any]:
-    client = get_ha_client()
+    client = get_provider().ha_rest
     if client is None:
         raise HTTPException(
             503, "Home Assistant not configured — set it up via /admin/"
@@ -118,7 +118,7 @@ class ServiceCallBody(BaseModel):
 @router.post("/service")
 async def call_service(body: ServiceCallBody) -> Dict[str, Any]:
     """Call an HA service (e.g. domain='light', service='toggle')."""
-    client = get_ha_client()
+    client = get_provider().ha_rest
     if client is None:
         raise HTTPException(
             503, "Home Assistant not configured — set it up via /admin/"

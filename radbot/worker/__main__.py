@@ -226,9 +226,9 @@ def _ensure_workspace_ready(workspace_id: str) -> None:
             logger.info("Created scratch workspace directory: %s", local_path)
         else:
             try:
-                from radbot.tools.github.github_app_client import get_github_client
+                from radbot.clients.provider import get_provider
 
-                client = get_github_client()
+                client = get_provider().github
                 if client:
                     workspace_dir = os.environ.get("WORKSPACE_DIR", "/app/workspaces")
                     os.makedirs(workspace_dir, exist_ok=True)

@@ -26,7 +26,7 @@ def mock_client():
 def _patch_client(mock_client):
     """Patch get_lidarr_client to return the mock."""
     return patch(
-        "radbot.tools.lidarr.lidarr_tools.get_lidarr_client",
+        "radbot.tools.lidarr.lidarr_client.get_lidarr_client",
         return_value=mock_client,
     )
 
@@ -72,7 +72,7 @@ class TestSearchLidarrArtist:
         from radbot.tools.lidarr.lidarr_tools import search_lidarr_artist
 
         with patch(
-            "radbot.tools.lidarr.lidarr_tools.get_lidarr_client",
+            "radbot.tools.lidarr.lidarr_client.get_lidarr_client",
             return_value=None,
         ):
             result = search_lidarr_artist("Metallica")
@@ -122,7 +122,7 @@ class TestSearchLidarrAlbum:
         from radbot.tools.lidarr.lidarr_tools import search_lidarr_album
 
         with patch(
-            "radbot.tools.lidarr.lidarr_tools.get_lidarr_client",
+            "radbot.tools.lidarr.lidarr_client.get_lidarr_client",
             return_value=None,
         ):
             result = search_lidarr_album("album")
@@ -208,7 +208,7 @@ class TestAddLidarrArtist:
         from radbot.tools.lidarr.lidarr_tools import add_lidarr_artist
 
         with patch(
-            "radbot.tools.lidarr.lidarr_tools.get_lidarr_client",
+            "radbot.tools.lidarr.lidarr_client.get_lidarr_client",
             return_value=None,
         ):
             result = add_lidarr_artist("id", "Test")
@@ -259,7 +259,7 @@ class TestAddLidarrAlbum:
         from radbot.tools.lidarr.lidarr_tools import add_lidarr_album
 
         with patch(
-            "radbot.tools.lidarr.lidarr_tools.get_lidarr_client",
+            "radbot.tools.lidarr.lidarr_client.get_lidarr_client",
             return_value=None,
         ):
             result = add_lidarr_album("a", "b", "c", "d")
@@ -287,7 +287,7 @@ class TestListLidarrQualityProfiles:
         from radbot.tools.lidarr.lidarr_tools import list_lidarr_quality_profiles
 
         with patch(
-            "radbot.tools.lidarr.lidarr_tools.get_lidarr_client",
+            "radbot.tools.lidarr.lidarr_client.get_lidarr_client",
             return_value=None,
         ):
             result = list_lidarr_quality_profiles()

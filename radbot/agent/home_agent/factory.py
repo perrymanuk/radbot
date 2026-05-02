@@ -51,14 +51,12 @@ def create_home_agent() -> Optional[Agent]:
         ha_tools_loaded = False
         if use_mcp:
             try:
-                from radbot.tools.homeassistant.ha_mcp_client import (
-                    get_ha_mcp_client,
-                )
+                from radbot.clients.provider import get_provider
                 from radbot.tools.homeassistant.ha_mcp_tools import (
                     build_ha_mcp_function_tools,
                 )
 
-                mcp_client = get_ha_mcp_client()
+                mcp_client = get_provider().ha_mcp
                 if mcp_client is not None:
                     mcp_tools = build_ha_mcp_function_tools(mcp_client)
                     if mcp_tools:

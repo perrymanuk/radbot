@@ -13,8 +13,10 @@ from radbot.tools.homeassistant.ha_dashboard_tools import (
     update_ha_dashboard,
 )
 
-# All tools use get_ha_ws_client(), so we patch it at module level
-_PATCH_CLIENT = "radbot.tools.homeassistant.ha_dashboard_tools.get_ha_ws_client"
+# All tools resolve the WS client through the provider, which delegates to
+# `ha_ws_singleton.get_ha_ws_client`. Patching the underlying async factory
+# substitutes for both paths.
+_PATCH_CLIENT = "radbot.tools.homeassistant.ha_ws_singleton.get_ha_ws_client"
 
 
 def _mock_client(**method_returns):

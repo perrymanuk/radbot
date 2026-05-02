@@ -12,14 +12,14 @@ from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 
-from .ha_ws_singleton import get_ha_ws_client
+from radbot.clients.provider import get_provider
 
 logger = logging.getLogger(__name__)
 
 
 async def _client_or_error():
     """Return (client, None) or (None, error_dict)."""
-    client = await get_ha_ws_client()
+    client = await get_provider().get_ha_ws()
     if client is None:
         return None, {
             "status": "error",

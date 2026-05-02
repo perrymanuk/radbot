@@ -43,10 +43,10 @@ def _lookup_poster_url(tmdb_id: int, media_type: str) -> Optional[str]:
     if media_type not in ("movie", "tv"):
         return None
     try:
-        from radbot.tools.overseerr.overseerr_client import get_overseerr_client
+        from radbot.clients.provider import get_provider
         from radbot.tools.overseerr.overseerr_tools import tmdb_poster_url
 
-        client = get_overseerr_client()
+        client = get_provider().overseerr
         if client is None:
             return None
         raw = (

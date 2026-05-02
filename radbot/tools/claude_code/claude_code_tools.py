@@ -54,9 +54,9 @@ def clone_repository(
         Dict with status, work_folder path, and clone details
     """
     try:
-        from radbot.tools.github.github_app_client import get_github_client
+        from radbot.clients.provider import get_provider
 
-        client = get_github_client()
+        client = get_provider().github
         if not client:
             return {
                 "status": "error",
@@ -255,9 +255,9 @@ def commit_and_push(
         Dict with status and push details
     """
     try:
-        from radbot.tools.github.github_app_client import get_github_client
+        from radbot.clients.provider import get_provider
 
-        client = get_github_client()
+        client = get_provider().github
         if not client:
             return {
                 "status": "error",

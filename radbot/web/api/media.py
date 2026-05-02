@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from radbot.tools.overseerr.overseerr_client import get_overseerr_client
+from radbot.clients.provider import get_provider
 from radbot.tools.overseerr.overseerr_tools import MEDIA_STATUS, REQUEST_STATUS
 
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ async def search_media(
     limit: int = Query(_MAX_SEARCH_RESULTS, ge=1, le=50),
 ) -> Dict[str, Any]:
     """Search Overseerr. Returns ``{results: MediaCardData[]}``."""
-    client = get_overseerr_client()
+    client = get_provider().overseerr
     if client is None:
         raise HTTPException(503, "Overseerr not configured — set up via Admin UI")
     try:
@@ -167,7 +167,7 @@ async def get_media_details(
     media_type: str = Query(..., pattern="^(movie|tv)$"),
 ) -> Dict[str, Any]:
     """Enriched detail for a single title. Returns MediaCardData + seasons."""
-    client = get_overseerr_client()
+    client = get_provider().overseerr
     if client is None:
         raise HTTPException(503, "Overseerr not configured — set up via Admin UI")
     try:
@@ -248,7 +248,7 @@ async def request_media(body: MediaRequestBody) -> Dict[str, Any]:
     """Submit a download request to Overseerr."""
     if body.media_type not in ("movie", "tv"):
         raise HTTPException(400, "media_type must be 'movie' or 'tv'")
-    client = get_overseerr_client()
+    client = get_provider().overseerr
     if client is None:
         raise HTTPException(503, "Overseerr not configured — set up via Admin UI")
 

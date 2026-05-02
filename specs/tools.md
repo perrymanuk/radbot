@@ -426,6 +426,7 @@ REST-only, not registered as agent FunctionTools:
 | `tools/shared/card_protocol.py` | Card block formatting + `CARD_TOOLS` |
 | `tools/shared/config_helper.py` | `get_integration_config()` resolver |
 | `tools/shared/client_utils.py` | `client_or_error()`, singleton helpers |
+| `clients/provider.py` | `ClientProvider` — typed access to every integration client (`@property` per service), `clear()` for hot-reload + test isolation, `validate_secrets()` startup hook, `make_oneshot_*` for admin "Test Connection" endpoints. EX44 / PT111. |
 | `tools/shared/tool_decorator.py` | `@tool_error_handler` |
 | `tools/shared/retry.py` | `@retry_on_error` |
 | `tools/shared/db_schema.py` | `init_table_schema()` idempotent helper |

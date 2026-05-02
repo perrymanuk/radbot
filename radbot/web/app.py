@@ -326,6 +326,32 @@ async def _startup():
         except Exception as prune_err:
             logger.warning(f"Error pruning disabled MCP tools: {prune_err}")
 
+        # Validate integration secrets (EX44 / PT111). Logs ERROR for
+        # enabled integrations missing required fields; never raises.
+        try:
+            from radbot.clients.provider import get_provider
+
+            secret_status = get_provider().validate_secrets()
+            ok = sum(1 for v in secret_status.values() if v == "ok")
+            disabled = sum(1 for v in secret_status.values() if v == "disabled")
+            problems = [
+                f"{n}={s}"
+                for n, s in secret_status.items()
+                if s != "ok" and s != "disabled"
+            ]
+            logger.info(
+                "Integration secrets validated: %d ok, %d disabled, %d problems%s",
+                ok,
+                disabled,
+                len(problems),
+                f" — {', '.join(problems)}" if problems else "",
+            )
+        except Exception as secret_err:
+            logger.error(
+                f"Error validating integration secrets: {secret_err}",
+                exc_info=True,
+            )
+
         # Build the Notifier seam (must be in place before scheduler/alert
         # firings start). EX41 PR1: scheduler + reminders go through Notifier.
         try:

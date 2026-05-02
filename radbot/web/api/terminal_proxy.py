@@ -137,10 +137,10 @@ class WorkspaceProxy:
     async def stop_worker(self) -> bool:
         """Stop the Nomad worker job for this workspace."""
         try:
-            from radbot.tools.nomad.nomad_client import get_nomad_client
+            from radbot.clients.provider import get_provider
             from radbot.worker.db import update_workspace_worker_status
 
-            client = get_nomad_client()
+            client = get_provider().nomad
             if not client:
                 return False
 
@@ -168,9 +168,9 @@ class WorkspaceProxy:
         """Find an existing worker via Nomad service discovery or DB."""
         # Nomad service discovery
         try:
-            from radbot.tools.nomad.nomad_client import get_nomad_client
+            from radbot.clients.provider import get_provider
 
-            client = get_nomad_client()
+            client = get_provider().nomad
             if client:
                 tag = f"workspace_id={self.workspace_id}"
                 svc = await client.find_service_by_tag("radbot-workspace", tag)
@@ -203,7 +203,7 @@ class WorkspaceProxy:
     async def _spawn_worker(self) -> Optional[str]:
         """Submit a Nomad service job for this workspace."""
         try:
-            from radbot.tools.nomad.nomad_client import get_nomad_client
+            from radbot.clients.provider import get_provider
             from radbot.worker.db import (
                 count_active_workspace_workers,
                 update_workspace_worker_status,
@@ -211,7 +211,7 @@ class WorkspaceProxy:
             )
             from radbot.worker.nomad_template import build_workspace_worker_spec
 
-            client = get_nomad_client()
+            client = get_provider().nomad
             if not client:
                 logger.warning("Nomad client not configured — cannot spawn worker")
                 return None
@@ -278,9 +278,9 @@ class WorkspaceProxy:
 
     async def _wait_for_healthy(self, job_id: str) -> Optional[str]:
         """Poll until the worker registers and passes health checks."""
-        from radbot.tools.nomad.nomad_client import get_nomad_client
+        from radbot.clients.provider import get_provider
 
-        client = get_nomad_client()
+        client = get_provider().nomad
         if not client:
             return None
 

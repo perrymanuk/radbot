@@ -39,6 +39,21 @@ def pytest_collection_modifyitems(items):
             item.add_marker(skip_mcp_compat)
 
 
+@pytest.fixture(autouse=True)
+def _clear_client_provider():
+    """Wipe every cached integration client between tests (EX44 / PT111).
+
+    Prevents one test's mocked client from contaminating the next. Runs
+    before AND after each test — the second pass catches state introduced
+    during the test body itself.
+    """
+    from radbot.clients.provider import get_provider
+
+    get_provider().clear()
+    yield
+    get_provider().clear()
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _init_schemas():
     """Initialize all DB schemas once per pytest session.

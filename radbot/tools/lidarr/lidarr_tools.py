@@ -11,10 +11,14 @@ from typing import Any, Dict
 
 from google.adk.tools import FunctionTool
 
+from radbot.clients.provider import get_provider
 from radbot.tools.shared.client_utils import client_or_error
 from radbot.tools.shared.tool_decorator import tool_error_handler
 
-from .lidarr_client import get_lidarr_client
+
+def _get_lidarr():
+    return get_provider().lidarr
+
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +71,7 @@ def search_lidarr_artist(query: str) -> Dict[str, Any]:
         On success: {"status": "success", "results": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_lidarr_client, "Lidarr")
+    client, err = client_or_error(_get_lidarr, "Lidarr")
     if err:
         return err
 
@@ -92,7 +96,7 @@ def search_lidarr_album(query: str) -> Dict[str, Any]:
         On success: {"status": "success", "results": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_lidarr_client, "Lidarr")
+    client, err = client_or_error(_get_lidarr, "Lidarr")
     if err:
         return err
 
@@ -127,7 +131,7 @@ def add_lidarr_artist(
         On success: {"status": "success", "artist_id": N, "artist_name": "...", "path": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_lidarr_client, "Lidarr")
+    client, err = client_or_error(_get_lidarr, "Lidarr")
     if err:
         return err
 
@@ -203,7 +207,7 @@ def add_lidarr_album(
         On success: {"status": "success", "album_title": "...", "artist_name": "...", "artist_id": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_lidarr_client, "Lidarr")
+    client, err = client_or_error(_get_lidarr, "Lidarr")
     if err:
         return err
 
@@ -266,7 +270,7 @@ def list_lidarr_quality_profiles() -> Dict[str, Any]:
         On success: {"status": "success", "profiles": [...]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_lidarr_client, "Lidarr")
+    client, err = client_or_error(_get_lidarr, "Lidarr")
     if err:
         return err
 

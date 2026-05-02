@@ -18,11 +18,12 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
 
-from radbot.tools.homeassistant.ha_mcp_client import HAMcpClient
+if TYPE_CHECKING:  # pragma: no cover — typing only; no runtime import
+    from radbot.tools.homeassistant.ha_mcp_client import HAMcpClient
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def _unwrap_ha_envelope(text: Optional[str]) -> Any:
     return envelope
 
 
-def _make_tool_caller(client: HAMcpClient, original_name: str) -> Callable[..., Any]:
+def _make_tool_caller(client: "HAMcpClient", original_name: str) -> Callable[..., Any]:
     """Build the async callable that ADK will invoke for this tool.
 
     The closure captures the HA-side tool name so the sanitized ADK tool
@@ -110,7 +111,7 @@ def _build_function_schema(
     }
 
 
-def build_ha_mcp_function_tools(client: HAMcpClient) -> List[FunctionTool]:
+def build_ha_mcp_function_tools(client: "HAMcpClient") -> List[FunctionTool]:
     """Fetch HA's MCP tool list and wrap each as an ADK FunctionTool.
 
     Runs a sync tool-discovery call at factory time. Each wrapped tool
