@@ -275,9 +275,12 @@ class TestSchemaInit:
 
             return _r
 
-        with patch(
-            "radbot.tools.schemas._resolve",
-            side_effect=lambda mod, fn: _make_recorder(f"{mod}.{fn}"),
+        with (
+            patch(
+                "radbot.tools.schemas._resolve",
+                side_effect=lambda mod, fn: _make_recorder(f"{mod}.{fn}"),
+            ),
+            patch("radbot.tools.schemas._run_migrations"),
         ):
             init_all_schemas()
 

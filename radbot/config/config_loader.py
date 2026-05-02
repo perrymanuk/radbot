@@ -383,6 +383,26 @@ class ConfigLoader:
         except Exception as e:
             logger.warning(f"Could not load config from credential store: {e}")
 
+        self._apply_legacy_aliases()
+
+    def _apply_legacy_aliases(self) -> None:
+        """Map deprecated config keys to their current names.
+
+        The original key is left in place so an emergency rollback to a
+        prior image still finds it. New code should read the new key.
+        """
+        agent = self.config.get("agent")
+        if (
+            isinstance(agent, dict)
+            and "max_session_workers" in agent
+            and "max_workspace_workers" not in agent
+        ):
+            agent["max_workspace_workers"] = agent["max_session_workers"]
+            logger.warning(
+                "config:agent.max_session_workers is deprecated — use "
+                "max_workspace_workers. Aliased automatically."
+            )
+
     def get_config(self) -> Dict[str, Any]:
         """
         Get the full configuration.

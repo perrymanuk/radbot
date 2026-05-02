@@ -38,7 +38,7 @@ Stored as `config:<section>` entries in `radbot_credentials` (`credential_type='
 
 | Section | Keys | Purpose |
 |---------|------|---------|
-| `config:agent` | `main_model`, `sub_model`, per-agent models (`casa_agent`, `planner_agent`, `comms_agent`, `axel_agent`/`axel_agent_model`, `scout_agent`, `kidsvid_agent`), `naming_model` (cheap model for `radbot/services/session_naming.py`; env override `RADBOT_NAMING_MODEL`; falls back to `main_model`), `session_mode`, `max_session_workers`, `worker_image_tag`, `terse_protocol_enabled` (bool; env override `RADBOT_TERSE_PROTOCOL_ENABLED`; default false), `thinking_enabled` (bool; default false; gates Gemini Chain-of-Thought streaming via `ThinkingConfig(include_thoughts=True)` for models matching family prefixes in `radbot/config/adk_config.py:THINKING_CAPABLE_MODELS` — currently `gemini-2.5-`, `gemini-3-`, `gemini-3.0-`, `gemini-3.1-`, `gemini-4-`, `gemini-4.0-`) | Agent model selection + session/worker config + terse-protocol feature flag + CoT toggle |
+| `config:agent` | `main_model`, `sub_model`, per-agent models (`casa_agent`, `planner_agent`, `comms_agent`, `axel_agent`/`axel_agent_model`, `scout_agent`, `kidsvid_agent`), `naming_model` (cheap model for `radbot/services/session_naming.py`; env override `RADBOT_NAMING_MODEL`; falls back to `main_model`), `session_mode`, `max_workspace_workers` (legacy alias `max_session_workers` auto-mapped at load with deprecation warning), `worker_image_tag`, `terse_protocol_enabled` (bool; env override `RADBOT_TERSE_PROTOCOL_ENABLED`; default false), `thinking_enabled` (bool; default false; gates Gemini Chain-of-Thought streaming via `ThinkingConfig(include_thoughts=True)` for models matching family prefixes in `radbot/config/adk_config.py:THINKING_CAPABLE_MODELS` — currently `gemini-2.5-`, `gemini-3-`, `gemini-3.0-`, `gemini-3.1-`, `gemini-4-`, `gemini-4.0-`) | Agent model selection + session/worker config + terse-protocol feature flag + CoT toggle |
 | `config:integrations` | `home_assistant.*`, `overseerr.*`, `lidarr.*`, `picnic.*`, `jira.*`, `ntfy.*`, `github.*`, `nomad.*`, `kideo.*`, `alertmanager.*`, `ollama.*` | Integration endpoints, flags, non-secret keys |
 | `config:vector_db` | `url`, `api_key`, `host`, `port`, `collection` | Qdrant connection + collection |
 | `config:scheduler` | `enabled` | Scheduler engine toggle |
@@ -56,7 +56,8 @@ Use `config:full` as an Admin-UI read-only diagnostic that returns the merged co
 | Key | Values | Default | Effect |
 |-----|--------|---------|--------|
 | `session_mode` | `local`, `remote` | `local` | **Terminal/workspace workers only** (chat is always local post-2026-03-23). `remote` spawns Nomad service jobs for each terminal workspace. |
-| `max_session_workers` | integer | `10` | Max concurrent workspace worker jobs |
+| `max_workspace_workers` | integer | `10` | Max concurrent workspace worker jobs |
+| `max_session_workers` | integer | — | **Deprecated** — automatically aliased to `max_workspace_workers` at config load (warning emitted). Old key left in DB for rollback safety; new code reads `max_workspace_workers`. |
 | `worker_image_tag` | string | `latest` | Docker tag for newly-spawned workers |
 
 **Note**: the `session_mode` name predates the terminal-only split. It now only affects terminal/workspace workers.

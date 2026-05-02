@@ -109,7 +109,7 @@ radbot/
 │   ├── __main__.py               # Entry: python -m radbot.worker --workspace-id <UUID>
 │   ├── terminal_handler.py       # Shared PTY/WS module (used by terminal.py + worker)
 │   ├── nomad_template.py         # Nomad JSON job spec generator
-│   └── db.py                     # session_workers + workspace_workers table CRUD
+│   └── db.py                     # workspace_workers table CRUD
 ├── callbacks/                    # ADK callback handlers
 ├── cache/                        # Response caching
 └── filesystem/                   # Filesystem utilities
@@ -195,7 +195,6 @@ All tables use the shared pool from `radbot/db/connection.py` unless noted.
 | `alert_events` | `tools/alertmanager/db.py` | `alert_id` (UUID), `fingerprint`, `alertname`, `status`, `severity`, `instance`, `raw_payload` (JSONB), `remediation_action`, `remediation_result` |
 | `alert_remediation_policies` | `tools/alertmanager/db.py` | `policy_id` (UUID), `alertname_pattern`, `action`, `max_auto_remediations`, `window_minutes`, `enabled` |
 | `chat_sessions` | `web/db/chat_operations.py` | `session_id` (UUID), `name`, `description`, `user_id`, `preview`, `is_active` |
-| `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 | `notifications` | `tools/notifications/db.py` | `notification_id` (UUID), `type` (scheduled_task/reminder/alert/ntfy_outbound), `title`, `message`, `read`, `priority`, `metadata` (JSONB) |
 | `telemetry_events` | `tools/telemetry/db.py` | `event_id` (UUID), `event_type` (TEXT), `payload` (JSONB — integers/bools only), `created_at` (TIMESTAMPTZ). Append-only baseline metrics; no retention. |
 | `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
@@ -305,7 +304,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **`RADBOT_CONFIG_FILE`**: Alias for `RADBOT_CONFIG` — both are supported. Nomad sets `RADBOT_CONFIG_FILE`.
 - **Trailing-slash redirects**: FastAPI router root paths (`@router.get("/")`) redirect without trailing slash via 307. Behind a reverse proxy this can produce `http://` redirect URLs that browsers block as mixed content. Always use trailing slashes in frontend API calls to router root paths.
 - **Ollama models**: Use `ollama_chat/<model>` prefix (e.g. `ollama_chat/mistral-small3.2`). `search_agent` (google_search) and `code_execution_agent` (BuiltInCodeExecutor) require Gemini and will NOT work with Ollama.
-- **Session mode**: `config:agent` → `session_mode` controls local (default) vs remote (Nomad workers). Remote mode spawns persistent per-session Nomad service jobs via A2A protocol. Workers restart on crash and run until explicitly stopped. Falls back to local if Nomad is unreachable or worker limit (`max_session_workers`, default 10) is reached.
+- **Session mode**: `config:agent` → `session_mode` controls local (default) vs remote (Nomad workers) for terminal/workspace workers only — chat is always in-process. Remote mode spawns persistent per-workspace Nomad service jobs. Workers restart on crash and run until explicitly stopped. Falls back to local if Nomad is unreachable or worker limit (`max_workspace_workers`, default 10; legacy alias `max_session_workers` auto-mapped at config load) is reached.
 
 ---
 

@@ -22,7 +22,6 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 | `notifications` | `tools/notifications/db.py` | `notification_id` (UUID), `type` (`scheduled_task`/`reminder`/`alert`/`ntfy_outbound`/`ntfy_inbound`), `title`, `message`, `source_id`, `session_id`, `priority`, `read` (BOOLEAN), `metadata` (JSONB), `created_at` |
 | `llm_usage_log` | `telemetry/db.py` | `id`, `created_at`, `agent_name`, `model`, `prompt_tokens`, `cached_tokens`, `output_tokens`, `cost_usd`, `cost_without_cache_usd`, `session_id` (nullable), `run_label` |
 | `telemetry_events` | `tools/telemetry/db.py` | `event_id` (UUID), `event_type` (TEXT), `payload` (JSONB — integers/bools only, validated by strict Pydantic), `created_at` (TIMESTAMPTZ). Append-only baseline metrics for Dream + Context Injection (PT30 / EX7). No retention cron — payloads are tiny and kept indefinitely for longitudinal tracking. |
-| `session_workers` | `worker/db.py` | `session_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 | `workspace_workers` | `worker/db.py` | `workspace_id` (UUID PK), `nomad_job_id`, `worker_url`, `status` (starting/healthy/stopped), `image_tag` |
 
 ### Chat History DB (separate pool)
@@ -99,19 +98,22 @@ Notable keys:
 | `youtube_api_key`, `curiositystream_api_key`, `kideo_*` | kidsvid integrations |
 | `postgres_pass` | Bootstrap-templated to worker jobs |
 
-## Two Worker Tables (2026-03-22/23)
+## Workspace worker table
 
-Commits `4719880` + `f988aca` introduced two distinct worker kinds:
+`workspace_workers` is keyed by `workspace_id` and tracks terminal workspace workers. Each workspace opens a persistent Nomad service job, proxied by `WorkspaceProxy` in `web/api/terminal_proxy.py`. Operations: `upsert_workspace_worker`, `get_workspace_worker`, `update_workspace_worker_status`, `list_active_workspace_workers`, `count_active_workspace_workers`, `delete_workspace_worker`.
 
-- **`session_workers`** — chat-session workers (keyed by `session_id`). Not used for routing chat anymore (see `specs/web.md`), but schema retained for historical/backward-compat.
-- **`workspace_workers`** — terminal workspace workers (keyed by `workspace_id`). Used when a user opens a terminal session for a cloned workspace. Each workspace gets a persistent Nomad service job, proxied by `WorkspaceProxy` in `web/api/terminal_proxy.py`.
-
-Operations on both tables: `upsert_worker`, `get_worker`, `update_worker_status`, `touch_worker`, `list_active_workers`, `count_active_workers`, `delete_worker`.
+The earlier `session_workers` table (chat-session workers, keyed by `session_id`) was retired in EX40 — chat sessions always run in-process via `SessionRunner`. The table is dropped at startup by the EX40 migration in `radbot/tools/schemas.py:MIGRATIONS`.
 
 ## Schema Drift / Migrations
 
-No formal migration tool — all schemas use `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` idempotently on startup. Schema changes should:
+Two complementary mechanisms in `radbot/tools/schemas.py`:
+
+- **`SCHEMA_INITS`** — `CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Idempotent on every boot.
+- **`MIGRATIONS`** — one-shot DDL run after schema inits (e.g. `DROP TABLE IF EXISTS`). Each entry must remain idempotent so re-runs no-op.
+
+Schema changes should:
 
 1. Update the table's `init_*_schema()` with `IF NOT EXISTS` clauses for new columns
 2. Guard reads against missing columns during the migration window
-3. Update this spec
+3. For drops/renames, append to `MIGRATIONS` rather than removing the init line in the same release
+4. Update this spec
