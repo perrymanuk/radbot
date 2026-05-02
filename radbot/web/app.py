@@ -326,6 +326,23 @@ async def _startup():
         except Exception as prune_err:
             logger.warning(f"Error pruning disabled MCP tools: {prune_err}")
 
+        # Build the Notifier seam (must be in place before scheduler/alert
+        # firings start). EX41 PR1: scheduler + reminders go through Notifier.
+        try:
+            from radbot.services.notifier import (
+                build_default_notifier,
+                set_notifier,
+            )
+
+            set_notifier(
+                build_default_notifier(ws_broadcaster=manager.broadcast_to_all_sessions)
+            )
+            logger.debug("Notifier seam initialized")
+        except Exception as notifier_err:
+            logger.error(
+                f"Error initializing Notifier: {str(notifier_err)}", exc_info=True
+            )
+
         # Start the scheduler engine
         logger.debug("Starting scheduler engine...")
         try:
