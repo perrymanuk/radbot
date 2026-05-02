@@ -202,31 +202,6 @@ class SchedulerEngine:
         return await self._connection_manager.broadcast_to_all_sessions(payload)
 
     # -- execution --
-    async def _send_ntfy(
-        self,
-        title: str,
-        message: str,
-        tags: str = "robot",
-        session_id: Optional[str] = None,
-    ) -> None:
-        """Send a push notification via ntfy if configured."""
-        try:
-            from radbot.tools.ntfy.ntfy_client import get_ntfy_client
-
-            client = get_ntfy_client()
-            if not client:
-                logger.debug("ntfy client not available (unconfigured or disabled)")
-                return
-            await client.publish(
-                title=title,
-                message=message,
-                tags=tags,
-                session_id=session_id,
-                skip_notification=True,
-            )
-        except Exception as e:
-            logger.warning(f"ntfy notification failed (non-fatal): {e}")
-
     async def _execute_job(
         self,
         task_id: str,
@@ -305,18 +280,7 @@ class SchedulerEngine:
             response = _strip_handoff_chips(result.get("response", ""))
             events = result.get("events", [])
 
-            # 5. Persist assistant response to DB
-            if response:
-                try:
-                    from radbot.web.db import chat_operations
-
-                    chat_operations.add_message(
-                        session_id, "assistant", response, user_id="web_user"
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to persist assistant response to DB: {e}")
-
-            # 6. Broadcast events to all connections
+            # 5. Broadcast events to all connections
             if events:
                 sent = await self._broadcast_to_all(
                     {
@@ -326,7 +290,7 @@ class SchedulerEngine:
                 )
                 logger.debug(f"Broadcast {len(events)} events to {sent} connections")
 
-            # 7. Broadcast "ready" status
+            # 6. Broadcast "ready" status
             await self._broadcast_to_all(
                 {
                     "type": "status",
@@ -334,48 +298,39 @@ class SchedulerEngine:
                 }
             )
 
-            # 8. Update last run in DB
+            # 7. Update last run in DB
             self._update_last_run(
                 task_id, response[:4000] if response else "completed (no response)"
             )
 
-            # 9. Send push notification via ntfy
-            await self._send_ntfy(
-                title=f"Scheduled: {name}",
-                message=response[:2000] if response else "(no response)",
-                tags="robot,clock",
-                session_id=session_id,
+            # 8. Fan-out result via Notifier (chat history persist + ntfy push +
+            # notifications row + notification badge WS broadcast).
+            from radbot.services.notifier import (
+                ScheduledTaskEvent,
+                get_notifier,
             )
 
-            # 10. Persist to notifications table
-            try:
-                from radbot.tools.notifications.db import create_notification
-
-                notif = create_notification(
-                    type="scheduled_task",
-                    title=f"Scheduled: {name}",
-                    message=response[:4000] if response else "(no response)",
-                    source_id=task_id,
-                    session_id=session_id,
-                    metadata={"task_name": name, "prompt": prompt[:500]},
+            notifier = get_notifier()
+            if notifier:
+                event_msg = response[:2000] if response else "(no response)"
+                await notifier.publish(
+                    ScheduledTaskEvent(
+                        title=f"Scheduled: {name}",
+                        message=event_msg,
+                        task_id=task_id,
+                        task_name=name,
+                        session_id=session_id,
+                        prompt=prompt,
+                        response=response or "",
+                    )
                 )
-                # Broadcast notification event for real-time badge updates
-                await self._broadcast_to_all(
-                    {
-                        "type": "notification",
-                        "content": {
-                            "notification_id": str(notif.get("notification_id", "")),
-                            "notification_type": "scheduled_task",
-                            "title": f"Scheduled: {name}",
-                        },
-                    }
-                )
-            except Exception as n_err:
+            else:
                 logger.warning(
-                    f"Failed to create notification for task '{name}': {n_err}"
+                    "Notifier not initialized; scheduled task '%s' result not fanned out",
+                    name,
                 )
 
-            # 11. If no WS connections were active, queue result for reconnect delivery
+            # 9. If no WS connections were active, queue result for reconnect delivery
             if not has_connections and response:
                 try:
                     from radbot.tools.scheduler.db import queue_pending_result
@@ -459,10 +414,15 @@ class SchedulerEngine:
     async def _execute_reminder(self, reminder_id: str, message: str) -> None:
         """Called by APScheduler when a reminder fires.
 
-        Always marks the reminder completed and sends a push notification.
-        If WebSocket connections are active, broadcasts the reminder.
-        Otherwise leaves it undelivered for reconnect delivery.
+        Always marks the reminder completed and fans out via Notifier (ntfy +
+        notifications row + WS notification badge). When WS connections are
+        active, the same publish also persists a chat-history line and
+        broadcasts a system message; the reminder is then marked delivered.
+        Otherwise the reminder is left undelivered for reconnect catch-up.
         """
+        from radbot.services.notifier import ReminderEvent, get_notifier
+        from radbot.tools.shared.sanitize import sanitize_text
+
         logger.info(f"=== REMINDER FIRED === ({reminder_id}): {message[:80]}")
 
         # 1. Always mark completed in DB
@@ -473,81 +433,86 @@ class SchedulerEngine:
         except Exception as e:
             logger.error(f"Failed to mark reminder {reminder_id} completed: {e}")
 
-        # 2. Always send push notification via ntfy
-        await self._send_ntfy(
-            title="Reminder",
-            message=message,
-            tags="bell",
+        # 2. Decide whether we can deliver to chat right now
+        has_conn = bool(
+            self._connection_manager and self._connection_manager.has_connections()
         )
+        session_id = self._connection_manager.get_any_session_id() if has_conn else None
+        deliver = bool(session_id)
 
-        # 2.5. Persist to notifications table
-        try:
-            from radbot.tools.notifications.db import create_notification
+        # Sanitize the user-visible message before fan-out
+        sanitized = sanitize_text(message, source="reminder")
 
-            notif = create_notification(
-                type="reminder",
-                title="Reminder",
-                message=message,
-                source_id=reminder_id,
-                metadata={"reminder_id": reminder_id},
+        # 3. Fan out via Notifier (ntfy + notifications + chat history + ws_chat).
+        # When `deliver_to_chat=False`, the chat sinks self-skip and only ntfy +
+        # notifications fire — preserving the offline behaviour bit-for-bit.
+        notifier = get_notifier()
+        if notifier:
+            await notifier.publish(
+                ReminderEvent(
+                    title="Reminder",
+                    message=sanitized,
+                    reminder_id=reminder_id,
+                    session_id=session_id,
+                    deliver_to_chat=deliver,
+                )
             )
-            await self._broadcast_to_all(
-                {
-                    "type": "notification",
-                    "content": {
-                        "notification_id": str(notif.get("notification_id", "")),
-                        "notification_type": "reminder",
-                        "title": "Reminder",
-                    },
-                }
+        else:
+            logger.warning(
+                "Notifier not initialized; reminder %s result not fanned out",
+                reminder_id,
             )
-        except Exception as n_err:
-            logger.warning(f"Failed to create notification for reminder: {n_err}")
 
-        # 3. Check if we can deliver via WS now
-        if (
-            not self._connection_manager
-            or not self._connection_manager.has_connections()
-        ):
+        if not deliver:
             logger.debug(
                 f"No active connections, reminder {reminder_id} will be delivered on reconnect"
             )
             return
 
-        # 4. Deliver the reminder via WebSocket
-        await self._deliver_single_reminder(reminder_id, message)
+        # 4. Mark delivered (state transition stays in the engine)
+        try:
+            from radbot.tools.reminders.db import mark_delivered
+
+            mark_delivered(reminder_id, "delivered")
+        except Exception as e:
+            logger.error(f"Failed to mark reminder {reminder_id} delivered: {e}")
+
+        logger.debug(f"Reminder {reminder_id} delivered as notification")
 
     async def _deliver_single_reminder(self, reminder_id: str, message: str) -> None:
-        """Deliver a single reminder as a notification broadcast. No LLM processing."""
+        """Deliver a previously-fired-but-undelivered reminder over WS.
+
+        The original firing already wrote the notifications row and pushed via
+        ntfy, so this late-delivery path skips those sinks and only fans out
+        to the chat-history + ws_chat sinks via Notifier.
+        """
+        from radbot.services.notifier import ReminderEvent, get_notifier
         from radbot.tools.shared.sanitize import sanitize_text
 
-        message = sanitize_text(message, source="reminder")
+        sanitized = sanitize_text(message, source="reminder")
         session_id = self._connection_manager.get_any_session_id()
         if not session_id:
             return
 
-        system_content = f"[Reminder] {message}"
-
-        # Broadcast as a system message notification
-        await self._broadcast_to_all(
-            {
-                "type": "message",
-                "role": "system",
-                "content": system_content,
-            }
-        )
-
-        # Persist to chat history DB
-        try:
-            from radbot.web.db import chat_operations
-
-            chat_operations.add_message(
-                session_id, "system", system_content, user_id="web_user"
+        notifier = get_notifier()
+        if notifier:
+            await notifier.publish(
+                ReminderEvent(
+                    title="Reminder",
+                    message=sanitized,
+                    reminder_id=reminder_id,
+                    session_id=session_id,
+                    deliver_to_chat=True,
+                    skip_sinks=frozenset({"ntfy", "notifications"}),
+                )
             )
-        except Exception as e:
-            logger.warning(f"Failed to persist reminder system message to DB: {e}")
+        else:
+            logger.warning(
+                "Notifier not initialized; reminder %s late-delivery not fanned out",
+                reminder_id,
+            )
 
-        # Mark delivered
+        # Mark delivered (state transition stays in the engine)
         try:
             from radbot.tools.reminders.db import mark_delivered
 

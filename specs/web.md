@@ -57,16 +57,20 @@ Endpoint: `GET /ws/{session_id}` (handled in `radbot/web/app.py`)
 
 ### Server → Client (`type` values in use)
 
-| Type | Payload | Purpose |
-|------|---------|---------|
-| `status` | `{content: "ready"|"thinking"|...}` | Ready / processing / done indicators |
-| `events` | `{content: [event, ...]}` | Streaming agent events (tool calls, transfers) |
-| `message` | `{content: "text"}` | Final assistant reply |
-| `model_response` | `{content, agent_name, ...}` | Model response event |
-| `heartbeat` | (empty) | Server echo |
-| `history` | `{session_id, messages: [...]}` | Replay of prior session messages |
-| `sync_response` | `{messages: [...]}` | Reply to sync request |
-| `system` | `{content: "..."}` | System-injected messages |
+| Type | Payload | Producer | Purpose |
+|------|---------|----------|---------|
+| `status` | `{content: "ready"|"thinking"|...}` | WS handler / scheduler | Ready / processing / done indicators |
+| `events` | `{content: [event, ...]}` | WS handler / scheduler | Streaming agent events (tool calls, transfers) |
+| `message` | `{content, role?}` | WS handler / Notifier (`WebSocketChatSink`) / scheduler | Assistant reply OR system-injected message (e.g. delivered reminder) |
+| `notification` | `{content: {notification_id, notification_type, title}}` | Notifier (`NotificationsTableSink`) | Real-time badge update tied to a notifications-table row |
+| `model_response` | `{content, agent_name, ...}` | WS handler | Model response event |
+| `heartbeat` | (empty) | WS handler | Server echo |
+| `history` | `{session_id, messages: [...]}` | WS handler | Replay of prior session messages |
+| `sync_response` | `{messages: [...]}` | WS handler | Reply to sync request |
+| `alert_result` | `{alert_id, alertname, severity, prompt, response, timestamp}` | alertmanager (pre-Notifier; planned PR2 migration) | Alert remediation outcome |
+| `webhook_result` | `{webhook_id, webhook_name, prompt, response, timestamp}` | webhooks (pre-Notifier; planned PR3 migration) | Webhook firing outcome |
+
+**Notifier-owned types**: `message` (system-role only), `notification`. The Pydantic schemas for the Notifier-emitted variants live in `radbot/services/notifier.py` (`WsNotificationPayload`, `WsSystemMessagePayload`).
 
 **Inline UI cards** and **agent handoff chips** travel as fenced code blocks inside `message` payloads — they do NOT use dedicated WS message types. See `specs/tools.md` § `card_protocol`.
 
