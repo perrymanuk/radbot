@@ -30,16 +30,17 @@ Optional arguments:
 
 1. **Pre-flight** — confirm clean working tree, derive slug.
 2. **Worktree** — `git worktree add /tmp/radbot-ship-<slug> -b ship/<slug> origin/main`.
-3. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them).
-4. **Spec sync check** — for every changed source file, verify the corresponding `specs/*.md` is in the diff (per `CLAUDE.md` Spec ↔ code map).
-5. **Secret scan** — regex on staged + unstaged files (`AKIA…`, `ghp_…`, `sk-ant-…`, etc.). Hard stop on match.
-6. **Commit + push** — conventional-commit message, push to `ship/<slug>`.
-7. **Open PR** — `gh pr create` with `run-e2e` and `auto-merge-eligible` labels.
-8. **Watch workflow** — `gh run watch` (server-side stream, not polling).
-9. **Read score** — from commit status `quality-pipeline/score` (NOT the sticky comment, which is forgeable — see `docs/implementation/ci-security.md`).
-10. **CI fix loop** — up to 3 attempts to address pipeline feedback.
-11. **Merge (user-authenticated)** — confirms once with you (unless `--auto-yes`), verifies `auto-merge-eligible` label + `aggregate` SUCCESS + score ≥ 90, then runs `gh pr merge --squash --delete-branch` from your shell. Not performed inside CI — a merge authored by `GITHUB_TOKEN` does not trigger the `Build and Push Docker Image` workflow (GitHub's recursion guard), so running the merge locally is what makes deploys fire.
-12. **Cleanup** — reminds you the worktree exists; offers to remove on confirmation.
+3. **Sync dev deps in worktree** — `uv sync --all-extras --dev`. The fresh worktree has no `.venv`, so this primes flake8 / mypy / pytest / etc. before the gates.
+4. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them).
+5. **Spec sync check** — for every changed source file, verify the corresponding `specs/*.md` is in the diff (per `CLAUDE.md` Spec ↔ code map).
+6. **Secret scan** — regex on staged + unstaged files (`AKIA…`, `ghp_…`, `sk-ant-…`, etc.). Hard stop on match.
+7. **Commit + push** — conventional-commit message, push to `ship/<slug>`.
+8. **Open PR** — `gh pr create` with the `run-e2e` label only. `auto-merge-eligible` is deferred to phase 12 to avoid a `pull_request.labeled` concurrency race that cancels the in-flight quality-pipeline run.
+9. **Watch workflow** — `gh run watch` (server-side stream, not polling).
+10. **Read score** — from commit status `quality-pipeline/score` (NOT the sticky comment, which is forgeable — see `docs/implementation/ci-security.md`).
+11. **CI fix loop** — up to 3 attempts to address pipeline feedback.
+12. **Merge (user-authenticated)** — confirms once with you (unless `--auto-yes`), applies `auto-merge-eligible` now, verifies the label + `aggregate` SUCCESS + score ≥ 90, then runs `gh pr merge --squash --delete-branch` from your shell. Not performed inside CI — a merge authored by `GITHUB_TOKEN` does not trigger the `Build and Push Docker Image` workflow (GitHub's recursion guard), so running the merge locally is what makes deploys fire.
+13. **Cleanup** — reminds you the worktree exists; offers to remove on confirmation.
 
 ## Recovery from common failures
 

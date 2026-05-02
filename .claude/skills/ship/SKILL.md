@@ -3,13 +3,13 @@ name: ship
 description: >
   Branch off main into an isolated worktree, run cheap local quality gates
   (lint, static type-check, unit tests, frontend build/e2e), open a PR with
-  the run-e2e and auto-merge-eligible labels applied, watch the
-  quality-pipeline workflow run, fix CI failures up to 3 times, and merge
-  from the user's shell (so deploy workflows fire) when the score crosses 90.
-  Use when the user says "ship this", "open a PR for this work", "merge when
-  CI is green", or wants the full ship-it lifecycle for a non-trivial change.
-  Does NOT decide merge authority — the workflow's own gates do; this skill
-  just orchestrates the human-side loop.
+  the run-e2e label, watch the quality-pipeline workflow run, fix CI
+  failures up to 3 times, then add auto-merge-eligible and merge from the
+  user's shell (so deploy workflows fire) when the score crosses 90. Use
+  when the user says "ship this", "open a PR for this work", "merge when
+  CI is green", or wants the full ship-it lifecycle for a non-trivial
+  change. Does NOT decide merge authority — the workflow's own gates do;
+  this skill just orchestrates the human-side loop.
 ---
 
 # /ship — work in worktree → PR → quality-pipeline → auto-merge at 90
@@ -95,6 +95,16 @@ If work was already on a branch → skip this entire section and just `git push 
 If either invariant fails, stop and ask.
 
 From here, every command runs in the worktree.
+
+## Phase 2.5 — Sync dev dependencies in the worktree
+
+The fresh worktree has no `.venv`, so `make lint` / `make test-unit` would otherwise hit a missing/partial environment (or whatever `uv` last cached). Pin the env explicitly so Phase 3 has flake8, mypy, pytest, isort, black, etc. available:
+
+```bash
+uv sync --all-extras --dev
+```
+
+Skip-able only if you already pre-synced this worktree in this session.
 
 ## Phase 3 — Local gates (cheap subset)
 
@@ -197,15 +207,13 @@ EOF
 )"
 ```
 
-Apply labels:
-- Always: `run-e2e` (triggers the workflow)
-- Default: also `auto-merge-eligible` (releases auto-merge once score ≥ 90)
-- If `--manual-merge`: only `run-e2e`
+Apply only the `run-e2e` label here:
 
 ```bash
 gh pr edit <PR_NUMBER> --repo $GITHUB_REPO --add-label run-e2e
-[ "$MANUAL_MERGE" != "true" ] && gh pr edit <PR_NUMBER> --add-label auto-merge-eligible
 ```
+
+`auto-merge-eligible` is deferred to Phase 11 (right before merge). Applying both labels in one burst racing against GitHub Actions' `pull_request.labeled` concurrency policy cancels the in-flight quality-pipeline run — moving the second label out of the PR-open phase removes the timing dependency entirely.
 
 Capture the PR number for the next phases.
 
@@ -257,7 +265,13 @@ Cap at $MAX_FIX_ATTEMPTS. Past that, hand control to the user with a summary.
 If `score ≥ $AUTO_MERGE_THRESHOLD`:
 
 1. Confirm once with the user: `Score is NN/100 — merge now?` Skip if `--auto-yes` was passed.
-2. Verify the pipeline actually cleared the gates the skill cannot see:
+2. Apply `auto-merge-eligible` now (deferred from Phase 7 to avoid the `pull_request.labeled` concurrency race against the in-flight quality-pipeline run). Skip on `--manual-merge`:
+
+```bash
+[ "$MANUAL_MERGE" != "true" ] && gh pr edit $PR_NUMBER --repo $GITHUB_REPO --add-label auto-merge-eligible
+```
+
+3. Verify the pipeline actually cleared the gates the skill cannot see:
 
 ```bash
 gh pr view $PR_NUMBER --repo $GITHUB_REPO \
@@ -268,13 +282,13 @@ gh pr view $PR_NUMBER --repo $GITHUB_REPO \
    - `auto-merge-eligible` must be in `labels` (otherwise the user chose `--manual-merge`; stop and hand off).
    - `aggregate_conclusion` must be `SUCCESS`.
 
-3. Merge from the user's shell — **never from inside the workflow**. A merge authored by the workflow's `GITHUB_TOKEN` does not fire downstream `push` workflows (including `Build and Push Docker Image`), so merging from CI silently skips deploys ([GitHub docs](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow)). `gh` uses the user's PAT, so the resulting push to `main` triggers the docker-build workflow as expected.
+4. Merge from the user's shell — **never from inside the workflow**. A merge authored by the workflow's `GITHUB_TOKEN` does not fire downstream `push` workflows (including `Build and Push Docker Image`), so merging from CI silently skips deploys ([GitHub docs](https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow)). `gh` uses the user's PAT, so the resulting push to `main` triggers the docker-build workflow as expected.
 
 ```bash
 gh pr merge $PR_NUMBER --repo $GITHUB_REPO --squash --delete-branch
 ```
 
-4. After merge, confirm the deploy fired:
+5. After merge, confirm the deploy fired:
 
 ```bash
 sleep 10
@@ -283,7 +297,7 @@ gh run list --repo $GITHUB_REPO --workflow "Build and Push Docker Image" --branc
 
    Tell the user the run ID so they can watch it. If no run appears within ~30 s, the user should push an empty commit from their shell to force a fresh `push` event.
 
-5. If `auto-merge-eligible` is missing or `aggregate_conclusion` is not `SUCCESS`, tell the user why and stop — do not attempt the merge.
+6. If `auto-merge-eligible` is missing or `aggregate_conclusion` is not `SUCCESS`, tell the user why and stop — do not attempt the merge.
 
 The skill has NO authority to bypass branch protection or path-guard — it only orchestrates.
 
