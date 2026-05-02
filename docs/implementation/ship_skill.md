@@ -31,15 +31,15 @@ Optional arguments:
 1. **Pre-flight** — confirm clean working tree, derive slug.
 2. **Worktree** — `git worktree add /tmp/radbot-ship-<slug> -b ship/<slug> origin/main`.
 3. **Sync dev deps in worktree** — `uv sync --all-extras --dev`. The fresh worktree has no `.venv`, so this primes flake8 / mypy / pytest / etc. before the gates.
-4. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them).
+4. **Local gates (cheap subset, hard gate)** — `make lint` (flake8 + mypy + black --check + isort --check), `make test-unit`. When frontend changed: `npm run lint`, `npx tsc --noEmit`, `npm run build`, `npm run test:e2e`. Every gate must be green before push — skipping a local gate to "let CI catch it" wastes ~4 min of pipeline time. Skips visual regression and chat-quality (CI handles them). If `make lint` is unavailable, run all four steps explicitly — flake8 + mypy alone lets formatting drift through and trips CI's lint gate.
 5. **Spec sync check** — for every changed source file, verify the corresponding `specs/*.md` is in the diff (per `CLAUDE.md` Spec ↔ code map).
 6. **Secret scan** — regex on staged + unstaged files (`AKIA…`, `ghp_…`, `sk-ant-…`, etc.). Hard stop on match.
 7. **Commit + push** — conventional-commit message, push to `ship/<slug>`.
-8. **Open PR** — `gh pr create` with the `run-e2e` label only. `auto-merge-eligible` is deferred to phase 12 to avoid a `pull_request.labeled` concurrency race that cancels the in-flight quality-pipeline run.
-9. **Watch workflow** — `gh run watch` (server-side stream, not polling).
+8. **Open PR** — `gh pr create` with the `run-e2e` label only, applied via the REST API (`gh api -X POST repos/.../issues/N/labels -f 'labels[]=run-e2e'`) — `gh pr edit --add-label` goes through GraphQL and has been observed to silently exit 0 without applying. `auto-merge-eligible` is deferred to phase 12 (also via REST) to avoid a `pull_request.labeled` concurrency race that cancels the in-flight quality-pipeline run.
+9. **Watch workflow** — `gh run watch` (server-side stream, not polling). First probes for ~60 s to confirm a run was actually triggered; if `quality-pipeline.yml`'s `paths:` filter excluded the diff (docs-only / skill-only PRs), the skill sets `WORKFLOW_SKIPPED=true` and short-circuits the score + auto-merge gates so it doesn't hang waiting for a run that will never exist.
 10. **Read score** — from commit status `quality-pipeline/score` (NOT the sticky comment, which is forgeable — see `docs/implementation/ci-security.md`).
 11. **CI fix loop** — up to 3 attempts to address pipeline feedback.
-12. **Merge (user-authenticated)** — confirms once with you (unless `--auto-yes`), applies `auto-merge-eligible` now, verifies the label + `aggregate` SUCCESS + score ≥ 90, then runs `gh pr merge --squash --delete-branch` from your shell. Not performed inside CI — a merge authored by `GITHUB_TOKEN` does not trigger the `Build and Push Docker Image` workflow (GitHub's recursion guard), so running the merge locally is what makes deploys fire.
+12. **Merge (user-authenticated)** — confirms once with you (unless `--auto-yes`), applies `auto-merge-eligible` now (REST API, same reason as `run-e2e` in phase 8), verifies the label + `aggregate` SUCCESS + score ≥ 90, then runs `gh pr merge --squash --delete-branch` from your shell. Not performed inside CI — a merge authored by `GITHUB_TOKEN` does not trigger the `Build and Push Docker Image` workflow (GitHub's recursion guard), so running the merge locally is what makes deploys fire. When `WORKFLOW_SKIPPED=true` from phase 9, this phase stops and hands off — no auto-merge label is applied, no merge is attempted; you merge by hand once you confirm the diff is genuinely outside the gated paths.
 13. **Cleanup** — reminds you the worktree exists; offers to remove on confirmation.
 
 ## Recovery from common failures
@@ -63,7 +63,10 @@ The skill stops after 3 failed CI attempts and hands control back to you. Inspec
 `gh auth login` first.
 
 ### "Workflow didn't trigger"
-Check that the `run-e2e` label was applied (`gh pr view <num> --json labels`). Re-add it if missing — the `pull_request.labeled` event will fire and the workflow will start.
+Check that the `run-e2e` label was applied (`gh pr view <num> --json labels`). Re-add it via the REST API if missing — `gh api -X POST repos/perrymanuk/radbot/issues/<num>/labels -f 'labels[]=run-e2e'`. The `pull_request.labeled` event will fire and the workflow will start. Note that `gh pr edit --add-label` (GraphQL) has been observed to exit 0 without applying the label, which is why the skill uses the REST API directly.
+
+### "Skill hand-off: quality pipeline didn't run (path-filter)"
+The skill stopped at phase 12 with a "merge by hand" message. This is correct behavior for PRs whose diffs only touch paths outside `quality-pipeline.yml`'s `paths:` filter (e.g. docs-only, `.claude/skills/**`-only). There is no automated quality signal because none of the gated code changed. Verify the diff is genuinely outside the gated paths, then `gh pr merge <num> --squash --delete-branch` from your shell.
 
 ### "I want to abort mid-ship"
 Kill the Claude Code session. The worktree at `/tmp/radbot-ship-<slug>` is yours to clean up:

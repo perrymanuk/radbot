@@ -113,8 +113,17 @@ Skip-able only if you already pre-synced this worktree in this session.
 ### Python static + unit
 
 ```bash
-make lint                   # flake8 + mypy over radbot/ and tests/
+make lint                   # flake8 + mypy + black --check + isort --check over radbot/ and tests/
 make test-unit              # pytest tests/unit
+```
+
+If `make lint` is unavailable, the equivalent fallback is all four steps — running only flake8 + mypy will let formatting drift through and trip CI:
+
+```bash
+uv run flake8 radbot tests
+uv run mypy radbot tests
+uv run black --check radbot tests
+uv run isort --check radbot tests
 ```
 
 ### Frontend static + build (only if `radbot/web/frontend/**` changed)
@@ -207,11 +216,19 @@ EOF
 )"
 ```
 
-Apply only the `run-e2e` label here:
+Apply only the `run-e2e` label here. Use the REST API directly — `gh pr edit --add-label` goes through GraphQL and has been observed to silently exit 0 without applying the label, leaving the workflow ungated:
 
 ```bash
-gh pr edit <PR_NUMBER> --repo $GITHUB_REPO --add-label run-e2e
+gh api -X POST repos/$GITHUB_REPO/issues/$PR_NUMBER/labels -f 'labels[]=run-e2e'
 ```
+
+Verify the label is actually present before moving on:
+
+```bash
+gh pr view $PR_NUMBER --repo $GITHUB_REPO --json labels --jq '[.labels[].name] | index("run-e2e")'
+```
+
+Empty / `null` output means the apply silently failed — retry once, then stop and surface to the user.
 
 `auto-merge-eligible` is deferred to Phase 11 (right before merge). Applying both labels in one burst racing against GitHub Actions' `pull_request.labeled` concurrency policy cancels the in-flight quality-pipeline run — moving the second label out of the PR-open phase removes the timing dependency entirely.
 
@@ -219,18 +236,33 @@ Capture the PR number for the next phases.
 
 ## Phase 8 — Watch the workflow
 
-Use server-side streaming, not polling — cheaper and more reliable:
+`quality-pipeline.yml` has a `pull_request: paths:` filter (covers `radbot/**`, `tests/**`, `scripts/**`, `Makefile`, `Dockerfile*`, `pyproject.toml`, `uv.lock`, the workflow itself, and the bootstrap composite action). PRs that change *only* docs / `.claude/skills/**` / unrelated paths will not trigger any run, and waiting for one would hang the skill forever.
+
+Probe before watching. Give the workflow a brief grace period to register; if no run shows up, treat the workflow as skipped by path-filter and short-circuit to Phase 11 with `WORKFLOW_SKIPPED=true`:
 
 ```bash
-gh run watch --repo $GITHUB_REPO --exit-status \
-  $(gh run list --repo $GITHUB_REPO --branch ship/$SLUG \
-                --workflow $QUALITY_PIPELINE_WORKFLOW \
-                --limit 1 --json databaseId --jq '.[0].databaseId')
+RUN_ID=""
+for attempt in 1 2 3 4 5 6; do   # ~60s grace (6 × 10s)
+  RUN_ID=$(gh run list --repo $GITHUB_REPO --branch ship/$SLUG \
+                       --workflow $QUALITY_PIPELINE_WORKFLOW \
+                       --limit 1 --json databaseId --jq '.[0].databaseId // ""')
+  [ -n "$RUN_ID" ] && break
+  sleep 10
+done
+
+if [ -z "$RUN_ID" ]; then
+  WORKFLOW_SKIPPED=true
+  echo "Quality pipeline did not trigger — path-filter excluded this PR's changes. Skipping watch + score gates."
+else
+  gh run watch --repo $GITHUB_REPO --exit-status "$RUN_ID"
+fi
 ```
 
 If `gh run watch` exits non-zero or times out at $WATCH_TIMEOUT_MIN min, proceed to Phase 9 anyway — the score will still tell us what happened.
 
 ## Phase 9 — Read the score
+
+Skip this phase entirely if `WORKFLOW_SKIPPED=true` from Phase 8 — there is no score to read because the workflow never ran. Jump straight to Phase 11.
 
 The aggregate job posts a sticky comment AND sets a commit status. Trust the commit status (forgeable comments are a known footgun — see `docs/implementation/ci-security.md`):
 
@@ -250,6 +282,8 @@ gh api repos/$GITHUB_REPO/issues/$PR_NUMBER/comments \
 
 ## Phase 10 — CI fix loop (max $MAX_FIX_ATTEMPTS)
 
+Skip this phase entirely if `WORKFLOW_SKIPPED=true` from Phase 8 — there is nothing to fix when the pipeline never ran. Jump to Phase 11.
+
 If `score < $AUTO_MERGE_THRESHOLD`:
 
 1. Identify failing gates from the sticky comment.
@@ -262,13 +296,24 @@ Cap at $MAX_FIX_ATTEMPTS. Past that, hand control to the user with a summary.
 
 ## Phase 11 — Merge (user-authenticated, so deploys trigger)
 
-If `score ≥ $AUTO_MERGE_THRESHOLD`:
+**Branch on `WORKFLOW_SKIPPED` first.** When the path-filter excluded the PR (Phase 8 set `WORKFLOW_SKIPPED=true`), there is no score and no `aggregate` status check to wait on. The auto-merge gates are wired to the workflow run, so applying `auto-merge-eligible` would just sit there forever. **Stop here and hand off to the user** — do not apply `auto-merge-eligible`, do not invoke `gh pr merge`. Tell them:
+
+> Quality pipeline did not run for this PR (path-filter excluded the diff). No automated quality signal available — branch protection may still require human review. Confirm the diff is genuinely outside the gated paths, then merge by hand:
+> ```bash
+> gh pr merge $PR_NUMBER --repo $GITHUB_REPO --squash --delete-branch
+> ```
+
+Then skip directly to Phase 12 — do not run any of the steps below in this case. The user-driven merge from a normal shell still triggers the docker-build workflow (same reasoning as the auto-merge step), so deploys still fire if the PR happens to touch a docker-build path.
+
+Otherwise, if `score ≥ $AUTO_MERGE_THRESHOLD`:
 
 1. Confirm once with the user: `Score is NN/100 — merge now?` Skip if `--auto-yes` was passed.
-2. Apply `auto-merge-eligible` now (deferred from Phase 7 to avoid the `pull_request.labeled` concurrency race against the in-flight quality-pipeline run). Skip on `--manual-merge`:
+2. Apply `auto-merge-eligible` now (deferred from Phase 7 to avoid the `pull_request.labeled` concurrency race against the in-flight quality-pipeline run). Use the REST API for the same reason as Phase 7 — `gh pr edit --add-label` (GraphQL) can exit 0 without applying. Skip on `--manual-merge`:
 
 ```bash
-[ "$MANUAL_MERGE" != "true" ] && gh pr edit $PR_NUMBER --repo $GITHUB_REPO --add-label auto-merge-eligible
+if [ "$MANUAL_MERGE" != "true" ]; then
+  gh api -X POST repos/$GITHUB_REPO/issues/$PR_NUMBER/labels -f 'labels[]=auto-merge-eligible'
+fi
 ```
 
 3. Verify the pipeline actually cleared the gates the skill cannot see:
