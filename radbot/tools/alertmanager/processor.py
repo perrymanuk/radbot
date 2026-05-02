@@ -1,13 +1,17 @@
 """Alert remediation pipeline.
 
 Receives parsed alert payloads, checks policies, and dispatches
-remediation tasks to Claude Code CLI.  Sends ntfy notifications at each stage.
+remediation tasks to Claude Code CLI. All user-visible fan-out goes through
+the Notifier seam (`radbot.services.notifier`) — local helpers were retired
+in EX41 PR2.
 """
 
 import asyncio
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
+
+from radbot.services.notifier import AlertEvent, AlertPhase, get_notifier
 
 # ── Defaults for per-alert resource limits ────────────────────
 DEFAULT_TIMEOUT_SECONDS = 300  # wall-clock timeout for Claude Code execution
@@ -17,37 +21,48 @@ RECONCILE_TIMEOUT_SECONDS = 180
 logger = logging.getLogger(__name__)
 
 
-async def _notify(
+async def _publish_alert(
+    *,
     title: str,
     message: str,
+    phase: AlertPhase,
+    alertname: str,
+    alert_id: str = "",
+    severity: Optional[str] = None,
+    instance: Optional[str] = None,
+    summary: str = "",
+    fingerprint: str = "",
     priority: str = "default",
     tags: str = "robot",
+    prompt: str = "",
+    response: str = "",
 ) -> None:
-    """Send an ntfy notification (best-effort, never raises)."""
-    try:
-        from radbot.tools.ntfy.ntfy_client import get_ntfy_client
-
-        client = get_ntfy_client()
-        if client:
-            await client.publish(
-                title=title,
-                message=message,
-                priority=priority,
-                tags=tags,
-                skip_notification=True,
-            )
-    except Exception as e:
-        logger.warning(f"ntfy notification failed: {e}")
-
-
-async def _broadcast(payload: Dict[str, Any]) -> None:
-    """Broadcast a message to all WebSocket connections (best-effort)."""
-    try:
-        from radbot.web.app import manager
-
-        await manager.broadcast_to_all_sessions(payload)
-    except Exception as e:
-        logger.warning(f"WebSocket broadcast failed: {e}")
+    """Fan out an AlertEvent through the Notifier (no-op if unset)."""
+    notifier = get_notifier()
+    if notifier is None:
+        logger.warning(
+            "Notifier not initialized; alert '%s' (phase=%s) not fanned out",
+            alertname,
+            phase,
+        )
+        return
+    await notifier.publish(
+        AlertEvent(
+            title=title,
+            message=message,
+            priority=cast(Any, priority),
+            phase=phase,
+            alert_id=alert_id,
+            alertname=alertname,
+            severity=severity,
+            instance=instance,
+            summary=summary,
+            fingerprint=fingerprint,
+            tags=tags,
+            prompt=prompt,
+            response=response,
+        )
+    )
 
 
 def _severity_to_priority(severity: Optional[str]) -> str:
@@ -145,9 +160,16 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
         existing = get_unresolved_by_fingerprint(fingerprint)
         if existing:
             update_alert_status(existing["alert_id"], "resolved")
-            await _notify(
+            await _publish_alert(
                 title=f"Alert Resolved: {alertname}",
                 message=f"Instance: {instance}\n{summary}",
+                phase="resolved",
+                alert_id=str(existing["alert_id"]),
+                alertname=alertname,
+                severity=severity,
+                instance=instance,
+                summary=summary,
+                fingerprint=fingerprint,
                 priority="low",
                 tags="white_check_mark",
             )
@@ -188,32 +210,21 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
     )
     alert_id = event["alert_id"]
 
-    await _notify(
+    # Phase=received: NtfySink pushes the user-facing notification, and
+    # NotificationsTableSink writes the row + WS badge update.
+    await _publish_alert(
         title=f"Alert Received: {alertname}",
         message=f"Severity: {severity}\nInstance: {instance}\n{summary}",
+        phase="received",
+        alert_id=str(alert_id),
+        alertname=alertname,
+        severity=severity,
+        instance=instance,
+        summary=summary,
+        fingerprint=fingerprint,
         priority=_severity_to_priority(severity),
         tags="warning,robot",
     )
-
-    # Persist to notifications table
-    try:
-        from radbot.tools.notifications.db import create_notification
-
-        create_notification(
-            type="alert",
-            title=f"Alert: {alertname}",
-            message=f"Severity: {severity}\nInstance: {instance}\n{summary}",
-            source_id=str(alert_id),
-            priority=_severity_to_priority(severity),
-            metadata={
-                "alertname": alertname,
-                "severity": severity,
-                "status": alert_status,
-                "instance": instance,
-            },
-        )
-    except Exception as n_err:
-        logger.warning(f"Failed to create notification for alert {alertname}: {n_err}")
 
     # ── Policy lookup ─────────────────────────────────────────
     policy = get_matching_policy(alertname, severity)
@@ -222,6 +233,15 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
         update_alert_status(alert_id, "ignored")
         logger.info(f"Alert {alertname} ignored by policy")
         return
+
+    common_alert_kwargs: Dict[str, Any] = {
+        "alert_id": str(alert_id),
+        "alertname": alertname,
+        "severity": severity,
+        "instance": instance,
+        "summary": summary,
+        "fingerprint": fingerprint,
+    }
 
     # ── Rate limit check ──────────────────────────────────────
     if policy:
@@ -239,14 +259,16 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
             "failed",
             remediation_result=f"Rate limit exceeded: {recent_count}/{max_remediations} in {window}min",
         )
-        await _notify(
+        await _publish_alert(
             title=f"Rate Limit: {alertname}",
             message=(
                 f"Auto-remediation limit reached ({recent_count}/{max_remediations} "
                 f"in {window}min). Manual intervention needed.\n{summary}"
             ),
+            phase="failed",
             priority="high",
             tags="rotating_light",
+            **common_alert_kwargs,
         )
         logger.warning(
             f"Rate limit exceeded for {alertname}: "
@@ -256,10 +278,12 @@ async def process_alert_from_payload(alert: Dict[str, Any]) -> None:
 
     # ── Investigating ─────────────────────────────────────────
     update_alert_status(alert_id, "analyzing")
-    await _notify(
+    await _publish_alert(
         title=f"Investigating: {alertname}",
         message=f"Severity: {severity}\nInstance: {instance}\n{summary}",
+        phase="investigating",
         tags="mag,robot",
+        **common_alert_kwargs,
     )
 
     # ── Construct remediation prompt ──────────────────────────
@@ -307,11 +331,13 @@ Investigate and fix this alert:
             "failed",
             remediation_result="Could not prepare hashi-homelab workspace",
         )
-        await _notify(
+        await _publish_alert(
             title=f"Workspace Error: {alertname}",
             message="Failed to clone/update hashi-homelab. Check GitHub App config.",
+            phase="failed",
             priority="high",
             tags="x,robot",
+            **common_alert_kwargs,
         )
         return
 
@@ -346,10 +372,14 @@ Investigate and fix this alert:
                 remediation_result=response_text[:2000],
                 remediation_session_id=cc_session_id,
             )
-            await _notify(
+            await _publish_alert(
                 title=f"Remediated: {alertname}",
                 message=response_text[:500],
+                phase="resolved",
                 tags="white_check_mark,robot",
+                prompt=prompt,
+                response=response_text,
+                **common_alert_kwargs,
             )
             logger.info(f"Alert {alertname} remediated (id={alert_id})")
         else:
@@ -360,11 +390,15 @@ Investigate and fix this alert:
                 remediation_result=f"Claude Code exited {return_code}: {error_detail[:1500]}",
                 remediation_session_id=cc_session_id,
             )
-            await _notify(
+            await _publish_alert(
                 title=f"Remediation Failed: {alertname}",
                 message=f"Claude Code exited {return_code}:\n{error_detail[:400]}",
+                phase="failed",
                 priority="high",
                 tags="x,robot",
+                prompt=prompt,
+                response=response_text,
+                **common_alert_kwargs,
             )
             logger.warning(f"Alert {alertname} Claude Code failed (rc={return_code})")
 
@@ -376,28 +410,17 @@ Investigate and fix this alert:
             remediation_result=f"Remediation failed: {error_msg}",
             remediation_session_id=cc_session_id,
         )
-        await _notify(
+        await _publish_alert(
             title=f"Remediation Failed: {alertname}",
             message=f"Error: {error_msg}\n\nOriginal alert: {summary}",
+            phase="failed",
             priority="high",
             tags="x,robot",
+            prompt=prompt,
+            response=response_text,
+            **common_alert_kwargs,
         )
         logger.error(f"Alert {alertname} remediation failed: {e}", exc_info=True)
-
-    # ── Broadcast result ──────────────────────────────────────
-    from datetime import datetime
-
-    await _broadcast(
-        {
-            "type": "alert_result",
-            "alert_id": alert_id,
-            "alertname": alertname,
-            "severity": severity,
-            "prompt": prompt[:500],
-            "response": response_text[:1000],
-            "timestamp": datetime.now().isoformat(),
-        }
-    )
 
 
 async def _reconcile_to_repo(
@@ -431,9 +454,12 @@ If the remediation was just a restart (no file changes), report that no code cha
         response = result.get("output", "")
 
         if result.get("status") == "success":
-            await _notify(
+            await _publish_alert(
                 title=f"Repo Synced: {alertname}",
                 message=response[:500],
+                phase="resolved",
+                alertname=alertname,
+                fingerprint=fingerprint,
                 tags="package,robot",
             )
             logger.info(f"Repo reconciliation complete for {alertname}")
@@ -444,9 +470,12 @@ If the remediation was just a restart (no file changes), report that no code cha
             )
     except Exception as e:
         logger.error(f"Repo reconciliation failed for {alertname}: {e}", exc_info=True)
-        await _notify(
+        await _publish_alert(
             title=f"Repo Sync Failed: {alertname}",
             message=f"Could not sync changes to hashi-homelab: {e}",
+            phase="failed",
+            alertname=alertname,
+            fingerprint=fingerprint,
             priority="high",
             tags="x,package",
         )

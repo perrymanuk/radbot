@@ -1,13 +1,16 @@
-"""Heartbeat delivery — pluggable transport for the digest.
+"""Heartbeat delivery — fan out the digest through the Notifier seam.
 
-Default channel is ntfy (per EX3 open-question resolution). Transport
-is intentionally a thin adapter so email / other channels can be added
-behind the same `deliver_digest()` signature later.
+Default channel is ntfy (per EX3 open-question resolution); the Notifier's
+NtfySink owns the push and the NotificationsTableSink owns the notifications
+row. EX41 PR2 retired the inline ntfy + notifications calls in favour of one
+HeartbeatEvent publish.
 """
 
 from __future__ import annotations
 
 import logging
+
+from radbot.services.notifier import HeartbeatEvent, get_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -21,46 +24,26 @@ async def deliver_digest(
     """Deliver a digest via the configured proactive channel.
 
     Returns True if delivered, False otherwise (including the "nothing
-    worth bothering you with" empty-digest case).
+    worth bothering you with" empty-digest case and the "Notifier not
+    initialized" / "no ntfy client" cases).
     """
     if not markdown:
         logger.info("Heartbeat: digest empty, nothing to deliver")
         return False
 
-    try:
-        from radbot.tools.ntfy.ntfy_client import get_ntfy_client
-
-        client = get_ntfy_client()
-    except Exception as e:
-        logger.warning("Heartbeat: ntfy client unavailable: %s", e)
-        client = None
-
-    if client is None:
-        logger.info("Heartbeat: no delivery channel configured, skipping")
+    notifier = get_notifier()
+    if notifier is None:
+        logger.warning("Heartbeat: Notifier not initialized, skipping delivery")
         return False
 
-    # ntfy truncates at 2000 chars inside publish(), but signal a soft cap too.
+    # ntfy publishes truncate at 2000; the persisted digest keeps a higher cap.
     body = markdown[:2000]
-    try:
-        result = await client.publish(title=title, message=body, tags=tags)
-    except Exception as e:
-        logger.warning("Heartbeat: ntfy publish raised: %s", e)
-        return False
-
-    if result is None:
-        return False
-
-    # Record in the unified notifications table so it surfaces in the UI.
-    try:
-        from radbot.tools.notifications.db import create_notification
-
-        create_notification(
-            type="heartbeat",
+    await notifier.publish(
+        HeartbeatEvent(
             title=title,
-            message=markdown[:4000],
-            metadata={"channel": "ntfy"},
+            message=body,
+            tags=tags,
+            digest_markdown=markdown,
         )
-    except Exception as e:
-        logger.debug("Heartbeat: notifications write failed (non-fatal): %s", e)
-
+    )
     return True
