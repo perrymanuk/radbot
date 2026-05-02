@@ -165,7 +165,7 @@ Follow these patterns when proposing tests:
 - Use `WSTestClient` for agent chat tests
 - Use `httpx.AsyncClient` for REST API tests
 - Markers: `@pytest.mark.e2e`, `@pytest.mark.requires_gemini`, `@pytest.mark.writes_external`
-- Follow patterns in existing tests (see `test_agent_chat.py`, `test_tasks_api.py`)
+- Follow patterns in existing tests (see `test_agent_chat.py`, `test_alerts_api.py`)
 - Use `assert_response_contains_any()` for non-deterministic LLM responses
 
 **Agent chat test pattern:**
