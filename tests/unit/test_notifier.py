@@ -19,7 +19,6 @@ import pytest
 
 from radbot.services.notifier import (
     AlertEvent,
-    AlertResultBroadcastSink,
     ChatHistorySink,
     HeartbeatEvent,
     NotificationsTableSink,
@@ -28,6 +27,7 @@ from radbot.services.notifier import (
     ReminderEvent,
     ResultEvent,
     ScheduledTaskEvent,
+    WebhookEvent,
     WebSocketChatSink,
     WsNotificationPayload,
     WsSystemMessagePayload,
@@ -276,7 +276,10 @@ class TestNtfySink:
         assert captured["message"] == "Take meds"
         assert captured["tags"] == "bell"
         assert captured["priority"] == "high"
-        assert captured["skip_notification"] is True
+        # skip_notification flag was removed in EX41 PR3 — the Notifier owns
+        # the notifications-table fan-out now, so ntfy_client.publish() no
+        # longer accepts it.
+        assert "skip_notification" not in captured
 
 
 # ---------------------------------------------------------------------------
@@ -491,13 +494,7 @@ class TestSingletonAccessor:
 
         n = build_default_notifier(ws_broadcaster=fake_broadcast)
         names = sorted(s.name for s in n.sinks)
-        assert names == [
-            "alert_result_ws",
-            "chat_history",
-            "notifications",
-            "ntfy",
-            "ws_chat",
-        ]
+        assert names == ["chat_history", "notifications", "ntfy", "ws_chat"]
 
 
 # ---------------------------------------------------------------------------
@@ -637,98 +634,109 @@ class TestWebSocketChatSinkSkipsAlertsAndHeartbeats:
         assert broadcasts == []
 
 
-class TestAlertResultBroadcastSink:
-    """Sink reconstructs the legacy alert_result WS payload on terminal phases."""
+class TestWebhookEventSinkSkips:
+    """Every canonical sink should skip-with-debug for WebhookEvent today.
+
+    Webhooks publish a WebhookEvent purely for instrumentation / future
+    sinks; no current sink consumes it (the legacy `webhook_result` WS
+    broadcast had no frontend consumers and was dropped in EX41 PR3).
+    """
 
     @pytest.mark.asyncio
-    async def test_broadcasts_for_resolved_alert_with_response(self) -> None:
-        broadcasts: List[dict] = []
-        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+    async def test_chat_history_sink_skips_webhook(self) -> None:
+        calls: List[tuple] = []
+        sink = ChatHistorySink(add_message=lambda *a, **k: calls.append((a, k)))
 
         await sink.publish(
-            AlertEvent(
-                title="Remediated: HighCPU",
+            WebhookEvent(
+                title="Webhook: deploy",
                 message="ok",
-                phase="resolved",
-                alert_id="a-1",
-                alertname="HighCPU",
-                severity="warning",
-                prompt="P" * 1000,
-                response="R" * 5000,
+                webhook_id="w-1",
+                webhook_name="deploy",
             )
         )
 
-        assert len(broadcasts) == 1
-        payload = broadcasts[0]
-        assert payload["type"] == "alert_result"
-        assert payload["alert_id"] == "a-1"
-        assert payload["alertname"] == "HighCPU"
-        assert payload["severity"] == "warning"
-        assert payload["prompt"] == "P" * 500  # truncated
-        assert payload["response"] == "R" * 1000  # truncated
-        assert "timestamp" in payload
+        assert calls == []
 
     @pytest.mark.asyncio
-    async def test_broadcasts_for_failed_alert_with_response(self) -> None:
-        broadcasts: List[dict] = []
-        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+    async def test_ntfy_sink_skips_webhook(self) -> None:
+        captured: dict = {}
+
+        class FakeClient:
+            async def publish(self, **kwargs):
+                captured.update(kwargs)
+                return {"ok": True}
+
+        sink = NtfySink(client_getter=lambda: FakeClient())
 
         await sink.publish(
-            AlertEvent(
-                title="Remediation Failed: HighCPU",
-                message="x",
-                phase="failed",
-                alert_id="a-1",
-                alertname="HighCPU",
-                response="some error",
+            WebhookEvent(
+                title="Webhook: deploy",
+                message="ok",
+                webhook_id="w-1",
+                webhook_name="deploy",
             )
         )
 
-        assert len(broadcasts) == 1
-        assert broadcasts[0]["type"] == "alert_result"
+        assert captured == {}
 
-    @pytest.mark.parametrize("phase", ["received", "investigating"])
     @pytest.mark.asyncio
-    async def test_skips_non_terminal_phases(self, phase: str) -> None:
-        broadcasts: List[dict] = []
-        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+    async def test_notifications_table_sink_skips_webhook(self) -> None:
+        calls: List[dict] = []
+
+        def fake_create(**kwargs) -> dict:
+            calls.append(kwargs)
+            return {"notification_id": "x"}
+
+        sink = NotificationsTableSink(
+            ws_broadcaster=None, create_notification=fake_create
+        )
 
         await sink.publish(
-            AlertEvent(
-                title="x",
-                message="y",
-                phase=phase,  # type: ignore[arg-type]
-                alertname="HighCPU",
-                response="not-broadcast",
+            WebhookEvent(
+                title="Webhook: deploy",
+                message="ok",
+                webhook_id="w-1",
+                webhook_name="deploy",
+            )
+        )
+
+        assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_websocket_chat_sink_skips_webhook(self) -> None:
+        broadcasts: List[dict] = []
+        sink = WebSocketChatSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(
+            WebhookEvent(
+                title="Webhook: deploy",
+                message="ok",
+                webhook_id="w-1",
+                webhook_name="deploy",
             )
         )
 
         assert broadcasts == []
 
     @pytest.mark.asyncio
-    async def test_skips_terminal_alert_without_response(self) -> None:
+    async def test_default_notifier_publish_is_a_noop_for_webhook(self) -> None:
+        """End-to-end: a WebhookEvent through build_default_notifier hits no sink."""
         broadcasts: List[dict] = []
-        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
 
-        await sink.publish(
-            AlertEvent(
-                title="Alert Resolved",
+        async def fake_broadcast(payload: dict) -> None:
+            broadcasts.append(payload)
+
+        notifier = build_default_notifier(ws_broadcaster=fake_broadcast)
+
+        await notifier.publish(
+            WebhookEvent(
+                title="Webhook: deploy",
                 message="ok",
-                phase="resolved",
-                alertname="HighCPU",
-                # response="" by default — nothing to broadcast
+                webhook_id="w-1",
+                webhook_name="deploy",
             )
         )
-
-        assert broadcasts == []
-
-    @pytest.mark.asyncio
-    async def test_skips_non_alert_events(self) -> None:
-        broadcasts: List[dict] = []
-        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
-
-        await sink.publish(HeartbeatEvent(title="Heartbeat", message="m"))
-        await sink.publish(ResultEvent(title="t", message="m"))
 
         assert broadcasts == []
 

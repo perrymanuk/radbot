@@ -67,10 +67,10 @@ Endpoint: `GET /ws/{session_id}` (handled in `radbot/web/app.py`)
 | `heartbeat` | (empty) | WS handler | Server echo |
 | `history` | `{session_id, messages: [...]}` | WS handler | Replay of prior session messages |
 | `sync_response` | `{messages: [...]}` | WS handler | Reply to sync request |
-| `alert_result` | `{alert_id, alertname, severity, prompt, response, timestamp}` | Notifier (`AlertResultBroadcastSink`) on terminal AlertEvents (`resolved`/`failed`) with non-empty response | Alert remediation outcome |
-| `webhook_result` | `{webhook_id, webhook_name, prompt, response, timestamp}` | webhooks (pre-Notifier; planned PR3 migration) | Webhook firing outcome |
 
-**Notifier-owned types**: `message` (system-role only), `notification`, `alert_result`. The Pydantic schemas for the Notifier-emitted variants live in `radbot/services/notifier.py` (`WsNotificationPayload`, `WsSystemMessagePayload`); `alert_result` is hand-rolled inside `AlertResultBroadcastSink` to preserve the legacy payload shape bit-for-bit.
+**Notifier-owned types**: `message` (system-role only), `notification`. The Pydantic schemas for the Notifier-emitted variants live in `radbot/services/notifier.py` (`WsNotificationPayload`, `WsSystemMessagePayload`).
+
+The legacy `alert_result` and `webhook_result` types had no frontend consumers and were retired in EX41 PR3 (PT107). Alert pipeline state still surfaces via `notification` badges and ntfy pushes; webhook firings publish a `WebhookEvent` to the Notifier seam (today a no-op fan-out — every sink skips with debug — kept as an instrumentation join point for future sinks).
 
 **Inline UI cards** and **agent handoff chips** travel as fenced code blocks inside `message` payloads — they do NOT use dedicated WS message types. See `specs/tools.md` § `card_protocol`.
 

@@ -6,11 +6,12 @@ import hashlib
 import hmac
 import logging
 import uuid
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+
+from radbot.services.notifier import WebhookEvent, get_notifier
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,7 @@ async def trigger_webhook(path_suffix: str, request: Request):
 async def _process_and_broadcast(
     webhook_id: str, webhook_name: str, prompt: str
 ) -> None:
-    """Send the rendered prompt to the agent and broadcast the result."""
+    """Send the rendered prompt to the agent and fan out via the Notifier seam."""
     response_text = ""
     try:
         from radbot.web.api.session import get_session_manager
@@ -179,18 +180,20 @@ async def _process_and_broadcast(
         response_text = f"Error processing webhook: {e}"
         logger.error(f"Error processing webhook '{webhook_name}': {e}", exc_info=True)
 
-    # Broadcast to all active WebSocket connections
-    try:
-        from radbot.web.app import manager
-
-        message_payload = {
-            "type": "webhook_result",
-            "webhook_id": webhook_id,
-            "webhook_name": webhook_name,
-            "prompt": prompt,
-            "response": response_text,
-            "timestamp": datetime.now().isoformat(),
-        }
-        await manager.broadcast_to_all_sessions(message_payload)
-    except Exception as e:
-        logger.error(f"Failed to broadcast webhook result: {e}")
+    notifier = get_notifier()
+    if notifier is None:
+        logger.warning(
+            "Notifier not initialized; webhook '%s' result not fanned out",
+            webhook_name,
+        )
+        return
+    await notifier.publish(
+        WebhookEvent(
+            title=f"Webhook: {webhook_name}",
+            message=response_text[:2000] if response_text else "(no response)",
+            webhook_id=webhook_id,
+            webhook_name=webhook_name,
+            prompt=prompt,
+            response=response_text,
+        )
+    )
