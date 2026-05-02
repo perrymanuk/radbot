@@ -118,6 +118,22 @@ class HeartbeatEvent(ResultEvent):
     tags: str = "sunrise,robot"
 
 
+@dataclass
+class WebhookEvent(ResultEvent):
+    """External webhook firing event.
+
+    Today no sink consumes WebhookEvent (the legacy `webhook_result` WS
+    broadcast had no frontend consumers), but publishing through the seam
+    decouples the webhook route from the WS manager and gives future sinks
+    (e.g. a chat-history archive of webhook outcomes) a join point.
+    """
+
+    webhook_id: str = ""
+    webhook_name: str = ""
+    prompt: str = ""
+    response: str = ""
+
+
 # ---------------------------------------------------------------------------
 # WS payload schemas — Pydantic for output validation
 # ---------------------------------------------------------------------------
@@ -209,7 +225,7 @@ class ChatHistorySink:
                 user_id="web_user",
             )
             return
-        if isinstance(event, (AlertEvent, HeartbeatEvent)):
+        if isinstance(event, (AlertEvent, HeartbeatEvent, WebhookEvent)):
             logger.debug(
                 "ChatHistorySink: skipping %s (not chat-bound)",
                 type(event).__name__,
@@ -226,6 +242,10 @@ class NtfySink:
         self._getter = client_getter
 
     async def publish(self, event: ResultEvent) -> None:
+        if isinstance(event, WebhookEvent):
+            # Webhooks fan out via WebSocket only today; no ntfy push.
+            logger.debug("NtfySink: skipping WebhookEvent (no push channel)")
+            return
         client = self._getter()
         if not client:
             logger.debug("NtfySink: client unavailable, skipping push")
@@ -238,7 +258,6 @@ class NtfySink:
             priority=event.priority,
             tags=tags,
             session_id=session_id,
-            skip_notification=True,
         )
 
 
@@ -302,6 +321,11 @@ class NotificationsTableSink:
             )
         if isinstance(event, HeartbeatEvent):
             return ("heartbeat", None, {"channel": "ntfy"})
+        if isinstance(event, WebhookEvent):
+            logger.debug(
+                "NotificationsTableSink: skipping WebhookEvent (no row needed)"
+            )
+            return (None, None, {})
         return (None, None, {})
 
     async def publish(self, event: ResultEvent) -> None:
@@ -354,56 +378,6 @@ class WebSocketChatSink:
         logger.debug(
             "WebSocketChatSink: skipping %s (not a delivered reminder)",
             type(event).__name__,
-        )
-
-
-class AlertResultBroadcastSink:
-    """Broadcast the legacy `alert_result` WS payload for terminal AlertEvents.
-
-    The alertmanager pipeline historically emitted a final WS broadcast after
-    each remediation run with the prompt+response. The Notifier seam folds
-    that into a single AlertEvent publish on phase `resolved`/`failed`; this
-    sink is responsible for the WS broadcast piece, while NtfySink handles
-    the user-facing push.
-    """
-
-    name = "alert_result_ws"
-
-    def __init__(self, ws_broadcaster: WsBroadcaster) -> None:
-        self._broadcast = ws_broadcaster
-
-    async def publish(self, event: ResultEvent) -> None:
-        if not isinstance(event, AlertEvent):
-            logger.debug(
-                "AlertResultBroadcastSink: skipping %s (not an AlertEvent)",
-                type(event).__name__,
-            )
-            return
-        if event.phase not in ("resolved", "failed"):
-            logger.debug(
-                "AlertResultBroadcastSink: skipping AlertEvent phase=%s",
-                event.phase,
-            )
-            return
-        if not event.response:
-            logger.debug(
-                "AlertResultBroadcastSink: skipping AlertEvent phase=%s "
-                "(no response payload)",
-                event.phase,
-            )
-            return
-        from datetime import datetime  # lazy
-
-        await self._broadcast(
-            {
-                "type": "alert_result",
-                "alert_id": event.alert_id,
-                "alertname": event.alertname,
-                "severity": event.severity,
-                "prompt": event.prompt[:500],
-                "response": event.response[:1000],
-                "timestamp": datetime.now().isoformat(),
-            }
         )
 
 
@@ -501,6 +475,5 @@ def build_default_notifier(ws_broadcaster: WsBroadcaster) -> Notifier:
             NtfySink(client_getter=get_ntfy_client),
             NotificationsTableSink(ws_broadcaster=ws_broadcaster),
             WebSocketChatSink(ws_broadcaster=ws_broadcaster),
-            AlertResultBroadcastSink(ws_broadcaster=ws_broadcaster),
         ]
     )
