@@ -20,7 +20,7 @@ radbot/mcp_server/
 ├── __main__.py          # stdio entrypoint — `uv run python -m radbot.mcp_server`
 ├── server.py            # MCP Server factory + list_tools / call_tool handlers
 ├── auth.py              # credential-store + env bearer-token validation
-├── http_transport.py    # mounts /mcp/sse and /mcp/messages/ on FastAPI
+├── http_transport.py    # mounts streamable-HTTP /mcp on FastAPI (stateless)
 └── tools/
     ├── __init__.py      # module registry — aggregates all tools() / dispatches call()
     ├── telos.py         # telos_get_full, telos_get_section, telos_get_entry, telos_search_journal
@@ -36,9 +36,16 @@ radbot/mcp_server/
 - **stdio**: `uv run python -m radbot.mcp_server`. For local dev, MCP
   Inspector, or subprocess-style Claude Code config. No auth — the trust
   boundary is the OS user.
-- **HTTP/SSE**: `mount_mcp_on_app(app)` attaches `GET /mcp/sse` (event
-  stream) and `POST /mcp/messages/` (client→server) to the existing
-  FastAPI app. Bearer auth via `RADBOT_MCP_TOKEN` or credential store.
+- **HTTP (streamable, stateless)**: `mount_mcp_on_app(app)` attaches a
+  single `POST /mcp` endpoint backed by
+  `StreamableHTTPSessionManager(stateless=True)`. Each HTTP request gets a
+  fresh `StreamableHTTPServerTransport`; nothing is held in process
+  memory between requests, so a process restart (Nomad health-check, deploy,
+  OOM) cannot strand the client with a stale session ID. The legacy SSE
+  transport at `GET /mcp/sse` + `POST /mcp/messages/` was retired in PT109
+  for exactly that reason. The session manager's `run()` is entered as
+  part of the FastAPI lifespan in `web/app.py`. Bearer auth via
+  `RADBOT_MCP_TOKEN` or credential store.
 
 Both transports serve the same `Server` instance produced by
 `create_server()`. Tool registration happens once.
@@ -93,8 +100,8 @@ env var. That means rotation from the admin UI takes effect immediately
 without redeploying the Nomad job. The env var is the "first-boot" value;
 after first rotate it's effectively unused.
 
-If both are unset, `/mcp/sse` returns **503 MCP bridge disabled** and
-`/mcp/messages/` rejects all requests. Fail-closed by design.
+If both are unset, `/mcp` returns **503 MCP bridge disabled**. Fail-closed
+by design.
 
 Rotation: `POST /api/mcp/token/rotate` generates a 32-byte URL-safe token
 (`secrets.token_urlsafe`), writes it to the credential store, and returns
@@ -182,8 +189,7 @@ Plus the MCP-transport endpoints (not under `/api/`, different auth):
 
 | Path | Purpose |
 |---|---|
-| `GET /mcp/sse` | SSE event stream (bearer → MCP session) |
-| `POST /mcp/messages/` | Client → server message posts |
+| `POST /mcp` | Streamable-HTTP MCP endpoint, stateless (bearer auth) |
 | `GET /setup/claude-code.md` | Unauth'd markdown bootstrap guide (templated base_url) |
 
 ## Setup endpoint

@@ -108,8 +108,8 @@ export function McpBridgePanel() {
                 ({status.wiki_mounted ? "mounted" : "not mounted"})
               </span>
             </dd>
-            <dt className="text-txt-secondary">MCP SSE URL</dt>
-            <dd><code>{status.sse_url}</code></dd>
+            <dt className="text-txt-secondary">MCP URL</dt>
+            <dd><code>{status.mcp_url}</code></dd>
             <dt className="text-txt-secondary">Setup URL</dt>
             <dd>
               <a href={status.setup_url} target="_blank" rel="noreferrer" className="text-blue-400 underline">

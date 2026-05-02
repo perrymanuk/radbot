@@ -43,14 +43,15 @@ Have them `source` their profile before continuing.
 ## 2. Add the MCP server to ~/.claude/settings.json
 
 Merge the following into the existing settings (do **not** overwrite the
-whole file — read it first, merge the `mcpServers` key):
+whole file — read it first, merge the `mcpServers` key). Radbot speaks the
+modern streamable-HTTP MCP transport in stateless mode at a single endpoint:
 
 ```json
 {{
   "mcpServers": {{
     "radbot": {{
       "type": "http",
-      "url": "{base_url}/mcp/sse",
+      "url": "{base_url}/mcp",
       "headers": {{
         "Authorization": "Bearer ${{RADBOT_MCP_TOKEN}}"
       }}
@@ -58,6 +59,11 @@ whole file — read it first, merge the `mcpServers` key):
   }}
 }}
 ```
+
+If you previously configured radbot with `"type": "sse"` and a URL ending
+in `/mcp/sse`, see
+`docs/implementation/claude_settings_migration_pt109.md` — that transport
+was removed.
 
 ## 3. Install the `SessionStart` hook
 

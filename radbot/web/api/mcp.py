@@ -10,8 +10,8 @@ Two routers are exported:
   and `{ref_or_name}/context.md`. These mirror the MCP tools of the same
   name so shell scripts can consume them without an MCP client.
 
-The MCP HTTP transport itself (`/mcp/sse`, `/mcp/messages/`) is mounted
-from `radbot.mcp_server.http_transport` and handled separately.
+The MCP HTTP transport itself (`POST /mcp`, streamable-HTTP stateless) is
+mounted from `radbot.mcp_server.http_transport` and handled separately.
 
 Project listing/editing is **not** surfaced here anymore — projects live
 in `telos_entries` (section `projects`) and are managed through
@@ -71,7 +71,7 @@ def _verify_mcp(
     request: Request,
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """Auth the hook-facing endpoints against the same MCP bearer as /mcp/sse."""
+    """Auth the hook-facing endpoints against the same MCP bearer as /mcp."""
     # Reuse the transport-side auth module so there's one source of truth
     from radbot.mcp_server import auth as mcp_auth
 
@@ -127,7 +127,7 @@ async def mcp_status(request: Request) -> dict[str, Any]:
         "token_masked": _mask(token),
         "wiki_path": wiki_path,
         "wiki_mounted": wiki_mounted,
-        "sse_url": f"{base_url}/mcp/sse",
+        "mcp_url": f"{base_url}/mcp",
         "setup_url": f"{base_url}/setup/claude-code.md",
     }
 

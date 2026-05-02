@@ -373,7 +373,7 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 **Transports:**
 
 - **stdio**: `uv run python -m radbot.mcp_server` (local, no auth)
-- **HTTP/SSE**: `GET /mcp/sse` + `POST /mcp/messages/` mounted on the FastAPI app (bearer token)
+- **HTTP (streamable, stateless)**: `POST /mcp` mounted on the FastAPI app via `StreamableHTTPSessionManager(stateless=True)` (bearer token). Each request gets a fresh transport — no shared session state means process restarts can never produce 404 "Could not find session" (replaced the legacy `GET /mcp/sse` + `POST /mcp/messages/` SSE transport per PT109).
 
 **Tool surface** (30, all returning markdown `TextContent`):
 
