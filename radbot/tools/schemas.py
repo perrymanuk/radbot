@@ -40,9 +40,18 @@ SCHEMA_INITS: List[Tuple[str, str, str]] = [
     ("alert", "radbot.tools.alertmanager.db", "init_alert_schema"),
     ("usage telemetry", "radbot.telemetry.db", "init_usage_schema"),
     ("telemetry events", "radbot.tools.telemetry", "init_telemetry_schema"),
-    ("session workers", "radbot.worker.db", "init_session_workers_schema"),
     ("workspace workers", "radbot.worker.db", "init_workspace_workers_schema"),
     ("credential store", "radbot.credentials.store", "CredentialStore.init_schema"),
+]
+
+
+# (label, raw SQL) — one-shot DDL applied after schema inits. Each statement
+# must be idempotent (use IF EXISTS / IF NOT EXISTS); re-runs are no-ops.
+MIGRATIONS: List[Tuple[str, str]] = [
+    (
+        "drop legacy session_workers table (EX40)",
+        "DROP TABLE IF EXISTS session_workers CASCADE;",
+    ),
 ]
 
 
@@ -55,12 +64,30 @@ def _resolve(module_path: str, attr_path: str) -> Callable:
     return obj
 
 
+def _run_migrations() -> None:
+    """Apply each entry in MIGRATIONS once per startup."""
+    if not MIGRATIONS:
+        return
+    from radbot.db.connection import get_db_connection, get_db_cursor
+
+    with get_db_connection() as conn:
+        with get_db_cursor(conn, commit=True) as cur:
+            for label, sql in MIGRATIONS:
+                cur.execute(sql)
+                logger.info("Migration applied: %s", label)
+
+
 def init_all_schemas() -> None:
-    """Run every registered schema initializer.
+    """Run every registered schema initializer, then apply migrations.
 
     Raises on import or invocation failure. See module docstring.
     """
     for label, module_path, func_name in SCHEMA_INITS:
         fn = _resolve(module_path, func_name)
         fn()
-    logger.info("All %d database schemas initialized", len(SCHEMA_INITS))
+    _run_migrations()
+    logger.info(
+        "All %d database schemas initialized (%d migrations)",
+        len(SCHEMA_INITS),
+        len(MIGRATIONS),
+    )

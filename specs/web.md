@@ -15,7 +15,7 @@ FastAPI backend (`radbot/web/`) + React SPA frontend (`radbot/web/frontend/`).
 
 **Chat sessions always run in-process** via `SessionRunner` — the `session_mode` config setting no longer affects chat. Remote Nomad workers are now **only used for terminal/workspace sessions**, managed separately by `radbot/web/api/terminal.py` + `terminal_proxy.py`.
 
-This was changed in commit `12e4901` (2026-03-23) to fix `AttributeError` on session_service access when chat was incorrectly routed through `SessionProxy`.
+This was changed in commit `12e4901` (2026-03-23) to fix `AttributeError` on session_service access; the legacy session-worker proxy was retired entirely in EX40.
 
 ```
 Chat:     Browser ◄──WS──► FastAPI app.py ──► SessionRunner ──► ADK Runner ──► root_agent (beto | scout)
@@ -41,7 +41,6 @@ See `specs/workers.md` for worker/terminal architecture.
 | `web/api/session/session_manager.py` | Per-session `SessionRunner` registry with lock-based TOCTOU guard |
 | `web/api/session/dependencies.py` | FastAPI dep: `get_or_create_runner_for_session()` |
 | `web/api/session/memory_api.py` | `/api/memory` router for explicit memory store/recall |
-| `web/api/session_proxy.py` (legacy) | No longer used for chat — reference only |
 | `worker/history_loader.py` | Shared: seeds ADK session from chat DB history |
 
 ## WebSocket Protocol

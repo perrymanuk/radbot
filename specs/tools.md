@@ -427,5 +427,5 @@ REST-only, not registered as agent FunctionTools:
 | `tools/shared/tool_decorator.py` | `@tool_error_handler` |
 | `tools/shared/retry.py` | `@retry_on_error` |
 | `tools/shared/db_schema.py` | `init_table_schema()` idempotent helper |
-| `tools/schemas.py` | `init_all_schemas()` — fail-loud central registry of every `init_*_schema()` call. Run once at FastAPI startup (`web/app.py`) and once per pytest session (autouse fixture in `tests/conftest.py`). Replaces the per-module init blocks that used to live in `web/app.py:initialize_app_startup` and the `setup_before_agent_call` fallback in the deleted `agent_tools_setup.py`. |
+| `tools/schemas.py` | `init_all_schemas()` — fail-loud central registry of every `init_*_schema()` call. Run once at FastAPI startup (`web/app.py`) and once per pytest session (autouse fixture in `tests/conftest.py`). Replaces the per-module init blocks that used to live in `web/app.py:initialize_app_startup` and the `setup_before_agent_call` fallback in the deleted `agent_tools_setup.py`. Also runs `MIGRATIONS` (one-shot DDL list — `DROP TABLE`/`ALTER`) after schema inits; entries must be idempotent so re-runs no-op. |
 | `agent/factory_utils.py` | `load_tools(module, attr, agent, label)` |

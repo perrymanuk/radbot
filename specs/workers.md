@@ -12,16 +12,9 @@ Workers are persistent Nomad service jobs spawned by the main radbot app for **t
 
 **Current state**: workers are persistent, lean PTY servers. Chat always runs in-process in the main app.
 
-## Two Worker Flavors
+## Worker Flavor
 
-Both share `radbot/worker/` and the `workspace_workers` / `session_workers` tables in PostgreSQL.
-
-| Flavor | Spec builder | DB table | Active usage |
-|--------|--------------|----------|--------------|
-| Workspace worker (terminal) | `build_workspace_worker_spec()` | `workspace_workers` | Active — each cloned workspace gets one |
-| Session worker (chat, legacy) | `build_worker_job_spec()` | `session_workers` | Not used for routing chat post-`12e4901`; code kept for potential revival |
-
-Only the workspace worker is active in production flow.
+Workspace workers are the only kind. Each cloned workspace gets one Nomad service job spawned via `build_workspace_worker_spec()` and tracked in the `workspace_workers` table. The earlier session-worker chat path was retired in EX40 — chat always runs in-process via `SessionRunner`.
 
 ## Architecture (Active — Workspace/Terminal)
 
@@ -113,7 +106,7 @@ Duck-typed replacement for local PTY flow when `session_mode=remote`:
 
 - Spawns Nomad service job on first terminal open
 - Discovers existing worker via Nomad service catalog (`find_service_by_tag("workspace_id=<UUID>")`)
-- Falls back to `session_workers` / `workspace_workers` DB rows, then DB config → Consul if needed (`2811156`)
+- Falls back to `workspace_workers` DB rows, then DB config → Consul if needed (`2811156`)
 - Proxies WebSocket frames 1:1 between browser and worker (`/ws`)
 - Pre-spawns the worker on workspace *creation*, not just first open (`3e93b63`), to avoid cold-start on first click
 - Guards against duplicate spawns with a lock (`08e59bf`) and a 120s startup timeout
@@ -129,32 +122,23 @@ Duck-typed replacement for local PTY flow when `session_mode=remote`:
 
 ## Nomad Job Templates — `radbot/worker/nomad_template.py`
 
-Two builder functions (both return `{"Job": {...}}` for Nomad HTTP API):
-
-| Function | Purpose |
-|----------|---------|
-| `build_worker_job_spec(session_id=..., ...)` | Legacy session worker (chat) — kept for potential future use |
-| `build_workspace_worker_spec(workspace_id=..., ...)` | Active workspace worker (terminal) |
-
-Shared properties:
+`build_workspace_worker_spec(workspace_id=..., ...)` returns `{"Job": {...}}` for the Nomad HTTP API. Properties:
 
 - `type = "service"` — Nomad restarts on crash, runs until explicitly stopped
 - `restart: attempts=1, mode=fail` — minimal retry, no restart loop
 - Dynamic port on `host_network = "lan"`
-- Service name with `workspace_id=<UUID>` or `session_id=<UUID>` tag for discovery
+- Service name with `workspace_id=<UUID>` tag for discovery
 - Health check `GET /health` every 30s
 - Config via Nomad template stanza mirrors main job's credential bootstrap
 
 ## Worker DB — `radbot/worker/db.py`
 
-Two tables, same shape:
-
-**`session_workers`** (legacy, not used for chat routing):
+**`workspace_workers`** (keyed by `workspace_id` UUID PK):
 
 | Column | Type | Purpose |
 |--------|------|---------|
-| `session_id` | UUID PK | Links to `chat_sessions` |
-| `nomad_job_id` | TEXT | e.g. `radbot-session-550e8400` |
+| `workspace_id` | UUID PK | Links to `coder_workspaces` |
+| `nomad_job_id` | TEXT | e.g. `radbot-workspace-550e8400` |
 | `worker_url` | TEXT | e.g. `http://10.0.1.5:28432` |
 | `status` | TEXT | `starting` → `healthy` → `stopped` / `failed` |
 | `created_at` | TIMESTAMPTZ | |
@@ -162,11 +146,7 @@ Two tables, same shape:
 | `image_tag` | TEXT | |
 | `metadata` | JSONB | |
 
-**`workspace_workers`** (active):
-
-Same columns, keyed by `workspace_id` UUID PK.
-
-Operations: `upsert_worker`, `get_worker`, `update_worker_status`, `touch_worker`, `list_active_workers`, `count_active_workers`, `delete_worker`.
+Operations: `upsert_workspace_worker`, `get_workspace_worker`, `update_workspace_worker_status`, `list_active_workspace_workers`, `count_active_workspace_workers`, `delete_workspace_worker`.
 
 ## Nomad Service Discovery
 
@@ -184,7 +164,7 @@ Consul remains as a fallback (`2811156`), but Nomad's native service discovery i
 | Key | Location | Default | Purpose |
 |-----|----------|---------|---------|
 | `session_mode` | `config:agent` | `local` | Terminal/workspace workers only — `local` = local PTY, `remote` = Nomad workers |
-| `max_session_workers` | `config:agent` | `10` | Max concurrent worker jobs (shared budget) |
+| `max_workspace_workers` | `config:agent` | `10` | Max concurrent worker jobs (shared budget). Legacy alias `max_session_workers` is auto-mapped at config load with a deprecation warning |
 | `worker_image_tag` | `config:agent` or `RADBOT_WORKER_IMAGE_TAG` | `latest` | Docker tag for newly-spawned workers |
 
 ## Sequence Diagrams
@@ -242,18 +222,14 @@ Nomad service job restart policy
 
 ### Unit Tests — `tests/unit/test_worker_components.py`
 
-| Class | Tests | Covers |
-|-------|-------|--------|
-| `TestNomadJobTemplate` | Job structure, args, env, service tags, resources, constraints, serialization |
-| `TestActivityWatchdog` | Activity tracking, touch reset, uptime |
-| `TestHistoryLoader` | DB loading (legacy chat path), empty handling, invocation ID pairing |
+| Class | Covers |
+|-------|--------|
+| `TestSessionManagerMode` | `SessionManager` runner registry — set/get, missing-runner, removal |
 
-### E2E Tests — `tests/e2e/test_session_worker.py` + `tests/e2e/test_terminal_worker.py`
+### E2E Tests — `tests/e2e/test_terminal_worker.py`
 
-- `TestSessionWorkerAPI` — `/health` endpoint, schema init
-- `TestNomadJobSubmission` — Nomad connectivity, template validation (`requires_nomad`)
-- `TestWorkerDBTracking` — CRUD on both worker tables
-- `TestNomadServiceDiscovery` — Service lookup edge cases
+- Workspace-worker lifecycle: spawn, discover via Nomad service catalog, proxy WS, deletion
+- Nomad job template validation (`requires_nomad`)
 
 ## Files
 
@@ -263,8 +239,8 @@ Nomad service job restart policy
 | `radbot/worker/__main__.py` | Entry point — PTY server with /health, /info, /ws |
 | `radbot/worker/terminal_handler.py` | Shared PTY module — `TerminalManager`, `TerminalSession`, binary WS handler |
 | `radbot/worker/idle_watchdog.py` | `ActivityWatchdog` + `ActivityMiddleware` (observability only) |
-| `radbot/worker/nomad_template.py` | `build_worker_job_spec()` + `build_workspace_worker_spec()` |
-| `radbot/worker/db.py` | `session_workers` + `workspace_workers` CRUD |
+| `radbot/worker/nomad_template.py` | `build_workspace_worker_spec()` |
+| `radbot/worker/db.py` | `workspace_workers` CRUD |
 | `radbot/worker/history_loader.py` | Shared: seed ADK session from chat DB (used by main-app chat, not workers) |
 | `radbot/web/api/terminal.py` | Terminal REST + WS registration (local/remote mode) |
 | `radbot/web/api/terminal_proxy.py` | `WorkspaceProxy` — workspace worker lifecycle + WS bridge |

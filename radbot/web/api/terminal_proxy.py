@@ -386,6 +386,10 @@ class WorkspaceProxy:
             from radbot.config.config_loader import config_loader
 
             agent_config = config_loader.config.get("agent", {})
-            return int(agent_config.get("max_session_workers", 10))
+            value = agent_config.get(
+                "max_workspace_workers",
+                agent_config.get("max_session_workers", 10),
+            )
+            return int(value)
         except Exception:
             return 10
