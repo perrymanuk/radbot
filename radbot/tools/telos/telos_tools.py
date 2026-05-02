@@ -41,17 +41,56 @@ def _section_or_error(section: str):
         }
 
 
-def _serialize_entry(entry: Entry) -> Dict[str, Any]:
+# Metadata fields surfaced in the slim default `_serialize_entry` payload.
+# Anything outside this set requires `full=True` to be visible to callers.
+_SLIM_METADATA_KEYS = (
+    "title",
+    "task_status",
+    "parent_project",
+    "parent_milestone",
+    "category",
+    "completed_at",
+    "deadline",
+    "archived_reason",
+    "event_type",
+    "related_refs",
+)
+
+
+def _serialize_entry(entry: Entry, *, full: bool = False) -> Dict[str, Any]:
+    """Serialize a Telos `Entry` for return to an agent.
+
+    `full=False` (default) returns a slim payload — `ref_code`, `content`,
+    `status`, plus a curated subset of `metadata` covering the fields agents
+    actually filter / render on. Drops `entry_id`, full `metadata` blob,
+    `sort_order`, and timestamps. This is the shape `telos_list_tasks` and
+    other list views return; it bounds context cost as completed work
+    accumulates (EX46 / PT115).
+
+    `full=True` returns every field on the row — used by introspection /
+    debug callers that need the raw record.
+    """
+    if full:
+        return {
+            "entry_id": entry.entry_id,
+            "section": entry.section.value,
+            "ref_code": entry.ref_code,
+            "content": entry.content,
+            "metadata": entry.metadata,
+            "status": entry.status,
+            "sort_order": entry.sort_order,
+            "created_at": entry.created_at.isoformat() if entry.created_at else None,
+            "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+        }
+
+    meta = entry.metadata or {}
+    slim_meta = {k: meta[k] for k in _SLIM_METADATA_KEYS if k in meta}
     return {
-        "entry_id": entry.entry_id,
         "section": entry.section.value,
         "ref_code": entry.ref_code,
         "content": entry.content,
-        "metadata": entry.metadata,
         "status": entry.status,
-        "sort_order": entry.sort_order,
-        "created_at": entry.created_at.isoformat() if entry.created_at else None,
-        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+        "metadata": slim_meta,
     }
 
 
@@ -858,9 +897,17 @@ def telos_list_tasks(
     parent_milestone: str = "",
     task_status: str = "",
     include_inactive: bool = False,
+    include_done: bool = False,
 ) -> Dict[str, Any]:
     """List project tasks, optionally filtered by parent project, milestone,
-    and/or kanban status."""
+    and/or kanban status.
+
+    Done tasks are excluded by default — callers that want completed history
+    should pass `include_done=True` or filter explicitly via
+    `task_status='done'`. This default keeps response size bounded as
+    completed work accumulates (EX46 / PT115). Archived tasks remain
+    out of view; see `telos_list_archived_tasks` for that history.
+    """
 
     def _do():
         status = None if include_inactive else "active"
@@ -874,12 +921,49 @@ def telos_list_tasks(
                 continue
             if parent_milestone and meta.get("parent_milestone") != parent_milestone:
                 continue
-            if task_status and meta.get("task_status") != task_status:
+            row_status = meta.get("task_status") or "backlog"
+            if task_status and row_status != task_status:
+                continue
+            # Skip done rows unless caller opted in or explicitly asked for done.
+            if not include_done and not task_status and row_status == "done":
                 continue
             out.append(_serialize_entry(r))
         return {"status": "success", "entries": out}
 
     return _wrap("list tasks", _do)
+
+
+def telos_list_archived_tasks(
+    parent_project: str = "",
+    parent_milestone: str = "",
+    limit: int = 50,
+) -> Dict[str, Any]:
+    """List archived project tasks (status='archived').
+
+    Used to query historical work after the auto-archive sweep
+    (`archive_stale_done_tasks`) has moved completed tasks out of the
+    default `telos_list_tasks` view. Newest first. Optional filters by
+    parent project / milestone.
+    """
+
+    def _do():
+        rows = telos_db.list_section(
+            Section.PROJECT_TASKS,
+            status="archived",
+            order_by="created_at_desc",
+            limit=limit,
+        )
+        out = []
+        for r in rows:
+            meta = r.metadata or {}
+            if parent_project and meta.get("parent_project") != parent_project:
+                continue
+            if parent_milestone and meta.get("parent_milestone") != parent_milestone:
+                continue
+            out.append(_serialize_entry(r))
+        return {"status": "success", "entries": out}
+
+    return _wrap("list archived tasks", _do)
 
 
 def telos_complete_task(ref_code: str) -> Dict[str, Any]:
@@ -988,6 +1072,7 @@ telos_add_milestone_tool = FunctionTool(telos_add_milestone)
 telos_complete_milestone_tool = FunctionTool(telos_complete_milestone)
 telos_add_task_tool = FunctionTool(telos_add_task)
 telos_list_tasks_tool = FunctionTool(telos_list_tasks)
+telos_list_archived_tasks_tool = FunctionTool(telos_list_archived_tasks)
 telos_complete_task_tool = FunctionTool(telos_complete_task)
 telos_archive_task_tool = FunctionTool(telos_archive_task)
 telos_add_exploration_tool = FunctionTool(telos_add_exploration)
@@ -1022,6 +1107,7 @@ TELOS_TOOLS = [
     telos_complete_milestone_tool,
     telos_add_task_tool,
     telos_list_tasks_tool,
+    telos_list_archived_tasks_tool,
     telos_complete_task_tool,
     telos_archive_task_tool,
     telos_add_exploration_tool,
@@ -1041,6 +1127,7 @@ SCOUT_TELOS_TOOLS = [
     telos_list_projects_tool,
     telos_get_project_tool,
     telos_list_tasks_tool,
+    telos_list_archived_tasks_tool,
     # plan writes
     telos_add_exploration_tool,
     telos_add_task_tool,

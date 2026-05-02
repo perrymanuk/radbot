@@ -6,10 +6,15 @@ engine, etc.) to keep module-import cost minimal.
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 from mcp import types as mcp_types
+
+# Strip URLs (and surrounding whitespace) from project names so labels stay
+# compact when used as the per-row prefix in `_render_tasks` (EX46 / PT115).
+_URL_RE = re.compile(r"\s*https?://\S+")
 
 
 def tools() -> list[mcp_types.Tool]:
@@ -18,9 +23,11 @@ def tools() -> list[mcp_types.Tool]:
             name="list_tasks",
             description=(
                 "List radbot project tasks (Telos-backed), grouped by kanban "
-                "status. Optional filters: `status` (backlog/inprogress/done) "
-                "and `project` (ref_code like `PRJ1` or a substring of the "
-                "project name)."
+                "status. Active tasks (backlog + inprogress) only by default — "
+                "pass `include_done=true` (or `status=done`) for completed "
+                "history. Optional filters: `status` "
+                "(backlog/inprogress/done), `project` (ref_code like `PRJ1` "
+                "or a substring of the project name), and `include_done`."
             ),
             inputSchema={
                 "type": "object",
@@ -32,6 +39,15 @@ def tools() -> list[mcp_types.Tool]:
                     "project": {
                         "type": "string",
                         "description": "Filter to a project by ref_code or name substring.",
+                    },
+                    "include_done": {
+                        "type": "boolean",
+                        "description": (
+                            "Include the `done` bucket. Default false to "
+                            "keep response size bounded as completed work "
+                            "accumulates. Use `list_archived_tasks` for "
+                            "deeper historical queries."
+                        ),
                     },
                 },
                 "additionalProperties": False,
@@ -72,12 +88,27 @@ def tools() -> list[mcp_types.Tool]:
 
 async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "list_tasks":
-        return [_render_tasks(arguments.get("status"), arguments.get("project"))]
+        return [
+            _render_tasks(
+                arguments.get("status"),
+                arguments.get("project"),
+                bool(arguments.get("include_done", False)),
+            )
+        ]
     if name == "list_reminders":
         return [_render_reminders(arguments.get("status", "pending"))]
     if name == "list_scheduled_tasks":
         return [_render_scheduled()]
     raise KeyError(name)
+
+
+def _shorten_project_name(name: str) -> str:
+    """Trim URLs out of a project name and collapse whitespace for the
+    `[proj_name]` label used in `_render_tasks`. PRJ1's content is e.g.
+    `"radbot https://github.com/perrymanuk/radbot"` — the URL adds ~30+ chars
+    of duplication on every row (EX46 / PT115)."""
+    cleaned = _URL_RE.sub("", name or "").strip()
+    return cleaned or name
 
 
 def _relative_time(dt: datetime) -> str:
@@ -102,7 +133,11 @@ def _relative_time(dt: datetime) -> str:
     return f"{unit} ago" if past else f"in {unit}"
 
 
-def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextContent:
+def _render_tasks(
+    status: str | None,
+    project: str | None,
+    include_done: bool = False,
+) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import Section
 
@@ -111,14 +146,18 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
             type="text", text=f"**Error:** invalid status `{status}`"
         )
 
+    # Done is always included when the caller explicitly filters to status=done,
+    # regardless of include_done. Otherwise default-hide it to keep the
+    # response bounded as completed work piles up (EX46 / PT115).
+    show_done = include_done or status == "done"
+
     # Resolve project filter to a ref_code (exact or substring match).
     project_filter_ref: str | None = None
     project_names: dict[str, str] = {}
     for p in telos_db.list_section(Section.PROJECTS, status="active"):
         if p.ref_code:
-            project_names[p.ref_code] = (p.content or "").splitlines()[
-                0
-            ].strip() or p.ref_code
+            raw = (p.content or "").splitlines()[0].strip() or p.ref_code
+            project_names[p.ref_code] = _shorten_project_name(raw)
     if project:
         needle = project.strip().lower()
         if project in project_names:
@@ -146,6 +185,8 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
         st = meta.get("task_status") or "backlog"
         if status and st != status:
             continue
+        if not show_done and st == "done":
+            continue
         parent_ref = meta.get("parent_project") or ""
         if project_filter_ref and parent_ref != project_filter_ref:
             continue
@@ -159,6 +200,7 @@ def _render_tasks(status: str | None, project: str | None) -> mcp_types.TextCont
             for bit in (
                 f"status={status}" if status else None,
                 f"project={project}" if project else None,
+                "include_done=false" if not show_done else None,
             )
             if bit
         )

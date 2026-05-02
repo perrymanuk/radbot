@@ -271,6 +271,47 @@ def archive_entry(
     return row is not None
 
 
+def archive_stale_done_tasks(since_days: int = 30) -> int:
+    """Bulk-archive `project_tasks` rows that completed more than
+    `since_days` ago. Returns count archived.
+
+    Selection: `status='active'`, `metadata.task_status='done'`, and
+    `metadata.completed_at` strictly older than `since_days` ago. Sets
+    `status='archived'` and merges `archived_reason='auto_stale_done'` +
+    `archived_at` into metadata. Run from the scheduler default-jobs
+    pass (EX46 / PT115) so completed work moves out of the default
+    `telos_list_tasks` view automatically.
+    """
+    if since_days < 0:
+        raise ValueError("since_days must be >= 0")
+    cutoff = f"NOW() - INTERVAL '{int(since_days)} days'"
+    sql = f"""
+        UPDATE telos_entries
+        SET status = 'archived',
+            metadata = metadata || jsonb_build_object(
+                'archived_reason', 'auto_stale_done',
+                'archived_at', to_char(now() at time zone 'utc',
+                                       'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+            ),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE section = 'project_tasks'
+          AND status = 'active'
+          AND metadata->>'task_status' = 'done'
+          AND metadata ? 'completed_at'
+          AND (metadata->>'completed_at')::timestamptz < {cutoff};
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql)
+                count = cursor.rowcount
+                conn.commit()
+                return int(count or 0)
+    except psycopg2.Error as e:
+        logger.error("Database error archiving stale done tasks: %s", e)
+        raise
+
+
 def search_journal(query: str, limit: int = 20) -> List[Entry]:
     """ILIKE search over journal content. Returns newest first."""
     like = f"%{query}%"
