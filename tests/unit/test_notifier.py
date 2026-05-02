@@ -19,8 +19,8 @@ import pytest
 
 from radbot.services.notifier import (
     ChatHistorySink,
-    Notifier,
     NotificationsTableSink,
+    Notifier,
     NtfySink,
     ReminderEvent,
     ResultEvent,
