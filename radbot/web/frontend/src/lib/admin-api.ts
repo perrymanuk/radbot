@@ -294,7 +294,7 @@ export interface McpStatus {
   token_masked: string;
   wiki_path: string;
   wiki_mounted: boolean;
-  sse_url: string;
+  mcp_url: string;
   setup_url: string;
 }
 

@@ -83,10 +83,29 @@ async def lifespan(app: FastAPI):
     (Python 3.14 + new dep set), causing `build_default_assembly()` to
     never run and every request to fail. Lifespan is the supported,
     non-deprecated path.
+
+    The MCP streamable-HTTP session manager runs as a child task group of
+    this lifespan — entering its `run()` context starts the dispatcher
+    that backs every `/mcp` request. Stateless mode means there is no
+    long-lived per-client state to lose if the server restarts (PT109).
     """
     await _startup()
     try:
-        yield
+        try:
+            from radbot.mcp_server.http_transport import (
+                get_mcp_session_manager,
+            )
+
+            mcp_manager = get_mcp_session_manager()
+        except Exception as exc:
+            logger.error(
+                "Failed to construct MCP session manager: %s", exc, exc_info=True
+            )
+            yield
+            return
+
+        async with mcp_manager.run():
+            yield
     finally:
         await _shutdown()
 

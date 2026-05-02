@@ -1,15 +1,28 @@
-"""HTTP/SSE transport for the radbot MCP server.
+"""HTTP transport for the radbot MCP server.
 
-Mounts the MCP `SseServerTransport` on the existing FastAPI app at
-`/mcp/sse` (GET, SSE stream) and `/mcp/messages/` (POST, client → server
-messages). Both are gated by `auth.check_bearer`.
+Uses the modern MCP streamable-HTTP transport in **stateless mode**: every
+request to `POST /mcp` is handled by a fresh `StreamableHTTPServerTransport`
+with no shared session state. This eliminates the entire class of
+"Could not find session" 404s that the legacy SSE transport produced after
+process restarts (Nomad health-check, deploy, OOM) — there is no session
+dict that can fall out of sync with the client (PT109).
+
+Migration: the old endpoints (`GET /mcp/sse` + `POST /mcp/messages/`) are
+removed. Clients must point at `POST /mcp` with `"type": "http"`. See
+`docs/implementation/claude_settings_migration_pt109.md`.
 
 Usage from `web/app.py`::
 
-    from radbot.mcp_server.http_transport import mount_mcp_on_app
+    from radbot.mcp_server.http_transport import (
+        mount_mcp_on_app,
+        get_mcp_session_manager,
+    )
     mount_mcp_on_app(app)
+    # In the lifespan context manager:
+    async with get_mcp_session_manager().run():
+        yield
 
-If `RADBOT_MCP_TOKEN` is unset, the routes still mount but return 503 —
+If `RADBOT_MCP_TOKEN` is unset, the route still mounts but returns 503 —
 this keeps the import path stable regardless of config.
 """
 
@@ -18,46 +31,54 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI
-from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.routing import Mount, Route
+from starlette.routing import Mount
+from starlette.types import Receive, Scope, Send
 
 from . import auth
 from .server import create_server
 
 logger = logging.getLogger(__name__)
 
-SSE_PATH = "/mcp/sse"
-MESSAGES_PATH = "/mcp/messages/"
+MCP_PATH = "/mcp"
+
+_manager: StreamableHTTPSessionManager | None = None
+
+
+def get_mcp_session_manager() -> StreamableHTTPSessionManager:
+    """Return the singleton MCP session manager (lazily constructed)."""
+    global _manager
+    if _manager is None:
+        _manager = StreamableHTTPSessionManager(
+            app=create_server(),
+            stateless=True,
+        )
+    return _manager
+
+
+def reset_mcp_session_manager() -> None:
+    """Drop the singleton (test hook). The manager itself can only run once."""
+    global _manager
+    _manager = None
 
 
 def mount_mcp_on_app(app: FastAPI) -> None:
-    """Attach MCP SSE + messages routes to the FastAPI app."""
-    transport = SseServerTransport(MESSAGES_PATH)
-    server = create_server()
+    """Attach the MCP streamable-HTTP route to the FastAPI app."""
 
-    async def handle_sse(request: Request) -> Response:
-        auth_err = auth.check_bearer(request)
-        if auth_err is not None:
-            return auth_err
-        async with transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await server.run(
-                streams[0], streams[1], server.create_initialization_options()
-            )
-        return Response()
-
-    async def handle_messages(scope, receive, send):
-        # ASGI-level handler so we can still pre-check auth on the raw request
+    async def handle_mcp(scope: Scope, receive: Receive, send: Send) -> None:
         request = Request(scope, receive=receive)
         auth_err = auth.check_bearer(request)
         if auth_err is not None:
             await auth_err(scope, receive, send)
             return
-        await transport.handle_post_message(scope, receive, send)
+        manager = _manager
+        if manager is None or manager._task_group is None:
+            response = Response("MCP bridge not running", status_code=503)
+            await response(scope, receive, send)
+            return
+        await manager.handle_request(scope, receive, send)
 
-    app.router.routes.append(Route(SSE_PATH, endpoint=handle_sse, methods=["GET"]))
-    app.router.routes.append(Mount(MESSAGES_PATH, app=handle_messages))
-    logger.info("mcp_http_mounted sse=%s messages=%s", SSE_PATH, MESSAGES_PATH)
+    app.router.routes.append(Mount(MCP_PATH, app=handle_mcp))
+    logger.info("mcp_http_mounted path=%s mode=stateless", MCP_PATH)
