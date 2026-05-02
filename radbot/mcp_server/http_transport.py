@@ -75,9 +75,7 @@ def mount_mcp_on_app(app: FastAPI) -> None:
             return
         manager = _manager
         if manager is None or manager._task_group is None:
-            response = Response(
-                "MCP bridge not running", status_code=503
-            )
+            response = Response("MCP bridge not running", status_code=503)
             await response(scope, receive, send)
             return
         await manager.handle_request(scope, receive, send)
