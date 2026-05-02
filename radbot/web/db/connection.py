@@ -22,81 +22,99 @@ from radbot.config import config_loader
 logger = logging.getLogger(__name__)
 
 # --- Connection Pool Setup ---
+#
+# Credential resolution and validation are deferred to pool init (see
+# initialize_connection_pool below) so simply importing this module is safe
+# in environments that never connect — e.g. unit tests that import
+# radbot.web.app transitively. Sibling pool in radbot/db/connection.py uses
+# the same pattern.
 
-# Get database configuration from config.yaml
-database_config = config_loader.get_config().get("database", {})
-chat_db_config = database_config.get("chat_history", {})
-
-# Load schema name with a default fallback
-CHAT_SCHEMA = chat_db_config.get("schema", "radbot_chathistory")
-
-# Load connection details from config or environment
-DB_NAME = (
-    chat_db_config.get("db_name")
-    or database_config.get("db_name")
-    or os.getenv("POSTGRES_DB")
-)
-DB_USER = (
-    chat_db_config.get("user")
-    or database_config.get("user")
-    or os.getenv("POSTGRES_USER")
-)
-DB_PASSWORD = (
-    chat_db_config.get("password")
-    or database_config.get("password")
-    or os.getenv("POSTGRES_PASSWORD")
-)
-DB_HOST = (
-    chat_db_config.get("host")
-    or database_config.get("host")
-    or os.getenv("POSTGRES_HOST", "localhost")
-)
-DB_PORT = (
-    chat_db_config.get("port")
-    or database_config.get("port")
-    or os.getenv("POSTGRES_PORT", "5432")
+# Schema name uses a stable default. Reading config here is cheap and
+# side-effect-free.
+CHAT_SCHEMA = (
+    config_loader.get_config()
+    .get("database", {})
+    .get("chat_history", {})
+    .get("schema", "radbot_chathistory")
 )
 
-# Basic validation
-if not all([DB_NAME, DB_USER, DB_PASSWORD]):
-    error_msg = "Database credentials (database.chat_history.db_name, database.chat_history.user, database.chat_history.password) must be set in config.yaml or as environment variables"  # noqa: E501
-    logger.error(error_msg)
-    raise ValueError(error_msg)
+# Pool sizing (overridable via environment variables)
+MIN_CONN = int(os.environ.get("RADBOT_DB_POOL_MIN", "1"))
+MAX_CONN = int(os.environ.get("RADBOT_DB_POOL_MAX", "10"))
 
 # Register UUID adapter for psycopg2
 psycopg2.extensions.register_adapter(
     uuid.UUID, lambda u: psycopg2.extensions.adapt(str(u))
 )
 
-# Configure and initialize the connection pool
-# Adjust minconn and maxconn based on expected load (overridable via environment variables)
-MIN_CONN = int(os.environ.get("RADBOT_DB_POOL_MIN", "1"))
-MAX_CONN = int(os.environ.get("RADBOT_DB_POOL_MAX", "10"))
-
 # Global pool reference
 chat_pool = None
 _pool_lock = threading.Lock()
+
+
+def _resolve_chat_db_credentials() -> dict:
+    """Resolve chat-history DB credentials from config + environment."""
+    database_config = config_loader.get_config().get("database", {})
+    chat_db_config = database_config.get("chat_history", {})
+
+    return {
+        "db_name": (
+            chat_db_config.get("db_name")
+            or database_config.get("db_name")
+            or os.getenv("POSTGRES_DB")
+        ),
+        "user": (
+            chat_db_config.get("user")
+            or database_config.get("user")
+            or os.getenv("POSTGRES_USER")
+        ),
+        "password": (
+            chat_db_config.get("password")
+            or database_config.get("password")
+            or os.getenv("POSTGRES_PASSWORD")
+        ),
+        "host": (
+            chat_db_config.get("host")
+            or database_config.get("host")
+            or os.getenv("POSTGRES_HOST", "localhost")
+        ),
+        "port": (
+            chat_db_config.get("port")
+            or database_config.get("port")
+            or os.getenv("POSTGRES_PORT", "5432")
+        ),
+    }
 
 
 def initialize_connection_pool():
     """Initialize the connection pool for chat history database."""
     global chat_pool
 
+    creds = _resolve_chat_db_credentials()
+    if not all([creds["db_name"], creds["user"], creds["password"]]):
+        error_msg = "Database credentials (database.chat_history.db_name, database.chat_history.user, database.chat_history.password) must be set in config.yaml or as environment variables"  # noqa: E501
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
     try:
         chat_pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=MIN_CONN,
             maxconn=MAX_CONN,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            host=DB_HOST,
-            port=DB_PORT,
+            database=creds["db_name"],
+            user=creds["user"],
+            password=creds["password"],
+            host=creds["host"],
+            port=creds["port"],
         )
         logger.info(
             f"Chat history database connection pool initialized (Min: {MIN_CONN}, Max: {MAX_CONN})"
         )
         logger.info(
-            f"Connected to PostgreSQL database '{DB_NAME}' using schema '{CHAT_SCHEMA}' at {DB_HOST}:{DB_PORT}"
+            "Connected to PostgreSQL database '%s' using schema '%s' at %s:%s",
+            creds["db_name"],
+            CHAT_SCHEMA,
+            creds["host"],
+            creds["port"],
         )
         return True
     except psycopg2.OperationalError as e:
