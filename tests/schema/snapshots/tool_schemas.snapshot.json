@@ -1202,6 +1202,31 @@
       }
     },
     {
+      "name": "telos_list_archived_tasks",
+      "agent": "beto",
+      "json_schema": {
+        "properties": {
+          "parent_project": {
+            "default": "",
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "parent_milestone": {
+            "default": "",
+            "title": "Parent Milestone",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "telos_list_archived_tasksInput",
+        "type": "object"
+      }
+    },
+    {
       "name": "telos_list_projects",
       "agent": "beto",
       "json_schema": {
@@ -1233,6 +1258,11 @@
           "include_inactive": {
             "default": false,
             "title": "Include Inactive",
+            "type": "boolean"
+          },
+          "include_done": {
+            "default": false,
+            "title": "Include Done",
             "type": "boolean"
           }
         },
@@ -5039,6 +5069,31 @@
       }
     },
     {
+      "name": "telos_list_archived_tasks",
+      "agent": "scout",
+      "json_schema": {
+        "properties": {
+          "parent_project": {
+            "default": "",
+            "title": "Parent Project",
+            "type": "string"
+          },
+          "parent_milestone": {
+            "default": "",
+            "title": "Parent Milestone",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "telos_list_archived_tasksInput",
+        "type": "object"
+      }
+    },
+    {
       "name": "telos_list_projects",
       "agent": "scout",
       "json_schema": {
@@ -5070,6 +5125,11 @@
           "include_inactive": {
             "default": false,
             "title": "Include Inactive",
+            "type": "boolean"
+          },
+          "include_done": {
+            "default": false,
+            "title": "Include Done",
             "type": "boolean"
           }
         },
