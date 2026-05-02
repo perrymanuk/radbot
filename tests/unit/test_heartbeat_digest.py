@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -92,29 +92,49 @@ async def test_deliver_digest_empty_returns_false():
 
 
 @pytest.mark.asyncio
-async def test_deliver_digest_no_ntfy_returns_false():
-    with patch("radbot.tools.ntfy.ntfy_client.get_ntfy_client", return_value=None):
-        delivered = await deliver_digest("# Heartbeat\n\ncontent")
+async def test_deliver_digest_no_notifier_returns_false():
+    """If the Notifier seam was never installed, delivery is a no-op."""
+    from radbot.services.notifier import reset_notifier
+
+    reset_notifier()
+    delivered = await deliver_digest("# Heartbeat\n\ncontent")
     assert delivered is False
 
 
 @pytest.mark.asyncio
-async def test_deliver_digest_calls_ntfy_publish():
-    fake = MagicMock()
-    fake.publish = AsyncMock(return_value={"id": "abc"})
-    with (
-        patch("radbot.tools.ntfy.ntfy_client.get_ntfy_client", return_value=fake),
-        patch("radbot.tools.notifications.db.create_notification", return_value={}),
-    ):
+async def test_deliver_digest_publishes_heartbeat_event_through_notifier():
+    """delivery.py constructs a HeartbeatEvent and hands it to the Notifier."""
+    from radbot.services.notifier import (
+        HeartbeatEvent,
+        Notifier,
+        reset_notifier,
+        set_notifier,
+    )
+
+    received: list = []
+
+    class RecordingSink:
+        name = "recording"
+
+        async def publish(self, event):
+            received.append(event)
+
+    set_notifier(Notifier(sinks=[RecordingSink()]))
+    try:
         delivered = await deliver_digest(
             "# Heartbeat\n\nsome markdown", title="Morning Brief"
         )
+    finally:
+        reset_notifier()
+
     assert delivered is True
-    fake.publish.assert_awaited_once()
-    kwargs = fake.publish.await_args.kwargs
-    assert kwargs["title"] == "Morning Brief"
-    assert "sunrise" in kwargs["tags"]
-    assert kwargs["message"].startswith("# Heartbeat")
+    assert len(received) == 1
+    event = received[0]
+    assert isinstance(event, HeartbeatEvent)
+    assert event.title == "Morning Brief"
+    assert event.message.startswith("# Heartbeat")
+    assert "sunrise" in event.tags
+    assert event.digest_markdown == "# Heartbeat\n\nsome markdown"
 
 
 @pytest.mark.asyncio

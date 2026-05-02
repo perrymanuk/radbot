@@ -18,7 +18,10 @@ from typing import List
 import pytest
 
 from radbot.services.notifier import (
+    AlertEvent,
+    AlertResultBroadcastSink,
     ChatHistorySink,
+    HeartbeatEvent,
     NotificationsTableSink,
     Notifier,
     NtfySink,
@@ -482,13 +485,281 @@ class TestSingletonAccessor:
         reset_notifier()
         assert get_notifier() is None
 
-    def test_build_default_notifier_creates_four_canonical_sinks(self) -> None:
+    def test_build_default_notifier_creates_canonical_sinks(self) -> None:
         async def fake_broadcast(_payload: dict) -> None:
             return None
 
         n = build_default_notifier(ws_broadcaster=fake_broadcast)
         names = sorted(s.name for s in n.sinks)
-        assert names == ["chat_history", "notifications", "ntfy", "ws_chat"]
+        assert names == [
+            "alert_result_ws",
+            "chat_history",
+            "notifications",
+            "ntfy",
+            "ws_chat",
+        ]
+
+
+# ---------------------------------------------------------------------------
+# AlertEvent / HeartbeatEvent — sink-side phase inspection (EX42)
+# ---------------------------------------------------------------------------
+
+
+class TestChatHistorySinkSkipsNonChatEvents:
+    """ChatHistorySink must inspect event type and skip alerts + heartbeats."""
+
+    @pytest.mark.asyncio
+    async def test_skips_alert_event(self) -> None:
+        calls: List[tuple] = []
+        sink = ChatHistorySink(add_message=lambda *a, **k: calls.append((a, k)))
+
+        await sink.publish(
+            AlertEvent(
+                title="Investigating: x",
+                message="m",
+                phase="investigating",
+                alertname="x",
+            )
+        )
+
+        assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_skips_heartbeat_event(self) -> None:
+        calls: List[tuple] = []
+        sink = ChatHistorySink(add_message=lambda *a, **k: calls.append((a, k)))
+
+        await sink.publish(
+            HeartbeatEvent(title="Heartbeat", message="digest"),
+        )
+
+        assert calls == []
+
+
+class TestNotificationsTableSinkInspectsAlertPhase:
+    """Only AlertEvent(phase='received') should produce a notifications row."""
+
+    @pytest.mark.asyncio
+    async def test_inserts_row_on_received_phase(self) -> None:
+        captured: dict = {}
+
+        def fake_create(**kwargs) -> dict:
+            captured.update(kwargs)
+            return {"notification_id": "abc"}
+
+        sink = NotificationsTableSink(
+            ws_broadcaster=None, create_notification=fake_create
+        )
+
+        await sink.publish(
+            AlertEvent(
+                title="Alert Received: HighCPU",
+                message="severity: warning",
+                phase="received",
+                alert_id="a-1",
+                alertname="HighCPU",
+                severity="warning",
+                instance="srv1",
+            )
+        )
+
+        assert captured["type"] == "alert"
+        assert captured["source_id"] == "a-1"
+        assert captured["metadata"]["alertname"] == "HighCPU"
+        assert captured["metadata"]["severity"] == "warning"
+
+    @pytest.mark.parametrize("phase", ["investigating", "resolved", "failed"])
+    @pytest.mark.asyncio
+    async def test_skips_non_received_phases(self, phase: str) -> None:
+        calls: List[dict] = []
+
+        def fake_create(**kwargs) -> dict:
+            calls.append(kwargs)
+            return {"notification_id": "x"}
+
+        sink = NotificationsTableSink(
+            ws_broadcaster=None, create_notification=fake_create
+        )
+
+        await sink.publish(
+            AlertEvent(
+                title="x",
+                message="y",
+                phase=phase,  # type: ignore[arg-type]
+                alertname="HighCPU",
+            )
+        )
+
+        assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_inserts_row_for_heartbeat_event(self) -> None:
+        captured: dict = {}
+
+        def fake_create(**kwargs) -> dict:
+            captured.update(kwargs)
+            return {"notification_id": "h-1"}
+
+        sink = NotificationsTableSink(
+            ws_broadcaster=None, create_notification=fake_create
+        )
+
+        await sink.publish(HeartbeatEvent(title="Heartbeat", message="digest body"))
+
+        assert captured["type"] == "heartbeat"
+        assert captured["metadata"] == {"channel": "ntfy"}
+
+
+class TestWebSocketChatSinkSkipsAlertsAndHeartbeats:
+    @pytest.mark.asyncio
+    async def test_skips_alert_event(self) -> None:
+        broadcasts: List[dict] = []
+        sink = WebSocketChatSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(
+            AlertEvent(
+                title="Investigating: x",
+                message="m",
+                phase="investigating",
+                alertname="x",
+            )
+        )
+
+        assert broadcasts == []
+
+    @pytest.mark.asyncio
+    async def test_skips_heartbeat_event(self) -> None:
+        broadcasts: List[dict] = []
+        sink = WebSocketChatSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(HeartbeatEvent(title="Heartbeat", message="m"))
+
+        assert broadcasts == []
+
+
+class TestAlertResultBroadcastSink:
+    """Sink reconstructs the legacy alert_result WS payload on terminal phases."""
+
+    @pytest.mark.asyncio
+    async def test_broadcasts_for_resolved_alert_with_response(self) -> None:
+        broadcasts: List[dict] = []
+        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(
+            AlertEvent(
+                title="Remediated: HighCPU",
+                message="ok",
+                phase="resolved",
+                alert_id="a-1",
+                alertname="HighCPU",
+                severity="warning",
+                prompt="P" * 1000,
+                response="R" * 5000,
+            )
+        )
+
+        assert len(broadcasts) == 1
+        payload = broadcasts[0]
+        assert payload["type"] == "alert_result"
+        assert payload["alert_id"] == "a-1"
+        assert payload["alertname"] == "HighCPU"
+        assert payload["severity"] == "warning"
+        assert payload["prompt"] == "P" * 500  # truncated
+        assert payload["response"] == "R" * 1000  # truncated
+        assert "timestamp" in payload
+
+    @pytest.mark.asyncio
+    async def test_broadcasts_for_failed_alert_with_response(self) -> None:
+        broadcasts: List[dict] = []
+        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(
+            AlertEvent(
+                title="Remediation Failed: HighCPU",
+                message="x",
+                phase="failed",
+                alert_id="a-1",
+                alertname="HighCPU",
+                response="some error",
+            )
+        )
+
+        assert len(broadcasts) == 1
+        assert broadcasts[0]["type"] == "alert_result"
+
+    @pytest.mark.parametrize("phase", ["received", "investigating"])
+    @pytest.mark.asyncio
+    async def test_skips_non_terminal_phases(self, phase: str) -> None:
+        broadcasts: List[dict] = []
+        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(
+            AlertEvent(
+                title="x",
+                message="y",
+                phase=phase,  # type: ignore[arg-type]
+                alertname="HighCPU",
+                response="not-broadcast",
+            )
+        )
+
+        assert broadcasts == []
+
+    @pytest.mark.asyncio
+    async def test_skips_terminal_alert_without_response(self) -> None:
+        broadcasts: List[dict] = []
+        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(
+            AlertEvent(
+                title="Alert Resolved",
+                message="ok",
+                phase="resolved",
+                alertname="HighCPU",
+                # response="" by default — nothing to broadcast
+            )
+        )
+
+        assert broadcasts == []
+
+    @pytest.mark.asyncio
+    async def test_skips_non_alert_events(self) -> None:
+        broadcasts: List[dict] = []
+        sink = AlertResultBroadcastSink(ws_broadcaster=lambda p: _record(broadcasts, p))
+
+        await sink.publish(HeartbeatEvent(title="Heartbeat", message="m"))
+        await sink.publish(ResultEvent(title="t", message="m"))
+
+        assert broadcasts == []
+
+
+class TestNotifierSurfacesSinkExceptionsAtErrorLevel:
+    """Per PT106 #3: dropped events must be loud."""
+
+    @pytest.mark.asyncio
+    async def test_failing_sink_logs_at_error_level(self, caplog) -> None:
+        notifier = Notifier(sinks=[FailingSink()])
+
+        with caplog.at_level("ERROR", logger="radbot.services.notifier"):
+            await notifier.publish(ResultEvent(title="t", message="m"))
+
+        error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert any(
+            "Notifier sink 'failing' raised" in r.getMessage() for r in error_records
+        )
+
+    @pytest.mark.asyncio
+    async def test_hanging_sink_logs_timeout_at_error_level(self, caplog) -> None:
+        notifier = Notifier(sinks=[HangingSink()], sink_timeout=0.01)
+
+        with caplog.at_level("ERROR", logger="radbot.services.notifier"):
+            await notifier.publish(ResultEvent(title="t", message="m"))
+
+        error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert any(
+            "timed out" in r.getMessage() and "hanging" in r.getMessage()
+            for r in error_records
+        )
 
 
 # ---------------------------------------------------------------------------

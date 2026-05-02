@@ -212,8 +212,8 @@ Chat tables use a **separate** DB (`radbot_chathistory` schema) with its own poo
 | `make dev-frontend` | Vite dev server at :5173 (proxies to FastAPI :8000) |
 | `make build-frontend` | Build React SPA → `radbot/web/static/dist/` |
 | `make test` / `make test-unit` | Run all tests / unit tests only |
-| `make lint` | Lint with ruff |
-| `make format` | Format with ruff |
+| `make lint` | Run flake8 + mypy + black --check + isort --check |
+| `make format` | Apply black + isort |
 
 ---
 

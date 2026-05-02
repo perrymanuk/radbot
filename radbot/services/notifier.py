@@ -80,6 +80,44 @@ class ReminderEvent(ResultEvent):
     tags: str = "bell"
 
 
+AlertPhase = Literal["received", "investigating", "resolved", "failed"]
+
+
+@dataclass
+class AlertEvent(ResultEvent):
+    """Alertmanager pipeline event.
+
+    `phase` discriminates between moments in the remediation flow. Sinks
+    inspect `phase` to decide whether to handle the event — the publisher
+    does not route via `skip_sinks` for AlertEvent phases (EX42 §
+    "Decoupled Routing").
+
+    `prompt` and `response` are populated only on terminal phases
+    (`resolved` / `failed` after a Claude Code remediation run) so the
+    legacy `alert_result` WS payload can be reconstructed by the relevant
+    sink without a separate publish call.
+    """
+
+    phase: AlertPhase = "received"
+    alert_id: str = ""
+    alertname: str = ""
+    severity: Optional[str] = None
+    instance: Optional[str] = None
+    summary: str = ""
+    fingerprint: str = ""
+    prompt: str = ""
+    response: str = ""
+    tags: str = "warning,robot"
+
+
+@dataclass
+class HeartbeatEvent(ResultEvent):
+    """Heartbeat / digest delivery event."""
+
+    digest_markdown: str = ""
+    tags: str = "sunrise,robot"
+
+
 # ---------------------------------------------------------------------------
 # WS payload schemas — Pydantic for output validation
 # ---------------------------------------------------------------------------
@@ -170,6 +208,13 @@ class ChatHistorySink:
                 f"[Reminder] {event.message}",
                 user_id="web_user",
             )
+            return
+        if isinstance(event, (AlertEvent, HeartbeatEvent)):
+            logger.debug(
+                "ChatHistorySink: skipping %s (not chat-bound)",
+                type(event).__name__,
+            )
+            return
 
 
 class NtfySink:
@@ -235,6 +280,28 @@ class NotificationsTableSink:
                 event.reminder_id or None,
                 {"reminder_id": event.reminder_id},
             )
+        if isinstance(event, AlertEvent):
+            # Only the initial "received" phase produces a notifications row;
+            # later phases (investigating/resolved/failed) update the alert_events
+            # row instead and would otherwise spam the notifications table.
+            if event.phase != "received":
+                logger.debug(
+                    "NotificationsTableSink: skipping AlertEvent phase=%s",
+                    event.phase,
+                )
+                return (None, None, {})
+            return (
+                "alert",
+                event.alert_id or None,
+                {
+                    "alertname": event.alertname,
+                    "severity": event.severity,
+                    "status": "firing",
+                    "instance": event.instance,
+                },
+            )
+        if isinstance(event, HeartbeatEvent):
+            return ("heartbeat", None, {"channel": "ntfy"})
         return (None, None, {})
 
     async def publish(self, event: ResultEvent) -> None:
@@ -283,6 +350,61 @@ class WebSocketChatSink:
                 content=f"[Reminder] {event.message}",
             ).model_dump()
             await self._broadcast(payload)
+            return
+        logger.debug(
+            "WebSocketChatSink: skipping %s (not a delivered reminder)",
+            type(event).__name__,
+        )
+
+
+class AlertResultBroadcastSink:
+    """Broadcast the legacy `alert_result` WS payload for terminal AlertEvents.
+
+    The alertmanager pipeline historically emitted a final WS broadcast after
+    each remediation run with the prompt+response. The Notifier seam folds
+    that into a single AlertEvent publish on phase `resolved`/`failed`; this
+    sink is responsible for the WS broadcast piece, while NtfySink handles
+    the user-facing push.
+    """
+
+    name = "alert_result_ws"
+
+    def __init__(self, ws_broadcaster: WsBroadcaster) -> None:
+        self._broadcast = ws_broadcaster
+
+    async def publish(self, event: ResultEvent) -> None:
+        if not isinstance(event, AlertEvent):
+            logger.debug(
+                "AlertResultBroadcastSink: skipping %s (not an AlertEvent)",
+                type(event).__name__,
+            )
+            return
+        if event.phase not in ("resolved", "failed"):
+            logger.debug(
+                "AlertResultBroadcastSink: skipping AlertEvent phase=%s",
+                event.phase,
+            )
+            return
+        if not event.response:
+            logger.debug(
+                "AlertResultBroadcastSink: skipping AlertEvent phase=%s "
+                "(no response payload)",
+                event.phase,
+            )
+            return
+        from datetime import datetime  # lazy
+
+        await self._broadcast(
+            {
+                "type": "alert_result",
+                "alert_id": event.alert_id,
+                "alertname": event.alertname,
+                "severity": event.severity,
+                "prompt": event.prompt[:500],
+                "response": event.response[:1000],
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -327,18 +449,18 @@ class Notifier:
             try:
                 await asyncio.wait_for(sink.publish(event), timeout=self._timeout)
             except asyncio.TimeoutError:
-                logger.warning(
-                    "Notifier sink '%s' timed out (>%.1fs) on %s",
+                logger.error(
+                    "Notifier sink '%s' timed out (>%.1fs) on %s — event dropped",
                     sink.name,
                     self._timeout,
                     type(event).__name__,
                 )
-            except Exception as exc:
-                logger.warning(
-                    "Notifier sink '%s' failed on %s: %s",
+            except Exception:
+                logger.error(
+                    "Notifier sink '%s' raised on %s — event dropped",
                     sink.name,
                     type(event).__name__,
-                    exc,
+                    exc_info=True,
                 )
 
         await asyncio.gather(*[_run(s) for s in active], return_exceptions=True)
@@ -370,7 +492,7 @@ def reset_notifier() -> None:
 
 
 def build_default_notifier(ws_broadcaster: WsBroadcaster) -> Notifier:
-    """Construct the production Notifier with the four canonical sinks."""
+    """Construct the production Notifier with the canonical sinks."""
     from radbot.tools.ntfy.ntfy_client import get_ntfy_client  # lazy
 
     return Notifier(
@@ -379,5 +501,6 @@ def build_default_notifier(ws_broadcaster: WsBroadcaster) -> Notifier:
             NtfySink(client_getter=get_ntfy_client),
             NotificationsTableSink(ws_broadcaster=ws_broadcaster),
             WebSocketChatSink(ws_broadcaster=ws_broadcaster),
+            AlertResultBroadcastSink(ws_broadcaster=ws_broadcaster),
         ]
     )
