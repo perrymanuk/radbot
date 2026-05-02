@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 DREAM_JOB_ID = "__dream__"
 HEARTBEAT_JOB_ID = "__heartbeat__"
 DISTILLER_JOB_ID = "__distiller__"
+TASK_ARCHIVE_JOB_ID = "__task_archive__"
 
 DEFAULT_DREAM_CRON = "0 3 * * *"  # 03:00 daily
 DEFAULT_HEARTBEAT_CRON = "0 8 * * *"  # 08:00 daily
 DEFAULT_DISTILLER_CRON = "30 3 * * *"  # 03:30 daily — after Dream settles
+DEFAULT_TASK_ARCHIVE_CRON = "0 4 * * *"  # 04:00 daily — after Distiller
+DEFAULT_TASK_ARCHIVE_SINCE_DAYS = 30
 
 
 def _get_section(section: str) -> Dict[str, Any]:
@@ -124,6 +127,27 @@ async def _run_heartbeat_job() -> None:
         logger.error("Heartbeat job failed: %s", e, exc_info=True)
 
 
+async def _run_task_archive_job() -> None:
+    """APScheduler entry-point for the stale-done-task archival sweep
+    (EX46 / PT115). Archives `project_tasks` rows that completed more
+    than `since_days` ago so they stop bloating the default
+    `telos_list_tasks` view.
+    """
+    try:
+        from radbot.tools.telos.db import archive_stale_done_tasks
+
+        cfg = _get_section("task_archive")
+        since_days = int(cfg.get("since_days", DEFAULT_TASK_ARCHIVE_SINCE_DAYS))
+        count = archive_stale_done_tasks(since_days=since_days)
+        logger.info(
+            "Task archive job finished: archived=%d (since_days=%d)",
+            count,
+            since_days,
+        )
+    except Exception as e:
+        logger.error("Task archive job failed: %s", e, exc_info=True)
+
+
 def register_default_jobs(engine: Any) -> None:
     """Register Dream + Heartbeat jobs on the given SchedulerEngine.
 
@@ -157,6 +181,13 @@ def register_default_jobs(engine: Any) -> None:
             DEFAULT_HEARTBEAT_CRON,
             _run_heartbeat_job,
             "Heartbeat (morning digest)",
+        ),
+        (
+            "task_archive",
+            TASK_ARCHIVE_JOB_ID,
+            DEFAULT_TASK_ARCHIVE_CRON,
+            _run_task_archive_job,
+            "Task archive (stale done sweep)",
         ),
     ]
 

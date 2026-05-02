@@ -9,9 +9,11 @@ from radbot.tools.scheduler.defaults import (
     DEFAULT_DISTILLER_CRON,
     DEFAULT_DREAM_CRON,
     DEFAULT_HEARTBEAT_CRON,
+    DEFAULT_TASK_ARCHIVE_CRON,
     DISTILLER_JOB_ID,
     DREAM_JOB_ID,
     HEARTBEAT_JOB_ID,
+    TASK_ARCHIVE_JOB_ID,
     register_default_jobs,
 )
 
@@ -28,11 +30,12 @@ def test_register_default_jobs_both_enabled_by_default():
     with patch("radbot.tools.scheduler.defaults._get_section", return_value={}):
         register_default_jobs(engine)
 
-    assert scheduler.add_job.call_count == 3
+    assert scheduler.add_job.call_count == 4
     ids = [call.kwargs["id"] for call in scheduler.add_job.call_args_list]
     assert DREAM_JOB_ID in ids
     assert DISTILLER_JOB_ID in ids
     assert HEARTBEAT_JOB_ID in ids
+    assert TASK_ARCHIVE_JOB_ID in ids
 
 
 def test_register_default_jobs_both_disabled():
@@ -56,9 +59,9 @@ def test_register_default_jobs_uses_custom_cron():
     with patch("radbot.tools.scheduler.defaults._get_section", side_effect=section):
         register_default_jobs(engine)
 
-    # All three jobs added with the custom cron expression — we don't
+    # All four jobs added with the custom cron expression — we don't
     # inspect the trigger object directly, but we verify count.
-    assert scheduler.add_job.call_count == 3
+    assert scheduler.add_job.call_count == 4
 
 
 def test_register_default_jobs_bad_cron_is_logged_and_skipped():
@@ -72,11 +75,13 @@ def test_register_default_jobs_bad_cron_is_logged_and_skipped():
     with patch("radbot.tools.scheduler.defaults._get_section", side_effect=section):
         register_default_jobs(engine)
 
-    # Only distiller + heartbeat should have been added (dream has bad cron).
-    assert scheduler.add_job.call_count == 2
+    # Only distiller + heartbeat + task_archive should have been added
+    # (dream has bad cron).
+    assert scheduler.add_job.call_count == 3
     ids = [call.kwargs["id"] for call in scheduler.add_job.call_args_list]
     assert DISTILLER_JOB_ID in ids
     assert HEARTBEAT_JOB_ID in ids
+    assert TASK_ARCHIVE_JOB_ID in ids
     assert DREAM_JOB_ID not in ids
 
 
@@ -94,7 +99,7 @@ def test_register_default_jobs_replaces_existing():
         register_default_jobs(engine)
 
     existing.remove.assert_called_once()
-    assert scheduler.add_job.call_count == 3
+    assert scheduler.add_job.call_count == 4
 
 
 def test_register_default_jobs_handles_missing_scheduler():
@@ -105,5 +110,29 @@ def test_register_default_jobs_handles_missing_scheduler():
 
 
 def test_defaults_constants_are_valid_5_field_cron():
-    for expr in (DEFAULT_DREAM_CRON, DEFAULT_DISTILLER_CRON, DEFAULT_HEARTBEAT_CRON):
+    for expr in (
+        DEFAULT_DREAM_CRON,
+        DEFAULT_DISTILLER_CRON,
+        DEFAULT_HEARTBEAT_CRON,
+        DEFAULT_TASK_ARCHIVE_CRON,
+    ):
         assert len(expr.split()) == 5
+
+
+def test_register_default_jobs_task_archive_disabled_via_config():
+    """Toggling `config:task_archive.enabled=false` skips just that job."""
+    engine, scheduler = _engine_with_scheduler()
+
+    def section(name):
+        if name == "task_archive":
+            return {"enabled": False}
+        return {}
+
+    with patch("radbot.tools.scheduler.defaults._get_section", side_effect=section):
+        register_default_jobs(engine)
+
+    ids = [call.kwargs["id"] for call in scheduler.add_job.call_args_list]
+    assert TASK_ARCHIVE_JOB_ID not in ids
+    assert DREAM_JOB_ID in ids
+    assert DISTILLER_JOB_ID in ids
+    assert HEARTBEAT_JOB_ID in ids

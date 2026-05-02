@@ -580,11 +580,188 @@ class TestScoutTelosTools:
     def test_scout_tools_count(self):
         from radbot.tools.telos.telos_tools import SCOUT_TELOS_TOOLS
 
-        # Was 11; now 13 after adding update + delete.
-        assert len(SCOUT_TELOS_TOOLS) == 13
+        # 13 → 14 after adding telos_list_archived_tasks (EX46 / PT115).
+        assert len(SCOUT_TELOS_TOOLS) == 14
 
     def test_scout_delete_not_in_telos_tools(self):
         """telos_delete_entry is scout-scoped; it should NOT appear in the full beto list."""
         from radbot.tools.telos.telos_tools import TELOS_TOOLS, telos_delete_entry_tool
 
         assert telos_delete_entry_tool not in TELOS_TOOLS
+
+
+# ---------------------------------------------------------------------------
+# EX46 / PT115 — list_tasks read-path bloat reduction
+# ---------------------------------------------------------------------------
+
+
+class TestListTasksBloatReduction:
+    def test_serialize_entry_slim_drops_timestamps_and_full_metadata(self):
+        from radbot.tools.telos import telos_tools
+
+        entry = _fake_entry(
+            Section.PROJECT_TASKS,
+            "Build the thing",
+            "PT99",
+            metadata={
+                "task_status": "backlog",
+                "parent_project": "PRJ1",
+                "title": "Build",
+                "internal_debug_blob": "x" * 200,  # noisy, not in slim allow-list
+            },
+        )
+
+        slim = telos_tools._serialize_entry(entry)
+
+        assert "entry_id" not in slim
+        assert "created_at" not in slim
+        assert "updated_at" not in slim
+        assert "sort_order" not in slim
+        # Curated metadata subset is preserved; noise is dropped.
+        assert slim["metadata"]["task_status"] == "backlog"
+        assert slim["metadata"]["parent_project"] == "PRJ1"
+        assert slim["metadata"]["title"] == "Build"
+        assert "internal_debug_blob" not in slim["metadata"]
+        # Core identifiers stay.
+        assert slim["ref_code"] == "PT99"
+        assert slim["content"] == "Build the thing"
+        assert slim["status"] == "active"
+
+    def test_serialize_entry_full_preserves_all_fields(self):
+        from radbot.tools.telos import telos_tools
+
+        entry = _fake_entry(
+            Section.GOALS, "x", "G1", metadata={"deadline": "2026-12-31"}
+        )
+
+        full = telos_tools._serialize_entry(entry, full=True)
+
+        assert "entry_id" in full
+        assert "created_at" in full
+        assert "updated_at" in full
+        assert full["metadata"] == {"deadline": "2026-12-31"}
+
+    def test_list_tasks_excludes_done_by_default(self):
+        from radbot.tools.telos import telos_tools
+
+        rows = [
+            _fake_entry(
+                Section.PROJECT_TASKS,
+                "ship feature",
+                "PT1",
+                metadata={"task_status": "backlog", "parent_project": "PRJ1"},
+            ),
+            _fake_entry(
+                Section.PROJECT_TASKS,
+                "old work",
+                "PT2",
+                metadata={"task_status": "done", "parent_project": "PRJ1"},
+            ),
+        ]
+        with patch.object(telos_tools.telos_db, "list_section", return_value=rows):
+            out = telos_tools.telos_list_tasks()
+
+        refs = [e["ref_code"] for e in out["entries"]]
+        assert "PT1" in refs
+        assert "PT2" not in refs
+
+    def test_list_tasks_include_done_returns_completed(self):
+        from radbot.tools.telos import telos_tools
+
+        rows = [
+            _fake_entry(
+                Section.PROJECT_TASKS,
+                "ship feature",
+                "PT1",
+                metadata={"task_status": "backlog", "parent_project": "PRJ1"},
+            ),
+            _fake_entry(
+                Section.PROJECT_TASKS,
+                "old work",
+                "PT2",
+                metadata={"task_status": "done", "parent_project": "PRJ1"},
+            ),
+        ]
+        with patch.object(telos_tools.telos_db, "list_section", return_value=rows):
+            out = telos_tools.telos_list_tasks(include_done=True)
+
+        refs = [e["ref_code"] for e in out["entries"]]
+        assert refs == ["PT1", "PT2"]
+
+    def test_list_tasks_explicit_done_filter_returns_only_done(self):
+        from radbot.tools.telos import telos_tools
+
+        rows = [
+            _fake_entry(
+                Section.PROJECT_TASKS,
+                "ship feature",
+                "PT1",
+                metadata={"task_status": "backlog", "parent_project": "PRJ1"},
+            ),
+            _fake_entry(
+                Section.PROJECT_TASKS,
+                "old work",
+                "PT2",
+                metadata={"task_status": "done", "parent_project": "PRJ1"},
+            ),
+        ]
+        with patch.object(telos_tools.telos_db, "list_section", return_value=rows):
+            out = telos_tools.telos_list_tasks(task_status="done")
+
+        refs = [e["ref_code"] for e in out["entries"]]
+        assert refs == ["PT2"]
+
+    def test_list_archived_tasks_queries_archived_status(self):
+        from radbot.tools.telos import telos_tools
+
+        archived = _fake_entry(
+            Section.PROJECT_TASKS,
+            "old shipped work",
+            "PT9",
+            metadata={"task_status": "done", "parent_project": "PRJ1"},
+        )
+        with patch.object(
+            telos_tools.telos_db, "list_section", return_value=[archived]
+        ) as mock_list:
+            out = telos_tools.telos_list_archived_tasks(parent_project="PRJ1")
+
+        _, kwargs = mock_list.call_args
+        assert kwargs["status"] == "archived"
+        assert kwargs["order_by"] == "created_at_desc"
+        assert out["status"] == "success"
+        assert out["entries"][0]["ref_code"] == "PT9"
+
+    def test_archive_stale_done_tasks_executes_sql_and_returns_rowcount(self):
+        from radbot.tools.telos import db as telos_db
+
+        # Mock the connection-context-manager chain. archive_stale_done_tasks
+        # uses `with get_db_connection() as conn: with conn.cursor() as cursor`.
+        cursor = MagicMock()
+        cursor.rowcount = 7
+        cursor_cm = MagicMock()
+        cursor_cm.__enter__.return_value = cursor
+        cursor_cm.__exit__.return_value = False
+        conn = MagicMock()
+        conn.cursor.return_value = cursor_cm
+        conn_cm = MagicMock()
+        conn_cm.__enter__.return_value = conn
+        conn_cm.__exit__.return_value = False
+
+        with patch.object(telos_db, "get_db_connection", return_value=conn_cm):
+            count = telos_db.archive_stale_done_tasks(since_days=30)
+
+        assert count == 7
+        executed_sql = cursor.execute.call_args[0][0]
+        assert "section = 'project_tasks'" in executed_sql
+        assert "metadata->>'task_status' = 'done'" in executed_sql
+        assert "INTERVAL '30 days'" in executed_sql
+        assert "auto_stale_done" in executed_sql
+        conn.commit.assert_called_once()
+
+    def test_archive_stale_done_tasks_rejects_negative_days(self):
+        import pytest
+
+        from radbot.tools.telos import db as telos_db
+
+        with pytest.raises(ValueError):
+            telos_db.archive_stale_done_tasks(since_days=-1)

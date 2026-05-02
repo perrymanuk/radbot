@@ -21,7 +21,7 @@ Non-tool services (TTS, STT, ntfy) expose REST endpoints only — they are not r
 | `tools/scheduler/` | 3 | planner | `create_scheduled_task`, `list_scheduled_tasks`, `delete_scheduled_task` |
 | `tools/reminders/` | 3 | planner | `create_reminder`, `list_reminders`, `delete_reminder` |
 | `tools/telos/` | 18 | beto | `telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_add_journal`, `telos_add_prediction`, `telos_resolve_prediction`, `telos_note_wrong`, `telos_note_taste`, `telos_add_wisdom`, `telos_add_idea`, `telos_upsert_identity`, `telos_add_entry`, `telos_update_entry`, `telos_add_goal`, `telos_complete_goal`, `telos_archive`, `telos_import_markdown` |
-| `tools/telos/` (scout subset) | 13 | scout | `SCOUT_TELOS_TOOLS` = reads (`telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_list_projects`, `telos_get_project`, `telos_list_tasks`) + plan writes (`telos_add_exploration`, `telos_add_task`, `telos_add_milestone`, `telos_add_journal`) + plan edits (`telos_update_entry`, `telos_delete_entry` — scoped to `explorations`, `project_tasks`, `milestones`, `journal` only). Excludes persona/goal mutation, archiving, and project meta-management — those stay on beto. |
+| `tools/telos/` (scout subset) | 14 | scout | `SCOUT_TELOS_TOOLS` = reads (`telos_get_section`, `telos_get_entry`, `telos_get_full`, `telos_search_journal`, `telos_list_projects`, `telos_get_project`, `telos_list_tasks`, `telos_list_archived_tasks`) + plan writes (`telos_add_exploration`, `telos_add_task`, `telos_add_milestone`, `telos_add_journal`) + plan edits (`telos_update_entry`, `telos_delete_entry` — scoped to `explorations`, `project_tasks`, `milestones`, `journal` only). Excludes persona/goal mutation, archiving, and project meta-management — those stay on beto. |
 | `tools/wiki/` | 3 | scout | `wiki_list`, `wiki_search`, `wiki_read` — FunctionTool wrappers over `radbot.mcp_server.tools.wiki` handlers. Read-only; sanitizes returned text via `sanitize_external_content(strictness="strict")`. |
 | `tools/web_research/` | 2 | scout | `grounded_search` — Gemini + Google Search grounding as a direct FunctionTool (returns `{answer, citations: [{title, url}], model}`); bypasses the sub-agent hop so scout keeps her turn. `web_fetch` — guardrailed http(s) fetch: domain blocklist (pastebin, requestbin, webhook.site, ngrok, …), private-IP + localhost + file:// blocked, 256KB cap, 10s timeout, max 3 redirects (each re-validated), `sanitize_external_content(strictness="strict")` on body. Raw web search providers (Tavily/Brave) tracked as PRJ1/PT19. |
 | `tools/divergent_ideation/` | 1 | scout | `divergent_ideation(problem_statement)` — fans three persona-scoped LLM calls (Pragmatic, Contrarian, Wildcard) out in parallel via `asyncio.gather` with a per-call `asyncio.wait_for` 15s timeout. Returns `{pragmatic_path, contrarian_path, wildcard_path, errors[]}`; failed/timed-out personas yield an `Error: …` string and listed in `errors[]` instead of crashing the tool. Persona prompts are encapsulated inside the module so they don't leak into Scout's system prompt. Inspired by lateral inhibition / DMN ideation patterns; see `explorations: EX5` and `project_tasks: PT28` in Telos. |
@@ -76,8 +76,9 @@ Projects are Telos entries in section `projects` (PRJ ref_codes). Their children
 | `telos_add_milestone` | `title`, `parent_project`, `deadline?`, `details?` | Add a milestone under a project (confirm-required, auto-assigns `MS<N>`) |
 | `telos_complete_milestone` | `ref_code`, `resolution?` | Mark a milestone completed (silent) |
 | `telos_add_task` | `description`, `parent_project`, `parent_milestone?`, `title?`, `category?`, `task_status?` | Add a project task (confirm-required, auto-assigns `PT<N>`). `task_status` ∈ `backlog` / `inprogress` / `done`, default `backlog` |
-| `telos_list_tasks` | `parent_project?`, `parent_milestone?`, `task_status?`, `include_inactive?` | Filter project tasks |
-| `telos_complete_task` | `ref_code` | Flip task's `metadata.task_status` → `done` (silent) |
+| `telos_list_tasks` | `parent_project?`, `parent_milestone?`, `task_status?`, `include_done?` (default false), `include_inactive?` | Filter project tasks. Excludes `done` tasks by default (EX46 / PT115) — use `include_done=true` or `task_status='done'` to see completed work, `telos_list_archived_tasks` for archived rows. |
+| `telos_list_archived_tasks` | `parent_project?`, `parent_milestone?`, `limit?` (default 50) | List archived project tasks (`status='archived'`), newest first. Used after the auto-archive sweep moves stale-done tasks out of the default `telos_list_tasks` view. |
+| `telos_complete_task` | `ref_code` | Flip task's `metadata.task_status` → `done` and stamp `metadata.completed_at` (silent) |
 | `telos_archive_task` | `ref_code`, `reason?` | Soft-delete a task (confirm-required) |
 | `telos_add_exploration` | `topic`, `parent_project`, `notes?` | Record an open research thread under a project (confirm-required, auto-assigns `EX<N>`). Use for "I want to look into X" capture before it becomes a task |
 
@@ -163,6 +164,7 @@ Default proactive primitives (not LLM-callable; native APScheduler jobs register
 |-----|--------------|----------------|----------------|
 | Dream (memory consolidation) | `0 3 * * *` | `tools/memory/memory_consolidation.py::run_dream` | `config:dream` (`enabled`, `cron_expression`, `lookback_hours`, `promote`) |
 | Heartbeat (morning digest) | `0 8 * * *` | `tools/heartbeat/digest.py::assemble_digest` + `tools/heartbeat/delivery.py::deliver_digest` (ntfy) | `config:heartbeat` (`enabled`, `cron_expression`, `horizon_hours`) |
+| Task archive (stale done sweep) | `0 4 * * *` | `tools/telos/db.py::archive_stale_done_tasks` | `config:task_archive` (`enabled`, `cron_expression`, `since_days` — default 30) |
 
 Dream eTAMP safety: low-trust points (`trust=low` or `source ∈ {alert,webhook}`) are excluded from promotion candidacy; `promote=True` surfaces candidate IDs only — never writes to durable storage without user confirmation.
 
@@ -384,7 +386,7 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 | Projects (read) | `project_match(cwd)`, `project_list`, `project_get_context`, `project_list_children`, `project_set_path_patterns` |
 | Projects (mutate) | `project_create`, `project_update`, `project_archive(cascade_children?)`, `project_merge(from_ref, into_ref)` |
 | Project hierarchy (mutate) | `milestone_add`, `milestone_complete`, `task_add`, `task_update`, `task_complete`, `task_archive`, `exploration_add`, `exploration_update`, `exploration_archive` |
-| Tasks / schedule | `list_tasks`, `list_reminders`, `list_scheduled_tasks` |
+| Tasks / schedule | `list_tasks` (excludes `done` by default; pass `include_done=true` or `status="done"` to surface completed history — EX46 / PT115), `list_reminders`, `list_scheduled_tasks` |
 | Memory | `search_memory` (Qdrant, default scope=`beto`, pass `agent_scope="all"` to widen) |
 
 Project-hierarchy mutations are a parallel surface to beto's confirm-required `telos_*` tools — they call the same `radbot.tools.telos.db` primitives; user confirmation is expected at the MCP client UI layer (e.g. Claude Code's per-tool approval) rather than enforced server-side. All removal is soft (`status='archived'`, `metadata.archived_reason`) — no hard deletes.
