@@ -14,12 +14,9 @@ logger = logging.getLogger(__name__)
 
 def _get_client():
     """Lazy import to avoid import-time failures."""
-    from radbot.tools.nomad.nomad_client import get_nomad_client
+    from radbot.clients.provider import get_provider
 
-    client = get_nomad_client()
-    if not client:
-        return None
-    return client
+    return get_provider().nomad
 
 
 async def list_nomad_jobs(prefix: Optional[str] = None) -> Dict[str, Any]:

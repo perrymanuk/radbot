@@ -21,24 +21,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 _ADMIN_TOKEN_ENV = "RADBOT_ADMIN_TOKEN"
 
-# Client reset functions to call when integration config changes.
-# Each entry is (module_path, function_name).
-_INTEGRATION_RESET_REGISTRY: list[tuple[str, str]] = [
-    ("radbot.tools.homeassistant.ha_client_singleton", "reset_ha_client"),
-    ("radbot.tools.homeassistant.ha_ws_singleton", "reset_ha_ws_client"),
-    ("radbot.tools.homeassistant.ha_mcp_client", "reset_ha_mcp_client"),
-    ("radbot.tools.overseerr.overseerr_client", "reset_overseerr_client"),
-    ("radbot.tools.ntfy.ntfy_client", "reset_ntfy_client"),
-    ("radbot.tools.picnic.picnic_client", "reset_picnic_client"),
-    ("radbot.tools.lidarr.lidarr_client", "reset_lidarr_client"),
-    ("radbot.tools.github.github_app_client", "reset_github_client"),
-    ("radbot.tools.nomad.nomad_client", "reset_nomad_client"),
-    ("radbot.tools.youtube.youtube_client", "reset_youtube_client"),
-    ("radbot.tools.youtube.kideo_client", "reset_kideo_client"),
-]
-
 # Post-reset hooks that require special handling (e.g. async restart).
-# Each entry is (module_path, function_name, is_async).
+# Each entry is (module_path, function_name, is_async). Integration
+# *client* lifecycle was unified into `radbot/clients/provider.py` (EX44 /
+# PT111); these hooks remain separate because they're not client resets —
+# they restart subscribers / re-read filesystem config after a hot-reload.
 _INTEGRATION_POST_RESET_HOOKS: list[tuple[str, str, bool]] = [
     ("radbot.tools.ntfy.ntfy_subscriber", "start_ntfy_subscriber", True),
     ("radbot.filesystem.adapter", "reload_filesystem_config", False),
@@ -46,16 +33,17 @@ _INTEGRATION_POST_RESET_HOOKS: list[tuple[str, str, bool]] = [
 
 
 def _reset_integration_clients() -> None:
-    """Reset all integration client singletons for hot-reload."""
+    """Reset all integration client singletons for hot-reload.
+
+    Delegates to `ClientProvider.clear()` for client lifecycle and runs the
+    post-reset hooks (subscriber restart, filesystem config reload) inline.
+    """
     import asyncio
     import importlib
 
-    for module_path, func_name in _INTEGRATION_RESET_REGISTRY:
-        try:
-            module = importlib.import_module(module_path)
-            getattr(module, func_name)()
-        except Exception:
-            pass  # Module may not be installed/configured
+    from radbot.clients.provider import get_provider
+
+    get_provider().clear()
 
     for module_path, func_name, is_async in _INTEGRATION_POST_RESET_HOOKS:
         try:
@@ -148,18 +136,14 @@ async def store_credential(request: Request, _: None = Depends(_verify_admin)):
         raise HTTPException(400, "name and value are required")
 
     store.set(name, value, credential_type=cred_type, description=description)
-    # Reset HA client singletons when the HA token is updated
+    # Reset all integration clients when the HA token is updated. The
+    # provider's `clear()` is broader than the prior HA-only reset, but
+    # it's cheap (each reset just nulls a module global) and removes the
+    # need for a hand-maintained per-token mapping.
     if name == "ha_token":
-        import importlib
+        from radbot.clients.provider import get_provider
 
-        for mod_path, fn_name in _INTEGRATION_RESET_REGISTRY:
-            if "homeassistant" not in mod_path:
-                continue
-            try:
-                module = importlib.import_module(mod_path)
-                getattr(module, fn_name)()
-            except Exception:
-                pass
+        get_provider().clear()
     return {"status": "ok", "name": name}
 
 
@@ -880,9 +864,11 @@ async def test_home_assistant(request: Request, _: None = Depends(_verify_admin)
         # installs may not have the mcp_server integration enabled.
         mcp_status: Optional[str] = None
         try:
-            from radbot.tools.homeassistant.ha_mcp_client import HAMcpClient
+            from radbot.clients.provider import get_provider
 
-            mcp_client = HAMcpClient(ha_url, ha_token, timeout=8.0)
+            mcp_client = get_provider().make_oneshot_ha_mcp(
+                ha_url, ha_token, timeout=8.0
+            )
             tools = mcp_client.list_tools_sync()
             mcp_status = f"{len(tools)} MCP tools available"
         except Exception as e:
@@ -1129,9 +1115,11 @@ async def test_github(request: Request, _: None = Depends(_verify_admin)):
         return _err("GitHub App ID, Installation ID, and private key are all required")
 
     try:
-        from radbot.tools.github.github_app_client import GitHubAppClient
+        from radbot.clients.provider import get_provider
 
-        client = GitHubAppClient(str(app_id), str(installation_id), private_key)
+        client = get_provider().make_oneshot_github(
+            str(app_id), str(installation_id), private_key
+        )
         status = client.get_status()
         if status.get("status") == "ok":
             return _ok(f"Connected to GitHub App '{status.get('app_name')}'")
@@ -1169,9 +1157,9 @@ async def test_nomad(request: Request, _: None = Depends(_verify_admin)):
         return _err("Nomad address is required")
 
     try:
-        from radbot.tools.nomad.nomad_client import NomadClient
+        from radbot.clients.provider import get_provider
 
-        client = NomadClient(addr=addr, token=token)
+        client = get_provider().make_oneshot_nomad(addr=addr, token=token)
         result = await client.test()
         member = result.get("member", {})
         name = member.get("Name", "unknown")

@@ -48,7 +48,7 @@ Canonical example: `radbot/tools/overseerr/overseerr_client.py`. Prefer `get_int
 - **WebSocket**: `tools/homeassistant/ha_websocket_client.py` — async WS at `wss://host/api/websocket`. Used for dashboard (Lovelace) CRUD and — planned — entity/area/floor registry alias management (see `docs/plans/ha_alias_learning.md`).
 - **State cache**: `tools/homeassistant/ha_state_cache.py` — legacy in-memory snapshot for the REST-based `search_ha_entities`. Unused when MCP path is active (MCP's `GetLiveContext` returns only Assist-exposed entities on demand).
 - **Auth**: Long-lived access token in `Authorization: Bearer` header for all three transports (REST, MCP streamable-HTTP, WS).
-- **Singletons**: Separate for REST (`ha_client_singleton.py`), WS (`ha_ws_singleton.py`), and MCP (`ha_mcp_client.py`). All three reset together on admin config change via `_INTEGRATION_RESET_REGISTRY`.
+- **Singletons**: Separate for REST (`ha_client_singleton.py`), WS (`ha_ws_singleton.py`), and MCP (`ha_mcp_client.py`). All three are cleared together on admin config change via `ClientProvider.clear()`. Callers reach them through `get_provider().ha_rest` / `get_provider().ha_mcp` / `await get_provider().get_ha_ws()`.
 - **Health check**: `GET /api/` → expects "API running." message. The `/admin/api/test/home-assistant` endpoint probes REST + MCP `tools/list` and reports tool count.
 - **Dashboard CRUD**: WebSocket only (Lovelace API not available via REST or MCP).
 - **Direct REST endpoints**: `web/api/ha.py` exposes `GET /api/ha/state/{entity_id}` + `POST /api/ha/service` for frontend device buttons (bypasses agent).
@@ -188,26 +188,34 @@ See `specs/web.md` § Admin Panel Modules for the full flat list. Location: `rad
 
 ## Hot-Reload Registry
 
-When the admin UI saves config via `PUT /admin/api/config/{section}`, `_INTEGRATION_RESET_REGISTRY` in `web/api/admin.py` is consulted to reset affected singleton clients:
-
-```
-reset_overseerr_client, reset_lidarr_client, reset_ha_client, reset_ha_ws_client,
-reset_ntfy_client, reset_picnic_client, reset_github_client, reset_nomad_client,
-reset_jira_client, reset_kideo_client, reset_youtube_client, ...
-```
+When the admin UI saves config via `PUT /admin/api/config/{section}`, `web/api/admin.py:_reset_integration_clients()` calls `ClientProvider.clear()` from `radbot/clients/provider.py` (EX44 / PT111). The provider iterates every integration's `reset_X_client()` in a single fail-soft loop, replacing the legacy hand-maintained `_INTEGRATION_RESET_REGISTRY` list. Post-reset hooks (ntfy subscriber restart, filesystem config reload) still live inline in admin.py because they're not client lifecycle.
 
 Next tool call on any agent triggers re-initialization with fresh config from DB.
+
+## Client Provider (EX44 / PT111)
+
+`radbot/clients/provider.py` is the single source of truth for integration client lifecycle:
+
+- **Typed `@property` accessors** (`get_provider().overseerr`, `.lidarr`, `.jira`, `.picnic`, `.nomad`, `.ntfy`, `.github`, `.ha_rest`, `.ha_mcp`) return `Optional[<ClientClass>]`. mypy verifies static usage. HA WebSocket needs an async factory so it's exposed via `await get_provider().get_ha_ws()`.
+- **`clear()`** — wipes every cached client; called from `tests/conftest.py` autouse fixture and admin hot-reload.
+- **`validate_secrets()`** — invoked once at web startup. Returns `{name: status}` where status is `ok` / `disabled` / `missing: <field>` / `error: <msg>`. Logs `ERROR` for enabled-but-missing-required-field cases so a SRE notices in the boot banner. Never raises.
+- **`make_oneshot_<name>(...)`** — explicit one-shot client constructors used by admin "Test Connection" endpoints to validate unsaved form values. The only place client classes are constructed outside their own modules; bypasses the singleton on purpose.
+
+Direct client class imports are confined to `radbot/clients/provider.py`; everywhere else (tools, web routes, workers, services) accesses clients through the provider. `radbot/tools/homeassistant/ha_mcp_tools.py` references `HAMcpClient` only as a forward-string annotation (`client: "HAMcpClient"`) so the rule holds at runtime.
+
+YouTube and Kideo are *not* exposed as `@property` accessors — callers use the module-level helper functions (`youtube_client.get_video_details`, `kideo_client.get_collection`, …) directly. The provider still resets them in `clear()` so admin hot-reload remains correct.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
+| `clients/provider.py` | `ClientProvider` — typed access, `clear()`, `validate_secrets()`, one-shot test constructors |
 | `tools/{service}/{service}_client.py` | Integration client implementation |
 | `tools/{service}/{service}_tools.py` | FunctionTool wrappers |
 | `tools/shared/config_helper.py` | `get_integration_config()` resolver (preferred) |
 | `tools/shared/client_utils.py` | `client_or_error()` singleton helper |
 | `config/config_loader.py` | `get_integrations_config()` — merged file+DB config |
 | `credentials/store.py` | Encrypted credential store |
-| `web/api/admin.py` | Test endpoints, hot-reload registry, status aggregation |
+| `web/api/admin.py` | Test endpoints, hot-reload trigger (delegates to `ClientProvider.clear()`), status aggregation |
 | `web/api/media.py` + `web/api/ha.py` | Direct-action REST endpoints (bypass agent) |
 | `web/frontend/src/components/admin/panels/` | React admin panels |

@@ -11,10 +11,14 @@ from typing import Any, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
 
+from radbot.clients.provider import get_provider
 from radbot.tools.shared.client_utils import client_or_error
 from radbot.tools.shared.tool_decorator import tool_error_handler
 
-from .overseerr_client import get_overseerr_client
+
+def _get_overseerr():
+    return get_provider().overseerr
+
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +118,7 @@ def search_overseerr_media(
         On success: {"status": "success", "results": [...], "total": N, "page": N, "total_pages": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_overseerr_client, "Overseerr")
+    client, err = client_or_error(_get_overseerr, "Overseerr")
     if err:
         return err
 
@@ -146,7 +150,7 @@ def get_overseerr_media_details(
         On success: {"status": "success", "details": {...}}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_overseerr_client, "Overseerr")
+    client, err = client_or_error(_get_overseerr, "Overseerr")
     if err:
         return err
 
@@ -220,7 +224,7 @@ def request_overseerr_media(
         On success: {"status": "success", "request_id": N, "media_status": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_overseerr_client, "Overseerr")
+    client, err = client_or_error(_get_overseerr, "Overseerr")
     if err:
         return err
 
@@ -270,7 +274,7 @@ def list_overseerr_requests(
         On success: {"status": "success", "requests": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_overseerr_client, "Overseerr")
+    client, err = client_or_error(_get_overseerr, "Overseerr")
     if err:
         return err
 

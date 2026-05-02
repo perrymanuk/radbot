@@ -27,7 +27,7 @@ def mock_client():
 def _patch_client(mock_client):
     """Patch get_picnic_client to return the mock."""
     return patch(
-        "radbot.tools.picnic.picnic_tools.get_picnic_client",
+        "radbot.tools.picnic.picnic_client.get_picnic_client",
         return_value=mock_client,
     )
 
@@ -53,7 +53,7 @@ class TestSearchPicnicProduct:
         from radbot.tools.picnic.picnic_tools import search_picnic_product
 
         with patch(
-            "radbot.tools.picnic.picnic_tools.get_picnic_client",
+            "radbot.tools.picnic.picnic_client.get_picnic_client",
             return_value=None,
         ):
             result = search_picnic_product("milk")

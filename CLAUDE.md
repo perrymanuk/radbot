@@ -256,12 +256,12 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 ### New Admin UI integration
 
-1. Add test endpoint in `radbot/web/api/admin.py` (`/api/test/<service>`)
+1. Add test endpoint in `radbot/web/api/admin.py` (`/api/test/<service>`) — for one-shot validation of unsaved form values, add a `make_oneshot_<service>(...)` helper to `radbot/clients/provider.py` and call it from the test endpoint (do NOT import the client class directly in `admin.py`)
 2. Add status check in `get_integration_status()` in `admin.py`
 3. Add panel in `radbot/web/frontend/src/components/admin/panels/ConnectionPanels.tsx`
 4. Register panel in `AdminPage.tsx` (NAV_ITEMS + PANEL_MAP)
-5. Add entry to `_INTEGRATION_RESET_REGISTRY` in `admin.py` for hot-reload
-6. Follow the integration client pattern using `get_integration_config()` (see above)
+5. Add a typed `@property` accessor on `ClientProvider` in `radbot/clients/provider.py` and a `(name, module_path, "reset_X_client")` entry to its `clear()` reset list — replaces the legacy hand-maintained `_INTEGRATION_RESET_REGISTRY`. Add the integration's required-field tuple to `_REQUIRED_FIELDS` so `validate_secrets()` covers it.
+6. Follow the integration client pattern using `get_integration_config()` (see above). Callers reach the client via `get_provider().<name>` — never `from radbot.tools.<x>.<x>_client import ...` directly.
 7. **Config goes to DB** — the admin UI `PUT /api/config/{section}` stores it there
 
 ---

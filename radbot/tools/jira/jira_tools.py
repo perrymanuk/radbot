@@ -11,10 +11,14 @@ from typing import Any, Dict, Optional
 
 from google.adk.tools import FunctionTool
 
+from radbot.clients.provider import get_provider
 from radbot.tools.shared.client_utils import client_or_error
 from radbot.tools.shared.tool_decorator import tool_error_handler
 
-from .jira_client import get_jira_client
+
+def _get_jira():
+    return get_provider().jira
+
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +85,7 @@ def list_my_jira_issues(
         On success: {"status": "success", "issues": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_jira_client, "Jira")
+    client, err = client_or_error(_get_jira, "Jira")
     if err:
         return err
 
@@ -121,7 +125,7 @@ def get_jira_issue(issue_key: str) -> Dict[str, Any]:
         On success: {"status": "success", "issue": {...}}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_jira_client, "Jira")
+    client, err = client_or_error(_get_jira, "Jira")
     if err:
         return err
 
@@ -157,7 +161,7 @@ def get_issue_transitions(issue_key: str) -> Dict[str, Any]:
         On success: {"status": "success", "issue_key": "...", "transitions": [{"id": "...", "name": "..."}]}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_jira_client, "Jira")
+    client, err = client_or_error(_get_jira, "Jira")
     if err:
         return err
 
@@ -192,7 +196,7 @@ def transition_jira_issue(
         On success: {"status": "success", "issue_key": "...", "new_status": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_jira_client, "Jira")
+    client, err = client_or_error(_get_jira, "Jira")
     if err:
         return err
 
@@ -221,7 +225,7 @@ def add_jira_comment(
         On success: {"status": "success", "issue_key": "...", "comment_id": "..."}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_jira_client, "Jira")
+    client, err = client_or_error(_get_jira, "Jira")
     if err:
         return err
 
@@ -256,7 +260,7 @@ def search_jira_issues(
         On success: {"status": "success", "issues": [...], "total": N}
         On failure: {"status": "error", "message": "..."}
     """
-    client, err = client_or_error(get_jira_client, "Jira")
+    client, err = client_or_error(_get_jira, "Jira")
     if err:
         return err
 

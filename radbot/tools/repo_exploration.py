@@ -141,9 +141,9 @@ def _authenticate_github_url(url: str) -> str:
     from radbot.config.config_loader import config_loader
 
     config_loader.load_db_config()
-    from radbot.tools.github.github_app_client import get_github_client
+    from radbot.clients.provider import get_provider
 
-    client = get_github_client()
+    client = get_provider().github
     if client is None:
         raise RuntimeError(
             "GitHub App not configured — set integrations.github via the admin UI "

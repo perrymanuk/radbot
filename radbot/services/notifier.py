@@ -467,12 +467,13 @@ def reset_notifier() -> None:
 
 def build_default_notifier(ws_broadcaster: WsBroadcaster) -> Notifier:
     """Construct the production Notifier with the canonical sinks."""
-    from radbot.tools.ntfy.ntfy_client import get_ntfy_client  # lazy
+    from radbot.clients.provider import get_provider  # lazy
 
+    provider = get_provider()
     return Notifier(
         sinks=[
             ChatHistorySink(),
-            NtfySink(client_getter=get_ntfy_client),
+            NtfySink(client_getter=lambda: provider.ntfy),
             NotificationsTableSink(ws_broadcaster=ws_broadcaster),
             WebSocketChatSink(ws_broadcaster=ws_broadcaster),
         ]

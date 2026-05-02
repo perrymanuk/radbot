@@ -380,9 +380,9 @@ async def clone_repository_endpoint(request: Request):
         raise HTTPException(400, "owner and repo are required")
 
     try:
-        from radbot.tools.github.github_app_client import get_github_client
+        from radbot.clients.provider import get_provider
 
-        client = get_github_client()
+        client = get_provider().github
         if not client:
             raise HTTPException(500, "GitHub App not configured")
 

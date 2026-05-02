@@ -8,8 +8,18 @@ entities through the REST API.
 import logging
 from typing import Any, Dict, Optional
 
-# Import the client singleton
-from radbot.tools.homeassistant.ha_client_singleton import get_ha_client
+from radbot.clients.provider import get_provider
+
+
+def get_ha_client():
+    """Provider-backed accessor (kept as a local helper to minimize churn).
+
+    Tests historically patch `radbot.tools.homeassistant.ha_client_singleton.get_ha_client`;
+    that patch path still works because the provider's `ha_rest` property
+    delegates to that exact function.
+    """
+    return get_provider().ha_rest
+
 
 logger = logging.getLogger(__name__)
 
