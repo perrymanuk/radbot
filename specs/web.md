@@ -86,7 +86,6 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 | `api/agent_info.py` | `/api/agents` + `/api/claude` | Dynamic agent roster (reads live `root_agent.sub_agents`) + Claude metadata |
 | `api/session/memory_api.py` | `/api/memory` | Memory store/recall |
 | `api/admin.py` | `/admin/api/*` | Config, credentials, test endpoints, hot-reload triggers |
-| `api/tasks_api.py` via admin | `/api/tasks` | Todo CRUD (registered elsewhere) |
 | `api/scheduler.py` | `/api/scheduler` | Scheduled tasks REST |
 | `api/reminders.py` | `/api/reminders` | Reminders REST |
 | `api/webhooks.py` | `/api/webhooks` | Webhook definitions + inbound endpoints |
