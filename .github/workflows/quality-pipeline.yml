@@ -242,14 +242,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
       - run: uv sync --all-extras
-      # Dummy DB creds satisfy the import-time check in
-      # radbot/web/db/connection.py — unit tests don't actually connect, but
-      # the module raises at import unless creds are present.
       - name: Run unit + integration tests
-        env:
-          POSTGRES_DB: radbot_test
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
         run: make test-unit && make test-integration
       - id: score
         if: always()
