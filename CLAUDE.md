@@ -186,7 +186,7 @@ All tables use the shared pool from `radbot/db/connection.py` unless noted.
 | ~~`tasks`, `projects`~~ | _deprecated — inert after the todo module was removed; data lives in `telos_entries` with sections `projects` + `project_tasks`. Old rows retained for rollback; migrate via `scripts/migrate_todo_to_telos.py`._ |
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `enabled`, `metadata` (JSONB) |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
-| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section`, `ref_code`, `content`, `metadata` (JSONB), `status`, `sort_order`, UNIQUE (section, ref_code) |
+| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section`, `ref_code`, `content`, `metadata` (JSONB), `status` (extended set: legacy `active`/`completed`/`archived`/`superseded` + lifecycle `proposed`/`in_review`/`approved`/`executing` — DB CHECK constraint regenerated on startup), `sort_order`, UNIQUE (section, ref_code). GIN index `idx_telos_metadata` backs Scout's postmortem-processing dedup queries via `db.list_section(metadata_filter=...)`. |
 | `webhook_definitions` | `tools/webhooks/db.py` | `webhook_id` (UUID), `name` (UNIQUE), `path_suffix` (UNIQUE), `prompt_template`, `secret` |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |
@@ -279,6 +279,40 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **Agent factory tools**: Use `load_tools(module, attr, agent, label)` from `agent/factory_utils.py`
 - **Credential access**: `get_credential_store().get("<key_name>")`
 - **Model resolution**: Always use `config_manager.resolve_model(model_string)` in agent factories — wraps Ollama models (`ollama_chat/...`) in `LiteLlm`, passes Gemini strings through unchanged
+
+### Telos lifecycle status state machine
+
+`STATUS_VALUES` in `radbot/tools/telos/models.py` is the single source of truth — both Python validation (`db.add_entry`, `db.update_entry`, MCP `*_add`/`*_update` schemas) and the DB CHECK constraint regenerate from it. The set is:
+
+| Status | Group | Purpose |
+|---|---|---|
+| `active` | `ACTIVE_EQUIVALENT` | Default for any entry that doesn't use the lifecycle states |
+| `proposed` | `ACTIVE_EQUIVALENT` | Scout has persisted a plan; awaiting review |
+| `in_review` | `ACTIVE_EQUIVALENT` | `/review-ex` has flipped the EX while the cross-family council runs |
+| `approved` | `ACTIVE_EQUIVALENT` | Human confirmed the council synthesis; ready for `/ship` |
+| `executing` | `ACTIVE_EQUIVALENT` | `/ship` Phase 1 saw a matching branch and started the merge loop |
+| `completed` | terminal | `/ship` Phase 11 ran post-merge — sole owner of `executing → completed` |
+| `archived` | terminal | Manual archive of a stale entry |
+| `superseded` | terminal | Replaced by a newer EX (record the replacement in `metadata.superseded_by`) |
+
+`ACTIVE_EQUIVALENT = frozenset({"active", "proposed", "in_review", "approved", "executing"})` is the default filter for `db.list_section()` (when called with no `status` / `status_in` kwarg) and for the MCP `telos_get_section({include_inactive: false})` path. Adding a new lifecycle state means: edit `STATUS_VALUES`, update `ACTIVE_EQUIVALENT` if appropriate, restart — the CHECK constraint migration regenerates automatically.
+
+### MCP write-tool return contract
+
+The four creation handlers (`task_add`, `exploration_add`, `milestone_add`, `journal_add`) and their `*_update` counterparts return JSON in `TextContent.text`:
+
+```json
+// success (creation)
+{"status": "success", "ref_code": "<NEW>", "entry_id": "<uuid>", "section": "<section>"}
+// success (update — entry-status echoes via `entry_status` to avoid colliding with the discriminator)
+{"status": "success", "ref_code": "<ref>", "entry_status": "<new lifecycle state>", ...}
+// error (both success and error paths parse uniformly)
+{"status": "error", "message": "<reason>"}
+```
+
+Callers branch on `payload["status"]` after `json.loads(response.text)` — no try/except + heuristic-detection footgun. Terminal operations (`*_complete`, `*_archive`) keep human-readable text returns; their callers already know the ref_code.
+
+`task_add`, `exploration_add`, `milestone_add`, `task_update`, `exploration_update` accept `metadata_merge: object` for arbitrary metadata attachment. **Whitelist precedence:** typed schema fields (`title`, `category`, `task_status`, `parent_milestone`, `parent_project`) win silently on collision — closes the chain-race blocker on Scout's postmortem followups (atomic single-write attach, no add-then-update window).
 
 ---
 

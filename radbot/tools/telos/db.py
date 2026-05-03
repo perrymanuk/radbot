@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import psycopg2
@@ -16,13 +17,29 @@ import psycopg2.extras
 
 from radbot.db.connection import get_db_connection, get_db_cursor
 
-from .models import REF_PREFIX, STATUS_VALUES, Entry, Section
+from .models import ACTIVE_EQUIVALENT, REF_PREFIX, STATUS_VALUES, Entry, Section
 
 logger = logging.getLogger(__name__)
 
 
+# Sentinel for `list_section` to distinguish "argument omitted" from
+# "explicitly None" (which preserves the legacy "all statuses" semantics).
+_OMITTED: Any = object()
+
+_STATUS_CHECK_NAME = "telos_entries_status_check"
+
+
 def init_telos_schema() -> None:
-    """Create the telos_entries table (idempotent)."""
+    """Create the telos_entries table (idempotent) and apply sibling
+    migrations (GIN index on metadata, status CHECK constraint).
+
+    The two sibling steps run unconditionally on every web startup. They are
+    idempotent: `CREATE INDEX IF NOT EXISTS` is a no-op when the index
+    exists, and `_apply_status_check_constraint` short-circuits when the
+    existing CHECK definition's allowed-status set already matches
+    `STATUS_VALUES` (semantic comparison — Round 3 council blocker fix
+    against `pg_get_constraintdef` byte-string brittleness).
+    """
     from radbot.tools.shared.db_schema import init_table_schema
 
     init_table_schema(
@@ -47,6 +64,110 @@ def init_telos_schema() -> None:
             "CREATE INDEX idx_telos_journal_recent ON telos_entries (created_at DESC) WHERE section = 'journal';",
         ],
     )
+    _apply_metadata_gin_index()
+    _apply_status_check_constraint()
+
+
+def _apply_metadata_gin_index() -> None:
+    """Ensure the GIN index on telos_entries.metadata exists. Idempotent.
+
+    Sibling step inside `init_telos_schema` rather than an entry in
+    `init_table_schema`'s `create_index_sqls` list, because the latter only
+    fires when the table is freshly created — which would silently skip the
+    index on every existing deployment.
+    """
+    with get_db_connection() as conn:
+        with get_db_cursor(conn, commit=True) as cursor:
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_telos_metadata "
+                "ON telos_entries USING GIN (metadata);"
+            )
+
+
+def _extract_constraint_status_set(constraint_def: str) -> set[str]:
+    """Parse `pg_get_constraintdef` output and return the allowed status set.
+
+    Robust against PG normalization variations:
+      - "CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, ...])))"
+      - "CHECK (status IN ('active', 'completed', ...))"
+      - "CHECK ((status)::text = ANY ((ARRAY['active'::text, ...])::text[]))"
+    All forms have the allowed values as single-quoted string literals;
+    extract them.
+    """
+    return set(re.findall(r"'([^']+)'", constraint_def))
+
+
+def _add_status_check(cursor, status_values: set[str]) -> None:
+    """Emit `ALTER TABLE ADD CONSTRAINT` with quoted CSV values.
+
+    `STATUS_VALUES` is a closed set defined in `models.py` (never user
+    input), so the f-string interpolation is safe. `ALTER TABLE` does not
+    accept parameterized constraint definitions, so we cannot use %s here.
+    """
+    quoted_csv = ", ".join(f"'{s}'" for s in sorted(status_values))
+    cursor.execute(
+        f"ALTER TABLE telos_entries ADD CONSTRAINT "
+        f"{_STATUS_CHECK_NAME} CHECK (status IN ({quoted_csv}));"
+    )
+
+
+def _apply_status_check_constraint() -> None:
+    """Ensure `telos_entries.status` CHECK constraint matches `STATUS_VALUES`.
+
+    Idempotent + SEMANTICALLY definition-aware: replaces stale constraints
+    whose allowed-status set doesn't match `STATUS_VALUES`. Compare by
+    parsed SET (not by raw string) so PG normalization differences don't
+    trigger spurious DROP+ADD cycles on every startup — `ALTER TABLE`
+    takes an `ACCESS EXCLUSIVE` lock, so unnecessary cycles are wasteful
+    and risky on large tables.
+
+    Preflight: aborts with a clear error if any existing row carries a
+    status outside the new set, so a half-finished rollback can't make the
+    constraint apply silently fail later.
+    """
+    with get_db_connection() as conn:
+        with get_db_cursor(conn, commit=True) as cursor:
+            cursor.execute(
+                "SELECT COUNT(*), COALESCE(string_agg(DISTINCT status, ', '), '') "
+                "FROM telos_entries WHERE status != ALL(%s);",
+                (list(STATUS_VALUES),),
+            )
+            bad_count, bad_values = cursor.fetchone()
+            if bad_count > 0:
+                raise RuntimeError(
+                    f"telos_entries has {bad_count} rows with statuses outside "
+                    f"the new set: {bad_values}. Fix data before applying CHECK."
+                )
+
+            cursor.execute(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                "WHERE conname = %s AND conrelid = 'telos_entries'::regclass;",
+                (_STATUS_CHECK_NAME,),
+            )
+            row = cursor.fetchone()
+            existing_def = row[0] if row else None
+
+            if existing_def is None:
+                _add_status_check(cursor, STATUS_VALUES)
+                logger.info("Added telos_entries CHECK constraint")
+                return
+
+            existing_set = _extract_constraint_status_set(existing_def)
+            if existing_set == set(STATUS_VALUES):
+                return
+
+            logger.info(
+                "telos_entries CHECK constraint set mismatch; expected %s, got %s — replacing.",
+                sorted(STATUS_VALUES),
+                sorted(existing_set),
+            )
+            cursor.execute(
+                f"ALTER TABLE telos_entries DROP CONSTRAINT {_STATUS_CHECK_NAME};"
+            )
+            _add_status_check(cursor, STATUS_VALUES)
+            logger.info(
+                "Replaced telos_entries CHECK constraint with current STATUS_VALUES"
+            )
 
 
 def _row_to_entry(row: Dict[str, Any]) -> Entry:
@@ -97,7 +218,30 @@ def add_entry(
     sort_order: int = 0,
 ) -> Entry:
     """Insert a new entry. If ref_code is None and the section uses ref_codes,
-    one is auto-assigned."""
+    one is auto-assigned.
+
+    Postmortem invariant (enforced here, the lowest shared write layer, so
+    every writer is covered — MCP `journal_add`, agent-side
+    `telos_add_journal`, and direct `db.add_entry` calls): journal entries
+    flagged as postmortems must include `metadata.processed_at` (initially
+    `null`). Postgres JSONB `@>` matches `{"processed_at": null}` only when
+    the key is explicitly present and serialized as null — a missing key
+    does NOT match, which would silently break the
+    `telos_get_section({metadata_filter: {processed_at: null}})` query that
+    Scout's postmortem-processing pass depends on.
+    """
+    metadata = dict(metadata or {})
+
+    if section == Section.JOURNAL and (
+        metadata.get("type") == "postmortem"
+        or metadata.get("event_type") == "postmortem"
+    ):
+        if "processed_at" not in metadata:
+            raise ValueError(
+                "postmortem journal entries must include metadata.processed_at "
+                "(initially null) — this enables the unprocessed-postmortem query"
+            )
+
     if status not in STATUS_VALUES:
         raise ValueError(f"invalid status {status!r}")
     if ref_code is None and section in REF_PREFIX:
@@ -112,7 +256,7 @@ def add_entry(
         section.value,
         ref_code,
         content,
-        json.dumps(metadata or {}),
+        json.dumps(metadata),
         status,
         sort_order,
     )
@@ -222,21 +366,51 @@ def get_entry(section: Section, ref_code: str) -> Optional[Entry]:
 def list_section(
     section: Section,
     *,
-    status: Optional[str] = "active",
+    status: Any = _OMITTED,
+    status_in: Any = _OMITTED,
     limit: Optional[int] = None,
     order_by: str = "sort_order_asc",
+    metadata_filter: Optional[Dict[str, Any]] = None,
 ) -> List[Entry]:
     """List entries in a section.
 
-    `status=None` returns all statuses. Default "active".
+    Status semantics (sentinel pattern — closes the Round 3 council blocker
+    on default-arg back-compat collision):
+      - Both omitted → `ACTIVE_EQUIVALENT` (active + lifecycle-states).
+      - `status="active"` → legacy single-status filter (back-compat).
+      - `status=None` → all statuses (back-compat for the old `status=None`).
+      - `status_in=None` → all statuses.
+      - `status_in=[...]` → explicit set filter via `status = ANY(%s)`.
+      - Both supplied with non-sentinel values → `ValueError`.
+
+    `metadata_filter`, when non-empty, adds a JSONB `WHERE metadata @> %s`
+    clause — supported by the GIN index on `metadata` (see
+    `_apply_metadata_gin_index`).
+
     `order_by` options: sort_order_asc (default), created_at_desc,
     created_at_asc.
     """
-    where = ["section = %s"]
+    if status is not _OMITTED and status_in is not _OMITTED:
+        raise ValueError("status and status_in are mutually exclusive")
+    if status is _OMITTED and status_in is _OMITTED:
+        status_in = ACTIVE_EQUIVALENT
+
+    where: List[str] = ["section = %s"]
     params: List[Any] = [section.value]
-    if status is not None:
-        where.append("status = %s")
-        params.append(status)
+
+    if status is not _OMITTED:
+        if status is not None:
+            where.append("status = %s")
+            params.append(status)
+    else:
+        if status_in is not None:
+            where.append("status = ANY(%s)")
+            params.append(list(status_in))
+
+    if metadata_filter:
+        where.append("metadata @> %s::jsonb")
+        params.append(json.dumps(metadata_filter))
+
     order_clause = {
         "sort_order_asc": "sort_order ASC, created_at ASC",
         "created_at_desc": "created_at DESC",

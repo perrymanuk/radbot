@@ -227,6 +227,15 @@ def telos_add_journal(
             metadata["event_type"] = event_type
         if related_refs:
             metadata["related_refs"] = list(related_refs)
+        # Defense-in-depth normalization for postmortem journal entries:
+        # populate the canonical `type` key alongside the legacy
+        # `event_type`, and pre-fill `processed_at: None` so the shared
+        # `db.add_entry` invariant (Item 3) accepts the row. Keeps the
+        # legacy event_type spelling working without making callers know
+        # about the new MCP `journal_add` contract.
+        if event_type == "postmortem":
+            metadata["type"] = "postmortem"
+            metadata.setdefault("processed_at", None)
         row = telos_db.add_entry(Section.JOURNAL, entry, metadata=metadata)
         return {"status": "success", "entry": _serialize_entry(row)}
 

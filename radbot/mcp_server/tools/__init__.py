@@ -1,6 +1,7 @@
 """Tool registry for the radbot MCP server.
 
-Each submodule (`telos`, `wiki`, `projects`, `tasks`, `memory`) exposes:
+Each submodule (`telos`, `wiki`, `projects`, `project_tasks`, `tasks`,
+`memory`, `journal`) exposes:
 
 - `tools() -> list[mcp.types.Tool]` — tool definitions for ListTools
 - `async call(name: str, arguments: dict) -> list[TextContent]` — dispatcher
@@ -16,9 +17,9 @@ from typing import Any
 
 from mcp import types as mcp_types
 
-from . import memory, project_tasks, projects, tasks, telos, wiki
+from . import journal, memory, project_tasks, projects, tasks, telos, wiki
 
-_MODULES = [telos, wiki, projects, project_tasks, tasks, memory]
+_MODULES = [telos, wiki, projects, project_tasks, tasks, memory, journal]
 
 
 def all_tools() -> list[mcp_types.Tool]:
