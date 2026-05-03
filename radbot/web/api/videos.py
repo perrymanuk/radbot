@@ -24,7 +24,12 @@ router = APIRouter(prefix="/api/videos", tags=["videos"])
 
 
 # ── Status mapping ───────────────────────────────────────────────────────
-# Kideo's per-video status strings → the four UI states VideoCard renders.
+# Kideo's per-video status strings → the UI states VideoCard renders.
+# Default for unmapped values is "unknown" — explicitly NOT "in_library",
+# which would silently mask actual upstream failures or pre-completion states
+# as a successful library entry.
+DEFAULT_UNKNOWN_STATUS = "unknown"
+
 _KIDEO_STATUS_MAP = {
     "ready": "in_library",
     "available": "in_library",
@@ -35,11 +40,19 @@ _KIDEO_STATUS_MAP = {
     "transcoding": "processing",
     "error": "error",
     "failed": "error",
+    "rejected": "error",
+    "cancelled": "error",
+    "expired": "error",
 }
 
 
-def _map_status(raw: Optional[str]) -> str:
-    return _KIDEO_STATUS_MAP.get((raw or "").lower(), "in_library")
+def _map_status(raw: Optional[str], default: str = DEFAULT_UNKNOWN_STATUS) -> str:
+    key = (raw or "").lower()
+    if key in _KIDEO_STATUS_MAP:
+        return _KIDEO_STATUS_MAP[key]
+    if raw:
+        logger.warning("Unmapped Kideo status %r; falling back to %r", raw, default)
+    return default
 
 
 # ── Routes ───────────────────────────────────────────────────────────────
@@ -69,10 +82,12 @@ async def get_kideo_status(url: str = Query(..., min_length=1)) -> Dict[str, Any
         logger.error("Kideo find_video_by_url failed: %s", e)
         raise HTTPException(502, f"Kideo unreachable: {e}")
     if not match:
-        return {"status": "not_added", "kideo_video_id": None}
+        return {"status": "not_added", "kideo_video_id": None, "raw_status": None}
+    raw_status = match.get("status")
     return {
-        "status": _map_status(match.get("status")),
+        "status": _map_status(raw_status),
         "kideo_video_id": match.get("id"),
+        "raw_status": raw_status,
     }
 
 
@@ -140,12 +155,19 @@ async def add_to_kideo(body: AddToKideoBody) -> Dict[str, Any]:
     if body.generate_tags and kideo_video_id:
         tags = _maybe_generate_tags(body.url, kideo_video_id)
 
+    raw_status = result.get("status")
+    # On a fresh add, treat missing/unknown status as "queued" rather than
+    # "unknown" — Kideo accepted the POST and the typical pipeline is
+    # accept → queue → download → transcode → ready, so a silent provider
+    # response almost always means queued. Known terminal failures still
+    # map via _KIDEO_STATUS_MAP.
     return {
-        "status": _map_status(result.get("status")),
+        "status": _map_status(raw_status, default="queued"),
         "kideo_video_id": kideo_video_id,
         "title": result.get("title"),
         "collection_id": body.collection_id,
         "tags": tags,
+        "raw_status": raw_status,
     }
 
 

@@ -756,7 +756,8 @@ export type VideoStatus =
   | "queued"
   | "processing"
   | "error"
-  | "not_added";
+  | "not_added"
+  | "unknown";
 
 export interface VideoCardData {
   title: string;
@@ -827,6 +828,10 @@ function VideoStatusPill({ status }: { status: VideoStatus }) {
     },
     not_added: {
       label: "NOT IN KIDEO",
+      color: "text-txt-secondary border-border bg-bg-tertiary",
+    },
+    unknown: {
+      label: "STATUS UNKNOWN",
       color: "text-txt-secondary border-border bg-bg-tertiary",
     },
   };
