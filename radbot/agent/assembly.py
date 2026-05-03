@@ -63,7 +63,7 @@ from radbot.config import config_manager
 from radbot.config.config_loader import config_loader
 from radbot.memory.qdrant_memory import QdrantMemoryService
 from radbot.tools.memory.agent_memory_factory import create_agent_memory_tools
-from radbot.tools.telos import TELOS_TOOLS, inject_telos_context
+from radbot.tools.telos import TELOS_TOOLS
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +314,6 @@ def _build_beto(sub_agents: List[Agent]) -> Agent:
             scrub_empty_content_before_model,
             sanitize_before_model_callback,
             sanitize_tool_schemas_before_model,
-            inject_telos_context,
         ],
         after_model_callback=[
             handle_empty_response_after_model,

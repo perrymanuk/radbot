@@ -1,0 +1,210 @@
+{
+  "telos_get_entry_responses": {
+    "goals:G1": {
+      "entry": {
+        "content": "Ship telos",
+        "metadata": {},
+        "ref_code": "G1",
+        "section": "goals",
+        "status": "active"
+      },
+      "status": "success"
+    },
+    "identity:ME": {
+      "entry": {
+        "content": "Perry, Austin, builds agents.",
+        "metadata": {},
+        "ref_code": "ME",
+        "section": "identity",
+        "status": "active"
+      },
+      "status": "success"
+    },
+    "mission:M1": {
+      "entry": {
+        "content": "Make radbot self-aware.",
+        "metadata": {},
+        "ref_code": "M1",
+        "section": "mission",
+        "status": "active"
+      },
+      "status": "success"
+    },
+    "projects:PRJ1": {
+      "entry": {
+        "content": "Personal AI agent stack",
+        "metadata": {},
+        "ref_code": "PRJ1",
+        "section": "projects",
+        "status": "active"
+      },
+      "status": "success"
+    }
+  },
+  "telos_get_full_parsed": [
+    {
+      "content": "Ship telos",
+      "ref_code": "G1",
+      "section": "goals"
+    },
+    {
+      "content": "Sleep 8h",
+      "ref_code": "G2",
+      "section": "goals"
+    },
+    {
+      "content": "Perry, Austin, builds agents.",
+      "ref_code": "ME",
+      "section": "identity"
+    },
+    {
+      "content": "Shipped Item 6",
+      "ref_code": null,
+      "section": "journal"
+    },
+    {
+      "content": "Wrote the Telos spec",
+      "ref_code": null,
+      "section": "journal"
+    },
+    {
+      "content": "Make radbot self-aware.",
+      "ref_code": "M1",
+      "section": "mission"
+    },
+    {
+      "content": "agents forget who the user is",
+      "ref_code": "P1",
+      "section": "problems"
+    },
+    {
+      "content": "context windows are not free",
+      "ref_code": "P2",
+      "section": "problems"
+    },
+    {
+      "content": "Personal AI agent stack",
+      "ref_code": "PRJ1",
+      "section": "projects"
+    },
+    {
+      "content": "the magic is in the work you're avoiding",
+      "ref_code": "W1",
+      "section": "wisdom"
+    }
+  ],
+  "telos_get_section_responses": {
+    "goals": {
+      "entries": [
+        {
+          "content": "Ship telos",
+          "metadata": {},
+          "ref_code": "G1",
+          "section": "goals",
+          "status": "active"
+        },
+        {
+          "content": "Sleep 8h",
+          "metadata": {},
+          "ref_code": "G2",
+          "section": "goals",
+          "status": "active"
+        }
+      ],
+      "section": "goals",
+      "status": "success"
+    },
+    "identity": {
+      "entries": [
+        {
+          "content": "Perry, Austin, builds agents.",
+          "metadata": {},
+          "ref_code": "ME",
+          "section": "identity",
+          "status": "active"
+        }
+      ],
+      "section": "identity",
+      "status": "success"
+    },
+    "journal": {
+      "entries": [
+        {
+          "content": "Wrote the Telos spec",
+          "metadata": {},
+          "ref_code": null,
+          "section": "journal",
+          "status": "active"
+        },
+        {
+          "content": "Shipped Item 6",
+          "metadata": {},
+          "ref_code": null,
+          "section": "journal",
+          "status": "active"
+        }
+      ],
+      "section": "journal",
+      "status": "success"
+    },
+    "mission": {
+      "entries": [
+        {
+          "content": "Make radbot self-aware.",
+          "metadata": {},
+          "ref_code": "M1",
+          "section": "mission",
+          "status": "active"
+        }
+      ],
+      "section": "mission",
+      "status": "success"
+    },
+    "problems": {
+      "entries": [
+        {
+          "content": "agents forget who the user is",
+          "metadata": {},
+          "ref_code": "P1",
+          "section": "problems",
+          "status": "active"
+        },
+        {
+          "content": "context windows are not free",
+          "metadata": {},
+          "ref_code": "P2",
+          "section": "problems",
+          "status": "active"
+        }
+      ],
+      "section": "problems",
+      "status": "success"
+    },
+    "projects": {
+      "entries": [
+        {
+          "content": "Personal AI agent stack",
+          "metadata": {},
+          "ref_code": "PRJ1",
+          "section": "projects",
+          "status": "active"
+        }
+      ],
+      "section": "projects",
+      "status": "success"
+    },
+    "wisdom": {
+      "entries": [
+        {
+          "content": "the magic is in the work you're avoiding",
+          "metadata": {},
+          "ref_code": "W1",
+          "section": "wisdom",
+          "status": "active"
+        }
+      ],
+      "section": "wisdom",
+      "status": "success"
+    }
+  }
+}

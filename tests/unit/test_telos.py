@@ -296,23 +296,84 @@ class TestInjectTelosContext:
 
 
 class TestAgentWiring:
-    def test_callback_on_beto_only(self):
-        """inject_telos_context should be in root agent's before_model_callback,
-        and absent from the shared sub-agent _before_cbs."""
+    """Item 6 (2026-05-03) — `inject_telos_context` is retired from beto's
+    callback chain. Only scout-as-root receives it. No sub-agent receives it.
+
+    Producer-side marker pinning anchored to the ACTUAL markers emitted by
+    `build_telos_tiers()` (`"TELOS ANCHOR"` for the anchor, `"USER CONTEXT
+    (Telos)"` for the full block) — the spec's hypothetical `"## Mission"` /
+    `"## Identity"` / `"ME:"` literals never existed in `loader.py`.
+    Anchoring to real markers means a future rename of either the producer
+    headers OR the consumer absence checks fails the same test, alerting
+    the implementer that the two sides drifted.
+    """
+
+    def test_inject_telos_context_NOT_on_beto(self):
+        """beto.before_model_callback must not contain inject_telos_context."""
         from radbot.agent.assembly import build_default_assembly
 
-        core_assembly = build_default_assembly()
-        core_root = core_assembly.root_agent
+        core_root = build_default_assembly().root_agent
+        before = core_root.before_model_callback or []
+        assert (
+            inject_telos_context not in before
+        ), "inject_telos_context regressed back onto beto — Item 6 retirement"
 
-        assert inject_telos_context in core_root.before_model_callback
+    def test_inject_telos_context_on_scout_as_root(self):
+        """scout-as-root is the SOLE consumer of inject_telos_context."""
+        from radbot.agent.assembly import build_default_assembly
 
-        # Sub-agents use _before_cbs (name is module-private but stable).
-        # Each sub-agent's before_model_callback should not contain our callback.
+        assembly = build_default_assembly()
+        scout_root = assembly.root_agents.get("scout")
+        assert (
+            scout_root is not None
+        ), "scout-as-root not registered in assembly.root_agents"
+        before = scout_root.before_model_callback or []
+        assert inject_telos_context in before, (
+            "inject_telos_context missing from scout-as-root's callback chain — "
+            "see radbot/agent/research_agent/factory.py:217-242"
+        )
+
+    def test_no_subagent_receives_inject_telos_context(self):
+        """Sub-agents are tool executors — they should never receive Telos context."""
+        from radbot.agent.assembly import build_default_assembly
+
+        core_root = build_default_assembly().root_agent
         for sa in core_root.sub_agents:
             before = sa.before_model_callback or []
             assert (
                 inject_telos_context not in before
             ), f"inject_telos_context leaked into sub-agent {sa.name}"
+
+    def test_producer_emits_consumer_check_markers(self):
+        """build_telos_tiers() must emit literal markers the consumer absence
+        tests rely on. If a future rename moves these in `loader.py`, this
+        test fails first — alerting the implementer that the consumer-side
+        AC checks must be updated in the same PR.
+        """
+        grouped = {s: [] for s in Section}
+        grouped[Section.IDENTITY] = [
+            _fake_entry(Section.IDENTITY, "Perry, Austin, builds agents", "ME")
+        ]
+        grouped[Section.MISSION] = [
+            _fake_entry(Section.MISSION, "Make radbot self-aware", "M1")
+        ]
+        grouped[Section.GOALS] = [_fake_entry(Section.GOALS, "Ship telos", "G1")]
+        with (
+            patch.object(
+                telos_loader.telos_db, "list_all_active", return_value=grouped
+            ),
+            patch.object(telos_loader.telos_db, "recent_journal", return_value=[]),
+        ):
+            anchor, full_block = telos_loader.build_telos_tiers()
+
+        # Anchor markers
+        assert "TELOS ANCHOR" in anchor, "anchor lost the 'TELOS ANCHOR' header literal"
+        # Full-block markers
+        assert (
+            "USER CONTEXT (Telos)" in full_block
+        ), "full block lost the 'USER CONTEXT (Telos)' header literal"
+        assert "IDENTITY:" in full_block, "full block lost 'IDENTITY:' section header"
+        assert "MISSION:" in full_block, "full block lost 'MISSION:' section header"
 
     def test_telos_tools_on_beto(self):
         """Telos tools should be registered on beto's tool list."""
