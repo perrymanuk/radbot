@@ -151,8 +151,8 @@ Powers the ADD TO KIDEO button + library-status pill on kidsvid's `<VideoCard />
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/api/videos/collections` | Kideo collections for the picker dropdown |
-| `GET` | `/api/videos/kideo-status?url=X` | Library status for a video URL (`in_library` / `queued` / `processing` / `not_added`) |
-| `POST` | `/api/videos/add-to-kideo` | `{url, collection_id?, generate_tags?}` — adds + (best-effort) AI-tags YouTube videos |
+| `GET` | `/api/videos/kideo-status?url=X` | Library status for a video URL (`in_library` / `queued` / `processing` / `error` / `not_added` / `unknown`). Response also echoes `raw_status` from Kideo so future drift is visible. Unmapped raw values fall through to `unknown` (NOT `in_library`) and log a WARNING. |
+| `POST` | `/api/videos/add-to-kideo` | `{url, collection_id?, generate_tags?}` — adds + (best-effort) AI-tags YouTube videos. Response echoes `raw_status`; missing/unmapped raw status defaults to `queued` on this path (a successful POST means Kideo accepted the add) while still logging a WARNING for unmapped values. |
 
 ## Per-Session Token Stats (2026-04-18)
 

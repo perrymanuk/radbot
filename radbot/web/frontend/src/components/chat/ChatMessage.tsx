@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Message } from "@/types";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,105 @@ import InboxSummary, {
 } from "@/components/chat/InboxSummary";
 import { agentFor, type AgentIdentity } from "@/components/chat/agent-registry";
 import { useAppStore } from "@/stores/app-store";
+
+// MUST stay at module scope. ReactMarkdown remounts the entire markdown
+// subtree whenever `components` is a new reference, which destroys local
+// useState in any rendered card (e.g. VideoCard's collection picker).
+// All renderers below must remain pure functions of their args — no
+// closure over component-scope props or state.
+const MARKDOWN_COMPONENTS: Components = {
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  code: ({ className, children, ...props }) => {
+    const isBlock = className?.includes("language-");
+    if (isBlock) {
+      const codeText = String(children).replace(/\n$/, "");
+
+      // Agent-card render protocol: ```radbot:<kind>\n{json}\n```
+      const radbotKind = className?.match(/language-radbot:(\S+)/)?.[1];
+      if (radbotKind) {
+        try {
+          const data = JSON.parse(codeText);
+          switch (radbotKind) {
+            case "media":
+              return <MediaCard m={data as MediaCardData} />;
+            case "seasons":
+              return <SeasonBreakdownCard data={data as SeasonBreakdownData} />;
+            case "ha-device":
+              return <HaDeviceCard d={data as HaDevice} />;
+            case "video":
+              return <VideoCard v={data as VideoCardData} />;
+            case "handoff":
+              return <HandoffLine handoff={data as HandoffInfo} />;
+            case "inbox":
+              return <InboxSummary s={data as InboxSummaryData} />;
+            default:
+              // fall through to default code rendering
+          }
+        } catch {
+          // Invalid JSON — fall through to show raw block.
+        }
+      }
+
+      return (
+        <pre className="bg-black/70 p-3 my-3 border border-border overflow-x-auto relative group/code">
+          <span className="absolute top-0 right-0 text-terminal-amber text-[0.7rem] bg-black/70 px-1.5 py-0.5 tracking-wider">
+            {className?.replace("language-", "").toUpperCase() ?? "OUTPUT"}
+          </span>
+          <CopyButton text={codeText} />
+          <code
+            className={cn(
+              "bg-transparent p-0 border-none text-txt-primary text-[0.85rem] block leading-relaxed",
+              className,
+            )}
+            {...props}
+          >
+            {children}
+          </code>
+        </pre>
+      );
+    }
+    return (
+      <code
+        className="font-mono bg-black/30 px-1 py-0.5 text-[0.85em] text-accent-blue border-l border-accent-blue"
+        {...props}
+      >
+        {children}
+      </code>
+    );
+  },
+  pre: ({ children }) => <>{children}</>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-accent-blue underline hover:text-accent-blue/80 focus:outline-none focus:ring-1 focus:ring-accent-blue"
+    >
+      {children}
+    </a>
+  ),
+  ul: ({ children }) => <ul className="list-disc list-inside ml-3 my-2 space-y-1">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal list-inside ml-3 my-2 space-y-1">{children}</ol>,
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-2 border-accent-blue pl-3 my-2 text-txt-secondary italic">
+      {children}
+    </blockquote>
+  ),
+  h1: ({ children }) => <span className="text-lg font-bold text-accent-blue block mt-3 mb-1.5">{children}</span>,
+  h2: ({ children }) => <span className="text-base font-bold text-accent-blue block mt-3 mb-1.5">{children}</span>,
+  h3: ({ children }) => <span className="text-sm font-bold text-accent-blue block mt-2 mb-1">{children}</span>,
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-2">
+      <table className="border-collapse border border-border text-sm w-full">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="border border-border bg-bg-tertiary px-2 py-1.5 text-left text-accent-blue">{children}</th>
+  ),
+  td: ({ children }) => <td className="border border-border px-2 py-1.5">{children}</td>,
+  strong: ({ children }) => <strong className="font-bold text-terminal-amber">{children}</strong>,
+};
 
 interface Props {
   message: Message;
@@ -238,102 +338,7 @@ export default function ChatMessage({ message }: Props) {
       <div className="font-sans text-txt-primary text-[0.8125rem] sm:text-[0.875rem] leading-[1.55] [overflow-wrap:anywhere]">
         {thoughts && <ThoughtCard text={thoughts} />}
         <CollapsibleContent lineCount={lineCount}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-              code: ({ className, children, ...props }) => {
-                const isBlock = className?.includes("language-");
-                if (isBlock) {
-                  const codeText = String(children).replace(/\n$/, "");
-
-                  // Agent-card render protocol: ```radbot:<kind>\n{json}\n```
-                  const radbotKind = className?.match(/language-radbot:(\S+)/)?.[1];
-                  if (radbotKind) {
-                    try {
-                      const data = JSON.parse(codeText);
-                      switch (radbotKind) {
-                        case "media":
-                          return <MediaCard m={data as MediaCardData} />;
-                        case "seasons":
-                          return <SeasonBreakdownCard data={data as SeasonBreakdownData} />;
-                        case "ha-device":
-                          return <HaDeviceCard d={data as HaDevice} />;
-                        case "video":
-                          return <VideoCard v={data as VideoCardData} />;
-                        case "handoff":
-                          return <HandoffLine handoff={data as HandoffInfo} />;
-                        case "inbox":
-                          return <InboxSummary s={data as InboxSummaryData} />;
-                        default:
-                          // fall through to default code rendering
-                      }
-                    } catch {
-                      // Invalid JSON — fall through to show raw block.
-                    }
-                  }
-
-                  return (
-                    <pre className="bg-black/70 p-3 my-3 border border-border overflow-x-auto relative group/code">
-                      <span className="absolute top-0 right-0 text-terminal-amber text-[0.7rem] bg-black/70 px-1.5 py-0.5 tracking-wider">
-                        {className?.replace("language-", "").toUpperCase() ?? "OUTPUT"}
-                      </span>
-                      <CopyButton text={codeText} />
-                      <code
-                        className={cn(
-                          "bg-transparent p-0 border-none text-txt-primary text-[0.85rem] block leading-relaxed",
-                          className,
-                        )}
-                        {...props}
-                      >
-                        {children}
-                      </code>
-                    </pre>
-                  );
-                }
-                return (
-                  <code
-                    className="font-mono bg-black/30 px-1 py-0.5 text-[0.85em] text-accent-blue border-l border-accent-blue"
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                );
-              },
-              pre: ({ children }) => <>{children}</>,
-              a: ({ href, children }) => (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent-blue underline hover:text-accent-blue/80 focus:outline-none focus:ring-1 focus:ring-accent-blue"
-                >
-                  {children}
-                </a>
-              ),
-              ul: ({ children }) => <ul className="list-disc list-inside ml-3 my-2 space-y-1">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal list-inside ml-3 my-2 space-y-1">{children}</ol>,
-              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-              blockquote: ({ children }) => (
-                <blockquote className="border-l-2 border-accent-blue pl-3 my-2 text-txt-secondary italic">
-                  {children}
-                </blockquote>
-              ),
-              h1: ({ children }) => <span className="text-lg font-bold text-accent-blue block mt-3 mb-1.5">{children}</span>,
-              h2: ({ children }) => <span className="text-base font-bold text-accent-blue block mt-3 mb-1.5">{children}</span>,
-              h3: ({ children }) => <span className="text-sm font-bold text-accent-blue block mt-2 mb-1">{children}</span>,
-              table: ({ children }) => (
-                <div className="overflow-x-auto my-2">
-                  <table className="border-collapse border border-border text-sm w-full">{children}</table>
-                </div>
-              ),
-              th: ({ children }) => (
-                <th className="border border-border bg-bg-tertiary px-2 py-1.5 text-left text-accent-blue">{children}</th>
-              ),
-              td: ({ children }) => <td className="border border-border px-2 py-1.5">{children}</td>,
-              strong: ({ children }) => <strong className="font-bold text-terminal-amber">{children}</strong>,
-            }}
-          >
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
             {bodyContent}
           </ReactMarkdown>
         </CollapsibleContent>
