@@ -11,10 +11,29 @@ Children all live in the single `telos_entries` table in sections
 `milestones`, `project_tasks`, `explorations`. Their ownership is stored
 as `metadata.parent_project` (+ optional `metadata.parent_milestone`
 for tasks). Never hard-deletes — archive only.
+
+Return contract (Item 0.b.iv of the council-loop-polish EX). The four
+creation handlers — `_do_task_add`, `_do_exploration_add`,
+`_do_milestone_add`, and the new `_do_journal_add` (in `journal.py`) —
+return JSON `TextContent`:
+
+    {"status": "success", "ref_code": "<NEW>", "entry_id": "<uuid>",
+     "section": "<section>"}
+
+Errors return JSON too:
+
+    {"status": "error", "message": "<reason>"}
+
+The four `*_update` handlers + `journal_update` use the same JSON `_err`
+envelope so chained callers can branch on `payload["status"]` after
+`json.loads(response.text)` without try/except + heuristic detection.
+The terminal operations (`*_complete`, `*_archive`) keep human-readable
+text returns — callers there already know the ref_code.
 """
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -22,15 +41,25 @@ from mcp import types as mcp_types
 
 _VALID_TASK_STATUSES = {"backlog", "inprogress", "done"}
 
+# Whitelist keys the typed schema fields drive — they overlay any
+# `metadata_merge` value supplied by the caller (silent collision; council
+# 3-of-3 consensus to keep silent rather than error, for LLM tool-call
+# ergonomics).
+_TASK_WHITELIST_KEYS = ("title", "category", "task_status", "parent_milestone")
+
 
 def tools() -> list[mcp_types.Tool]:
+    from radbot.tools.telos.models import STATUS_VALUES
+
+    sorted_status = sorted(STATUS_VALUES)
     return [
         mcp_types.Tool(
             name="milestone_add",
             description=(
                 "Add a milestone under a project. Auto-assigns an `MS<N>` "
                 "ref_code. `deadline` is optional ISO date. `details` is "
-                "appended below the title in content."
+                "appended below the title in content. Returns JSON: "
+                "`{status, ref_code, entry_id, section}`."
             ),
             inputSchema={
                 "type": "object",
@@ -42,6 +71,15 @@ def tools() -> list[mcp_types.Tool]:
                     "title": {"type": "string"},
                     "deadline": {"type": "string"},
                     "details": {"type": "string"},
+                    "metadata_merge": {
+                        "type": "object",
+                        "description": (
+                            "Extra keys to attach to `metadata` at creation. "
+                            "Whitelist keys (parent_project, deadline) win on "
+                            "collision."
+                        ),
+                        "additionalProperties": True,
+                    },
                 },
                 "required": ["parent_project", "title"],
                 "additionalProperties": False,
@@ -70,7 +108,9 @@ def tools() -> list[mcp_types.Tool]:
                 "Create a project task under an existing project (and "
                 "optionally a milestone). Auto-assigns a `PT<N>` ref_code. "
                 "`task_status` ∈ backlog / inprogress / done, default "
-                "backlog."
+                "backlog. `metadata_merge` attaches arbitrary metadata "
+                "atomically at creation (whitelist keys win on collision). "
+                "Returns JSON: `{status, ref_code, entry_id, section}`."
             ),
             inputSchema={
                 "type": "object",
@@ -84,6 +124,15 @@ def tools() -> list[mcp_types.Tool]:
                         "type": "string",
                         "enum": ["backlog", "inprogress", "done"],
                     },
+                    "metadata_merge": {
+                        "type": "object",
+                        "description": (
+                            "Extra keys to attach to `metadata` at creation. "
+                            "Whitelist keys (title, category, task_status, "
+                            "parent_milestone, parent_project) win on collision."
+                        ),
+                        "additionalProperties": True,
+                    },
                 },
                 "required": ["parent_project", "description"],
                 "additionalProperties": False,
@@ -92,9 +141,11 @@ def tools() -> list[mcp_types.Tool]:
         mcp_types.Tool(
             name="task_update",
             description=(
-                "Update a project task in place. `description` replaces "
-                "content; other fields shallow-merge into metadata. Pass "
-                "an empty string to clear an optional field."
+                "Update a project task in place. `description` (optional) "
+                "replaces content when present and non-whitespace; absent "
+                "= leave body unchanged. Whitelisted fields shallow-merge "
+                "into metadata; whitelist keys win on collision with "
+                "`metadata_merge`."
             ),
             inputSchema={
                 "type": "object",
@@ -108,6 +159,15 @@ def tools() -> list[mcp_types.Tool]:
                         "enum": ["backlog", "inprogress", "done"],
                     },
                     "parent_milestone": {"type": "string"},
+                    "metadata_merge": {
+                        "type": "object",
+                        "description": (
+                            "Extra keys to merge into `metadata`. "
+                            "Whitelist keys (title, category, task_status, "
+                            "parent_milestone) win on collision."
+                        ),
+                        "additionalProperties": True,
+                    },
                 },
                 "required": ["ref_code"],
                 "additionalProperties": False,
@@ -148,7 +208,12 @@ def tools() -> list[mcp_types.Tool]:
             description=(
                 "Record an open exploration / research thread under a "
                 "project. Auto-assigns an `EX<N>` ref_code. `notes` is "
-                "appended below the topic in content."
+                "appended below the topic in content. Optional `status` "
+                "lets Scout create the row directly in a lifecycle state "
+                "(e.g. `proposed`); defaults to `active` for back-compat. "
+                "`metadata_merge` attaches arbitrary metadata atomically "
+                "(whitelist key `parent_project` wins on collision). "
+                "Returns JSON: `{status, ref_code, entry_id, section}`."
             ),
             inputSchema={
                 "type": "object",
@@ -156,6 +221,18 @@ def tools() -> list[mcp_types.Tool]:
                     "parent_project": {"type": "string"},
                     "topic": {"type": "string"},
                     "notes": {"type": "string"},
+                    "status": {
+                        "type": "string",
+                        "enum": sorted_status,
+                    },
+                    "metadata_merge": {
+                        "type": "object",
+                        "description": (
+                            "Extra keys to attach to `metadata` at creation. "
+                            "Whitelist key `parent_project` wins on collision."
+                        ),
+                        "additionalProperties": True,
+                    },
                 },
                 "required": ["parent_project", "topic"],
                 "additionalProperties": False,
@@ -164,11 +241,13 @@ def tools() -> list[mcp_types.Tool]:
         mcp_types.Tool(
             name="exploration_update",
             description=(
-                "Update an exploration in place. `content` (required) "
-                "replaces the exploration's body — typically the full "
-                "5-role plan markdown, often with a `## Council Review` "
-                "trailer. Other fields shallow-merge into metadata. Pass "
-                "empty string to clear an optional field."
+                "Update an exploration in place. `content` (optional) "
+                "replaces the body when present and non-whitespace; absent "
+                "= leave body unchanged; empty/whitespace = error. "
+                "`status` flips lifecycle state (validated against the "
+                "extended STATUS_VALUES set). Whitelisted fields shallow-"
+                "merge into metadata; whitelist keys win on collision with "
+                "`metadata_merge`."
             ),
             inputSchema={
                 "type": "object",
@@ -177,8 +256,21 @@ def tools() -> list[mcp_types.Tool]:
                     "content": {"type": "string"},
                     "parent_project": {"type": "string"},
                     "parent_milestone": {"type": "string"},
+                    "status": {
+                        "type": "string",
+                        "enum": sorted_status,
+                    },
+                    "metadata_merge": {
+                        "type": "object",
+                        "description": (
+                            "Extra keys to merge into `metadata`. "
+                            "Whitelist keys (parent_project, "
+                            "parent_milestone) win on collision."
+                        ),
+                        "additionalProperties": True,
+                    },
                 },
-                "required": ["ref_code", "content"],
+                "required": ["ref_code"],
                 "additionalProperties": False,
             },
         ),
@@ -206,14 +298,7 @@ def tools() -> list[mcp_types.Tool]:
 
 async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextContent]:
     if name == "milestone_add":
-        return [
-            _do_milestone_add(
-                arguments["parent_project"],
-                arguments["title"],
-                arguments.get("deadline"),
-                arguments.get("details"),
-            )
-        ]
+        return [_do_milestone_add(arguments)]
     if name == "milestone_complete":
         return [
             _do_milestone_complete(
@@ -235,13 +320,7 @@ async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextConte
             )
         ]
     if name == "exploration_add":
-        return [
-            _do_exploration_add(
-                arguments["parent_project"],
-                arguments["topic"],
-                arguments.get("notes"),
-            )
-        ]
+        return [_do_exploration_add(arguments)]
     if name == "exploration_update":
         return [_do_exploration_update(arguments)]
     if name == "exploration_archive":
@@ -259,8 +338,47 @@ async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextConte
 # ---------------------------------------------------------------------------
 
 
-def _err(msg: str) -> mcp_types.TextContent:
+def _text_err(msg: str) -> mcp_types.TextContent:
+    """Plain-text error for terminal operations whose callers already know
+    the ref_code (`*_complete`, `*_archive`, `milestone_complete`)."""
     return mcp_types.TextContent(type="text", text=f"**Error:** {msg}")
+
+
+def _json_err(msg: str) -> mcp_types.TextContent:
+    """JSON error envelope for `*_add` and `*_update` handlers — uniform
+    with the success contract so chained callers can branch on
+    `json.loads(response.text)["status"]` without try/except."""
+    return mcp_types.TextContent(
+        type="text", text=json.dumps({"status": "error", "message": msg})
+    )
+
+
+def _json_ok_add(row: Any) -> mcp_types.TextContent:
+    """Structured success envelope for the four `*_add` handlers
+    (Item 0.b.iv contract)."""
+    payload = {
+        "status": "success",
+        "ref_code": row.ref_code,
+        "entry_id": str(row.entry_id) if row.entry_id else None,
+        "section": row.section.value,
+    }
+    return mcp_types.TextContent(type="text", text=json.dumps(payload))
+
+
+def _json_ok_update(ref_code: str, **extras: Any) -> mcp_types.TextContent:
+    """Structured success envelope for `*_update` handlers.
+
+    Envelope key is `status: "success"` — same shape as the *_add contract
+    (Item 0.b.iv) so consumers can branch on `payload["status"]` uniformly
+    across every write tool. Any `status` key in extras is renamed to
+    `entry_status` so the echoed lifecycle value never collides with the
+    envelope discriminator.
+    """
+    payload: dict[str, Any] = {"status": "success", "ref_code": ref_code}
+    if "status" in extras:
+        extras["entry_status"] = extras.pop("status")
+    payload.update(extras)
+    return mcp_types.TextContent(type="text", text=json.dumps(payload))
 
 
 def _now_iso() -> str:
@@ -273,7 +391,7 @@ def _require_project(ref_code: str):
 
     project = telos_db.get_entry(Section.PROJECTS, ref_code)
     if project is None:
-        return None, _err(f"No Telos project with ref_code `{ref_code}`.")
+        return None, _json_err(f"No Telos project with ref_code `{ref_code}`.")
     return project, None
 
 
@@ -283,35 +401,65 @@ def _require_milestone(ref_code: str):
 
     row = telos_db.get_entry(Section.MILESTONES, ref_code)
     if row is None:
-        return None, _err(f"No milestone with ref_code `{ref_code}`.")
+        return None, _json_err(f"No milestone with ref_code `{ref_code}`.")
     return row, None
 
 
-def _do_milestone_add(
-    parent_project: str, title: str, deadline: str | None, details: str | None
-) -> mcp_types.TextContent:
+def _validate_status(value: str | None):
+    """Validate a `status` argument against the extended `STATUS_VALUES`
+    set. Returns `(value, None)` on pass, `(None, error_TextContent)` on
+    fail."""
+    from radbot.tools.telos.models import STATUS_VALUES
+
+    if value is None:
+        return None, None
+    if value not in STATUS_VALUES:
+        return None, _json_err(
+            f"invalid status {value!r}. valid: {sorted(STATUS_VALUES)}."
+        )
+    return value, None
+
+
+def _merge_with_whitelist(
+    caller_metadata: dict[str, Any] | None,
+    whitelist_metadata: dict[str, Any],
+) -> dict[str, Any]:
+    """Combine caller-supplied `metadata_merge` with the typed-field-derived
+    whitelist dict. Per the load-bearing precedence rule (Item 0.b.iii), the
+    whitelist keys WIN on collision — silently. Tests cover both no-collision
+    survival and silent-collision paths."""
+    combined: dict[str, Any] = {}
+    if caller_metadata:
+        combined.update(caller_metadata)
+    combined.update(whitelist_metadata)
+    return combined
+
+
+def _do_milestone_add(arguments: dict[str, Any]) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import Section
 
+    parent_project = arguments["parent_project"]
+    title = arguments.get("title")
+    deadline = arguments.get("deadline")
+    details = arguments.get("details")
+    caller_meta = arguments.get("metadata_merge")
+
     clean_title = (title or "").strip()
     if not clean_title:
-        return _err("`title` is required and must not be whitespace.")
+        return _json_err("`title` is required and must not be whitespace.")
     _p, err = _require_project(parent_project)
     if err is not None:
         return err
 
     content = clean_title if not details else f"{clean_title}\n\n{details}"
-    metadata: dict[str, Any] = {"parent_project": parent_project}
+    whitelist: dict[str, Any] = {"parent_project": parent_project}
     if deadline:
-        metadata["deadline"] = deadline
+        whitelist["deadline"] = deadline
+    metadata = _merge_with_whitelist(caller_meta, whitelist)
+
     row = telos_db.add_entry(Section.MILESTONES, content, metadata=metadata)
-    return mcp_types.TextContent(
-        type="text",
-        text=(
-            f"Added milestone `{row.ref_code}` under `{parent_project}` — "
-            f"{clean_title!r}"
-        ),
-    )
+    return _json_ok_add(row)
 
 
 def _do_milestone_complete(
@@ -330,7 +478,7 @@ def _do_milestone_complete(
         metadata_merge=meta,
     )
     if row is None:
-        return _err(f"No milestone with ref_code `{ref_code}`.")
+        return _text_err(f"No milestone with ref_code `{ref_code}`.")
     bits = [f"completed_at={meta['completed_at']}"]
     if resolution:
         bits.append(f"resolution={resolution!r}")
@@ -347,7 +495,7 @@ def _do_task_add(arguments: dict[str, Any]) -> mcp_types.TextContent:
     description = (arguments.get("description") or "").strip()
     parent_project = arguments["parent_project"]
     if not description:
-        return _err("`description` is required and must not be whitespace.")
+        return _json_err("`description` is required and must not be whitespace.")
     _p, err = _require_project(parent_project)
     if err is not None:
         return err
@@ -360,31 +508,26 @@ def _do_task_add(arguments: dict[str, Any]) -> mcp_types.TextContent:
 
     task_status = arguments.get("task_status") or "backlog"
     if task_status not in _VALID_TASK_STATUSES:
-        return _err(
+        return _json_err(
             f"invalid task_status {task_status!r}. "
             f"valid: {sorted(_VALID_TASK_STATUSES)}."
         )
 
-    metadata: dict[str, Any] = {
+    whitelist: dict[str, Any] = {
         "parent_project": parent_project,
         "task_status": task_status,
     }
     if parent_milestone:
-        metadata["parent_milestone"] = parent_milestone
+        whitelist["parent_milestone"] = parent_milestone
     if arguments.get("title"):
-        metadata["title"] = arguments["title"]
+        whitelist["title"] = arguments["title"]
     if arguments.get("category"):
-        metadata["category"] = arguments["category"]
+        whitelist["category"] = arguments["category"]
+
+    metadata = _merge_with_whitelist(arguments.get("metadata_merge"), whitelist)
 
     row = telos_db.add_entry(Section.PROJECT_TASKS, description, metadata=metadata)
-    return mcp_types.TextContent(
-        type="text",
-        text=(
-            f"Added task `{row.ref_code}` under `{parent_project}`"
-            + (f" / `{parent_milestone}`" if parent_milestone else "")
-            + f" — status={task_status}"
-        ),
-    )
+    return _json_ok_add(row)
 
 
 def _do_task_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
@@ -393,29 +536,34 @@ def _do_task_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
 
     ref_code = arguments["ref_code"]
     content: str | None = None
-    description = arguments.get("description")
-    if description is not None:
-        clean = description.strip()
-        if not clean:
-            return _err("`description` must not be whitespace if provided.")
-        content = clean
+    if "description" in arguments:
+        description = arguments["description"]
+        if description is None or (
+            isinstance(description, str) and not description.strip()
+        ):
+            return _json_err(
+                "description must not be whitespace if supplied; "
+                "omit the key to leave body unchanged."
+            )
+        content = description.strip()
 
-    meta: dict[str, Any] = {}
-    for key in ("title", "category", "task_status", "parent_milestone"):
+    whitelist: dict[str, Any] = {}
+    for key in _TASK_WHITELIST_KEYS:
         if key in arguments and arguments[key] is not None:
             value = arguments[key]
             if key == "task_status" and value and value not in _VALID_TASK_STATUSES:
-                return _err(
+                return _json_err(
                     f"invalid task_status {value!r}. "
                     f"valid: {sorted(_VALID_TASK_STATUSES)}."
                 )
-            # Empty string → remove key via shallow JSONB merge with null.
-            meta[key] = value if value != "" else None
+            whitelist[key] = value if value != "" else None
 
-    if meta.get("parent_milestone"):
-        _ms, err = _require_milestone(meta["parent_milestone"])
+    if whitelist.get("parent_milestone"):
+        _ms, err = _require_milestone(whitelist["parent_milestone"])
         if err is not None:
             return err
+
+    meta = _merge_with_whitelist(arguments.get("metadata_merge"), whitelist)
 
     row = telos_db.update_entry(
         Section.PROJECT_TASKS,
@@ -424,17 +572,9 @@ def _do_task_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
         metadata_merge=meta or None,
     )
     if row is None:
-        return _err(f"No task with ref_code `{ref_code}`.")
-    bits: list[str] = []
-    if content is not None:
-        bits.append("description updated")
-    if meta:
-        bits.append(f"metadata_merge={meta}")
-    if not bits:
-        bits.append("no-op")
-    return mcp_types.TextContent(
-        type="text",
-        text=f"Updated task `{ref_code}` — {' · '.join(bits)}",
+        return _json_err(f"No task with ref_code `{ref_code}`.")
+    return _json_ok_update(
+        ref_code, content_updated=content is not None, metadata_merge=meta
     )
 
 
@@ -448,7 +588,7 @@ def _do_task_complete(ref_code: str) -> mcp_types.TextContent:
         metadata_merge={"task_status": "done", "completed_at": _now_iso()},
     )
     if row is None:
-        return _err(f"No task with ref_code `{ref_code}`.")
+        return _text_err(f"No task with ref_code `{ref_code}`.")
     return mcp_types.TextContent(type="text", text=f"Completed task `{ref_code}`.")
 
 
@@ -458,35 +598,40 @@ def _do_task_archive(ref_code: str, reason: str | None) -> mcp_types.TextContent
 
     ok = telos_db.archive_entry(Section.PROJECT_TASKS, ref_code, reason=reason or None)
     if not ok:
-        return _err(f"No task with ref_code `{ref_code}`.")
+        return _text_err(f"No task with ref_code `{ref_code}`.")
     tail = f" (reason: {reason})" if reason else ""
     return mcp_types.TextContent(type="text", text=f"Archived task `{ref_code}`.{tail}")
 
 
-def _do_exploration_add(
-    parent_project: str, topic: str, notes: str | None
-) -> mcp_types.TextContent:
+def _do_exploration_add(arguments: dict[str, Any]) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import Section
 
+    parent_project = arguments["parent_project"]
+    topic = arguments.get("topic")
+    notes = arguments.get("notes")
+
     clean_topic = (topic or "").strip()
     if not clean_topic:
-        return _err("`topic` is required and must not be whitespace.")
+        return _json_err("`topic` is required and must not be whitespace.")
     _p, err = _require_project(parent_project)
     if err is not None:
         return err
 
+    status, err = _validate_status(arguments.get("status"))
+    if err is not None:
+        return err
+
     content = clean_topic if not notes else f"{clean_topic}\n\n{notes}"
-    row = telos_db.add_entry(
-        Section.EXPLORATIONS, content, metadata={"parent_project": parent_project}
-    )
-    return mcp_types.TextContent(
-        type="text",
-        text=(
-            f"Added exploration `{row.ref_code}` under `{parent_project}` — "
-            f"{clean_topic!r}"
-        ),
-    )
+    whitelist: dict[str, Any] = {"parent_project": parent_project}
+    metadata = _merge_with_whitelist(arguments.get("metadata_merge"), whitelist)
+
+    add_kwargs: dict[str, Any] = {"metadata": metadata}
+    if status is not None:
+        add_kwargs["status"] = status
+
+    row = telos_db.add_entry(Section.EXPLORATIONS, content, **add_kwargs)
+    return _json_ok_add(row)
 
 
 def _do_exploration_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
@@ -494,40 +639,52 @@ def _do_exploration_update(arguments: dict[str, Any]) -> mcp_types.TextContent:
     from radbot.tools.telos.models import Section
 
     ref_code = arguments["ref_code"]
-    content = (arguments.get("content") or "").strip()
-    if not content:
-        return _err("`content` is required and must not be whitespace.")
 
-    meta: dict[str, Any] = {}
+    content: str | None = None
+    if "content" in arguments:
+        raw = arguments["content"]
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            return _json_err(
+                "content must not be whitespace if supplied; "
+                "omit the key to leave body unchanged."
+            )
+        content = raw.strip()
+
+    status, err = _validate_status(arguments.get("status"))
+    if err is not None:
+        return err
+
+    whitelist: dict[str, Any] = {}
     for key in ("parent_project", "parent_milestone"):
         if key in arguments and arguments[key] is not None:
-            # Empty string → remove key via shallow JSONB merge with null.
-            meta[key] = arguments[key] if arguments[key] != "" else None
+            whitelist[key] = arguments[key] if arguments[key] != "" else None
 
-    # Validate parent refs if being set (non-empty)
-    if meta.get("parent_project"):
-        _p, err = _require_project(meta["parent_project"])
+    if whitelist.get("parent_project"):
+        _p, err = _require_project(whitelist["parent_project"])
         if err is not None:
             return err
-    if meta.get("parent_milestone"):
-        _ms, err = _require_milestone(meta["parent_milestone"])
+    if whitelist.get("parent_milestone"):
+        _ms, err = _require_milestone(whitelist["parent_milestone"])
         if err is not None:
             return err
 
-    row = telos_db.update_entry(
-        Section.EXPLORATIONS,
-        ref_code,
-        content=content,
-        metadata_merge=meta or None,
-    )
+    meta = _merge_with_whitelist(arguments.get("metadata_merge"), whitelist)
+
+    update_kwargs: dict[str, Any] = {
+        "content": content,
+        "metadata_merge": meta or None,
+    }
+    if status is not None:
+        update_kwargs["status"] = status
+
+    row = telos_db.update_entry(Section.EXPLORATIONS, ref_code, **update_kwargs)
     if row is None:
-        return _err(f"No exploration with ref_code `{ref_code}`.")
-    bits = ["content updated"]
-    if meta:
-        bits.append(f"metadata_merge={meta}")
-    return mcp_types.TextContent(
-        type="text",
-        text=f"Updated exploration `{ref_code}` — {' · '.join(bits)}",
+        return _json_err(f"No exploration with ref_code `{ref_code}`.")
+    return _json_ok_update(
+        ref_code,
+        content_updated=content is not None,
+        metadata_merge=meta,
+        status=status,
     )
 
 
@@ -537,7 +694,7 @@ def _do_exploration_archive(ref_code: str, reason: str | None) -> mcp_types.Text
 
     ok = telos_db.archive_entry(Section.EXPLORATIONS, ref_code, reason=reason or None)
     if not ok:
-        return _err(f"No exploration with ref_code `{ref_code}`.")
+        return _text_err(f"No exploration with ref_code `{ref_code}`.")
     tail = f" (reason: {reason})" if reason else ""
     return mcp_types.TextContent(
         type="text", text=f"Archived exploration `{ref_code}`.{tail}"

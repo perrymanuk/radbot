@@ -13,7 +13,7 @@ Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `agent_name` (TEXT NOT NULL DEFAULT 'beto' — pins cron to a root agent; engine fires through `scheduler-offline-<agent_name>` session), `enabled`, `metadata` (JSONB) |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
-| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section` (identity/mission/problems/goals/projects/challenges/wisdom/predictions/journal/…), `ref_code` (e.g. `G1`, `P2`, `ME`), `content`, `metadata` (JSONB — section-specific fields), `status` (active/completed/archived/superseded), `sort_order`, UNIQUE (section, ref_code). **Lifecycle for `project_tasks`:** completion sets `metadata.task_status='done'` + `metadata.completed_at` but leaves `status='active'`; the daily `task_archive` scheduler job (`archive_stale_done_tasks`, `tools/scheduler/defaults.py`) flips done rows older than `config:task_archive.since_days` (default 30) to `status='archived'` with `metadata.archived_reason='auto_stale_done'` so they stop bloating the default `telos_list_tasks` view (EX46 / PT115). |
+| `telos_entries` | `tools/telos/db.py` | `entry_id` (UUID), `section` (identity/mission/problems/goals/projects/challenges/wisdom/predictions/journal/…), `ref_code` (e.g. `G1`, `P2`, `ME`), `content`, `metadata` (JSONB — section-specific fields), `status` (`active`/`completed`/`archived`/`superseded` + lifecycle states `proposed`/`in_review`/`approved`/`executing` — extended set, see `STATUS_VALUES` in `radbot/tools/telos/models.py`), `sort_order`, UNIQUE (section, ref_code). DB-side `CHECK` constraint enforces the same set, regenerated automatically by `_apply_status_check_constraint()` on every web startup if the existing constraint's allowed-status set drifts from `STATUS_VALUES` (semantic comparison via parsed allowed-set, not byte-string equality, so PG normalization differences don't trigger spurious DROP+ADD cycles; preflight aborts if any row violates the new set). **Lifecycle for `project_tasks`:** completion sets `metadata.task_status='done'` + `metadata.completed_at` but leaves `status='active'`; the daily `task_archive` scheduler job (`archive_stale_done_tasks`, `tools/scheduler/defaults.py`) flips done rows older than `config:task_archive.since_days` (default 30) to `status='archived'` with `metadata.archived_reason='auto_stale_done'` so they stop bloating the default `telos_list_tasks` view (EX46 / PT115). **`db.add_entry` postmortem invariant:** journal entries flagged as postmortems (`metadata.type=='postmortem'` OR legacy `metadata.event_type=='postmortem'`) MUST include `metadata.processed_at` (initially `null`) — enforced at the shared write layer so every writer (MCP `journal_add`, agent-side `telos_add_journal`, direct `db.add_entry`) is covered. |
 | `webhook_definitions` | `tools/webhooks/db.py` | `webhook_id` (UUID), `name` (UNIQUE), `path_suffix` (UNIQUE), `prompt_template`, `secret` |
 | `radbot_credentials` | `credentials/store.py` | `name` (PK), `encrypted_value`, `salt`, `credential_type` |
 | `coder_workspaces` | `tools/claude_code/db.py` | `workspace_id` (UUID), `owner`, `repo`, `branch`, `local_path`, `status`, `last_session_id`, `name`, `description` |
@@ -39,7 +39,7 @@ Uses the `radbot_chathistory` database with its own pool in `web/db/connection.p
 |-------|-------|---------|
 | `notifications` | `idx_notifications_type`, `idx_notifications_unread` (partial on `read=FALSE`), `idx_notifications_created (DESC)` | Feed filtering |
 | `llm_usage_log` | `idx_llm_usage_log_created (created_at DESC)`, `idx_llm_usage_log_label` | Rolling cost queries + session filters |
-| `telos_entries` | `idx_telos_section_status`, `idx_telos_active` (partial on `status='active'`), `idx_telos_journal_recent (created_at DESC)` (partial on `section='journal'`) | Loader (always-loaded section queries) + journal recency |
+| `telos_entries` | `idx_telos_section_status`, `idx_telos_active` (partial on `status='active'`), `idx_telos_journal_recent (created_at DESC)` (partial on `section='journal'`), `idx_telos_metadata` (GIN on `metadata`) | Loader (always-loaded section queries) + journal recency. The GIN index backs `db.list_section`'s `metadata_filter` kwarg (JSONB `@>` containment) used by Scout's postmortem-processing dedup queries — sub-second latency at 5000-row scale. Applied via `_apply_metadata_gin_index()` as a sibling step inside `init_telos_schema()` so it lands on existing deployments (not just freshly-created tables). |
 
 ### Schema Init
 
@@ -47,6 +47,21 @@ All schemas idempotent via `init_*_schema()` with `CREATE TABLE IF NOT EXISTS` (
 
 - `tools/schemas.py:init_all_schemas()` — fail-loud central registry, invoked once at FastAPI startup (`web/app.py:initialize_app_startup()`) and once per pytest session (autouse fixture in `tests/conftest.py`).
 - `worker/__main__.py` — worker-side schema init (calls directly during bootstrap).
+
+`init_telos_schema()` runs three steps in order: (1) the `telos_entries` table via `init_table_schema()` (creates table + indexes only on first run); (2) `_apply_metadata_gin_index()` (idempotent `CREATE INDEX IF NOT EXISTS`); (3) `_apply_status_check_constraint()` (definition-aware semantic comparison — drops + re-adds the CHECK constraint only when its parsed allowed-status set drifts from `STATUS_VALUES`, so re-running on an unchanged DB is a cheap two-query no-op). Each sibling step is in the function explicitly because `init_table_schema`'s `create_index_sqls` only fires when the table is freshly created — relying on it for new indexes/constraints would silently skip them on every existing deployment.
+
+### `db.list_section` signature (sentinel pattern)
+
+`radbot/tools/telos/db.py:list_section(section, *, status=_OMITTED, status_in=_OMITTED, limit=None, order_by="sort_order_asc", metadata_filter=None)`. The two sentinels distinguish "argument omitted" from "argument explicitly None":
+
+- Both omitted → `status_in = ACTIVE_EQUIVALENT` (active + lifecycle states).
+- `status="active"` → legacy single-status filter (back-compat for any caller that explicitly wants legacy-active-only).
+- `status=None` → all statuses (back-compat for the old `status=None` "all" semantics).
+- `status_in=[...]` → explicit set filter via `status = ANY(%s)`.
+- Both supplied with non-sentinel values → `ValueError` ("mutually exclusive").
+- `metadata_filter={k: v, ...}` → JSONB `metadata @> %s::jsonb` clause (GIN-indexed).
+
+Code rollback to a pre-extension build is **unsafe** once any row holds a new lifecycle status (`proposed/in_review/approved/executing`) — `db.add_entry` and `db.update_entry` validation will reject writes touching those rows with a cryptic `ValueError`. Recovery: normalize the data first (`UPDATE telos_entries SET status='active' WHERE status IN ('proposed','in_review','approved','executing');`), then drop the CHECK constraint, then deploy the older build.
 
 ## Qdrant
 

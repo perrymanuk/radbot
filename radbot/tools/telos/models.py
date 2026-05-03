@@ -118,8 +118,30 @@ NEVER_ALWAYS_LOADED: set[Section] = {
     Section.TRAUMAS,
 }
 
-# Valid status values.
-STATUS_VALUES: set[str] = {"active", "completed", "archived", "superseded"}
+# Valid status values. The lifecycle states `proposed/in_review/approved/executing`
+# join the legacy four (`active/completed/archived/superseded`) per Item 1.a of
+# the council-loop-polish EX. The DB CHECK constraint on `telos_entries.status`
+# is regenerated from this set by `_apply_status_check_constraint()` in
+# `radbot/tools/telos/db.py` — keep this set as the single source of truth.
+STATUS_VALUES: set[str] = {
+    "active",
+    "completed",
+    "archived",
+    "superseded",
+    "proposed",
+    "in_review",
+    "approved",
+    "executing",
+}
+
+# Statuses that count as "in flight" — the default filter for `list_section`.
+# Includes legacy `active` plus all the lifecycle states so a freshly-created
+# `proposed` exploration shows up in default listings without callers having
+# to opt in. `completed/archived/superseded` are the inactive set, opt-in via
+# the MCP `include_inactive=True` flag (which translates to `status_in=None`).
+ACTIVE_EQUIVALENT: frozenset[str] = frozenset(
+    {"active", "proposed", "in_review", "approved", "executing"}
+)
 
 # Single identity ref_code (there's only one user).
 IDENTITY_REF = "ME"

@@ -1,14 +1,33 @@
 """Telos MCP tools — expose radbot's user-context store to external clients.
 
-All tools return markdown `TextContent`. Heavy imports are lazy to keep
-module-import cost minimal.
+Read-only tools. Two return formats per Item 0.c of the council-loop-polish
+EX:
+  - `format="markdown"` (default, back-compat) — rendered for human/LLM eyes.
+  - `format="json"` — `TextContent.text = json.dumps(payload)` parseable via
+    `json.loads(response.text)`. Timestamps are ISO 8601 with literal `Z`
+    suffix (UTC); `metadata` is the decoded JSONB dict; UUIDs render as
+    strings; `Section` enums render as their `.value`. The single source of
+    truth is `_entry_to_json_dict` + `_iso_default` below.
+
+Heavy imports are lazy to keep module-import cost minimal.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
 
 from mcp import types as mcp_types
+
+if TYPE_CHECKING:
+    from radbot.tools.telos.models import Entry
+
+
+_FORMAT_MARKDOWN = "markdown"
+_FORMAT_JSON = "json"
+_VALID_FORMATS = (_FORMAT_MARKDOWN, _FORMAT_JSON)
 
 
 def tools() -> list[mcp_types.Tool]:
@@ -30,11 +49,19 @@ def tools() -> list[mcp_types.Tool]:
         mcp_types.Tool(
             name="telos_get_section",
             description=(
-                "Return all entries in one Telos section as markdown. "
+                "Return all entries in one Telos section. Default format is "
+                "markdown; pass `format='json'` for `{\"entries\": [...]}` "
+                "parseable via `json.loads(response.text)`. "
+                "`metadata_filter` (JSONB `@>`) restricts to rows whose "
+                "`metadata` contains the supplied object. Default "
+                "`include_inactive=false` excludes completed/archived/"
+                "superseded — but lifecycle states (proposed/in_review/"
+                "approved/executing) are included by default. "
                 "Sections: identity, history, problems, mission, narratives, "
-                "goals, challenges, strategies, projects, wisdom, ideas, "
-                "predictions, wrong_about, best_books, best_movies, best_music, "
-                "taste, traumas, metrics, journal."
+                "goals, challenges, strategies, projects, milestones, "
+                "project_tasks, explorations, wisdom, ideas, predictions, "
+                "wrong_about, best_books, best_movies, best_music, taste, "
+                "traumas, metrics, journal."
             ),
             inputSchema={
                 "type": "object",
@@ -45,8 +72,28 @@ def tools() -> list[mcp_types.Tool]:
                     },
                     "include_inactive": {
                         "type": "boolean",
-                        "description": "Include completed/archived entries. Default false.",
+                        "description": (
+                            "Include completed/archived/superseded entries. "
+                            "Default false (active + lifecycle states)."
+                        ),
                         "default": False,
+                    },
+                    "metadata_filter": {
+                        "type": "object",
+                        "description": (
+                            "JSONB containment filter — entries whose "
+                            "`metadata` `@>` this object are returned."
+                        ),
+                        "additionalProperties": True,
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": list(_VALID_FORMATS),
+                        "description": (
+                            "Response format. `markdown` (default) for "
+                            "human-rendered; `json` for machine-parseable."
+                        ),
+                        "default": _FORMAT_MARKDOWN,
                     },
                 },
                 "required": ["section"],
@@ -58,13 +105,20 @@ def tools() -> list[mcp_types.Tool]:
             description=(
                 "Fetch one Telos entry by (section, ref_code). Use when you "
                 "know the ref_code (e.g. 'G1', 'P2', 'PRED3'). Identity's "
-                "ref_code is 'ME'."
+                "ref_code is 'ME'. Default format is markdown; pass "
+                "`format='json'` for `{\"entry\": {...}}` parseable via "
+                "`json.loads(response.text)`."
             ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "section": {"type": "string"},
                     "ref_code": {"type": "string"},
+                    "format": {
+                        "type": "string",
+                        "enum": list(_VALID_FORMATS),
+                        "default": _FORMAT_MARKDOWN,
+                    },
                 },
                 "required": ["section", "ref_code"],
                 "additionalProperties": False,
@@ -103,10 +157,18 @@ async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextConte
             _render_section(
                 arguments["section"],
                 bool(arguments.get("include_inactive", False)),
+                arguments.get("metadata_filter") or None,
+                arguments.get("format", _FORMAT_MARKDOWN),
             )
         ]
     if name == "telos_get_entry":
-        return [_render_entry(arguments["section"], arguments["ref_code"])]
+        return [
+            _render_entry(
+                arguments["section"],
+                arguments["ref_code"],
+                arguments.get("format", _FORMAT_MARKDOWN),
+            )
+        ]
     if name == "telos_search_journal":
         return [
             _render_journal_search(
@@ -115,6 +177,54 @@ async def call(name: str, arguments: dict[str, Any]) -> list[mcp_types.TextConte
             )
         ]
     raise KeyError(name)
+
+
+# ---------------------------------------------------------------------------
+# JSON transport contract — single source of truth for `format="json"`.
+# Pinned by Item 0.c of the council-loop-polish EX: literal-Z timestamps,
+# explicit UUID + Section enum rendering, decoded JSONB metadata.
+# ---------------------------------------------------------------------------
+
+
+def _iso_default(obj: Any) -> str:
+    """JSON serializer for `datetime` → ISO 8601 with literal `Z` suffix;
+    `UUID` → `str`.
+
+    psycopg2 returns timezone-aware datetimes whose `.isoformat()` emits
+    `+00:00`, not the literal `Z` consumers parse against. Force UTC +
+    literal Z. psycopg2 also returns `uuid.UUID` for UUID columns;
+    `json.dumps` would crash without explicit handling — `entry_id` is in
+    every payload shape.
+    """
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _entry_to_json_dict(entry: "Entry") -> dict:
+    """Convert a `telos_db.Entry` to a JSON-native dict for MCP transport.
+
+    Explicitly converts UUIDs and `Section` enums; leaves datetimes for
+    `_iso_default` to handle at `json.dumps` time. Used by both
+    `telos_get_entry` and `telos_get_section` to guarantee an identical
+    payload shape across the JSON contract.
+    """
+    return {
+        "ref_code": entry.ref_code,
+        "entry_id": str(entry.entry_id) if entry.entry_id else None,
+        "section": entry.section.value,
+        "status": entry.status,
+        "content": entry.content,
+        "metadata": entry.metadata or {},
+        "created_at": entry.created_at,
+        "updated_at": entry.updated_at,
+    }
+
+
+def _err_text(msg: str) -> mcp_types.TextContent:
+    return mcp_types.TextContent(type="text", text=f"**Error:** {msg}")
 
 
 def _render_full() -> mcp_types.TextContent:
@@ -129,22 +239,38 @@ def _render_full() -> mcp_types.TextContent:
     return mcp_types.TextContent(type="text", text=md)
 
 
-def _render_section(section: str, include_inactive: bool) -> mcp_types.TextContent:
+def _render_section(
+    section: str,
+    include_inactive: bool,
+    metadata_filter: dict[str, Any] | None,
+    fmt: str,
+) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import SECTION_HEADERS, Section
+
+    if fmt not in _VALID_FORMATS:
+        return _err_text(f"unknown format `{fmt}`. Valid: {', '.join(_VALID_FORMATS)}")
 
     try:
         sec = Section(section.lower())
     except ValueError:
         valid = ", ".join(s.value for s in Section)
-        return mcp_types.TextContent(
-            type="text",
-            text=f"**Error:** unknown section `{section}`. Valid: {valid}",
-        )
+        return _err_text(f"unknown section `{section}`. Valid: {valid}")
 
-    status_filter = None if include_inactive else "active"
     order = "created_at_desc" if sec == Section.JOURNAL else "sort_order_asc"
-    entries = telos_db.list_section(sec, status=status_filter, order_by=order)
+    list_kwargs: dict[str, Any] = {"order_by": order}
+    if include_inactive:
+        list_kwargs["status_in"] = None
+    if metadata_filter:
+        list_kwargs["metadata_filter"] = metadata_filter
+
+    entries = telos_db.list_section(sec, **list_kwargs)
+
+    if fmt == _FORMAT_JSON:
+        payload = {"entries": [_entry_to_json_dict(e) for e in entries]}
+        return mcp_types.TextContent(
+            type="text", text=json.dumps(payload, default=_iso_default)
+        )
 
     header = SECTION_HEADERS.get(sec, sec.value.title())
     if not entries:
@@ -166,22 +292,29 @@ def _render_section(section: str, include_inactive: bool) -> mcp_types.TextConte
     return mcp_types.TextContent(type="text", text="\n".join(lines))
 
 
-def _render_entry(section: str, ref_code: str) -> mcp_types.TextContent:
+def _render_entry(section: str, ref_code: str, fmt: str) -> mcp_types.TextContent:
     from radbot.tools.telos import db as telos_db
     from radbot.tools.telos.models import Section
+
+    if fmt not in _VALID_FORMATS:
+        return _err_text(f"unknown format `{fmt}`. Valid: {', '.join(_VALID_FORMATS)}")
 
     try:
         sec = Section(section.lower())
     except ValueError:
-        return mcp_types.TextContent(
-            type="text", text=f"**Error:** unknown section `{section}`"
-        )
+        return _err_text(f"unknown section `{section}`")
 
     entry = telos_db.get_entry(sec, ref_code)
     if not entry:
         return mcp_types.TextContent(
             type="text",
             text=f"**Not found:** no entry `{ref_code}` in section `{sec.value}`",
+        )
+
+    if fmt == _FORMAT_JSON:
+        payload = {"entry": _entry_to_json_dict(entry)}
+        return mcp_types.TextContent(
+            type="text", text=json.dumps(payload, default=_iso_default)
         )
 
     lines = [

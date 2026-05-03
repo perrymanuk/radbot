@@ -377,7 +377,7 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 - **stdio**: `uv run python -m radbot.mcp_server` (local, no auth)
 - **HTTP (streamable, stateless)**: `POST /mcp` mounted on the FastAPI app via `StreamableHTTPSessionManager(stateless=True)` (bearer token). Each request gets a fresh transport — no shared session state means process restarts can never produce 404 "Could not find session" (replaced the legacy `GET /mcp/sse` + `POST /mcp/messages/` SSE transport per PT109).
 
-**Tool surface** (30, all returning markdown `TextContent`):
+**Tool surface** (32):
 
 | Group | Tools |
 |---|---|
@@ -386,12 +386,40 @@ Exposes **radbot itself** as an MCP server so external clients (primarily Claude
 | Projects (read) | `project_match(cwd)`, `project_list`, `project_get_context`, `project_list_children`, `project_set_path_patterns` |
 | Projects (mutate) | `project_create`, `project_update`, `project_archive(cascade_children?)`, `project_merge(from_ref, into_ref)` |
 | Project hierarchy (mutate) | `milestone_add`, `milestone_complete`, `task_add`, `task_update`, `task_complete`, `task_archive`, `exploration_add`, `exploration_update`, `exploration_archive` |
+| Journal (mutate) | `journal_add(entry, metadata?)`, `journal_update(ref_code, metadata_merge?, status?)` — direct wrappers around `telos_db.add_entry/update_entry` for `Section.JOURNAL`. `journal_add` accepts arbitrary `metadata`; postmortem entries (`metadata.type == "postmortem"`) MUST include `metadata.processed_at` (initially `null`). `journal_update`'s `status` enum is restricted to `active/completed/archived/superseded` (lifecycle states are nonsense for journal rows). |
 | Tasks / schedule | `list_tasks` (excludes `done` by default; pass `include_done=true` or `status="done"` to surface completed history — EX46 / PT115), `list_reminders`, `list_scheduled_tasks` |
 | Memory | `search_memory` (Qdrant, default scope=`beto`, pass `agent_scope="all"` to widen) |
 
-Project-hierarchy mutations are a parallel surface to beto's confirm-required `telos_*` tools — they call the same `radbot.tools.telos.db` primitives; user confirmation is expected at the MCP client UI layer (e.g. Claude Code's per-tool approval) rather than enforced server-side. All removal is soft (`status='archived'`, `metadata.archived_reason`) — no hard deletes.
+Project-hierarchy + journal mutations are a parallel surface to beto's confirm-required `telos_*` tools — they call the same `radbot.tools.telos.db` primitives; user confirmation is expected at the MCP client UI layer (e.g. Claude Code's per-tool approval) rather than enforced server-side. All removal is soft (`status='archived'`, `metadata.archived_reason`) — no hard deletes.
 
-**Return convention:** markdown for any structured output, plain single-line text for primitives (`project_match` → name) and action confirmations (`wiki_write` → `Wrote N bytes to <path>`). Never JSON to the LLM — JSON consumers hit the REST API at `/api/*`.
+**Read tools — `format` parameter.** `telos_get_section` and `telos_get_entry` accept `format="markdown"` (default, back-compat) or `format="json"`. JSON returns `TextContent.text = json.dumps(payload)` parseable via `json.loads(response.text)`. Payload shapes:
+
+- `telos_get_entry` → `{"entry": {ref_code, entry_id, section, status, content, metadata, created_at, updated_at}}`
+- `telos_get_section` → `{"entries": [<entry>, ...]}`
+
+Timestamps are ISO 8601 with **literal `Z` suffix** (not `+00:00`); `metadata` is the decoded JSONB dict (not stringified); UUIDs render as strings; `Section` enums render as `.value`. Single source of truth: `_iso_default` + `_entry_to_json_dict` in `radbot/mcp_server/tools/telos.py`.
+
+`telos_get_section` also accepts `metadata_filter: object` (JSONB `@>` filter, GIN-indexed). Default `include_inactive=false` includes the `ACTIVE_EQUIVALENT` set (`active`, `proposed`, `in_review`, `approved`, `executing`); `include_inactive=true` returns all statuses.
+
+**Structured-return contract (creation tools).** The four creation handlers — `task_add`, `exploration_add`, `milestone_add`, `journal_add` — return JSON `TextContent`:
+
+```json
+{"status": "success", "ref_code": "<NEW>", "entry_id": "<uuid>", "section": "<section_name>"}
+```
+
+Errors return JSON too:
+
+```json
+{"status": "error", "message": "<reason>"}
+```
+
+The four `*_update` handlers + `journal_update` use the same JSON `_err` envelope on failure (and `{"status": "success", "ref_code": "<ref>", ...}` on success — entry-status echoes via the `entry_status` key to avoid colliding with the envelope's `status` discriminator). The terminal operations (`task_complete`, `task_archive`, `exploration_archive`, `milestone_complete`) keep their human-readable text returns — callers there already know the ref_code.
+
+Callers branch uniformly on `payload["status"]` after `json.loads(response.text)` — no try/except + heuristic-detection footgun.
+
+**`metadata_merge` on creation + update tools.** `task_add`, `exploration_add`, `milestone_add`, `task_update`, `exploration_update` all accept an optional `metadata_merge: object` for arbitrary metadata attachment. **Whitelist precedence (load-bearing — same rule for all five tools):** the typed schema fields (`title`, `category`, `task_status`, `parent_milestone`, `parent_project`) win silently on collision with `metadata_merge`. Closes the chain-race blocker on Scout's postmortem followups — `source_postmortem` and friends land atomically in the same DB write as the row insert.
+
+**Lifecycle status on `exploration_add` / `exploration_update`.** Both accept an optional `status` validated against the extended `STATUS_VALUES` set (`active`, `completed`, `archived`, `superseded`, `proposed`, `in_review`, `approved`, `executing`). `task_update` and `exploration_update` treat absent `description`/`content` as "leave body unchanged"; whitespace value is rejected with the JSON `_err` envelope.
 
 **Token auth (HTTP):** credential store (`mcp_token` key) wins over `RADBOT_MCP_TOKEN` env var. Rotatable from the "MCP Bridge" admin panel via `POST /api/mcp/token/rotate`. Fails closed (503) when both unset.
 
