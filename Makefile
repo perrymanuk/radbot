@@ -1,4 +1,4 @@
-.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-web run-web-custom dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean test-mutation-diff
+.PHONY: help setup setup-web setup-frontend test test-unit test-integration test-e2e test-e2e-up test-e2e-down test-e2e-browser test-e2e-browser-dev _test-e2e-prepare seed-docker lint format run-web run-web-custom dev-frontend build-frontend clean docker-build docker-up docker-down docker-logs docker-clean test-mutation-diff regen-item6-baseline
 
 # Use uv for Python package management
 PYTHON := uv run python
@@ -65,6 +65,13 @@ test-unit:
 
 test-integration:
 	$(PYTEST) tests/integration
+
+# Regenerate the Item 6 Telos read regression baseline (EX_DRAFT_council_loop_polish.md § Item 6 AC #4).
+# Run this whenever you intentionally change beto's instruction file or the Telos render path —
+# PR checklist requires the regenerated baseline to land in the SAME PR. Reading-without-regen
+# is the test's default behavior and asserts strict equality against the checked-in JSON.
+regen-item6-baseline:
+	RADBOT_REGEN_ITEM6_BASELINE=1 $(PYTEST) tests/integration/test_item6_telos_read_regression.py
 
 # Diff-scoped mutation testing (EX18 / PT49).
 # Runs mutmut ONLY on radbot/*.py files changed vs DIFF_BASE (default: origin/main),
