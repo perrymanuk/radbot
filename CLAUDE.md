@@ -297,6 +297,24 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 
 `ACTIVE_EQUIVALENT = frozenset({"active", "proposed", "in_review", "approved", "executing"})` is the default filter for `db.list_section()` (when called with no `status` / `status_in` kwarg) and for the MCP `telos_get_section({include_inactive: false})` path. Adding a new lifecycle state means: edit `STATUS_VALUES`, update `ACTIVE_EQUIVALENT` if appropriate, restart — the CHECK constraint migration regenerates automatically.
 
+**Transitions — every flip has exactly one owner:**
+
+| From → To | Actor | Trigger |
+|---|---|---|
+| (new) → `proposed` | Scout | `exploration_add(status="proposed")` when persisting a plan post-tier-1-council |
+| `proposed` → `in_review` | `/review-ex` skill | First step before `/mm-council:evaluate` fires |
+| `in_review` → `approved` | Claude Code session | After capturing the council synthesis, on user confirmation |
+| `in_review` → `in_review` (stays) | n/a | Council verdict `revise`/`reject` — EX stays in review until human edits and re-runs `/review-ex`. Does NOT roll back to `proposed` (would hide that review happened) |
+| `approved` → `executing` | `/ship` skill | Phase 1 (pre-flight) when the branch matches the EX-linkage convention |
+| `executing` → `completed` | `/ship` skill | Phase 11 immediately post-merge, before cleanup. **Sole owner of this transition** — `/postmortem-ex` MUST NOT mutate status |
+| `executing` → `approved` | Manual / `/ship --abort` | If the user kills `/ship` before merge — recovery path |
+| `completed` → `archived` | Manual (user via `mcp__radbot__exploration_update`) | When the EX is no longer a useful reference. `completed` is **terminal** otherwise — postmortem step does NOT auto-archive |
+| (any non-terminal) → `superseded` | Manual (user via `mcp__radbot__exploration_update`) | When a newer EX replaces this one before it ever shipped. Set `metadata.superseded_by: "EX<N>"` (string ref code, must point to an existing EX in the same `explorations` section — convention only, no DB-level FK). The new EX MAY symmetrically set `metadata.supersedes: "EX<N>"` pointing back; not required |
+
+**Concurrency invariant:** single user, single active session per EX. No CAS or advisory lock in v1; the invariant is preserved by Scout's user-driven postmortem-processing trigger plus dedup-by-`source_postmortem`.
+
+**Stuck-state recovery:** if an EX sits in `in_review` or `executing` for >24h, manually flip it back via `mcp__radbot__exploration_update({ref_code, status: "<target>"})` (omit `content` to leave the body unchanged).
+
 ### MCP write-tool return contract
 
 The four creation handlers (`task_add`, `exploration_add`, `milestone_add`, `journal_add`) and their `*_update` counterparts return JSON in `TextContent.text`:
