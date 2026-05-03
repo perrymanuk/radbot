@@ -192,6 +192,166 @@ If you find yourself wanting a one-off prompt, that is the signal to
 draft a `PT<N>` first (`telos_add_task(...)`), then dispatch by ref.
 This is the bipartite review loop — the planning step is not optional.
 
+### 7. Process pending postmortems (user-driven, never autonomous)
+
+Once `/ship` has merged an EX-linked PR and Perry has run `/postmortem-ex
+<PR#>`, a postmortem journal entry sits in Telos with `metadata.type =
+"postmortem"` and `metadata.processed_at = null`. Your job is to turn
+each one into a deterministic set of followup `PT<N>` / `EX<N>` /
+`JR<N>` rows and mark the postmortem processed.
+
+**Trigger is user-driven only.** When Perry asks ("process postmortems",
+"any pending postmortems?", "what postmortems do I have?"), follow the
+three rules below. **Do NOT poll for postmortems on session start.**
+Autonomous polling would race user-initiated `/review-ex` / `/postmortem-ex`
+runs against the same EX, breaking the single-active-session-per-EX
+invariant (`specs/agents.md` § Scout / Telos exploration lifecycle).
+
+#### Rule 1 — Query for pending postmortems
+
+```
+mcp__radbot__telos_get_section({
+  section: "journal",
+  metadata_filter: {"type": "postmortem", "processed_at": null},
+  format: "json"
+})
+```
+
+Parse via `json.loads(response.text)["entries"]`. If the list is empty,
+reply "No pending postmortems." and stop.
+
+#### Rule 2 — Atomic followup creation with deterministic dedup
+
+For each pending postmortem `JR<N>`:
+
+1. **Parse its `## Followups` section.** `/postmortem-ex` writes it as
+   exactly three numbered sub-sections — heading + numbered list:
+
+   ```markdown
+   ## Followups
+
+   ### Tasks
+   1. <one-line description for PT followup>
+   2. <one-line description for PT followup>
+
+   ### Explorations
+   1. <topic for EX followup>
+
+   ### Insights
+   1. <one-line insight to journal>
+   ```
+
+   If a sub-section has no items, the markdown contains the literal
+   `_None_` line instead of an empty list — treat that as zero
+   followups for the role and move on. Do NOT add followups not
+   enumerated in the markdown, and do NOT skip ones that are.
+
+2. **Derive the deterministic followup key.** The dedup key MUST be
+   regenerable from the markdown alone — re-parsing the same postmortem
+   twice MUST produce byte-identical keys.
+
+   ```python
+   import hashlib
+   role    = "task" | "exploration" | "journal_insight"  # from sub-section heading
+   ordinal = 1, 2, 3, ...                                  # from markdown numbering, NOT your enumeration
+   material = f"{source_postmortem_jr_ref}|{role}|{ordinal}"
+   postmortem_followup_key = hashlib.sha256(material.encode()).hexdigest()[:16]
+   ```
+
+   `### Tasks` → `task`; `### Explorations` → `exploration`; `### Insights`
+   → `journal_insight`. Ordinal comes from the markdown's numbered
+   list, NOT from your own counting.
+
+3. **Dedup query first.** Before each `*_add`, query for an existing
+   followup with the same `(source_postmortem, postmortem_followup_role,
+   postmortem_followup_key)` triple — covers retries from a prior
+   partial run:
+
+   ```
+   mcp__radbot__telos_get_section({
+     section: "project_tasks",         # or "explorations" or "journal"
+     metadata_filter: {
+       "source_postmortem":         "<JR<N>>",
+       "postmortem_followup_role":  "<role>",
+       "postmortem_followup_key":   "<derived key>"
+     },
+     format: "json",
+     include_inactive: true            # already-completed dedup hits still match
+   })
+   ```
+
+   Non-empty result → capture the existing `ref_code` for rule 3's union
+   list and skip the create. Otherwise, create atomically (next step).
+
+4. **Atomic create — `metadata_merge` in the SAME `*_add` call.** No
+   `task_add → task_update` two-call pattern; that race-window leaves
+   an untagged followup the dedup query cannot find. Examples (parse
+   `ref_code` from the structured response per `CLAUDE.md` § MCP write-
+   tool return contract):
+
+   - Task followup:
+     ```
+     mcp__radbot__task_add({
+       parent_project:  "<from journal>",
+       description:     "<one-line>",
+       title:           "<short>",
+       task_status:     "backlog",
+       metadata_merge: {
+         source_postmortem:        "<JR<N>>",
+         postmortem_followup_role: "task",
+         postmortem_followup_key:  "<derived key>"
+       }
+     })
+     → pt_ref = json.loads(response.text)["ref_code"]
+     ```
+   - Exploration followup (bigger work needing its own plan):
+     ```
+     mcp__radbot__exploration_add({
+       parent_project:  "<from journal>",
+       topic:           "<short>",
+       notes:           "<full>",
+       status:          "proposed",
+       metadata_merge: {
+         source_postmortem:        "<JR<N>>",
+         postmortem_followup_role: "exploration",
+         postmortem_followup_key:  "<derived key>"
+       }
+     })
+     → ex_ref = json.loads(response.text)["ref_code"]
+     ```
+   - Journal insight:
+     ```
+     mcp__radbot__journal_add({
+       entry: "<insight>",
+       metadata: {
+         type:                     "postmortem_insight",
+         source_postmortem:        "<JR<N>>",
+         postmortem_followup_role: "journal_insight",
+         postmortem_followup_key:  "<derived key>"
+       }
+     })
+     → jr_ref = json.loads(response.text)["ref_code"]
+     ```
+
+#### Rule 3 — Mark the postmortem processed (only after ALL followups for it succeeded)
+
+```
+mcp__radbot__journal_update({
+  ref_code: "<JR<N>>",
+  metadata_merge: {
+    processed_at:  "<iso8601 with Z suffix>",
+    processed_by:  "scout",
+    followup_refs: <UNION of dedup-hit refs from rule 2 + newly-created refs>
+  }
+})
+```
+
+`followup_refs` is the **UNION**: every existing ref the rule-2 dedup
+query found PLUS every ref created in this pass. This preserves the
+audit trail across retries. If any followup create failed mid-way, do
+NOT mark processed — re-running rule 2 will dedup against the partial
+state and complete the rest on the next attempt.
+
 ## Discipline rules
 
 - **Research before drafting.** No plan without grounding. If you find
