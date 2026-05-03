@@ -174,6 +174,26 @@ All critics currently run on scout's configured model (Gemini 3.1 Pro). Cross-fa
 
 **Note**: scout does **not** hand plans off to axel inside the agent tree. Axel's role is narrowed to quick-fix alert remediation (see axel section).
 
+### Scout / Telos exploration lifecycle (2026-05-03)
+
+`telos_entries.status` is the state machine for an exploration row from draft → council review → ship → postmortem. `STATUS_VALUES` (in `radbot/tools/telos/models.py`) is the single source of truth for the legal set; the DB CHECK constraint regenerates from it on every startup. See `CLAUDE.md` § Telos lifecycle status state machine for the status-set table.
+
+Every transition has exactly one owner — duplicating the table here so the agent spec stays self-contained:
+
+| From → To | Actor | Trigger |
+|---|---|---|
+| (new) → `proposed` | Scout | `exploration_add(status="proposed")` when persisting a plan post-tier-1-council |
+| `proposed` → `in_review` | `/review-ex` skill | First step before `/mm-council:evaluate` fires |
+| `in_review` → `approved` | Claude Code session | After capturing the council synthesis, on user confirmation |
+| `in_review` → `in_review` (stays) | n/a | Council verdict `revise`/`reject` — EX stays in review until human edits and re-runs `/review-ex`. Does NOT roll back to `proposed` (would hide that review happened) |
+| `approved` → `executing` | `/ship` skill | Phase 1 (pre-flight) when the branch matches the EX-linkage convention |
+| `executing` → `completed` | `/ship` skill | Phase 11 immediately post-merge, before cleanup. **Sole owner of this transition** — `/postmortem-ex` MUST NOT mutate status |
+| `executing` → `approved` | Manual / `/ship --abort` | If the user kills `/ship` before merge — recovery path |
+| `completed` → `archived` | Manual (user via `mcp__radbot__exploration_update`) | When the EX is no longer a useful reference. `completed` is **terminal** otherwise — postmortem step does NOT auto-archive |
+| (any non-terminal) → `superseded` | Manual (user via `mcp__radbot__exploration_update`) | When a newer EX replaces this one before it ever shipped. Set `metadata.superseded_by: "EX<N>"` (string ref code, must point to an existing EX in the same `explorations` section — convention only, no DB-level FK). The new EX MAY symmetrically set `metadata.supersedes: "EX<N>"` pointing back; not required |
+
+**Concurrency invariant.** Single user, single active session per EX. No CAS or advisory lock in v1; the invariant is honestly preserved by Scout's user-driven postmortem-processing trigger plus dedup-by-`source_postmortem` on followup creation. Stuck-state recovery: manually flip via `mcp__radbot__exploration_update({ref_code, status: "<target>"})` with `content` omitted.
+
 ## Session Roots (2026-04-19)
 
 Chat sessions can run with either **beto** or **scout** as the root agent. The choice is stored on `chat_sessions.agent_name` (immutable for a session's lifetime, because the ADK session-service partition is keyed by `app_name`) and selected via a UI toggle at create time.

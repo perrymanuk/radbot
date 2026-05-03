@@ -333,7 +333,16 @@ gh pr view $PR_NUMBER --repo $GITHUB_REPO \
 gh pr merge $PR_NUMBER --repo $GITHUB_REPO --squash --delete-branch
 ```
 
-5. After merge, confirm the deploy fired:
+5. **Flip the linked EX status to `completed`** (single-ownership rule — `/ship` Phase 11 is the sole owner of `executing → completed`; `/postmortem-ex` MUST NOT mutate status). If the branch / PR title / PR body matches `(?i)EX(\d+)\b`, resolve that EX ref and call:
+
+```bash
+mcp__radbot__exploration_update({ref_code: "EX<N>", status: "completed"})
+# content omitted — pure status flip; body unchanged
+```
+
+   No EX link → skip silently (older PRs, hotfixes, anything not driven by an exploration). If multiple sources resolve to different EX numbers, surface the conflict and skip rather than guessing.
+
+6. After merge, confirm the deploy fired:
 
 ```bash
 sleep 10
@@ -342,7 +351,7 @@ gh run list --repo $GITHUB_REPO --workflow "Build and Push Docker Image" --branc
 
    Tell the user the run ID so they can watch it. If no run appears within ~30 s, the user should push an empty commit from their shell to force a fresh `push` event.
 
-6. If `auto-merge-eligible` is missing or `aggregate_conclusion` is not `SUCCESS`, tell the user why and stop — do not attempt the merge.
+7. If `auto-merge-eligible` is missing or `aggregate_conclusion` is not `SUCCESS`, tell the user why and stop — do not attempt the merge.
 
 The skill has NO authority to bypass branch protection or path-guard — it only orchestrates.
 
@@ -393,3 +402,4 @@ Skip 12b entirely on `--manual-merge` or if Phase 11 did not merge (score < thre
 - Bypass `path-guard` for sensitive paths.
 - Run visual regression locally (cost + complexity; CI handles it).
 - Modify spec files for the user (it asks).
+- Write the postmortem. Once /ship returns successfully on an EX-linked PR, suggest the user run `/postmortem-ex <PR#>` next to capture plan-vs-actual, generate followups, and link the journal entry back to the EX body.

@@ -155,9 +155,14 @@ Once the plan is solid, persist it so Claude Code (or future you) can pick
 it up:
 
 - **Full plan text → exploration.** `telos_add_exploration(project=<ref>,
-  title=<plan title>, content=<full 5-role markdown>)`. Explorations are
-  where long-form proposals live. The `EX<N>` ref_code is how Claude Code
-  will locate it.
+  title=<plan title>, content=<full 5-role markdown>, status="proposed")`.
+  Explorations are where long-form proposals live. The `EX<N>` ref_code is
+  how Claude Code will locate it. **Pass `status="proposed"` explicitly**
+  on every new EX after the tier-1 council clears — that's the entry point
+  for the lifecycle state machine (see `specs/agents.md` § Scout / Telos
+  exploration lifecycle). `/review-ex` flips `proposed → in_review`,
+  `/ship` flips `approved → executing → completed`. Defaulting to `active`
+  hides the EX from the cross-family review loop.
 - **Actionable slice → project_tasks.** For each concrete step the
   executor should do, `telos_add_task(parent_project=<ref>,
   parent_milestone=<ref?>, title=<short imperative>, description=<what +
