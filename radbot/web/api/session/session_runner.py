@@ -307,71 +307,10 @@ class SessionRunner:
 
                 setattr(ToolContext, "user_id", self.user_id)
 
-            # Run with consistent parameters (use run_async to avoid blocking the event loop)
-            MAX_RETRIES = 3
-            events = []
-            for attempt in range(MAX_RETRIES):
-                events = []
-                async for event in self.runner.run_async(
-                    user_id=self.user_id,
-                    session_id=session.id,
-                    new_message=user_message,
-                    run_config=run_config,
-                ):
-                    events.append(event)
-
-                # Check if any event has actual text content (not just function calls/transfers).
-                # Function call parts (transfer_to_agent etc.) don't count — we need real text.
-                has_text = False
-                for ev in events:
-                    if (
-                        hasattr(ev, "content")
-                        and ev.content
-                        and hasattr(ev.content, "parts")
-                        and ev.content.parts
-                    ):
-                        for part in ev.content.parts:
-                            if hasattr(part, "text") and part.text:
-                                has_text = True
-                                break
-                    if has_text:
-                        break
-
-                if has_text or attempt == MAX_RETRIES - 1:
-                    break
-
-                # Empty text response — the model returned function calls (e.g. transfer_to_agent)
-                # but the target agent produced no text.  Reset the session to avoid poisoning
-                # and retry with a fresh session.
-                logger.warning(
-                    "No text in model response on attempt %d/%d (got %d events with function calls only) "
-                    "— resetting session and retrying",
-                    attempt + 1,
-                    MAX_RETRIES,
-                    len(events),
-                )
-                try:
-                    app_name = (
-                        self.runner.app_name
-                        if hasattr(self.runner, "app_name")
-                        else "beto"
-                    )
-                    await self.session_service.delete_session(
-                        app_name=app_name, user_id=self.user_id, session_id=session.id
-                    )
-                    session = await self.session_service.create_session(
-                        app_name=app_name,
-                        user_id=self.user_id,
-                        session_id=self.session_id,
-                    )
-                    # Don't reload history on retry — it may contain the
-                    # poisoned empty-content event that caused the failure.
-                    # A clean session with just the current message is safer.
-                except Exception as e:
-                    logger.warning("Failed to reset session for retry: %s", e)
-
-                # Brief backoff before next attempt — gives Gemini API time to recover
-                await asyncio.sleep(0.5 * (attempt + 1))
+            # Run with consistent parameters (use run_async to avoid blocking the event loop).
+            session, events = await self._run_with_empty_content_retry(
+                session, user_message, run_config
+            )
 
             # Process events
             logger.debug(
@@ -689,6 +628,139 @@ class SessionRunner:
             logger.error(f"Error in process_message: {str(e)}", exc_info=True)
             error_message = f"I apologize, but I encountered an error processing your message. Please try again. Error: {str(e)}"  # noqa: E501
             return {"response": error_message, "events": []}
+
+    async def _run_with_empty_content_retry(self, session, user_message, run_config):
+        """Run the agent and retry on empty model responses.
+
+        Selective retry on intermittent Gemini ``Content(parts=None)`` failures:
+
+        - If the failed attempt produced a non-transfer ``function_response``,
+          the agent did real tool work; retry on the same session with a
+          continuation prompt that embeds the original user request and forbids
+          re-running tools. ADK's ``_find_agent_to_run`` resumes the active
+          sub-agent based on session.events.
+        - Otherwise (no events, or only ``transfer_to_agent`` activity) fall
+          back to delete+recreate the session and replay the original user
+          message.
+
+        Empty model responses are not appended to ``session.events`` by ADK
+        (``base_llm_flow.py:924-931`` early-returns when ``llm_response.content``
+        is None), so same-session retry is safe.
+
+        Returns ``(session, accumulated_events)``. ``session`` may be a fresh
+        Session if the reset branch fired.
+        """
+        MAX_RETRIES = 3
+        original_user_message = user_message
+        accumulated_events: list = []
+
+        for attempt in range(MAX_RETRIES):
+            events: list = []
+            async for event in self.runner.run_async(
+                user_id=self.user_id,
+                session_id=session.id,
+                new_message=user_message,
+                run_config=run_config,
+            ):
+                events.append(event)
+
+            # Check if any event has actual text content (not just function
+            # calls/transfers). Function call parts don't count — we need real text.
+            has_text = False
+            for ev in events:
+                if (
+                    hasattr(ev, "content")
+                    and ev.content
+                    and hasattr(ev.content, "parts")
+                    and ev.content.parts
+                ):
+                    for part in ev.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            has_text = True
+                            break
+                if has_text:
+                    break
+
+            if has_text or attempt == MAX_RETRIES - 1:
+                accumulated_events.extend(events)
+                break
+
+            # Tool-activity heuristic: at least one non-transfer function_response.
+            # Loop-local `events` only — does not see session history.
+            had_tool_activity = False
+            for ev in events:
+                if not (
+                    hasattr(ev, "content")
+                    and ev.content
+                    and hasattr(ev.content, "parts")
+                    and ev.content.parts
+                ):
+                    continue
+                for part in ev.content.parts:
+                    fr = getattr(part, "function_response", None)
+                    if fr and getattr(fr, "name", None) != "transfer_to_agent":
+                        had_tool_activity = True
+                        break
+                if had_tool_activity:
+                    break
+
+            if had_tool_activity:
+                logger.warning(
+                    "Empty text after tool activity on attempt %d/%d (got %d events) "
+                    "— retrying on same session with continuation prompt to preserve tool results",
+                    attempt + 1,
+                    MAX_RETRIES,
+                    len(events),
+                )
+                accumulated_events.extend(events)
+                original_text = (
+                    original_user_message.parts[0].text
+                    if original_user_message.parts
+                    and getattr(original_user_message.parts[0], "text", None)
+                    else ""
+                )
+                retry_text = (
+                    f'Continue the immediately preceding user request: "{original_text}". '
+                    "Use the tool results already in this conversation. "
+                    "Do not call tools again unless strictly required."
+                )
+                user_message = Content(parts=[Part(text=retry_text)], role="user")
+                # No session reset — ADK does not append empty-content events.
+            else:
+                logger.warning(
+                    "Empty response with no substantive tool activity on attempt %d/%d "
+                    "(got %d events) — resetting session and retrying",
+                    attempt + 1,
+                    MAX_RETRIES,
+                    len(events),
+                )
+                try:
+                    app_name = (
+                        self.runner.app_name
+                        if hasattr(self.runner, "app_name")
+                        else "beto"
+                    )
+                    await self.session_service.delete_session(
+                        app_name=app_name,
+                        user_id=self.user_id,
+                        session_id=session.id,
+                    )
+                    session = await self.session_service.create_session(
+                        app_name=app_name,
+                        user_id=self.user_id,
+                        session_id=self.session_id,
+                    )
+                    # Don't reload history on retry — a clean session with
+                    # just the original message is safer.
+                except Exception as e:
+                    logger.warning("Failed to reset session for retry: %s", e)
+                accumulated_events = []  # discarded with the session
+                user_message = original_user_message  # always replay original
+
+            # Brief backoff before next attempt — gives Gemini API time to recover
+            await asyncio.sleep(0.5 * (attempt + 1))
+
+        return session, accumulated_events
 
     def _extract_response_from_event(self, event):
         """Extract response text from various event types."""

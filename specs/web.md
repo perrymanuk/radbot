@@ -37,7 +37,7 @@ See `specs/workers.md` for worker/terminal architecture.
 
 | File | Purpose |
 |------|---------|
-| `web/api/session/session_runner.py` | ADK runner, event processing, history loading, card/handoff block injection |
+| `web/api/session/session_runner.py` | ADK runner, event processing, history loading, card/handoff block injection, selective empty-content retry (`_run_with_empty_content_retry`: same-session continuation when prior attempt produced a non-transfer `function_response`, otherwise full session reset replaying the original user message) |
 | `web/api/session/session_manager.py` | Per-session `SessionRunner` registry with lock-based TOCTOU guard |
 | `web/api/session/dependencies.py` | FastAPI dep: `get_or_create_runner_for_session()` |
 | `web/api/session/memory_api.py` | `/api/memory` router for explicit memory store/recall |
