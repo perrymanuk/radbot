@@ -23,6 +23,8 @@ boundary of the current user turn (the most recent ``Content`` with
 
 What remains:
   * the current user message
+  * the orchestrator's ``transfer_to_agent`` call/result for this turn (ADK
+    presents these as "For context: [beto] ..." user-role text)
   * any model output since then (e.g. the sub-agent's own in-flight tool calls)
   * any function_response parts from the current invocation
 
@@ -46,16 +48,30 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
+# ADK rewrites other agents' events (e.g. beto's ``transfer_to_agent`` call
+# and its tool result) into ``role='user'`` text whose first part is this
+# marker — see ``google.adk.flows.llm_flows.contents._present_other_agent_message``.
+# Those are context, not the user's turn, and must never be the trim anchor;
+# otherwise the sub-agent is left with only "[beto] `transfer_to_agent` tool
+# returned result" and loses the actual request.
+_FOREIGN_CONTEXT_MARKER = "For context:"
+
+
 def _is_user_text(content: Any) -> bool:
     """True when a Content represents an actual user message (not a
-    function_response disguised as role='user')."""
+    function_response disguised as role='user', and not another agent's
+    output that ADK re-presented as user-role context)."""
     try:
         if getattr(content, "role", None) != "user":
             return False
-        for part in getattr(content, "parts", None) or []:
-            if getattr(part, "text", None):
-                return True
-        return False
+        parts = getattr(content, "parts", None) or []
+        first_text = next(
+            (getattr(p, "text", None) for p in parts if getattr(p, "text", None)),
+            None,
+        )
+        if first_text is None:
+            return False
+        return not first_text.strip().startswith(_FOREIGN_CONTEXT_MARKER)
     except Exception:
         return False
 

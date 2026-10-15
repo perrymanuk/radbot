@@ -71,7 +71,6 @@ def create_comms_agent() -> Optional[Agent]:
             description="Email (Gmail read-only) and Jira issue management (list, view, transition, comment, search).",
             instruction=instruction,
             tools=tools,
-            mode="task",
         )
 
         logger.info(f"Created Comms agent with {len(tools)} tools")

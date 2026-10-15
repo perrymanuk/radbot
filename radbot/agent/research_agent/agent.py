@@ -49,7 +49,7 @@ class ResearchAgent:
         enable_google_search: bool = False,
         enable_code_execution: bool = False,
         app_name: str = "beto",
-        mode: str = "task",
+        mode: str = "chat",
     ):
         """
         Initialize the ResearchAgent.
@@ -92,10 +92,10 @@ class ResearchAgent:
             tools = get_research_tools()
             logger.info(f"Using default research tools: {len(tools)} tools loaded")
 
-        # Create the LlmAgent instance. ``mode`` defaults to "task" to preserve
-        # the existing sub-agent behavior; callers constructing scout as a
-        # session root must pass ``mode="chat"`` — ADK 2.0's Runner rejects a
-        # root LlmAgent that isn't in chat mode.
+        # Create the LlmAgent instance. ``mode`` is "chat" in both sub-agent
+        # and root usage: under V1, ``mode="task"`` injects a ``finish_task``
+        # tool that shadows ``transfer_to_agent``, and ADK's Runner rejects a
+        # non-chat root agent.
         self.agent = LlmAgent(
             name=name,
             model=model,

@@ -99,7 +99,6 @@ def create_planner_agent() -> Optional[Agent]:
             description="Calendar events, scheduled recurring tasks, one-shot reminders, webhook triggers, and time queries.",  # noqa: E501
             instruction=instruction,
             tools=tools,
-            mode="task",
         )
 
         logger.info(f"Created Planner agent with {len(tools)} tools")

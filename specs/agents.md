@@ -290,10 +290,12 @@ callbacks themselves remain runtime-gated by
 `scope_sub_agent_context_callback` (in `radbot/callbacks/scope_to_current_turn.py`) runs before every sub-agent LLM call. It:
 
 1. Walks `llm_request.contents` bottom-up
-2. Finds the most recent `role='user'` entry whose parts include actual text (not just a `function_response`)
+2. Finds the most recent `role='user'` entry whose parts include actual text (not just a `function_response`), skipping entries whose first text starts with `For context:` — ADK re-presents other agents' events (beto's `transfer_to_agent` call + result) that way, and anchoring on them drops the user's request
 3. Slices `contents` from that index forward
 
-What remains: the current user message, any in-flight model output, any function_response parts from the current invocation. What gets dropped: every prior user/assistant turn.
+What remains: the current user message, beto's transfer call/result for this turn, any in-flight model output, any function_response parts from the current invocation. What gets dropped: every prior user/assistant turn.
+
+Sub-agents are constructed without `mode="task"`: under V1 that mode injects a `finish_task` tool (and an instruction to call it silently) that shadows `transfer_to_agent`.
 
 **Result**: Each sub-agent prompt contains only the current turn → no cross-domain context bleed, no linear token growth with session length.
 

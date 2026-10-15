@@ -88,7 +88,6 @@ def create_youtube_agent() -> Optional[Agent]:
             ),
             instruction=instruction,
             tools=tools,
-            mode="task",
         )
 
         logger.info(f"Created KidsVid agent with {len(tools)} tools")

@@ -128,8 +128,9 @@ class TestAgentModelConfig(unittest.TestCase):
         self.assertTrue(call_kwargs["enable_sequential_thinking"])
         self.assertFalse(call_kwargs["enable_google_search"])
         self.assertFalse(call_kwargs["enable_code_execution"])
-        # sub-agent scout stays in "task" mode (matches beto's routing tree)
-        self.assertEqual(call_kwargs.get("mode"), "task")
+        # sub-agent scout must be "chat" too: under V1, mode="task" injects a
+        # finish_task tool that shadows transfer_to_agent (see CLAUDE.md gotchas)
+        self.assertEqual(call_kwargs.get("mode"), "chat")
 
     @patch("radbot.agent.research_agent.factory.config_manager")
     @patch("radbot.agent.research_agent.factory.ResearchAgent")
