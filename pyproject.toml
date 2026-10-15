@@ -26,6 +26,12 @@ dependencies = [
     "google-genai>=2.30.0,<3.0.0",
     "qdrant-client>=1.13.0",
     "modelcontextprotocol>=0.1.0",
+    # Pin mcp < 2: the radbot MCP server (radbot/mcp_server/server.py) uses the
+    # 1.x lowlevel `Server.list_tools()` / `call_tool()` decorator API, which
+    # mcp 2.0 removed. ADK 2.12 allows mcp<3 so without this pin a fresh
+    # resolve (e.g. the Dockerfile, which does not use uv.lock) picks 2.x and
+    # the MCP session manager fails at startup.
+    "mcp>=1.24.0,<2.0.0",
     "tzdata",
     "pydantic>=2.11.4",
     "python-dotenv>=1.1.0",
