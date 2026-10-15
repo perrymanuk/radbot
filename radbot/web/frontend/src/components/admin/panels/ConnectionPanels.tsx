@@ -55,6 +55,7 @@ export function GmailPanel() {
 
   const [enabled, setEnabled] = useState(false);
   const [oauthClientJson, setOauthClientJson] = useState("");
+  const [quotaProject, setQuotaProject] = useState("");
   const [accounts, setAccounts] = useState<GmailAccount[]>([]);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [newAccountLabel, setNewAccountLabel] = useState("");
@@ -81,6 +82,7 @@ export function GmailPanel() {
   useEffect(() => {
     loadLiveConfig().then((cfg) => {
       setEnabled(!!dig(cfg, "integrations.gmail.enabled"));
+      setQuotaProject(String(dig(cfg, "agent.google_cloud_project") ?? ""));
     });
     loadAccounts();
   }, [loadLiveConfig, loadAccounts]);
@@ -133,6 +135,8 @@ export function GmailPanel() {
         await saveCredential("gmail_oauth_client", oauthClientJson.trim(), "oauth_client", "Gmail OAuth client credentials");
       }
       await mergeConfigSection("integrations", { gmail: { enabled } });
+      // Shared with the Google AI panel: one GCP project for all Google API quota.
+      await mergeConfigSection("agent", { google_cloud_project: quotaProject.trim() || undefined });
       toast("Gmail settings saved", "success");
       loadStatus();
     } catch (e: any) {
@@ -158,6 +162,13 @@ export function GmailPanel() {
           value={oauthClientJson}
           onChange={setOauthClientJson}
           placeholder='{"installed":{...}}'
+        />
+        <FormInput
+          label="Google Cloud Project (quota)"
+          value={quotaProject}
+          onChange={setQuotaProject}
+          placeholder="my-gcp-project-id"
+          hint="Same setting as Google AI → Google Cloud Project. Sent as the quota project on Gmail API calls; required when the OAuth client is Google's built-in gcloud client, otherwise tokens get 403 'requires a quota project'. Env GOOGLE_CLOUD_QUOTA_PROJECT overrides it."
         />
       </Card>
 

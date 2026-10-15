@@ -92,6 +92,7 @@ Canonical example: `radbot/tools/overseerr/overseerr_client.py`. Prefer `get_int
 - **File fallback**: `~/.config/radbot/gmail_tokens/<account>.json`
 - **Multi-account**: Default + named accounts, cached by label in `_gmail_managers` dict
 - **OAuth flow**: `GET /admin/api/credentials/gmail/setup?account=<label>` → callback → store token
+- **Quota project**: `_get_quota_project()` in `tools/gmail/gmail_auth.py` resolves env (`GOOGLE_CLOUD_QUOTA_PROJECT`, `GOOGLE_CLOUD_PROJECT`, …) → DB config `agent.google_cloud_project` (admin UI: Google AI panel "Google Cloud Project", mirrored as "Google Cloud Project (quota)" in the Gmail panel) → ADC file → gcloud config, and applies it via `Credentials.with_quota_project()`. Mandatory when the stored OAuth client is Google's built-in gcloud client (`764086051850-…`): without it the Gmail API returns 403 `accessNotConfigured` / "requires a quota project". `Credentials.to_json()` drops `quota_project_id`, so it is re-applied on every load rather than persisted in the token.
 - **Read-only**: No send/compose tools
 
 ### Google Calendar

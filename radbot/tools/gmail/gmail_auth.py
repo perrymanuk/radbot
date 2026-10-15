@@ -61,12 +61,12 @@ def _get_client_file() -> str:
         return os.path.expanduser(client_file)
 
     try:
-        from radbot.config import config_manager
+        from radbot.tools.shared.config_helper import get_integration_config
 
-        gmail_config = (
-            config_manager.get_config().get("integrations", {}).get("gmail", {})
+        gmail_config = get_integration_config(
+            "gmail", fields={"oauth_client_file": "GMAIL_OAUTH_CLIENT_FILE"}
         )
-        client_file = gmail_config.get("oauth_client_file", "")
+        client_file = gmail_config.get("oauth_client_file") or ""
         if client_file:
             return os.path.expanduser(client_file)
     except Exception:
@@ -95,7 +95,15 @@ def _get_adc_client_config() -> Optional[dict]:
 
 
 def _get_quota_project() -> Optional[str]:
-    """Get a quota project ID for user credentials."""
+    """Get a quota project ID for user credentials.
+
+    Tokens minted against Google's built-in gcloud OAuth client are only
+    accepted by the Gmail API when the request names a quota project
+    (``x-goog-user-project``). Lookup order: env vars → DB config
+    ``agent.google_cloud_project`` (admin UI: Google AI panel, mirrored in
+    the Gmail panel) → ADC file → gcloud config. Production has none of the
+    env/file sources, so the DB config entry is the one that matters there.
+    """
     for env_var in (
         "GOOGLE_CLOUD_QUOTA_PROJECT",
         "GOOGLE_CLOUD_PROJECT",
@@ -105,6 +113,15 @@ def _get_quota_project() -> Optional[str]:
         project = os.environ.get(env_var, "")
         if project:
             return project
+
+    try:
+        from radbot.config import config_manager
+
+        project = str(config_manager.get_google_cloud_project() or "").strip()
+        if project:
+            return project
+    except Exception:
+        pass
 
     adc_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", ADC_PATH)
     if os.path.exists(adc_path):
@@ -142,16 +159,6 @@ def _get_quota_project() -> Optional[str]:
                                 return project
         except Exception:
             pass
-
-    # Fall back to DB config (google_cloud_project in agent section)
-    try:
-        from radbot.config import config_manager
-
-        project = config_manager.get_google_cloud_project()
-        if project:
-            return project
-    except Exception:
-        pass
 
     return None
 
