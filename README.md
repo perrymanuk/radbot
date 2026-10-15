@@ -272,7 +272,7 @@ See `specs/testing.md`, `docs/implementation/quality_pipeline.md`, and `docs/imp
 
 ## Tech Stack
 
-- **Agent framework**: Google ADK 2.0.0a3
+- **Agent framework**: Google ADK 2.12+
 - **LLM**: Google Gemini (configurable per agent)
 - **Backend**: FastAPI, WebSockets, APScheduler
 - **Frontend**: React 18, Vite 6, TypeScript, Tailwind CSS, Zustand

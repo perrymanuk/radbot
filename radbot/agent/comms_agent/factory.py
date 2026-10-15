@@ -29,7 +29,6 @@ def create_comms_agent() -> Optional[Agent]:
             "comms",
             "You are Comms, a communications specialist. "
             "Read emails via Gmail and manage Jira issues.",
-            use_task_mode=True,
         )
 
         # Build tools list

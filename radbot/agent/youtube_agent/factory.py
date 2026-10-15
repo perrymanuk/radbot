@@ -30,7 +30,6 @@ def create_youtube_agent() -> Optional[Agent]:
             "kidsvid",
             "You are KidsVid, a children's video curator. "
             "Search YouTube for safe, educational, age-appropriate videos for children.",
-            use_task_mode=True,
         )
 
         # Build tools list

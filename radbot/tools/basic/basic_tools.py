@@ -10,33 +10,7 @@ from zoneinfo import ZoneInfo
 
 from google.adk.tools.tool_context import ToolContext
 
-# Import the tool decorator if available (for ADK >=0.3.0)
-try:
-    from google.adk.tools.decorators import tool
 
-    HAVE_TOOL_DECORATOR = True
-except ImportError:
-    HAVE_TOOL_DECORATOR = False
-
-    # Create a no-op decorator for compatibility
-    def tool(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
-
-@tool(
-    name="get_current_time",
-    description="Get the current time for a specified city or timezone",
-    parameters={
-        "city": {
-            "type": "string",
-            "description": "The city name (e.g., 'New York', 'London'). Defaults to UTC if not specified.",
-            "default": "UTC",
-        }
-    },
-)
 def get_current_time(
     city: str = "UTC", tool_context: Optional[ToolContext] = None
 ) -> str:

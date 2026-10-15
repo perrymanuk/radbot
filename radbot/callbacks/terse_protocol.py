@@ -39,9 +39,7 @@ rejected in the EX21 plan council.
 
 ### ADK compatibility
 
-Written for ``google-adk>=2.0.0a3`` in V1 LlmAgent mode (the project
-default; see ``CLAUDE.md`` for why V2 ``_Mesh`` is off). Callback
-signatures match the pattern used by ``scope_to_current_turn`` and
+Written for ``google-adk>=2.12``. Callback signatures match the pattern used by ``scope_to_current_turn`` and
 ``telemetry_callback``.
 """
 

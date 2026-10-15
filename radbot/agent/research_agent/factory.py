@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Union
 
 # Import project components
 from radbot.agent.research_agent.agent import ResearchAgent
-from radbot.agent.shared import TASK_FINISH_INSTRUCTIONS, TRANSFER_INSTRUCTIONS
+from radbot.agent.shared import TRANSFER_INSTRUCTIONS
 from radbot.config import config_manager
 
 # Import ADK components
@@ -167,9 +167,9 @@ def create_research_agent(
         toolkit.extend(tools)
 
     # Create the research agent with explicit name and app_name.
-    # Always "chat": ADK 2.0's Runner requires it for a root agent, and under
-    # V1 ``mode="task"`` injects a ``finish_task`` tool (plus an instruction
-    # to call it silently) that competes with ``transfer_to_agent`` and never
+    # Always "chat": ADK's Runner requires it for a root agent, and
+    # ``mode="task"`` injects a ``finish_task`` tool (plus an instruction to
+    # call it silently) that competes with ``transfer_to_agent`` and never
     # returns control to beto.
     research_agent = ResearchAgent(
         name=name,
@@ -191,7 +191,7 @@ def create_research_agent(
     # for any agent that is part of a sub_agents tree. Adding it explicitly causes
     # a "Duplicate function declaration" error from the Gemini API.
 
-    # Append completion instructions (task or transfer depending on V1/V2 mode).
+    # Append the transfer-back-to-beto rule.
     # Root agents don't transfer — they ARE the root, the next agent on the
     # receiving end is the user, and ADK doesn't auto-inject
     # ``transfer_to_agent`` unless the agent has sub-agents. Appending
@@ -199,15 +199,7 @@ def create_research_agent(
     # that isn't registered → "Tool 'transfer_to_agent' not found" on the
     # first turn that tries to "return control." Skip entirely for as_root.
     if not as_root and hasattr(adk_agent, "instruction") and adk_agent.instruction:
-        try:
-            from google.adk.features import FeatureName, is_feature_enabled
-
-            v2_active = not is_feature_enabled(FeatureName.V1_LLM_AGENT)
-        except Exception:
-            v2_active = False
-        adk_agent.instruction += (
-            TASK_FINISH_INSTRUCTIONS if v2_active else TRANSFER_INSTRUCTIONS
-        )
+        adk_agent.instruction += TRANSFER_INSTRUCTIONS
 
     # Root-mode wiring: attach sub-agents (search_agent sits under scout for
     # grounded Google) and the persona/sanitize/telemetry callback stack that

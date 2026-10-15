@@ -19,163 +19,32 @@ def create_find_ha_entities_tool():
 
     logger = logging.getLogger(__name__)
 
-    # For ADK 0.3.0 compatibility, we'll use the built-in tool creation
-    # mechanism from the Agent Development Kit instead of directly creating a FunctionTool
-    try:
-        # ADK 0.3.0 approach using @tool decorator
-        from google.adk.tools.decorators import tool
+    from google.adk.tools import FunctionTool
 
-        # Create a decorated function with proper schema
-        @tool(
-            name="search_home_assistant_entities",
-            description="Search for Home Assistant entities by name or area",
-            parameters={
-                "search_term": {
-                    "type": "string",
-                    "description": "Term to search for in entity names, like 'kitchen' or 'plant'",
-                },
-                "domain_filter": {
-                    "type": "string",
-                    "description": "Optional domain type to filter by (light, switch, etc.)",
-                    "enum": [
-                        "light",
-                        "switch",
-                        "sensor",
-                        "media_player",
-                        "climate",
-                        "cover",
-                        "vacuum",
-                    ],
-                    "required": False,
-                },
-            },
-            required=["search_term"],
+    def search_home_assistant_entities(
+        search_term: str, domain_filter: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Search for Home Assistant entities by name or area.
+
+        Args:
+            search_term: Term to search for in entity names, like 'kitchen' or 'plant'
+            domain_filter: Optional domain type to filter by (light, switch, sensor,
+                media_player, climate, cover, vacuum)
+
+        Returns:
+            Dictionary with matching entities
+        """
+        logger.info(
+            f"Entity search called with term: '{search_term}', domain_filter: '{domain_filter}'"
         )
-        def search_home_assistant_entities(
-            search_term: str, domain_filter: Optional[str] = None
-        ) -> Dict[str, Any]:
-            """
-            Search for Home Assistant entities by name.
-
-            Args:
-                search_term: Text to search for in entity names/IDs
-                domain_filter: Optional domain type to filter by (light, switch, etc.)
-
-            Returns:
-                Dictionary with matching entities
-            """
-            logger.info(
-                f"Entity search called with term: '{search_term}', domain_filter: '{domain_filter}'"
-            )
-            result = find_home_assistant_entities(search_term, domain_filter)
-            logger.info(
-                f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"  # noqa: E501
-            )
-            return result
-
-        logger.info("Created entity search tool using @tool decorator")
-        return search_home_assistant_entities
-
-    except (ImportError, AttributeError):
-        # Fall back to direct FunctionTool creation
-        logger.warning(
-            "@tool decorator not available, falling back to FunctionTool creation"
+        result = find_home_assistant_entities(search_term, domain_filter)
+        logger.info(
+            f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"  # noqa: E501
         )
+        return result
 
-        from google.adk.tools import FunctionTool
-
-        # Define the search function with exactly matching name as specified in schema
-        def search_home_assistant_entities(
-            search_term: str, domain_filter: Optional[str] = None
-        ) -> Dict[str, Any]:
-            """
-            Search for Home Assistant entities by name.
-
-            Args:
-                search_term: Text to search for in entity names/IDs
-                domain_filter: Optional domain type to filter by (light, switch, etc.)
-
-            Returns:
-                Dictionary with matching entities
-            """
-            logger.info(
-                f"Entity search called with term: '{search_term}', domain_filter: '{domain_filter}'"
-            )
-            result = find_home_assistant_entities(search_term, domain_filter)
-            logger.info(
-                f"Entity search result: {result.get('status', 'unknown')} (found {result.get('match_count', 0)} matches)"  # noqa: E501
-            )
-            return result
-
-        # Try FunctionTool creation with different approaches
-        try:
-            # First try the newer ADK 0.3.0 style
-            tool = FunctionTool(
-                function=search_home_assistant_entities,
-                function_schema={
-                    "name": "search_home_assistant_entities",
-                    "description": "Search for Home Assistant entities by name or area",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "search_term": {
-                                "type": "string",
-                                "description": "Term to search for in entity names, like 'kitchen' or 'plant'",
-                            },
-                            "domain_filter": {
-                                "type": "string",
-                                "description": "Optional domain type to filter by (light, switch, etc.)",
-                                "enum": [
-                                    "light",
-                                    "switch",
-                                    "sensor",
-                                    "media_player",
-                                    "climate",
-                                    "cover",
-                                    "vacuum",
-                                ],
-                            },
-                        },
-                        "required": ["search_term"],
-                    },
-                },
-            )
-            logger.info("Created entity search tool using ADK 0.3.0 FunctionTool style")
-        except TypeError:
-            # Fall back to older ADK API
-            tool = FunctionTool(
-                search_home_assistant_entities,
-                {
-                    "name": "search_home_assistant_entities",
-                    "description": "Search for Home Assistant entities by name or area",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "search_term": {
-                                "type": "string",
-                                "description": "Term to search for in entity names, like 'kitchen' or 'plant'",
-                            },
-                            "domain_filter": {
-                                "type": "string",
-                                "description": "Optional domain type to filter by (light, switch, etc.)",
-                                "enum": [
-                                    "light",
-                                    "switch",
-                                    "sensor",
-                                    "media_player",
-                                    "climate",
-                                    "cover",
-                                    "vacuum",
-                                ],
-                            },
-                        },
-                        "required": ["search_term"],
-                    },
-                },
-            )
-            logger.info("Created entity search tool using legacy FunctionTool style")
-
-        return tool
+    return FunctionTool(search_home_assistant_entities)
 
 
 # Create a pure function version of the search tool

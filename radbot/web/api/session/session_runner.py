@@ -113,31 +113,42 @@ class SessionRunner:
             setattr(ToolContext, "memory_service", memory_service)
             logger.debug("Set memory_service in global ToolContext class")
 
-        # Create the Runner with artifact service and memory service
-        self.runner = Runner(
-            agent=self._root_agent,
-            app_name=app_name,
-            session_service=self.session_service,
-            artifact_service=self.artifact_service,  # Pass artifact service to Runner
-            memory_service=memory_service,  # Pass memory service to Runner
-        )
-
-        # Enable ADK context caching to reduce API costs.
-        # System instructions + tool schemas are identical across requests,
-        # so cached tokens (billed at 10% rate) approach 100% hit rate.
+        # Enable ADK context caching to reduce API costs. System instructions
+        # + tool schemas are identical across requests, so cached tokens
+        # (billed at 10% rate) approach 100% hit rate. ADK >= 2.7 keys the
+        # cache per agent across transfers, but only when the config is set on
+        # the App at construction time (setting it on the Runner afterwards
+        # logs an "uncached agent transfer" warning and misses the per-agent
+        # cache wiring).
+        context_cache_config = None
         try:
             from google.adk.agents.context_cache_config import ContextCacheConfig
 
-            self.runner.context_cache_config = ContextCacheConfig(
+            context_cache_config = ContextCacheConfig(
                 cache_intervals=20,
                 ttl_seconds=3600,
                 min_tokens=2048,
             )
+        except Exception as e:
+            logger.warning(f"Could not enable context caching: {e}")
+
+        # Create the Runner with artifact service and memory service
+        from google.adk.apps import App
+
+        self.runner = Runner(
+            app=App(
+                name=app_name,
+                root_agent=self._root_agent,
+                context_cache_config=context_cache_config,
+            ),
+            session_service=self.session_service,
+            artifact_service=self.artifact_service,  # Pass artifact service to Runner
+            memory_service=memory_service,  # Pass memory service to Runner
+        )
+        if context_cache_config is not None:
             logger.debug(
                 "Enabled context caching on web Runner (intervals=20, ttl=3600s, min_tokens=2048)"
             )
-        except Exception as e:
-            logger.warning(f"Could not enable context caching: {e}")
 
     def _apply_thinking_config(self, agent):
         """Attach a ``ThinkingConfig`` to ``agent.generate_content_config``
