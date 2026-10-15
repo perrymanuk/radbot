@@ -8,7 +8,7 @@ All integrations follow a common pattern:
 2. **Credential fallback**: `get_credential_store().get("<key>")` for secrets
 3. **Env var fallback**: `os.environ.get("SERVICE_KEY")` as last resort
 4. **Singleton client**: Module-level `_client` + `get_client()` / `reset_client()`
-5. **Hot-reload**: Admin UI save → `reset_*_client()` → next call picks up new config
+5. **Hot-reload**: Admin UI save → `config/runtime.py:apply_runtime_config()` → `reset_*_client()` → next call picks up new config
 
 Canonical example: `radbot/tools/overseerr/overseerr_client.py`. Prefer `get_integration_config()` from `tools/shared/config_helper.py` for new clients.
 
@@ -188,7 +188,7 @@ See `specs/web.md` § Admin Panel Modules for the full flat list. Location: `rad
 
 ## Hot-Reload Registry
 
-When the admin UI saves config via `PUT /admin/api/config/{section}`, `web/api/admin.py:_reset_integration_clients()` calls `ClientProvider.clear()` from `radbot/clients/provider.py` (EX44 / PT111). The provider iterates every integration's `reset_X_client()` in a single fail-soft loop, replacing the legacy hand-maintained `_INTEGRATION_RESET_REGISTRY` list. Post-reset hooks (ntfy subscriber restart, filesystem config reload) still live inline in admin.py because they're not client lifecycle.
+Every admin save (`PUT /admin/api/config/{section}` and `POST /admin/api/credentials`) runs `radbot/config/runtime.py:apply_runtime_config()` — the same function web startup runs. It calls `ClientProvider.clear()` (every `reset_X_client()` in one fail-soft loop), clears the Gmail / Calendar service caches, re-pushes the Gemini key into the environment, and — when `integrations` or a related credential changed — rebuilds casa's HA tools and axel's dynamic MCP tools in place (both bind clients + tool lists at build time, so a client reset alone leaves the live agent on the old URL/token). Full step table: `specs/config.md` § Hot-Reload Flow.
 
 Next tool call on any agent triggers re-initialization with fresh config from DB.
 

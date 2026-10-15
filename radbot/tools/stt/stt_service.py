@@ -45,6 +45,13 @@ class STTService:
         return _instance
 
     @classmethod
+    def reset_instance(cls) -> None:
+        """Drop the singleton so the next ``create_instance`` re-reads config
+        (admin hot-reload via ``config.runtime.apply_runtime_config``)."""
+        global _instance
+        _instance = None
+
+    @classmethod
     def create_instance(cls, **kwargs) -> "STTService":
         global _instance
         if _instance is None:

@@ -3,6 +3,7 @@
 All endpoints require a bearer token matching ``RADBOT_ADMIN_TOKEN``.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -21,40 +22,33 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 _ADMIN_TOKEN_ENV = "RADBOT_ADMIN_TOKEN"
 
-# Post-reset hooks that require special handling (e.g. async restart).
-# Each entry is (module_path, function_name, is_async). Integration
-# *client* lifecycle was unified into `radbot/clients/provider.py` (EX44 /
-# PT111); these hooks remain separate because they're not client resets —
-# they restart subscribers / re-read filesystem config after a hot-reload.
-_INTEGRATION_POST_RESET_HOOKS: list[tuple[str, str, bool]] = [
-    ("radbot.tools.ntfy.ntfy_subscriber", "start_ntfy_subscriber", True),
-    ("radbot.filesystem.adapter", "reload_filesystem_config", False),
-]
 
+async def _apply_runtime_config(
+    section: Optional[str] = None, credential: Optional[str] = None
+) -> dict:
+    """Universal hot-reload: re-derive all config-dependent process state.
 
-def _reset_integration_clients() -> None:
-    """Reset all integration client singletons for hot-reload.
-
-    Delegates to `ClientProvider.clear()` for client lifecycle and runs the
-    post-reset hooks (subscriber restart, filesystem config reload) inline.
+    Delegates to `radbot.config.runtime.apply_runtime_config` (the same
+    function web startup calls) in a worker thread, because the gated
+    tool rebuilds may do blocking network I/O and the generic MCP loader
+    drives its own event loop. Then restarts the ntfy subscriber on the
+    request loop when its config can have changed.
     """
-    import asyncio
-    import importlib
+    from starlette.concurrency import run_in_threadpool
 
-    from radbot.clients.provider import get_provider
+    from radbot.config.runtime import apply_runtime_config
 
-    get_provider().clear()
-
-    for module_path, func_name, is_async in _INTEGRATION_POST_RESET_HOOKS:
+    results = await run_in_threadpool(
+        apply_runtime_config, "admin", section=section, credential=credential
+    )
+    if section == "integrations":
         try:
-            module = importlib.import_module(module_path)
-            func = getattr(module, func_name)
-            if is_async:
-                asyncio.create_task(func())
-            else:
-                func()
-        except Exception:
-            pass  # Module may not be installed/configured
+            from radbot.tools.ntfy.ntfy_subscriber import start_ntfy_subscriber
+
+            asyncio.create_task(start_ntfy_subscriber())
+        except Exception as e:
+            logger.debug("ntfy subscriber restart skipped: %s", e)
+    return results
 
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -136,15 +130,14 @@ async def store_credential(request: Request, _: None = Depends(_verify_admin)):
         raise HTTPException(400, "name and value are required")
 
     store.set(name, value, credential_type=cred_type, description=description)
-    # Reset all integration clients when the HA token is updated. The
-    # provider's `clear()` is broader than the prior HA-only reset, but
-    # it's cheap (each reset just nulls a module global) and removes the
-    # need for a hand-maintained per-token mapping.
-    if name == "ha_token":
-        from radbot.clients.provider import get_provider
-
-        get_provider().clear()
-    return {"status": "ok", "name": name}
+    # ADK reads the Gemini key from the process environment. Push it in
+    # directly (deterministic even if the store is unreadable), then run the
+    # universal reapply so every other credential-derived cache follows.
+    if name == "google_api_key":
+        os.environ["GOOGLE_API_KEY"] = value
+        logger.info("Updated GOOGLE_API_KEY in process environment")
+    reload = await _apply_runtime_config(credential=name)
+    return {"status": "ok", "name": name, "reload": reload}
 
 
 @router.delete("/api/credentials/{name:path}")
@@ -219,49 +212,10 @@ async def save_config_section(
         config_loader.load_db_config()
     except Exception as e:
         logger.warning(f"Config hot-reload failed: {e}")
-    # Hot-reload agent model when agent config changes
-    if section == "agent":
-        try:
-            from radbot.agent.assembly import _resolve_assembly
-            from radbot.config import config_manager
-
-            config_manager.apply_model_config(_resolve_assembly().root_agent)
-        except Exception as e:
-            logger.warning(f"Agent model hot-reload failed: {e}")
-        # Hot-reload GOOGLE_CLOUD_PROJECT env var
-        try:
-            from radbot.config import config_manager as _cm
-
-            project_id = _cm.get_google_cloud_project()
-            if project_id:
-                os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
-                logger.info(f"Updated GOOGLE_CLOUD_PROJECT={project_id}")
-            else:
-                os.environ.pop("GOOGLE_CLOUD_PROJECT", None)
-        except Exception as e:
-            logger.warning(f"GOOGLE_CLOUD_PROJECT hot-reload failed: {e}")
-    # Re-initialize memory service when vector_db config changes
-    if section == "vector_db":
-        try:
-            from radbot.agent.assembly import (
-                _resolve_assembly,
-                initialize_memory_service,
-            )
-
-            mem_svc = initialize_memory_service()
-            if mem_svc:
-                assembly = _resolve_assembly()
-                for agent in assembly.root_agents.values():
-                    agent._memory_service = mem_svc
-                logger.info(
-                    "Re-initialized memory service after vector_db config change"
-                )
-        except Exception as e:
-            logger.warning(f"Memory service hot-reload failed: {e}")
-    # Reset client singletons so next call picks up new config
-    if section == "integrations":
-        _reset_integration_clients()
-    return {"status": "ok", "section": section}
+    # Universal hot-reload: env, models, logging, clients, agent tools,
+    # media services, memory service — see radbot/config/runtime.py.
+    reload = await _apply_runtime_config(section=section)
+    return {"status": "ok", "section": section, "reload": reload}
 
 
 @router.delete("/api/config/{section}")
@@ -270,7 +224,15 @@ async def delete_config_section(section: str, _: None = Depends(_verify_admin)):
     store = _require_store()
     if not store.delete(f"config:{section}"):
         raise HTTPException(404, f"Config section '{section}' not found")
-    return {"status": "ok", "section": section}
+    # Deleting a section reverts to file/default values — reapply those too.
+    try:
+        from radbot.config.config_loader import config_loader
+
+        config_loader.load_db_config()
+    except Exception as e:
+        logger.warning(f"Config hot-reload failed: {e}")
+    reload = await _apply_runtime_config(section=section)
+    return {"status": "ok", "section": section, "reload": reload}
 
 
 # ------------------------------------------------------------------

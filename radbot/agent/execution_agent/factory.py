@@ -19,6 +19,68 @@ from radbot.config import config_manager
 logger = logging.getLogger(__name__)
 
 
+# Dynamic MCP tools currently installed on the live axel agent. Tracked so
+# `refresh_axel_mcp_tools()` can swap them out in place after an admin-UI
+# change to `integrations.mcp.servers` or an `mcp_<id>_auth_token`.
+_installed_mcp_tools: list = []
+
+
+def _build_mcp_tools() -> list:
+    """Load dynamic MCP tools for every enabled server in current config."""
+    try:
+        from radbot.tools.mcp.dynamic_tools_loader import load_dynamic_mcp_tools
+
+        mcp_tools = load_dynamic_mcp_tools() or []
+        if mcp_tools:
+            logger.info(f"Added {len(mcp_tools)} dynamic MCP tools to Axel")
+        return list(mcp_tools)
+    except Exception as e:
+        logger.warning(f"Failed to add dynamic MCP tools to Axel: {e}")
+        return []
+
+
+def refresh_axel_mcp_tools(agent: Optional[Agent] = None) -> int:
+    """Rebuild axel's dynamic MCP tools from current config and swap in place.
+
+    MCP tools bind a per-server client at build time, so a config change
+    (new server, URL, token, enabled flag) never reaches the live agent on
+    its own. Stops the cached MCP clients, reloads from config, and replaces
+    the previously installed tools on axel's `tools` list. ADK reads that
+    list on every request, so the change applies on the next LLM call.
+
+    Returns the number of MCP tools now installed (0 if axel isn't built).
+    """
+    if agent is None:
+        try:
+            from radbot.agent.assembly import _resolve_assembly
+
+            agent = _resolve_assembly().root_agent.find_sub_agent("axel")
+        except Exception as e:
+            logger.debug("refresh_axel_mcp_tools: no assembly yet (%s)", e)
+            return 0
+    if agent is None:
+        return 0
+
+    try:
+        from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
+
+        MCPClientFactory.clear_cache()
+    except Exception as e:
+        logger.debug("refresh_axel_mcp_tools: client cache clear skipped (%s)", e)
+
+    new_tools = _build_mcp_tools()
+    old_ids = {id(t) for t in _installed_mcp_tools}
+    remaining = [t for t in agent.tools if id(t) not in old_ids]
+    agent.tools[:] = remaining + new_tools
+    _installed_mcp_tools[:] = new_tools
+    logger.info(
+        "Refreshed axel MCP tools: %d installed (%d total tools)",
+        len(new_tools),
+        len(agent.tools),
+    )
+    return len(new_tools)
+
+
 def create_execution_agent(
     name: str = "axel",
     model: Optional[str] = None,
@@ -90,15 +152,9 @@ def create_execution_agent(
         logger.warning(f"Failed to add filesystem tools to Axel: {e}")
 
     # Add dynamic MCP tools
-    try:
-        from radbot.tools.mcp.dynamic_tools_loader import load_dynamic_mcp_tools
-
-        mcp_tools = load_dynamic_mcp_tools()
-        if mcp_tools:
-            agent_tools.extend(mcp_tools)
-            logger.info(f"Added {len(mcp_tools)} dynamic MCP tools to Axel")
-    except Exception as e:
-        logger.warning(f"Failed to add dynamic MCP tools to Axel: {e}")
+    mcp_tools = _build_mcp_tools()
+    agent_tools.extend(mcp_tools)
+    _installed_mcp_tools[:] = mcp_tools
 
     # Add Claude Code + GitHub tools
     agent_tools.extend(

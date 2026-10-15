@@ -35,7 +35,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 
-from radbot.config import config_manager
 from radbot.web.api.admin import router as admin_router
 from radbot.web.api.agent_info import register_agent_info_router
 from radbot.web.api.alerts import router as alerts_router
@@ -271,27 +270,17 @@ async def _startup():
             logger.error(f"Failed to build agent assembly: {build_err}", exc_info=True)
             raise
 
-        # Apply DB model overrides to the freshly assembled root agent.
+        # Derive all config-dependent process state (Gemini env, agent
+        # models, logging level, TTS/STT, …) from the merged config. This is
+        # the SAME function the admin API calls after every save, so anything
+        # that hot-reloads is by construction also applied at startup.
         try:
-            config_manager.apply_model_config(assembly.root_agent)
-        except Exception as model_err:
-            logger.warning(f"Error applying DB model config: {model_err}")
+            from radbot.config.runtime import apply_runtime_config
 
-        # Re-run environment setup now that full config (including DB overrides) is loaded
-        try:
-            from radbot.config.adk_config import setup_vertex_environment
+            apply_runtime_config("startup")
+        except Exception as rt_err:
+            logger.warning(f"Error applying runtime config: {rt_err}")
 
-            setup_vertex_environment()
-            logger.debug(
-                "Re-initialized vertex/API-key environment after DB config load"
-            )
-        except Exception as env_err:
-            logger.warning(f"Error re-initializing environment: {env_err}")
-
-        # Prune disabled MCP server tools from the root agent.
-        # Sub-agent factories load tools using config.yaml, before DB
-        # config overrides are loaded. This step removes tools from MCP servers
-        # that were disabled via the /admin UI (stored in DB).
         try:
             root_agent = assembly.root_agent
             from radbot.config.config_loader import config_loader as _cl
@@ -415,45 +404,6 @@ async def _startup():
             logger.warning(f"ntfy subscriber startup failed: {ntfy_err}")
 
         # Initialize TTS service (lazy, just load config)
-        try:
-            from radbot.config import config_loader
-            from radbot.tools.tts.tts_service import TTSService
-
-            tts_config = config_loader.get_config().get("tts", {})
-            if tts_config.get("enabled", True):
-                TTSService.create_instance(
-                    voice_name=tts_config.get("voice_name"),
-                    language_code=tts_config.get("language_code"),
-                    speaking_rate=tts_config.get("speaking_rate"),
-                    pitch=tts_config.get("pitch"),
-                )
-                logger.debug("TTS service instance created")
-        except Exception as tts_err:
-            logger.error(
-                f"Error initializing TTS service: {str(tts_err)}", exc_info=True
-            )
-
-        # Initialize STT service (lazy, just load config)
-        try:
-            from radbot.config import config_loader as stt_config_loader
-            from radbot.tools.stt.stt_service import STTService
-
-            stt_config = stt_config_loader.get_config().get("stt", {})
-            if stt_config.get("enabled", True):
-                STTService.create_instance(
-                    language_code=stt_config.get("language_code"),
-                    model=stt_config.get("model"),
-                    enable_automatic_punctuation=stt_config.get(
-                        "enable_automatic_punctuation", True
-                    ),
-                )
-                logger.debug("STT service instance created")
-        except Exception as stt_err:
-            logger.error(
-                f"Error initializing STT service: {str(stt_err)}", exc_info=True
-            )
-
-        # Then initialize MCP servers
         logger.debug("Initializing MCP servers at application startup...")
         from radbot.config.config_loader import config_loader
         from radbot.tools.mcp.mcp_client_factory import MCPClientFactory

@@ -59,8 +59,18 @@ This resolves config → env vars → credential store automatically.
 
 ### Hot-reload flow
 
-Admin UI → `PUT /api/config/{section}` → `config_loader.load_db_config()` → client
-`reset_*_client()` singleton reset → next tool call picks up new config.
+Admin UI → `PUT /api/config/{section}` or `POST /api/credentials` → `config_loader.load_db_config()` →
+`radbot/config/runtime.py:apply_runtime_config()` → next tool/LLM call picks up new config.
+
+`apply_runtime_config()` is the **single** place process state is derived from config. Web startup calls
+the same function, so anything applied at boot is by construction re-applied on every admin save. Steps
+(ordered, fail-soft): Gemini/Vertex env vars → agent models → logging level → `ClientProvider.clear()` +
+Gmail/Calendar caches → filesystem config → casa HA tools (gated: `integrations` / `ha_token`) → axel MCP
+tools (gated: `integrations` / `mcp_*` creds) → TTS/STT singletons → memory service (gated: `vector_db` /
+`qdrant_api_key`). The gated steps do network I/O; everything else runs on every save.
+
+**Rule:** never read config into module/agent state at startup without adding a step here. Things that
+inherently need a restart: `web.host` / `web.port` (server bind), `database:` (bootstrap pool).
 
 ### Key config files
 

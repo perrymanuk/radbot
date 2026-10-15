@@ -100,22 +100,40 @@ For new integrations also:
 2. Add status check in `get_integration_status()` in `admin.py`
 3. Add panel in `web/frontend/src/components/admin/panels/...`
 4. Register panel in `pages/AdminPage.tsx` (NAV_ITEMS + PANEL_MAP)
-5. Add entry to `_INTEGRATION_RESET_REGISTRY` in `admin.py` for hot-reload
+5. Add `(name, module_path, "reset_X_client")` to `ClientProvider.clear()` in `clients/provider.py` for hot-reload
 6. Update `config_schema.json` if new `config:<section>` keys are introduced
 
 ## Hot-Reload Flow
 
 ```
-Admin UI edits section
+Admin UI edits section / credential
    ↓
-PUT /admin/api/config/{section}  (or /admin/api/credentials/...)
+PUT /admin/api/config/{section}  |  POST /admin/api/credentials
    ↓
 config_loader.load_db_config()   — merges DB overrides into in-memory config
    ↓
-_INTEGRATION_RESET_REGISTRY      — resets affected singleton clients
+config/runtime.py:apply_runtime_config(section=…, credential=…)   — run in a worker thread
    ↓
-next tool call                   — re-initializes client with fresh config
+next tool / LLM call             — sees fresh state
 ```
+
+`apply_runtime_config()` is also what `web/app.py` startup calls once the assembly is built — one code path for boot and hot-reload. Steps, in order, each fail-soft (status dict returned in the API response under `reload`):
+
+| Step | What it re-derives | Runs on |
+|---|---|---|
+| `genai_env` | `setup_vertex_environment()` → `GOOGLE_API_KEY` / Vertex env / `GOOGLE_CLOUD_PROJECT` | every save |
+| `agent_models` | `config_manager.apply_model_config()` on the live agent tree | every save |
+| `logging` | root logger level from `logging.level` | every save |
+| `integration_clients` | `ClientProvider.clear()` + Gmail / Calendar service caches | every save |
+| `filesystem` | `reload_filesystem_config()` | every save |
+| `ha_tools` | `home_agent.factory.refresh_home_assistant_tools()` — rebuilds casa's HA (MCP or REST) tools in place | `integrations` section, `ha_token` |
+| `mcp_tools` | `execution_agent.factory.refresh_axel_mcp_tools()` — stops cached MCP clients, reloads axel's dynamic tools | `integrations` section, `mcp_*` credentials |
+| `media_services` | `TTSService` / `STTService` singletons recreated from `tts` / `stt` | every save |
+| `memory_service` | `initialize_memory_service()` re-attached to every root agent | `vector_db` section, `qdrant_api_key` |
+
+ntfy subscriber restart stays in `admin.py` (async, needs the request loop) and fires on `integrations` saves.
+
+Needs a restart regardless: `web.host` / `web.port` / `web.debug` (uvicorn bind), `database:` (bootstrap pool, not editable from admin).
 
 ## Environment Separation (Dev)
 
