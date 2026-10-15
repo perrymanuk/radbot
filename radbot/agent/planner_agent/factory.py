@@ -30,7 +30,6 @@ def create_planner_agent() -> Optional[Agent]:
             "planner",
             "You are Planner, a time and scheduling specialist. "
             "Manage calendar events, scheduled tasks, and reminders.",
-            use_task_mode=True,
         )
 
         # Build tools list

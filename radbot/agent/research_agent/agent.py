@@ -93,9 +93,9 @@ class ResearchAgent:
             logger.info(f"Using default research tools: {len(tools)} tools loaded")
 
         # Create the LlmAgent instance. ``mode`` is "chat" in both sub-agent
-        # and root usage: under V1, ``mode="task"`` injects a ``finish_task``
-        # tool that shadows ``transfer_to_agent``, and ADK's Runner rejects a
-        # non-chat root agent.
+        # and root usage: ``mode="task"`` injects a ``finish_task`` tool that
+        # shadows ``transfer_to_agent``, and ADK's Runner rejects a non-chat
+        # root agent.
         self.agent = LlmAgent(
             name=name,
             model=model,
@@ -149,23 +149,20 @@ class ResearchAgent:
         # Define a function that uses the same model as the agent for thinking
         def model_fn(thinking_prompt: str) -> str:
             # Use the agent's model directly to get thinking steps
-            from google.genai.models import GenerativeModel
-            from google.genai.types import GenerationConfig
+            from google.genai import Client
+            from google.genai.types import GenerateContentConfig
 
             try:
-                # Initialize the model
-                model = GenerativeModel(
-                    name=self.model_name,
-                    generation_config=GenerationConfig(
+                response = Client().models.generate_content(
+                    model=self.model_name,
+                    contents=thinking_prompt,
+                    config=GenerateContentConfig(
                         temperature=0.2,  # Lower temperature for more structured thinking
                         top_p=0.95,
                         top_k=40,
                     ),
                 )
-
-                # Get response
-                response = model.generate_content(thinking_prompt)
-                return response.text
+                return response.text or ""
             except Exception as e:
                 logger.error(f"Error in model_fn for sequential thinking: {str(e)}")
                 # Fallback

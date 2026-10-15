@@ -93,19 +93,7 @@ def create_search_agent(
         try:
             from google.genai import types
 
-            # Handle different import paths for ToolGoogleSearch
-            try:
-                # Try to import from types directly (newer versions)
-                ToolGoogleSearch = types.ToolGoogleSearch
-            except AttributeError:
-                try:
-                    # Try to import from separate types classes (older versions)
-                    from google.genai.types.tool_types import ToolGoogleSearch
-                except ImportError:
-                    # Define a minimal wrapper if not available
-                    class ToolGoogleSearch:
-                        def __init__(self):
-                            pass
+            ToolGoogleSearch = types.ToolGoogleSearch
 
             # In ADK 0.4.0+, we should always use set_config method
             # The "config" attribute no longer exists directly on Agent class

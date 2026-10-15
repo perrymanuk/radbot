@@ -265,11 +265,12 @@ For each `AgentDef`:
 
 After all sub-agents are assembled, `_build_beto(sub_agents)` constructs
 beto with the full sub-agent list passed to the `Agent(...)` constructor.
-ADK's `model_post_init()` builds the `_Mesh` routing graph once, setting
-`parent_agent` on every sub-agent.
+ADK's `model_post_init()` wires the agent tree once, setting
+`parent_agent` on every sub-agent and fixing the set of legal transfer
+targets (parent + `sub_agents`; ADK ≥ 2.9 refuses transfers outside it).
 
 **Critical**: agents added to `sub_agents` after construction are NOT part
-of the mesh — `transfer_to_agent` will not find them. See
+of the tree — `transfer_to_agent` will not find them. See
 `docs/implementation/session_id_tracking.md` for history.
 
 ### Terse JSON Protocol
@@ -295,7 +296,7 @@ callbacks themselves remain runtime-gated by
 
 What remains: the current user message, beto's transfer call/result for this turn, any in-flight model output, any function_response parts from the current invocation. What gets dropped: every prior user/assistant turn.
 
-Sub-agents are constructed without `mode="task"`: under V1 that mode injects a `finish_task` tool (and an instruction to call it silently) that shadows `transfer_to_agent`.
+Sub-agents are constructed without `mode="task"`: that mode injects a `finish_task` tool (and an instruction to call it silently) that shadows `transfer_to_agent`.
 
 **Result**: Each sub-agent prompt contains only the current turn → no cross-domain context bleed, no linear token growth with session length.
 

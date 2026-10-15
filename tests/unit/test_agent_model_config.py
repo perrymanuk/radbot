@@ -128,7 +128,7 @@ class TestAgentModelConfig(unittest.TestCase):
         self.assertTrue(call_kwargs["enable_sequential_thinking"])
         self.assertFalse(call_kwargs["enable_google_search"])
         self.assertFalse(call_kwargs["enable_code_execution"])
-        # sub-agent scout must be "chat" too: under V1, mode="task" injects a
+        # sub-agent scout must be "chat" too: mode="task" injects a
         # finish_task tool that shadows transfer_to_agent (see CLAUDE.md gotchas)
         self.assertEqual(call_kwargs.get("mode"), "chat")
 

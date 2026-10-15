@@ -5305,39 +5305,9 @@
   ],
   "skipped": [
     {
-      "name": "finish_task",
-      "agent": "axel",
-      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
-    },
-    {
       "name": "load_artifacts",
       "agent": "axel",
       "reason": "unsupported: don't know how to extract a schema from LoadArtifactsTool (module google.adk.tools.load_artifacts_tool)"
-    },
-    {
-      "name": "finish_task",
-      "agent": "casa",
-      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
-    },
-    {
-      "name": "finish_task",
-      "agent": "comms",
-      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
-    },
-    {
-      "name": "finish_task",
-      "agent": "kidsvid",
-      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
-    },
-    {
-      "name": "finish_task",
-      "agent": "planner",
-      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
-    },
-    {
-      "name": "finish_task",
-      "agent": "scout",
-      "reason": "unsupported: don't know how to extract a schema from FinishTaskTool (module google.adk.agents.llm.task._finish_task_tool)"
     },
     {
       "name": "google_search",

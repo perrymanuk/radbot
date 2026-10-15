@@ -132,7 +132,6 @@ def create_home_agent() -> Optional[Agent]:
             "casa",
             "You are Casa, a smart home and media specialist. "
             "Control Home Assistant devices and manage Overseerr media requests.",
-            use_task_mode=True,
         )
 
         # Build tools list
