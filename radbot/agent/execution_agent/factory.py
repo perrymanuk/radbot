@@ -142,7 +142,7 @@ def create_execution_agent(
 
     # Add filesystem tools via MCP
     try:
-        from radbot.tools.mcp import create_fileserver_toolset
+        from radbot.filesystem.adapter import create_fileserver_toolset
 
         fs_tools = create_fileserver_toolset()
         if fs_tools:

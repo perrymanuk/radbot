@@ -155,18 +155,6 @@ def set_video_tags(video_id: str, tags: List[str]) -> Dict[str, Any]:
     return resp.json()
 
 
-def list_all_tags() -> List[str]:
-    """List all existing tags in Kideo.
-
-    Returns:
-        List of tag strings.
-    """
-    client = _get_client()
-    resp = client.get("/api/videos/tags/all")
-    resp.raise_for_status()
-    return resp.json()
-
-
 def get_collection(collection_id: str) -> Dict[str, Any]:
     """Get a collection with its videos.
 

@@ -44,7 +44,6 @@ interface AppState {
   // ── Events ──────────────────────────────────────────────
   events: AgentEvent[];
   addEvents: (evts: AgentEvent[]) => void;
-  clearEvents: () => void;
   eventFilter: EventCategory | "all";
   setEventFilter: (f: EventCategory | "all") => void;
 
@@ -65,7 +64,6 @@ interface AppState {
 
   // ── Unread notifications ────────────────────────────────
   unreadNotificationCount: number;
-  setUnreadNotificationCount: (n: number) => void;
   incrementUnreadNotifications: () => void;
 
   // ── Session stats (tokens + cost) ──────────────────────
@@ -78,7 +76,7 @@ interface AppState {
   toggleSplitMode: () => void;
 }
 
-export interface SessionStats {
+interface SessionStats {
   inputTokens: number;
   outputTokens: number;
   contextTokens: number;
@@ -211,7 +209,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       events: [...s.events, ...evts],
     })),
-  clearEvents: () => set({ events: [] }),
   eventFilter: "all",
   setEventFilter: (f) => set({ eventFilter: f }),
 
@@ -260,7 +257,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ── Unread notifications ────────────────────────────────
   unreadNotificationCount: 0,
-  setUnreadNotificationCount: (n) => set({ unreadNotificationCount: n }),
   incrementUnreadNotifications: () =>
     set((s) => ({ unreadNotificationCount: s.unreadNotificationCount + 1 })),
 

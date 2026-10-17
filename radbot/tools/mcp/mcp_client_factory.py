@@ -81,21 +81,9 @@ class MCPClientFactory:
                         f"No command specified for stdio transport in server {server_id}"
                     )
 
-                # Use direct Claude CLI client instead of stdio client
-                try:
-                    # First try to import our direct implementation
-                    from radbot.tools.mcp.direct_claude_cli import DirectClaudeCLIClient
+                from radbot.tools.mcp.mcp_stdio_client import MCPStdioClient
 
-                    client_class = DirectClaudeCLIClient
-                    logger.info(f"Using DirectClaudeCLIClient for server: {server_id}")
-                except ImportError:
-                    # Fall back to the stdio client
-                    from radbot.tools.mcp.mcp_stdio_client import MCPStdioClient
-
-                    client_class = MCPStdioClient
-                    logger.warning(
-                        f"DirectClaudeCLIClient not available, falling back to MCPStdioClient for server: {server_id}"
-                    )
+                client_class = MCPStdioClient
 
                 # Prepare client initialization arguments for stdio
                 client_args = {
@@ -159,31 +147,6 @@ class MCPClientFactory:
                 if server_config.get("headers"):
                     client_args["headers"] = server_config.get("headers")
 
-            elif transport == "websocket":
-                # WebSocket transport requires a different client
-                url = server_config.get("url")
-                if not url:
-                    raise MCPClientError(
-                        f"No URL specified for websocket transport in server {server_id}"
-                    )
-
-                try:
-                    from mcp.client import WebSocketClient
-
-                    client_class = WebSocketClient
-                    logger.info(
-                        f"Using MCP SDK WebSocketClient for server: {server_id}"
-                    )
-                except ImportError:
-                    # Fall back to our standard client if MCP SDK not available
-                    from radbot.tools.mcp.client import MCPSSEClient
-
-                    client_class = MCPSSEClient
-                    logger.warning(
-                        f"MCP SDK WebSocketClient not available, falling back to standard client for server: {server_id}"  # noqa: E501
-                    )
-
-                client_args = {"url": url}
             else:
                 raise MCPClientError(f"Unsupported transport: {transport}")
 
@@ -239,20 +202,3 @@ class MCPClientFactory:
                 logger.warning(f"Error stopping client {client_id}: {e}")
 
         cls._client_cache.clear()
-
-    @classmethod
-    def get_all_enabled_clients(cls) -> Dict[str, Any]:
-        """
-        Get all enabled MCP clients.
-
-        Returns:
-            Dictionary mapping server IDs to client instances
-        """
-        clients = {}
-        for server in config_loader.get_enabled_mcp_servers():
-            server_id = server.get("id")
-            try:
-                clients[server_id] = cls.get_client(server_id)
-            except MCPClientError as e:
-                logger.warning(f"Failed to initialize MCP client for {server_id}: {e}")
-        return clients

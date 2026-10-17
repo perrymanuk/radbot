@@ -110,10 +110,6 @@ class LidarrClient:
         """Add an artist ``POST /api/v1/artist``."""
         return self._post("/api/v1/artist", artist_data)
 
-    def add_album(self, album_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Add an album ``POST /api/v1/album``."""
-        return self._post("/api/v1/album", album_data)
-
     def close(self):
         """Close the HTTP session."""
         if self._session:

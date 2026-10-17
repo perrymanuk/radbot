@@ -13,7 +13,6 @@ interface NotificationState {
   loadNotifications: (reset?: boolean) => Promise<void>;
   loadMore: () => Promise<void>;
   loadUnreadCount: () => Promise<void>;
-  incrementUnread: () => void;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   removeNotification: (id: string) => Promise<void>;
@@ -86,8 +85,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       // ignore
     }
   },
-
-  incrementUnread: () => set((s) => ({ unreadCount: s.unreadCount + 1 })),
 
   markRead: async (id) => {
     await api.markNotificationRead(id);

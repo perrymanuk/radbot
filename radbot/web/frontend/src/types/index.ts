@@ -56,12 +56,6 @@ export type ConnectionStatus =
   | "disconnected"
   | "error";
 
-export interface WSMessage {
-  type: "message" | "status" | "events" | "heartbeat" | "history" | "sync_response" | "notification";
-  content?: string | Message[] | AgentEvent[];
-  messages?: Message[];
-}
-
 // ── Notifications ────────────────────────────────────────
 export type NotificationType = "scheduled_task" | "reminder" | "alert" | "ntfy_outbound";
 
@@ -82,7 +76,7 @@ export interface Notification {
 export type PanelType = "sessions" | "events" | null;
 
 // ── Agent Info ────────────────────────────────────────────
-export interface SubAgentDetail {
+interface SubAgentDetail {
   name: string;         // runtime agent name (e.g. "casa", "scout")
   config_key: string;   // canonical key in agent_models (e.g. "casa_agent")
   resolved_model: string;

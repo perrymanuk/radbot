@@ -5,7 +5,6 @@ import {
   FormToggle,
   FormDropdown,
   FormTextarea,
-  FormRow,
   Card,
   ActionBar,
   StatusBadge,
@@ -50,7 +49,7 @@ interface GmailAccount {
 }
 
 export function GmailPanel() {
-  const { loadLiveConfig, mergeConfigSection, saveCredential, deleteCredential, testConnection, toast, loadStatus, token, status } =
+  const { loadLiveConfig, mergeConfigSection, saveCredential, deleteCredential, toast, loadStatus, token, status } =
     useAdminStore();
 
   const [enabled, setEnabled] = useState(false);

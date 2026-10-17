@@ -5,7 +5,6 @@ import {
   Note,
   FormInput,
   FormRow,
-  FormToggle,
   ActionBar,
   StatusBadge,
 } from "@/components/admin/FormFields";
@@ -13,7 +12,7 @@ import type { TestResult } from "@/lib/admin-api";
 
 // ── PostgreSQL Panel ──────────────────────────────────────
 export function PostgresqlPanel() {
-  const { liveConfig, loadLiveConfig, status } = useAdminStore();
+  const { loadLiveConfig, status } = useAdminStore();
 
   const [host, setHost] = useState("");
   const [port, setPort] = useState("");
@@ -66,7 +65,6 @@ export function PostgresqlPanel() {
 // ── Qdrant Panel ──────────────────────────────────────────
 export function QdrantPanel() {
   const {
-    liveConfig,
     loadLiveConfig,
     status,
     saveCredential,

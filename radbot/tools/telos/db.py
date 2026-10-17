@@ -519,18 +519,6 @@ def has_identity() -> bool:
         raise
 
 
-def count_active(section: Section) -> int:
-    sql = "SELECT COUNT(*) FROM telos_entries WHERE section = %s AND status = 'active';"
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(sql, (section.value,))
-                return cursor.fetchone()[0]
-    except psycopg2.Error as e:
-        logger.error("Database error counting telos section: %s", e)
-        raise
-
-
 def bulk_upsert(entries: Iterable[Entry]) -> List[Entry]:
     """Atomic multi-entry insert/update. Used by the onboarding wizard and
     markdown import. Each Entry: if (section, ref_code) exists, update

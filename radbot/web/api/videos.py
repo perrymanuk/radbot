@@ -169,8 +169,3 @@ async def add_to_kideo(body: AddToKideoBody) -> Dict[str, Any]:
         "tags": tags,
         "raw_status": raw_status,
     }
-
-
-def register_videos_router(app):
-    app.include_router(router)
-    logger.debug("Videos router registered")

@@ -20,7 +20,7 @@ import MediaDetail from "@/components/chat/MediaDetail";
 // ─────────────────────────────────────────────────────────
 
 // ── Types ─────────────────────────────────────────────────
-export interface MediaPoster {
+interface MediaPoster {
   hue?: number;
   accent?: "sunset" | "violet" | "sky" | "magenta";
   title?: string;       // large poster glyph (e.g. "火", "DUNE 2")
@@ -29,7 +29,7 @@ export interface MediaPoster {
   url?: string;         // real poster image URL (TMDB or other). Takes precedence.
 }
 
-export type MediaStatus = "available" | "downloading" | "missing" | "partial";
+type MediaStatus = "available" | "downloading" | "missing" | "partial";
 
 export interface MediaCardData {
   title: string;
@@ -53,7 +53,7 @@ export interface MediaCardData {
   media_type?: "movie" | "tv";
 }
 
-export interface SeasonInfo {
+interface SeasonInfo {
   num: number;
   have: number;
   total: number;
@@ -75,8 +75,6 @@ export interface HaDevice {
   brightness_pct?: number;                  // 0-100 (lights)
   domain?: string;                          // optional; inferred from id if absent
 }
-
-// HandoffInfo is re-exported from HandoffLine.tsx at the bottom of this file.
 
 // ── Status pill ──────────────────────────────────────────
 function StatusPill({ status }: { status: MediaStatus }) {
@@ -741,17 +739,13 @@ export function HaDeviceCard({ d }: { d: HaDevice }) {
   );
 }
 
-// HandoffLine now lives in HandoffLine.tsx (uses the shared agent-registry
-// for colors/glyphs). Re-export its type here for any legacy imports.
-export type { HandoffInfo } from "@/components/chat/HandoffLine";
-
 // ─────────────────────────────────────────────────────────
 // VideoCard — kid-video recommendations from the kidsvid agent.
 // Mirrors MediaCard but for YouTube / CuriosityStream videos with
 // an ADD TO KIDEO direct-action button (POST /api/videos/add-to-kideo).
 // ─────────────────────────────────────────────────────────
 
-export type VideoStatus =
+type VideoStatus =
   | "in_library"
   | "queued"
   | "processing"

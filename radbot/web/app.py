@@ -221,16 +221,6 @@ async def _startup():
         except Exception as cfg_err:
             logger.error(f"Error loading DB config: {str(cfg_err)}", exc_info=True)
 
-        # Re-initialize filesystem allowed directories now that DB config is loaded.
-        # The agent is created at import time before load_db_config(), so the
-        # filesystem security layer only has file-config defaults at that point.
-        try:
-            from radbot.filesystem.adapter import reload_filesystem_config
-
-            reload_filesystem_config()
-        except Exception as fs_err:
-            logger.warning(f"Error reloading filesystem config: {fs_err}")
-
         # Build the agent assembly now that DB config + credential store are loaded.
         # Memory service is initialized first (uses DB-merged Qdrant config),
         # then build_default_assembly attaches it to every root agent in the
@@ -280,59 +270,6 @@ async def _startup():
             apply_runtime_config("startup")
         except Exception as rt_err:
             logger.warning(f"Error applying runtime config: {rt_err}")
-
-        try:
-            root_agent = assembly.root_agent
-            from radbot.config.config_loader import config_loader as _cl
-            from radbot.tools.mcp.dynamic_tools_loader import _MCP_TOOL_BLOCKLIST
-
-            enabled_server_ids = {s.get("id") for s in _cl.get_enabled_mcp_servers()}
-            all_server_ids = {s.get("id") for s in _cl.get_mcp_servers()}
-            disabled_server_ids = all_server_ids - enabled_server_ids
-
-            if disabled_server_ids:
-                original_count = len(root_agent.tools)
-                # Build set of tool names to remove: blocklisted + tools from disabled servers
-                tools_to_remove = set(_MCP_TOOL_BLOCKLIST)
-
-                # Get tool names from disabled servers by checking the MCP client factory
-                try:
-                    from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
-
-                    for sid in disabled_server_ids:
-                        client = (
-                            MCPClientFactory.get_client(sid)
-                            if MCPClientFactory
-                            else None
-                        )
-                        if client:
-                            server_tools = (
-                                client.tools if hasattr(client, "tools") else []
-                            )
-                            for t in server_tools or []:
-                                name = getattr(t, "name", None) or getattr(
-                                    t, "__name__", None
-                                )
-                                if name:
-                                    tools_to_remove.add(name)
-                except Exception:
-                    pass  # If we can't get client tools, rely on the blocklist
-
-                root_agent.tools = [
-                    t
-                    for t in root_agent.tools
-                    if (getattr(t, "__name__", None) or getattr(t, "name", ""))
-                    not in tools_to_remove
-                ]
-                removed = original_count - len(root_agent.tools)
-                if removed:
-                    logger.debug(
-                        f"Pruned {removed} MCP tools from root agent "
-                        f"(disabled servers: {disabled_server_ids}). "
-                        f"Tools: {original_count} -> {len(root_agent.tools)}"
-                    )
-        except Exception as prune_err:
-            logger.warning(f"Error pruning disabled MCP tools: {prune_err}")
 
         # Validate integration secrets (EX44 / PT111). Logs ERROR for
         # enabled integrations missing required fields; never raises.
@@ -402,23 +339,6 @@ async def _startup():
             logger.debug("ntfy subscriber started")
         except Exception as ntfy_err:
             logger.warning(f"ntfy subscriber startup failed: {ntfy_err}")
-
-        # Initialize TTS service (lazy, just load config)
-        logger.debug("Initializing MCP servers at application startup...")
-        from radbot.config.config_loader import config_loader
-        from radbot.tools.mcp.mcp_client_factory import MCPClientFactory
-
-        # Just check if servers are enabled and can connect
-        servers = config_loader.get_enabled_mcp_servers()
-        logger.debug(f"Found {len(servers)} enabled MCP servers in configuration")
-
-        for server in servers:
-            server_id = server.get("id", "unknown")
-            server_name = server.get("name", server_id)
-            logger.debug(f"MCP server enabled: {server_name} (ID: {server_id})")
-
-        # Don't attempt to create tools here - we'll do that in the session
-        # when a new client connects, which is safer and more reliable
 
     except Exception as e:
         logger.error(f"Failed during application startup: {str(e)}", exc_info=True)
@@ -706,12 +626,6 @@ async def projects_page(request: Request, ref_code: str | None = None):
     return await index(request)
 
 
-@app.get("/healthz")
-async def healthz_check():
-    """Healthz endpoint."""
-    return {"status": "ok"}
-
-
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -760,93 +674,10 @@ async def websocket_endpoint(
         except Exception as rem_err:
             logger.warning(f"Error delivering pending items on reconnect: {rem_err}")
 
-        # Helper function to get events from a session
-        def get_events_from_session(session):
-            if not hasattr(session, "events") or not session.events:
-                return []
-
-            messages = []
-            for event in session.events:
-                if hasattr(event, "content") and event.content:
-                    # Try to extract text content for different ADK versions
-                    text_content = ""
-                    if hasattr(event.content, "parts") and event.content.parts:
-                        for part in event.content.parts:
-                            if hasattr(part, "text") and part.text:
-                                text_content += part.text
-                    elif hasattr(event.content, "text") and event.content.text:
-                        text_content = event.content.text
-
-                    # Determine the role/author
-                    role = getattr(event, "author", "assistant")
-
-                    # Create a message object if we have content
-                    if text_content:
-                        message = {
-                            "id": getattr(event, "id", str(uuid.uuid4())),
-                            "role": role,
-                            "content": text_content,
-                            "timestamp": int(
-                                getattr(event, "timestamp", time.time()) * 1000
-                            ),  # Convert to JS timestamp
-                            "agent": getattr(event, "agent_name", None)
-                            or getattr(event, "agent", None),
-                        }
-                        messages.append(message)
-
-            return messages
-
         # Process heartbeat messages
         async def handle_heartbeat():
             await websocket.send_json({"type": "heartbeat"})
             logger.debug(f"Sent heartbeat response for session {session_id}")
-
-        # Process sync_request messages
-        async def handle_sync_request(last_message_id, timestamp=None):
-            logger.debug(
-                f"Handling sync request for session {session_id} since message {last_message_id}"
-            )
-
-            # Get app name for this session
-            app_name = (
-                runner.runner.app_name
-                if hasattr(runner, "runner") and hasattr(runner.runner, "app_name")
-                else "beto"
-            )
-
-            # Retrieve the session from ADK (get_session is async in ADK 1.21.0)
-            session = await runner.session_service.get_session(
-                app_name=app_name, user_id=runner.user_id, session_id=session_id
-            )
-
-            if not session:
-                logger.warning(
-                    f"No session found for sync request with ID {session_id}"
-                )
-                await websocket.send_json({"type": "sync_response", "messages": []})
-                return
-
-            # Get all messages from the session
-            all_messages = get_events_from_session(session)
-
-            # Find the index of the last known message
-            last_index = -1
-            for i, msg in enumerate(all_messages):
-                if msg.get("id") == last_message_id:
-                    last_index = i
-                    break
-
-            # Extract messages after the last known one
-            messages = []
-            if last_index >= 0 and last_index < len(all_messages) - 1:
-                messages = all_messages[last_index + 1 :]
-
-            # Send the sync response
-            await websocket.send_json({"type": "sync_response", "messages": messages})
-
-            logger.debug(
-                f"Sent sync response with {len(messages)} messages for session {session_id}"
-            )
 
         # Process history_request messages
         async def handle_history_request(limit=200):
@@ -891,43 +722,10 @@ async def websocket_endpoint(
                     )
                     return
             except Exception as db_err:
-                logger.warning(
-                    f"Failed to load history from DB, falling back to ADK session: {db_err}"
-                )
-
-            # Fallback: read from ADK in-memory session
-            app_name = (
-                runner.runner.app_name
-                if hasattr(runner, "runner") and hasattr(runner.runner, "app_name")
-                else "beto"
-            )
-
-            session = await runner.session_service.get_session(
-                app_name=app_name, user_id=runner.user_id, session_id=session_id
-            )
-
-            if not session:
-                logger.warning(
-                    f"No session found for history request with ID {session_id}"
-                )
-                await websocket.send_json(
-                    {"type": "history", "session_id": session_id, "messages": []}
-                )
-                return
-
-            all_messages = get_events_from_session(session)
-            messages = (
-                all_messages[-limit:]
-                if limit and len(all_messages) > limit
-                else all_messages
-            )
+                logger.warning(f"Failed to load history from DB: {db_err}")
 
             await websocket.send_json(
-                {"type": "history", "session_id": session_id, "messages": messages}
-            )
-
-            logger.debug(
-                f"Sent history response with {len(messages)} messages from ADK session for session {session_id}"
+                {"type": "history", "session_id": session_id, "messages": []}
             )
 
         while True:
@@ -937,17 +735,6 @@ async def websocket_endpoint(
             # Handle different message types
             if data.get("type") == "heartbeat":
                 await handle_heartbeat()
-                continue
-
-            elif data.get("type") == "sync_request":
-                last_message_id = data.get("lastMessageId")
-                timestamp = data.get("timestamp")
-                if last_message_id:
-                    await handle_sync_request(last_message_id, timestamp)
-                else:
-                    await manager.send_status(
-                        session_id, "error: Missing lastMessageId in sync_request"
-                    )
                 continue
 
             elif data.get("type") == "history_request":
@@ -962,35 +749,6 @@ async def websocket_endpoint(
 
             user_message = data["message"]
 
-            # Check for special command to reset session to Beto
-            if user_message.lower() in ["reset to beto", "use beto", "start beto"]:
-                logger.debug("Explicit request to reset session to Beto agent")
-                if hasattr(runner, "reset_session"):
-                    await runner.reset_session()
-                    await manager.send_status(session_id, "reset")
-                    await manager.send_events(
-                        session_id,
-                        [
-                            {
-                                "type": "system",
-                                "category": "system",
-                                "text": "Session reset to Beto agent",
-                                "timestamp": datetime.now().isoformat(),
-                            }
-                        ],
-                    )
-                    await manager.send_status(session_id, "ready")
-                    continue
-
-            # Check for special agent targeting message format (AGENT:NAME:actual message)
-            target_agent = None
-            if user_message.startswith("AGENT:"):
-                parts = user_message.split(":", 2)
-                if len(parts) >= 3:
-                    target_agent = parts[1].strip().lower()
-                    user_message = parts[2].strip()
-                    logger.debug(f"Detected explicit agent targeting: {target_agent}")
-
             # Send "thinking" status
             await manager.send_status(session_id, "thinking")
 
@@ -998,173 +756,7 @@ async def websocket_endpoint(
                 # Process the message
                 logger.debug(f"Processing WebSocket message for session {session_id}")
 
-                # Handle explicit agent targeting if present
-                if target_agent:
-                    # Resolve the assembled root agent at request time.
-                    from radbot.agent.assembly import _resolve_assembly
-
-                    root_agent = _resolve_assembly().root_agent
-                    from radbot.tools.agent_transfer import (
-                        find_agent_by_name,
-                        process_request,
-                    )
-
-                    # Debug the agent tree
-                    logger.debug("Agent tree structure:")
-                    if hasattr(root_agent, "name"):
-                        logger.debug(f"Root agent name: {root_agent.name}")
-
-                    if hasattr(root_agent, "sub_agents"):
-                        sub_agents = [
-                            sa.name
-                            for sa in root_agent.sub_agents
-                            if hasattr(sa, "name")
-                        ]
-                        logger.debug(f"Sub-agents: {sub_agents}")
-
-                    # Make case-insensitive check for scout
-                    if target_agent.lower() == "scout":
-                        # Try direct access to scout agent
-                        for sub_agent in root_agent.sub_agents:
-                            if (
-                                hasattr(sub_agent, "name")
-                                and sub_agent.name.lower() == "scout"
-                            ):
-                                logger.debug(
-                                    f"Found Scout agent directly: {sub_agent.name}"
-                                )
-                                # Process the request directly with the Scout agent's generate_content method
-                                # This bypasses the transfer mechanism completely to avoid context bleed
-                                try:
-                                    # First try direct generation to bypass any transfer issues
-                                    if hasattr(
-                                        sub_agent, "generate_content"
-                                    ) and callable(sub_agent.generate_content):
-                                        logger.debug(
-                                            "Calling Scout's generate_content method directly"
-                                        )
-                                        logger.debug(
-                                            f"Direct message to Scout: {user_message[:50]}..."
-                                        )
-                                        response = sub_agent.generate_content(
-                                            user_message
-                                        )
-
-                                        # Extract text from response
-                                        if hasattr(response, "text"):
-                                            response_text = response.text
-                                        elif (
-                                            hasattr(response, "parts")
-                                            and response.parts
-                                        ):
-                                            response_text = ""
-                                            for part in response.parts:
-                                                if hasattr(part, "text") and part.text:
-                                                    response_text += part.text
-                                        else:
-                                            # Fallback to string representation
-                                            response_text = str(response)
-
-                                        logger.debug(
-                                            f"Direct Scout response received, length: {len(response_text)}"
-                                        )
-                                    else:
-                                        # Fallback to process_request
-                                        logger.debug(
-                                            "Fallback to process_request for Scout"
-                                        )
-                                        response_text = process_request(
-                                            sub_agent, user_message
-                                        )
-                                except Exception as e:
-                                    logger.error(
-                                        f"Error with direct generation: {str(e)}",
-                                        exc_info=True,
-                                    )
-                                    # Try process_request as a fallback
-                                    response_text = process_request(
-                                        sub_agent, user_message
-                                    )
-
-                                # Log the response for debugging
-                                logger.debug(
-                                    f"Scout's response (first 100 chars): {response_text[:100]}..."
-                                )
-
-                                # Create a result with the response
-                                result = {
-                                    "response": response_text,
-                                    "events": [
-                                        {
-                                            "type": "model_response",
-                                            "category": "model_response",
-                                            "text": response_text,
-                                            "is_final": True,
-                                            "agent_name": "SCOUT",
-                                            "timestamp": datetime.now().isoformat(),
-                                        }
-                                    ],
-                                }
-                                break
-                        else:
-                            # If we get here, we didn't find Scout directly
-                            logger.warning(
-                                "Could not find Scout agent directly in sub_agents"
-                            )
-                            # Try using the standard finder
-                            target = find_agent_by_name(root_agent, target_agent)
-                            if target:
-                                logger.debug(
-                                    f"Found target agent with find_agent_by_name: {target.name}"
-                                )
-                                response_text = process_request(target, user_message)
-                                result = {
-                                    "response": response_text,
-                                    "events": [
-                                        {
-                                            "type": "model_response",
-                                            "category": "model_response",
-                                            "text": response_text,
-                                            "is_final": True,
-                                            "agent_name": target.name,
-                                            "timestamp": datetime.now().isoformat(),
-                                        }
-                                    ],
-                                }
-                            else:
-                                logger.warning(
-                                    f"Target agent {target_agent} not found, using default runner"
-                                )
-                                result = await runner.process_message(user_message)
-                    else:
-                        # Standard approach for other agents
-                        target = find_agent_by_name(root_agent, target_agent)
-                        if target:
-                            logger.debug(f"Found target agent: {target.name}")
-                            # Process the request with the specific agent
-                            response_text = process_request(target, user_message)
-                            # Create a result with the response
-                            result = {
-                                "response": response_text,
-                                "events": [
-                                    {
-                                        "type": "model_response",
-                                        "category": "model_response",
-                                        "text": response_text,
-                                        "is_final": True,
-                                        "agent_name": target.name,
-                                        "timestamp": datetime.now().isoformat(),
-                                    }
-                                ],
-                            }
-                        else:
-                            logger.warning(
-                                f"Target agent {target_agent} not found, using default runner"
-                            )
-                            result = await runner.process_message(user_message)
-                else:
-                    # Use normal runner for processing
-                    result = await runner.process_message(user_message)
+                result = await runner.process_message(user_message)
 
                 # Extract response and events
                 response = result.get("response", "")

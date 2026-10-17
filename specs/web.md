@@ -66,7 +66,6 @@ Endpoint: `GET /ws/{session_id}` (handled in `radbot/web/app.py`)
 | `model_response` | `{content, agent_name, ...}` | WS handler | Model response event |
 | `heartbeat` | (empty) | WS handler | Server echo |
 | `history` | `{session_id, messages: [...]}` | WS handler | Replay of prior session messages |
-| `sync_response` | `{messages: [...]}` | WS handler | Reply to sync request |
 
 **Notifier-owned types**: `message` (system-role only), `notification`. The Pydantic schemas for the Notifier-emitted variants live in `radbot/services/notifier.py` (`WsNotificationPayload`, `WsSystemMessagePayload`).
 
@@ -100,7 +99,6 @@ All registered in `radbot/web/app.py` via `app.include_router()` / `register_*_r
 | `api/tts.py` | `/api/tts` | Text-to-speech |
 | `api/stt.py` | `/api/stt` | Speech-to-text |
 | `api/health.py` | `/health` | Liveness endpoint for Nomad health check |
-| `api/malformed_function_handler.py` | (helper) | Malformed-tool-call repair utilities |
 | `api/mcp.py` | `/api/mcp` | MCP bridge admin: status, token reveal/rotate, project registry CRUD (admin-token-protected) |
 | `api/setup.py` | `/setup` | `GET /setup/claude-code.md` — unauth'd markdown bootstrap guide, base_url templated from request |
 | `mcp_server/http_transport.py` | `/mcp` | MCP streamable-HTTP endpoint, **stateless** (`StreamableHTTPSessionManager(stateless=True)`) — fresh transport per request so process restarts can never produce 404 "Could not find session" (PT109). Bearer-token-protected, 503 when unconfigured. |
@@ -202,7 +200,7 @@ The admin UI palette reads this to render model pickers dynamically — no hardc
 Build: `make build-frontend` → `radbot/web/static/dist/`
 Dev: `make dev-frontend` → Vite at `:5173`, proxies `/api` and `/ws` to FastAPI on `:8000`.
 
-Feature flag: if `static/dist/index.html` exists, FastAPI serves the React SPA; otherwise legacy vanilla JS served from `web/static/` (retained for emergency fallback).
+FastAPI serves the React SPA from `static/dist/index.html` (always built in the Dockerfile). If the bundle is missing, the SPA routes return a 503 placeholder; there is no legacy frontend fallback.
 
 ### Pages (`radbot/web/frontend/src/pages/`)
 

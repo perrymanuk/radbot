@@ -2,14 +2,13 @@
 
 ## PostgreSQL
 
-Shared pool from `radbot/tools/todo/db/connection.py` (`get_db_pool()`, `get_db_cursor()`, `get_db_connection()`).
+Shared pool from `radbot/db/connection.py` (`get_db_pool()`, `get_db_cursor()`, `get_db_connection()`). Chat-history tables use a separate pool in `radbot/web/db/connection.py`.
 
 ### Main DB Tables
 
 | Table | Module | Key columns |
 |-------|--------|-------------|
-| `tasks` | `tools/todo/db/schema.py` | `task_id` (UUID), `project_id`, `title`, `status` (backlog/inprogress/done), `related_info` (JSONB) |
-| `projects` | `tools/todo/db/schema.py` | `project_id` (UUID), `name` (UNIQUE), `wiki_path` (TEXT, nullable — relative path under `$RADBOT_WIKI_PATH`), `path_patterns` (TEXT[], cwd substrings used by MCP `project_match`) |
+| ~~`tasks`~~, ~~`projects`~~ | _deprecated_ | Inert since the todo module was removed; data lives in `telos_entries` (`projects` + `project_tasks`). Rows retained for rollback; `scripts/migrate_todo_to_telos.py` migrates them. |
 | `scheduled_tasks` | `tools/scheduler/db.py` | `task_id` (UUID), `name`, `cron_expression`, `prompt`, `agent_name` (TEXT NOT NULL DEFAULT 'beto' — pins cron to a root agent; engine fires through `scheduler-offline-<agent_name>` session), `enabled`, `metadata` (JSONB) |
 | `scheduler_pending_results` | `tools/scheduler/db.py` | `result_id` (UUID), `task_name`, `prompt`, `response`, `session_id`, `delivered` |
 | `reminders` | `tools/reminders/db.py` | `reminder_id` (UUID), `message`, `remind_at` (TIMESTAMPTZ), `status`, `delivered` |
@@ -65,7 +64,7 @@ Code rollback to a pre-extension build is **unsafe** once any row holds a new li
 
 ## Qdrant
 
-Semantic memory via `radbot/memory/enhanced_memory/`.
+Semantic memory via `radbot/memory/qdrant_memory.py` (`QdrantMemoryService`, ADK `BaseMemoryService` implementation).
 
 - **Collection**: `radbot_memories` (prod) / `radbot_dev` (when `RADBOT_ENV=dev`)
 - **Embedding model**: `gemini-embedding-001` with `output_dimensionality=768`

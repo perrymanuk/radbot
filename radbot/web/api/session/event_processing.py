@@ -123,7 +123,6 @@ def _process_agent_transfer_event(event):
         elif agent_config_name in [
             "code_execution_agent",
             "search_agent",
-            "todo_agent",
         ]:
             event_details["model"] = config_manager.get_agent_model(agent_config_name)
         elif agent_config_name in ["beto", "radbot"]:
@@ -289,7 +288,6 @@ def _process_model_response_event(event):
                 "code_execution_agent",
                 "search_agent",
                 "scout_agent",
-                "todo_agent",
             ]:
                 event_details["model"] = config_manager.get_agent_model(
                     agent_config_name

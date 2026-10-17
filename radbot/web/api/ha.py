@@ -146,8 +146,3 @@ async def call_service(body: ServiceCallBody) -> Dict[str, Any]:
         "changed": len(result) if isinstance(result, list) else 0,
         "entity": updated_card,
     }
-
-
-def register_ha_router(app):
-    app.include_router(router)
-    logger.debug("HA router registered")

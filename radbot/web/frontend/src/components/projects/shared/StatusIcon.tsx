@@ -2,29 +2,6 @@ import PIcon from "./PIcon";
 
 export type TaskStatus = "inprogress" | "backlog" | "done" | "other";
 
-export function StatusDot({ status, size = 6 }: { status: TaskStatus; size?: number }) {
-  const c =
-    status === "inprogress"
-      ? "var(--sunset)"
-      : status === "done"
-      ? "var(--crt)"
-      : status === "backlog"
-      ? "var(--sky)"
-      : "var(--text-dim)";
-  return (
-    <span
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: c,
-        boxShadow: status === "inprogress" ? `0 0 6px ${c}` : "none",
-        flex: "none",
-      }}
-    />
-  );
-}
-
 export default function StatusIcon({ status }: { status: TaskStatus }) {
   if (status === "inprogress")
     return (

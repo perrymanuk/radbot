@@ -90,20 +90,6 @@ def list_reminders(status: Optional[str] = None) -> List[Dict[str, Any]]:
         raise
 
 
-def get_reminder(reminder_id: uuid.UUID) -> Optional[Dict[str, Any]]:
-    """Get a single reminder by ID."""
-    sql = "SELECT * FROM reminders WHERE reminder_id = %s;"
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute(sql, (str(reminder_id),))
-                row = cursor.fetchone()
-                return dict(row) if row else None
-    except psycopg2.Error as e:
-        logger.error(f"Database error getting reminder {reminder_id}: {e}")
-        raise
-
-
 def delete_reminder(reminder_id: uuid.UUID) -> bool:
     """Delete a reminder. Returns True if a row was deleted."""
     sql = "DELETE FROM reminders WHERE reminder_id = %s RETURNING reminder_id;"

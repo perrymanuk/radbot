@@ -751,7 +751,7 @@
                   "transport": {
                     "type": "string",
                     "description": "Transport protocol for communication",
-                    "enum": ["sse", "websocket", "http", "stdio"],
+                    "enum": ["sse", "http", "stdio"],
                     "default": "sse"
                   },
                   "url": {

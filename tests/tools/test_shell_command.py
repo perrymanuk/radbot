@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from radbot.tools.shell.shell_command import ALLOWED_COMMANDS, execute_shell_command
-from radbot.tools.shell.shell_tool import get_shell_tool, handle_shell_function_call
+from radbot.tools.shell.shell_tool import get_shell_tool
 
 
 class TestShellCommand(unittest.TestCase):
@@ -129,29 +129,6 @@ class TestShellCommand(unittest.TestCase):
         self.assertIsNotNone(allow_all_tool)
         self.assertIn("WARNING", allow_all_tool.func.__doc__)
         self.assertIn("SECURITY RISK", allow_all_tool.func.__doc__)
-
-    @patch("radbot.tools.shell.shell_tool.execute_shell_command")
-    async def test_handle_shell_function_call(self, mock_execute):
-        """Test the function call handler."""
-        # Setup
-        mock_execute.return_value = {
-            "stdout": "handled output",
-            "stderr": "",
-            "return_code": 0,
-            "error": None,
-        }
-
-        # Test with valid arguments
-        result = await handle_shell_function_call(
-            function_name="execute_shell_command",
-            arguments={"command": "echo", "arguments": ["hello"], "timeout": 30},
-            strict_mode=True,
-        )
-
-        self.assertEqual(result["stdout"], "handled output")
-        mock_execute.assert_called_once_with(
-            command="echo", arguments=["hello"], timeout=30, strict_mode=True
-        )
 
 
 if __name__ == "__main__":

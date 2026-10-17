@@ -177,20 +177,6 @@ export function useWebSocket(sessionId: string | null) {
               }
               break;
 
-            case "sync_response":
-              if (Array.isArray(data.messages)) {
-                const current = useAppStore.getState().messages;
-                const newMsgs = (data.messages as Message[]).filter(
-                  (m) => !current.some((c) => c.id === m.id),
-                );
-                if (newMsgs.length > 0) {
-                  useAppStore.setState({
-                    messages: [...current, ...newMsgs],
-                  });
-                }
-              }
-              break;
-
             case "notification":
               useAppStore.getState().incrementUnreadNotifications();
               break;

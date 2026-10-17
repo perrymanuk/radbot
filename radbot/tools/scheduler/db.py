@@ -119,20 +119,6 @@ def list_tasks(enabled_only: bool = False) -> List[Dict[str, Any]]:
         raise
 
 
-def get_task(task_id: uuid.UUID) -> Optional[Dict[str, Any]]:
-    """Get a single scheduled task by ID."""
-    sql = "SELECT * FROM scheduled_tasks WHERE task_id = %s;"
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute(sql, (str(task_id),))
-                row = cursor.fetchone()
-                return dict(row) if row else None
-    except psycopg2.Error as e:
-        logger.error(f"Database error getting scheduled task {task_id}: {e}")
-        raise
-
-
 def delete_task(task_id: uuid.UUID) -> bool:
     """Delete a scheduled task. Returns True if a row was deleted."""
     sql = "DELETE FROM scheduled_tasks WHERE task_id = %s RETURNING task_id;"

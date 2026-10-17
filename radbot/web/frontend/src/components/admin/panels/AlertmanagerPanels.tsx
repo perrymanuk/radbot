@@ -5,7 +5,6 @@ import {
   Note,
   FormInput,
   FormRow,
-  FormToggle,
   ActionBar,
   StatusBadge,
 } from "@/components/admin/FormFields";
@@ -14,7 +13,6 @@ import type { TestResult } from "@/lib/admin-api";
 // ── Nomad Panel ──────────────────────────────────────────────
 export function NomadPanel() {
   const {
-    liveConfig,
     loadLiveConfig,
     status,
     saveCredential,
@@ -148,7 +146,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function AlertmanagerPanel() {
-  const { liveConfig, loadLiveConfig, mergeConfigSection, saveCredential, status, toast, loadStatus } = useAdminStore();
+  const { loadLiveConfig, mergeConfigSection, saveCredential, status, toast } = useAdminStore();
   const token = useAdminStore((s) => s.token);
 
   const [subscribeTopic, setSubscribeTopic] = useState("");

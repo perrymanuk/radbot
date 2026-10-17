@@ -175,10 +175,6 @@ class NomadClient:
         """List allocations for a job."""
         return await self._get(f"/v1/job/{job_id}/allocations")
 
-    async def get_allocation(self, alloc_id: str) -> Dict[str, Any]:
-        """Get allocation detail."""
-        return await self._get(f"/v1/allocation/{alloc_id}")
-
     async def restart_allocation(
         self, alloc_id: str, task: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -248,10 +244,6 @@ class NomadClient:
         )
 
     # ── Deployments ───────────────────────────────────────────
-
-    async def get_deployment(self, deployment_id: str) -> Dict[str, Any]:
-        """Get deployment status."""
-        return await self._get(f"/v1/deployment/{deployment_id}")
 
     async def get_job_deployments(self, job_id: str) -> List[Dict[str, Any]]:
         """List deployments for a job."""

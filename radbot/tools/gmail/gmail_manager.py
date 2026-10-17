@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from radbot.tools.gmail.gmail_auth import discover_accounts, get_gmail_service
+from radbot.tools.gmail.gmail_auth import get_gmail_service
 from radbot.tools.gmail.gmail_operations import (
     get_message,
     list_messages,
@@ -103,13 +103,3 @@ def get_gmail_manager(account: Optional[str] = None) -> GmailManager:
             )
         _gmail_managers[key] = manager
     return _gmail_managers[key]
-
-
-def get_all_account_labels() -> List[str]:
-    """Get labels for all configured Gmail accounts.
-
-    Returns:
-        List of account labels (e.g. ["personal", "work"]).
-    """
-    accounts = discover_accounts()
-    return [a["account"] for a in accounts]
