@@ -295,8 +295,3 @@ def _extract_content_rating(raw: Dict[str, Any], media_type: str) -> Optional[st
                     if r.get("certification"):
                         return r["certification"]
     return None
-
-
-def register_media_router(app):
-    app.include_router(router)
-    logger.debug("Media router registered")

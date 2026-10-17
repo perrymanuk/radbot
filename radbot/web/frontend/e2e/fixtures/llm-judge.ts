@@ -20,7 +20,7 @@ import * as path from "node:path";
  *    fail the grading call rather than silently passing.
  */
 
-export type JudgeCategory =
+type JudgeCategory =
   | "correct"
   | "error"
   | "refusal"

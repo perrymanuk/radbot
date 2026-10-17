@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Union
 
 from radbot.tools.calendar.calendar_auth import (
     get_calendar_service,
-    get_workspace_calendar_service,
 )
 from radbot.tools.calendar.calendar_operations import (
     create_event,
@@ -86,55 +85,6 @@ class CalendarManager:
             return False
         except Exception as e:
             logger.error(f"Google Calendar authentication failed: {e}")
-            return False
-
-    def authenticate_workspace(self, email: str) -> bool:
-        """Authenticate with Google Workspace account using service account impersonation.
-
-        Args:
-            email: The user email to impersonate.
-
-        Returns:
-            True if authentication was successful, False otherwise.
-        """
-        try:
-            # Get the service account path
-            credentials_path = self.service_account_path or os.environ.get(
-                "GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE"
-            )
-
-            # Check if using JSON from environment, skip path check in that case
-            if not os.environ.get("GOOGLE_CALENDAR_SERVICE_ACCOUNT_JSON"):
-                if credentials_path and not os.path.exists(credentials_path):
-                    logger.error(
-                        f"Service account file not found at {credentials_path}"
-                    )
-                    return False
-
-            logger.info(f"Authenticating with Google Workspace as {email}")
-            self.workspace_email = email
-            self.workspace_service = get_workspace_calendar_service(
-                user_email=email, service_account_path=credentials_path, force_new=True
-            )
-
-            # Test the service with a simple API call
-            if self.workspace_service:
-                try:
-                    # Try to get the primary calendar to confirm authentication worked
-                    self.workspace_service.calendars().get(
-                        calendarId="primary"
-                    ).execute()
-                    logger.info(
-                        f"Successfully authenticated with Google Workspace as: {email}"
-                    )
-                    return True
-                except Exception as e:
-                    logger.error(f"Failed to access primary calendar as {email}: {e}")
-                    return False
-
-            return False
-        except Exception as e:
-            logger.error(f"Workspace calendar authentication failed: {e}")
             return False
 
     def list_upcoming_events(
@@ -312,58 +262,3 @@ class CalendarManager:
             return availability
         else:
             return {"error": "Failed to get calendar availability"}
-
-    def handle_calendar_request(
-        self,
-        action: str,
-        params: Optional[Dict[str, Any]] = None,
-        is_workspace: bool = False,
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        """Process calendar requests with appropriate error handling.
-
-        Args:
-            action: The action to perform.
-            params: Parameters for the action.
-            is_workspace: Whether to use workspace calendar (True) or personal calendar (False).
-
-        Returns:
-            Result of the action or error dictionary.
-        """
-        if params is None:
-            params = {}
-
-        try:
-            if action == "list_events":
-                return self.list_upcoming_events(is_workspace=is_workspace, **params)
-            elif action == "create_event":
-                required = ["summary", "start_time", "end_time"]
-                if not all(k in params for k in required):
-                    return {"error": "Missing required parameters"}
-                return self.create_new_event(is_workspace=is_workspace, **params)
-            elif action == "update_event":
-                if "event_id" not in params:
-                    return {"error": "Missing event_id parameter"}
-                event_id = params.pop("event_id")
-                return self.update_existing_event(
-                    event_id, is_workspace=is_workspace, **params
-                )
-            elif action == "delete_event":
-                if "event_id" not in params:
-                    return {"error": "Missing event_id parameter"}
-                return self.delete_existing_event(
-                    params["event_id"], is_workspace=is_workspace
-                )
-            elif action == "get_availability":
-                required = ["calendar_ids", "time_min", "time_max"]
-                if not all(k in params for k in required):
-                    return {"error": "Missing required parameters"}
-                return self.get_calendar_busy_times(
-                    params["calendar_ids"],
-                    params["time_min"],
-                    params["time_max"],
-                    is_workspace=is_workspace,
-                )
-            else:
-                return {"error": "Unknown action"}
-        except Exception as e:
-            return {"error": str(e)}

@@ -82,7 +82,7 @@ and markdown parser all agree on these shapes.
 
 ## Injection model
 
-Telos is beto-only. Sub-agents (casa, planner, tracker, comms, axel, scout)
+Telos is beto-only. Sub-agents (casa, planner, comms, kidsvid, axel, scout)
 are tool executors — they need scoped instructions + their tools, not the
 user's mission / wisdom / journal. Injecting Telos into their prompts would
 bloat them for zero benefit and muddy their single-purpose framing.

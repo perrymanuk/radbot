@@ -1,8 +1,6 @@
 """Core calendar operations for Google Calendar API."""
 
 import datetime
-import random
-import time
 from typing import Any, Dict, List, Optional, Union
 
 from googleapiclient.errors import HttpError
@@ -222,32 +220,6 @@ def delete_event(
         return False
 
 
-def check_calendar_access(
-    service: CalendarService,
-    calendar_id: str,
-) -> str:
-    """Check what level of access we have to a calendar.
-
-    Args:
-        service: Google Calendar service object.
-        calendar_id: Calendar identifier.
-
-    Returns:
-        Access role or error message.
-
-    Raises:
-        HttpError: If the request fails.
-    """
-    try:
-        calendar = service.calendars().get(calendarId=calendar_id).execute()
-        # accessRole can be 'owner', 'writer', 'reader', or 'freeBusyReader'
-        return calendar.get("accessRole")
-    except HttpError as error:
-        if error.resp.status == 404:
-            return "No access"
-        return f"Error: {error}"
-
-
 def get_calendar_availability(
     service: CalendarService,
     calendar_ids: List[str],
@@ -280,41 +252,3 @@ def get_calendar_availability(
     except HttpError as error:
         print(f"Error fetching free/busy info: {error}")
         return None
-
-
-def execute_with_retry(
-    request_func: callable,
-    max_retries: int = 5,
-) -> Any:
-    """Execute a request with exponential backoff for rate limiting.
-
-    Args:
-        request_func: Function to execute.
-        max_retries: Maximum number of retries.
-
-    Returns:
-        Result of the function.
-
-    Raises:
-        Exception: If max retries are exceeded.
-        HttpError: If a non-rate-limit error occurs.
-    """
-    for retry in range(max_retries):
-        try:
-            return request_func()
-        except HttpError as error:
-            if (
-                error.resp.status in [403, 429]
-                and "rate limit exceeded" in str(error).lower()
-            ):
-                # Calculate exponential backoff with jitter
-                wait_time = (2**retry) + (random.random() * 0.5)
-                print(f"Rate limit exceeded. Retrying in {wait_time:.1f} seconds...")
-                time.sleep(wait_time)
-                continue
-            else:
-                # If it's not a rate limit error, re-raise it
-                raise
-
-    # If we've exhausted retries
-    raise Exception(f"Failed after {max_retries} retries due to rate limiting")

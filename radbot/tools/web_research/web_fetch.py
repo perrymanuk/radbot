@@ -84,14 +84,6 @@ def _timeout_seconds() -> float:
     return float(_load_config().get("timeout_seconds", _DEFAULT_TIMEOUT_SECONDS))
 
 
-def _hostname(url: str) -> Optional[str]:
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return None
-    return (parsed.hostname or "").lower() or None
-
-
 def _is_private_ip(host: str) -> bool:
     """True if ``host`` resolves to any loopback / private / link-local address.
 

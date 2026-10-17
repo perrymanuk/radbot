@@ -25,7 +25,8 @@ dependencies = [
     "google-adk>=2.12.0,<3.0.0",
     "google-genai>=2.30.0,<3.0.0",
     "qdrant-client>=1.13.0",
-    "modelcontextprotocol>=0.1.0",
+    "pyyaml>=6.0",                      # config_loader + seed scripts
+    "jsonschema>=4.0",                  # config_loader schema validation
     # Pin mcp < 2: the radbot MCP server (radbot/mcp_server/server.py) uses the
     # 1.x lowlevel `Server.list_tools()` / `call_tool()` decorator API, which
     # mcp 2.0 removed. ADK 2.12 allows mcp<3 so without this pin a fresh
@@ -41,16 +42,13 @@ dependencies = [
     "httpx>=0.27.0",        # HTTP client for async requests
     "psycopg2-binary>=2.9.9",  # Required for PostgreSQL database connections
     "google-api-python-client>=2.102.0", # Required for Google Calendar API
-    "google-auth-httplib2>=0.1.0",      # Required for Google Calendar API authentication
     "google-auth-oauthlib>=1.1.0",      # Required for Google Calendar OAuth flow
-    "python-jsonrpc>=0.10.0",          # Required for Context7 MCP stdio client
     "apscheduler>=3.10.0",             # Required for cron/scheduling engine
     "google-cloud-texttospeech>=2.14.0",  # Required for TTS synthesis
     "atlassian-python-api>=3.41.0",        # Required for Jira Cloud integration
     "cryptography>=42.0.0",                # Required for credential store encryption
     "python-picnic-api2>=1.3.0",           # Required for Picnic grocery delivery integration
     "PyJWT[crypto]>=2.8.0",                   # Required for GitHub App JWT generation (RS256)
-    "a2a-sdk>=0.2.0",                     # Required for A2A (Agent-to-Agent) protocol support
     # Removed gcsa due to dependency conflict with ADK (tzlocal version conflict)
     "youtube-transcript-api>=1.2.4",
     "pydantic-ai>=0.0.14",                  # Required for SemanticDistiller strict-schema LLM calls
@@ -80,7 +78,6 @@ web = [
     "fastapi>=0.110.0",
     "uvicorn>=0.27.1",
     "wsproto>=1.2.0",   # uvicorn ws=wsproto — see start_server() comment
-    "jinja2>=3.1.4",
     "starlette>=0.36.0",
     "python-multipart>=0.0.9",
 ]

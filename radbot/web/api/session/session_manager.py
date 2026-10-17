@@ -101,16 +101,6 @@ class SessionManager:
             self.sessions[session_id] = runner
             logger.info("Runner set for session %s", session_id)
 
-    def get_message_lock(self, session_id: str) -> asyncio.Lock:
-        """Get a per-session lock for serializing message processing.
-
-        Prevents concurrent process_message calls on the same session
-        from corrupting session.events.
-        """
-        if session_id not in self._message_locks:
-            self._message_locks[session_id] = asyncio.Lock()
-        return self._message_locks[session_id]
-
     async def reset_session(self, session_id: str):
         """Reset a session."""
         runner = await self.get_runner(session_id)

@@ -172,15 +172,15 @@ Canonical example: `radbot/tools/overseerr/overseerr_client.py`. Prefer `get_int
 
 ### MCP Servers
 
-- **Location**: `tools/mcp/mcp_tools.py` (re-export hub), `tools/mcp/dynamic_tools_loader.py`
-- **Connection**: stdio subprocess
+- **Location**: `tools/mcp/dynamic_tools_loader.py` (loader), `tools/mcp/mcp_client_factory.py` (transport → client), `tools/mcp/client.py` (SSE/HTTP), `tools/mcp/mcp_stdio_client.py` (stdio)
+- **Connection**: `sse`, `http`, or `stdio` subprocess (the former `websocket` transport never had a working client and was removed)
 - **Config**: `config:mcp_servers` DB entry (list of `{name, command, args, env}`)
 - **Tools**: Dynamically loaded, variable count — attached to axel only
 
 ### Ollama (local LLM)
 
 - **Client**: `tools/ollama/ollama_client.py` — `OllamaClient` (admin model management)
-- **Models**: Prefix `ollama_chat/<model>` (e.g. `ollama_chat/mistral-small3.2`) — wrapped in `LiteLlm` by `config_manager.resolve_model()`
+- **Models**: Prefix `ollama_chat/<model>` (e.g. `ollama_chat/mistral-small3.2`). Model strings are handed to ADK unchanged; there is no `LiteLlm` wrapping layer in the codebase
 - **Limitations**: `search_agent` (google_search) and `code_execution_agent` (BuiltInCodeExecutor) require Gemini — will NOT work with Ollama
 
 ## Admin UI Panels

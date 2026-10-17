@@ -58,12 +58,6 @@ def get_mcp_session_manager() -> StreamableHTTPSessionManager:
     return _manager
 
 
-def reset_mcp_session_manager() -> None:
-    """Drop the singleton (test hook). The manager itself can only run once."""
-    global _manager
-    _manager = None
-
-
 def mount_mcp_on_app(app: FastAPI) -> None:
     """Attach the MCP streamable-HTTP route to the FastAPI app."""
 

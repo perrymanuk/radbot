@@ -48,10 +48,6 @@ def _expected_token() -> str | None:
     return env_token or None
 
 
-def is_auth_configured() -> bool:
-    return _expected_token() is not None
-
-
 def check_bearer(request: Request) -> JSONResponse | None:
     """Validate the Authorization header on `request`.
 

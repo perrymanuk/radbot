@@ -91,12 +91,3 @@ def reset_jira_client() -> None:
     _jira_email = None
     _initialized = False
     logger.info("Jira client singleton reset")
-
-
-def get_jira_email() -> Optional[str]:
-    """Return the configured Jira email address."""
-    global _jira_email
-    if _jira_email is None:
-        cfg = _get_config()
-        _jira_email = cfg.get("email")
-    return _jira_email

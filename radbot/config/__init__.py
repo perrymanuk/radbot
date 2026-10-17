@@ -3,8 +3,6 @@ Configuration management for the radbot agent framework.
 """
 
 import logging
-import os
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from radbot.config.config_loader import ConfigLoader
@@ -43,30 +41,6 @@ def get_agent_config() -> Dict[str, Any]:
         }
 
     return yaml_config
-
-
-def get_cache_config() -> Dict[str, Any]:
-    """
-    Get the cache configuration.
-
-    First tries the YAML configuration, then falls back to the environment variables.
-
-    Returns:
-        Dictionary containing the cache configuration
-    """
-    # Try YAML config first
-    cache_config = config_loader.get_cache_config()
-
-    # If empty or not found, fall back to environment variables
-    if not cache_config:
-        logger.debug("Using legacy environment variables for cache configuration")
-        from radbot.config.cache_settings import (
-            get_cache_config as get_legacy_cache_config,
-        )
-
-        return get_legacy_cache_config()
-
-    return cache_config
 
 
 def get_home_assistant_config() -> Dict[str, Any]:

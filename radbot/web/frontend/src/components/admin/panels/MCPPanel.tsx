@@ -5,7 +5,6 @@ import {
   FormToggle,
   FormDropdown,
   FormRow,
-  Card,
   ActionBar,
   Note,
 } from "@/components/admin/FormFields";
@@ -27,7 +26,6 @@ interface MCPServer {
 
 const TRANSPORT_OPTIONS = [
   { value: "sse", label: "SSE" },
-  { value: "websocket", label: "WebSocket" },
   { value: "http", label: "HTTP" },
   { value: "stdio", label: "Stdio" },
 ];

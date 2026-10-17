@@ -8,23 +8,13 @@ Supports (in order):
 import json
 import logging
 import os.path
-import random
-import socket
-import time
 from typing import Any, List, Optional
 
 import google.auth
-import httplib2
 from google.auth.transport.requests import Request
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -128,61 +118,6 @@ def _get_quota_project() -> Optional[str]:
         pass
 
     return None
-
-
-# Decorator for retrying API calls with exponential backoff
-def retry_calendar_api(max_attempts=5, base_wait=2):
-    """Decorator that provides retry logic with exponential backoff for calendar API calls."""
-
-    def decorator(func):
-        @retry(
-            reraise=True,
-            stop=stop_after_attempt(max_attempts),
-            wait=wait_exponential(multiplier=base_wait, min=1, max=60),
-            retry=retry_if_exception_type(
-                (
-                    socket.timeout,
-                    ConnectionError,
-                    httplib2.HttpLib2Error,
-                    TimeoutError,
-                    OSError,
-                    IOError,
-                )
-            ),
-            before_sleep=lambda retry_state: logger.info(
-                f"Retrying {func.__name__} after error. "
-                f"Attempt {retry_state.attempt_number}/{max_attempts}. "
-                f"Waiting {retry_state.next_action.sleep} seconds."
-            ),
-        )
-        def wrapper(*args, **kwargs):
-            try:
-                # Add jitter to avoid thundering herd problem
-                jitter = random.uniform(0.1, 1.0)
-                time.sleep(jitter)
-
-                return func(*args, **kwargs)
-
-            except (socket.timeout, ConnectionError, httplib2.HttpLib2Error) as e:
-                logger.warning(
-                    f"Network error in {func.__name__}: {str(e)}. Retrying..."
-                )
-                # Force new service on connection errors
-                get_calendar_service(force_new=True)
-                raise
-
-            except Exception as e:
-                if "SSL" in str(e):
-                    logger.error(
-                        f"SSL error in {func.__name__}: {str(e)}. Refreshing connection..."
-                    )
-                    # Force new service on SSL errors
-                    get_calendar_service(force_new=True)
-                raise
-
-        return wrapper
-
-    return decorator
 
 
 def get_calendar_service(
@@ -516,110 +451,6 @@ def get_workspace_calendar_service(
             f"Error creating workspace calendar service for {user_email}: {str(e)}"
         )
         raise
-
-
-def validate_calendar_access(calendar_id: Optional[str] = None):
-    """
-    Validate calendar access and connection setup.
-
-    Args:
-        calendar_id: The calendar ID to validate access to. If None, uses CALENDAR_ID from environment.
-
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    logger.debug("=== CALENDAR ACCESS VALIDATION ===")
-
-    # If calendar_id is None, use the environment variable
-    if calendar_id is None:
-        calendar_id = CALENDAR_ID
-
-    logger.debug(f"Validating access to calendar ID: {calendar_id}")
-
-    try:
-        # Create calendar service
-        service = get_calendar_service(force_new=True)
-        if not service:
-            logger.error("Failed to create calendar service")
-            return False
-
-        # Try to get calendar metadata
-        logger.debug("Attempting to access calendar metadata...")
-        try:
-            calendar_info = service.calendars().get(calendarId=calendar_id).execute()
-            logger.debug(
-                f"Successfully accessed calendar: {calendar_info.get('summary', 'Unknown')}"
-            )
-        except HttpError as e:
-            logger.error(f"Failed to access calendar metadata: {str(e)}")
-            if "notFound" in str(e):
-                logger.error(
-                    "   Calendar ID may be incorrect or the calendar doesn't exist"
-                )
-                logger.error(f"   Attempted to access calendar ID: {calendar_id}")
-            elif "forbidden" in str(e).lower():
-                logger.error(
-                    "   Service account lacks permission to access this calendar"
-                )
-                logger.error(
-                    f"   Make sure calendar {calendar_id} is shared with the service account"
-                )
-            return False
-
-        # Try to list events (read access)
-        try:
-            from datetime import datetime
-
-            now = datetime.utcnow().isoformat() + "Z"
-            logger.debug("Attempting to list calendar events...")
-            events = (
-                service.events()
-                .list(calendarId=calendar_id, timeMin=now, maxResults=10)
-                .execute()
-            )
-
-            items = events.get("items", [])
-            logger.debug(f"Successfully listed events. Items found: {len(items)}")
-
-            if items:
-                logger.debug("Sample of upcoming events:")
-                for item in items[:3]:  # Show up to 3 events
-                    start = item["start"].get("dateTime", item["start"].get("date"))
-                    logger.debug(f"  - {start}: {item.get('summary', 'No title')}")
-            else:
-                logger.debug("No upcoming events found in this calendar")
-
-        except HttpError as e:
-            logger.error(f"Failed to list calendar events: {str(e)}")
-            if "forbidden" in str(e).lower():
-                logger.error(
-                    "   Service account lacks read permission for this calendar"
-                )
-                logger.error(
-                    f"   Make sure calendar {calendar_id} is shared with the service account with at least read access"
-                )
-            return False
-
-        logger.debug("=== CALENDAR ACCESS VALIDATION SUCCESSFUL ===")
-        return True
-
-    except Exception as e:
-        logger.exception(f"Error during calendar validation: {str(e)}")
-        return False
-
-
-# Initialize calendar service at module import time
-def initialize_calendar():
-    """Initialize calendar service connection on startup."""
-    try:
-        logger.debug("Initializing calendar service...")
-        service = get_calendar_service()
-        logger.info("Calendar service initialized successfully")
-        return service
-    except Exception as e:
-        logger.warning(f"Failed to initialize calendar service: {e}")
-        logger.debug("Calendar service will be initialized on first use")
-        return None
 
 
 # Initialize service when module is imported (optional, can be commented out)

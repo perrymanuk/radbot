@@ -114,14 +114,13 @@ radbot/
 ├── credentials/
 │   └── store.py                  # Encrypted PostgreSQL credential store
 ├── memory/
-│   └── enhanced_memory/          # Qdrant-backed semantic memory
+│   └── qdrant_memory.py          # Qdrant-backed semantic memory service
 ├── worker/                       # Minimal PTY terminal server (separate Docker image)
 │   ├── __main__.py               # Entry: python -m radbot.worker --workspace-id <UUID>
 │   ├── terminal_handler.py       # Shared PTY/WS module (used by terminal.py + worker)
 │   ├── nomad_template.py         # Nomad JSON job spec generator
 │   └── db.py                     # workspace_workers table CRUD
 ├── callbacks/                    # ADK callback handlers
-├── cache/                        # Response caching
 └── filesystem/                   # Filesystem utilities
 ```
 
@@ -172,7 +171,7 @@ Project / milestone / task / exploration management stays on beto (Telos-backed)
 | `tools/youtube/` | `youtube_tools.py`, `youtube_client.py`, `curiositystream_tools.py`, `curiositystream_client.py`, `kideo_tools.py`, `kideo_client.py`, `tag_generator.py` | YouTube search (3), CuriosityStream search (2), Kideo library + tagging + analytics (10) | YouTube + CuriosityStream search, Kideo library, AI tagging |
 | `tools/shell/` | `shell_tool.py`, `shell_command.py` | `shell_command_tool` (via `get_shell_tool()`) | Shell execution |
 | `tools/adk_builtin/` | `search_tool.py`, `code_execution_tool.py` | Agent factories (not direct tools) | ADK search + code exec agents |
-| `tools/mcp/` | `mcp_tools.py`, `dynamic_tools_loader.py` | `create_fileserver_toolset()`, `load_dynamic_mcp_tools()` | MCP server integration |
+| `tools/mcp/` | `dynamic_tools_loader.py`, `mcp_client_factory.py`, `client.py`, `mcp_stdio_client.py` | `load_dynamic_mcp_tools()`, `MCPClientFactory` | MCP server integration (sse/http/stdio). Filesystem tools come from `radbot/filesystem/adapter.py` `create_fileserver_toolset()` |
 | `tools/ntfy/` | `ntfy_client.py`, `ntfy_subscriber.py` | `NtfyClient` class (push), `NtfySubscriber` class (SSE listener) | ntfy.sh push + subscribe |
 | `tools/ollama/` | `ollama_client.py` | `OllamaClient` class (admin model management) | Ollama local LLM server |
 | `tools/tts/` | `tts_service.py` | `TTSService` class (REST only, no FunctionTool) | Google Cloud TTS |
@@ -270,7 +269,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 2. Add status check in `get_integration_status()` in `admin.py`
 3. Add panel in `radbot/web/frontend/src/components/admin/panels/ConnectionPanels.tsx`
 4. Register panel in `AdminPage.tsx` (NAV_ITEMS + PANEL_MAP)
-5. Add a typed `@property` accessor on `ClientProvider` in `radbot/clients/provider.py` and a `(name, module_path, "reset_X_client")` entry to its `clear()` reset list — replaces the legacy hand-maintained `_INTEGRATION_RESET_REGISTRY`. Add the integration's required-field tuple to `_REQUIRED_FIELDS` so `validate_secrets()` covers it.
+5. Add a typed `@property` accessor on `ClientProvider` in `radbot/clients/provider.py` and a `(name, module_path, "reset_X_client")` entry to its `clear()` reset list. Add the integration's required-field tuple to `_REQUIRED_FIELDS` so `validate_secrets()` covers it.
 6. Follow the integration client pattern using `get_integration_config()` (see above). Callers reach the client via `get_provider().<name>` — never `from radbot.tools.<x>.<x>_client import ...` directly.
 7. **Config goes to DB** — the admin UI `PUT /api/config/{section}` stores it there
 
@@ -288,7 +287,7 @@ FastAPI behind Traefik generates redirect URLs using the internal HTTP scheme un
 - **Client-or-error**: Use `client_or_error(get_fn, name)` from `tools/shared/client_utils.py`
 - **Agent factory tools**: Use `load_tools(module, attr, agent, label)` from `agent/factory_utils.py`
 - **Credential access**: `get_credential_store().get("<key_name>")`
-- **Model resolution**: Always use `config_manager.resolve_model(model_string)` in agent factories — wraps Ollama models (`ollama_chat/...`) in `LiteLlm`, passes Gemini strings through unchanged
+- **Model resolution**: Use `resolve_agent_model(agent_key)` from `radbot/agent/shared.py` in agent factories — resolves `config:agent.<key>` → `sub_model` → env. Model strings are handed to ADK unchanged (no `LiteLlm` wrapping layer exists in the codebase)
 
 ### Telos lifecycle status state machine
 

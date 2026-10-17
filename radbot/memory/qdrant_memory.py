@@ -8,34 +8,10 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
+from google.adk.memory import BaseMemoryService
+from google.adk.sessions import Session
 from qdrant_client import QdrantClient, models
 
-# Import ADK components
-try:
-    from google.adk.memory import BaseMemoryService
-    from google.adk.sessions import Session
-except ImportError:
-    # For testing or standalone use when ADK isn't available
-    # Creating stub classes
-    class Session:
-        """Stub Session class for when ADK isn't available."""
-
-        def __init__(self):
-            self.id = ""
-            self.user_id = ""
-            self.events = []
-
-    class BaseMemoryService:
-        """Stub BaseMemoryService class for when ADK isn't available."""
-
-        def add_session_to_memory(self, session):
-            pass
-
-        def search_memory(self, app_name, user_id, query):
-            return []
-
-
-# Import local modules
 from radbot.memory.embedding import embed_text, get_embedding_model
 
 # Load environment variables
@@ -549,37 +525,3 @@ class QdrantMemoryService(BaseMemoryService):
         except Exception as e:
             logger.error(f"Error searching memory: {str(e)}")
             return []
-
-    def clear_user_memory(self, user_id: str) -> bool:
-        """
-        Clear all memory entries for a specific user.
-
-        Args:
-            user_id: The user ID to clear memory for
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Create filter for user_id
-            user_filter = models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key="user_id", match=models.MatchValue(value=user_id)
-                    )
-                ]
-            )
-
-            # Delete points matching the filter
-            self.client.delete(
-                collection_name=self.collection_name,
-                points_selector=models.FilterSelector(filter=user_filter),
-                wait=True,
-            )
-
-            logger.info(f"Successfully cleared memory for user {user_id}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error clearing user memory: {str(e)}")
-            return False

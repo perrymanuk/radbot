@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { formatTimestamp } from "@/lib/utils";
-import type { AgentEvent, EventCategory } from "@/types";
+import type { AgentEvent } from "@/types";
 
 interface Props {
   event: AgentEvent;

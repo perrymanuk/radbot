@@ -49,8 +49,3 @@ export async function sendChatMessage(page: Page, prompt: string): Promise<void>
   await input.fill(prompt);
   await page.locator('[data-test="chat-send"]').click();
 }
-
-/** Locator for the most recent assistant bubble. */
-export function lastAssistantBubble(page: Page): Locator {
-  return page.locator('[data-test="message-assistant"]').last();
-}

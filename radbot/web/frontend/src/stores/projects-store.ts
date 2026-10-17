@@ -13,7 +13,6 @@ import {
 
 interface ProjectsState {
   entries: Record<string, TelosEntry>; // key: "section:ref_code"
-  childrenByParent: Record<string, string[]>; // parent ref_code -> entry keys
   summary: ProjectSummary[];
   loading: boolean;
   error: string | null;
@@ -29,30 +28,20 @@ interface ProjectsState {
 
 function indexEntries(sections: Record<string, TelosEntry[]>) {
   const entries: Record<string, TelosEntry> = {};
-  const childrenByParent: Record<string, string[]> = {};
 
   for (const [section, list] of Object.entries(sections)) {
     for (const e of list) {
       if (!e.ref_code) continue;
       const key = entryKey(section, e.ref_code);
       entries[key] = e;
-
-      const meta = e.metadata || {};
-      const parentMs = meta.parent_milestone as string | undefined;
-      const parentPrj = meta.parent_project as string | undefined;
-      const parent = parentMs || parentPrj;
-      if (parent) {
-        (childrenByParent[parent] ??= []).push(key);
-      }
     }
   }
 
-  return { entries, childrenByParent };
+  return entries;
 }
 
 export const useProjectsStore = create<ProjectsState>((set, get) => ({
   entries: {},
-  childrenByParent: {},
   summary: [],
   loading: false,
   error: null,
@@ -69,8 +58,8 @@ export const useProjectsStore = create<ProjectsState>((set, get) => ({
         listProjectEntries(PROJECT_SECTIONS),
         listProjectsSummary(),
       ]);
-      const { entries, childrenByParent } = indexEntries(sections);
-      set({ entries, childrenByParent, summary, loaded: true });
+      const entries = indexEntries(sections);
+      set({ entries, summary, loaded: true });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : String(e) });
     } finally {
@@ -118,7 +107,7 @@ export function selectProject(
   return state.entries[entryKey("projects", refCode)];
 }
 
-function filterByParent<T extends keyof any>(
+function filterByParent(
   state: ProjectsState,
   section: ProjectSection,
   parentField: "parent_project" | "parent_milestone",

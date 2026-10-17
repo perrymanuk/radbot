@@ -113,7 +113,7 @@ export async function listModels(token: string): Promise<string[]> {
 }
 
 // ── Telemetry / Cost Tracking ───────────────────────────
-export interface CostSummary {
+interface CostSummary {
   total_requests: number;
   total_prompt_tokens: number;
   total_cached_tokens: number;
@@ -157,11 +157,6 @@ export async function getCostDashboard(token: string, year?: number, month?: num
 
 export async function getSessionUsage(token: string): Promise<SessionUsageStats> {
   return adminFetch("/admin/api/telemetry/usage", { token });
-}
-
-// ── Gmail ────────────────────────────────────────────────
-export async function getGmailAccounts(token: string): Promise<{ accounts: any[]; error?: string }> {
-  return adminFetch("/admin/api/gmail/accounts", { token });
 }
 
 // ── Telos ────────────────────────────────────────────────

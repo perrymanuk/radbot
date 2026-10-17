@@ -249,15 +249,3 @@ async def stop_ntfy_subscriber() -> None:
     if _subscriber:
         await _subscriber.stop()
         _subscriber = None
-
-
-def get_ntfy_subscriber() -> Optional[NtfySubscriber]:
-    """Return the active subscriber instance, or None."""
-    return _subscriber
-
-
-def reset_ntfy_subscriber() -> None:
-    """Clear the subscriber singleton (for hot-reload)."""
-    global _subscriber
-    _subscriber = None
-    logger.info("ntfy subscriber singleton reset")

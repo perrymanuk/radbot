@@ -1,9 +1,7 @@
 import type {
   Session,
   SessionAgent,
-  AgentEvent,
   AgentInfo,
-  Message,
   Notification,
 } from "@/types";
 
@@ -55,13 +53,6 @@ export async function updateSession(
   });
 }
 
-export async function renameSession(
-  sessionId: string,
-  name: string,
-): Promise<void> {
-  await updateSession(sessionId, { name });
-}
-
 export async function autoNameSession(
   sessionId: string,
 ): Promise<
@@ -75,28 +66,13 @@ export async function autoNameSession(
   return res.json();
 }
 
-// ── Messages ──────────────────────────────────────────────
-export async function fetchMessages(
-  sessionId: string,
-  limit = 50,
-): Promise<Message[]> {
-  return json(`/api/sessions/${sessionId}/messages?limit=${limit}`);
-}
-
-// ── Events ────────────────────────────────────────────────
-export async function fetchEvents(
-  sessionId: string,
-): Promise<AgentEvent[]> {
-  return json(`/api/events?session_id=${sessionId}`);
-}
-
 // ── Agent Info ────────────────────────────────────────────
 export async function fetchAgentInfo(): Promise<AgentInfo> {
   return json("/api/agent-info");
 }
 
 // ── Session stats ─────────────────────────────────────────
-export interface SessionStatsResponse {
+interface SessionStatsResponse {
   inputTokens: number;
   outputTokens: number;
   contextTokens: number;
@@ -172,9 +148,4 @@ export async function markAllNotificationsRead(type?: string): Promise<void> {
 
 export async function deleteNotification(id: string): Promise<void> {
   await fetch(`${BASE}/api/notifications/${id}`, { method: "DELETE" });
-}
-
-// ── Health ────────────────────────────────────────────────
-export async function healthCheck(): Promise<{ status: string }> {
-  return json("/health");
 }

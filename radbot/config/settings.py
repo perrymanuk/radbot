@@ -380,33 +380,6 @@ class ConfigManager:
         """
         return self.model_config.get("vertex_location", "us-central1")
 
-    def get_service_account_file(self) -> Optional[str]:
-        """
-        Get the Google Cloud service account file path for Vertex AI.
-
-        Returns:
-            The service account file path or None if not configured
-        """
-        return self.model_config.get("service_account_file")
-
-    def is_adk_search_enabled(self) -> bool:
-        """
-        Check if the ADK Google Search built-in tool is enabled.
-
-        Returns:
-            True if ADK Google Search is enabled, False otherwise
-        """
-        return self.model_config.get("enable_adk_search", False)
-
-    def is_adk_code_execution_enabled(self) -> bool:
-        """
-        Check if the ADK Code Execution built-in tool is enabled.
-
-        Returns:
-            True if ADK Code Execution is enabled, False otherwise
-        """
-        return self.model_config.get("enable_adk_code_execution", False)
-
     def get_home_assistant_config(self) -> Dict[str, Any]:
         """
         Get the Home Assistant configuration settings.
@@ -415,30 +388,3 @@ class ConfigManager:
             Dictionary with Home Assistant configuration
         """
         return self.ha_config
-
-    def is_home_assistant_enabled(self) -> bool:
-        """
-        Check if Home Assistant integration is enabled and properly configured.
-
-        Returns:
-            True if Home Assistant integration is enabled, False otherwise
-        """
-        return self.ha_config.get("enabled", False)
-
-    def get_home_assistant_url(self) -> Optional[str]:
-        """
-        Get the Home Assistant URL.
-
-        Returns:
-            The Home Assistant URL or None if not configured
-        """
-        return self.ha_config.get("url")
-
-    def get_home_assistant_token(self) -> Optional[str]:
-        """
-        Get the Home Assistant authentication token.
-
-        Returns:
-            The Home Assistant token or None if not configured
-        """
-        return self.ha_config.get("token")

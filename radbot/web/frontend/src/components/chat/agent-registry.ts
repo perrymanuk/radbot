@@ -26,7 +26,7 @@ export interface AgentIdentity {
   role?: string;          // short role tag (for TASKS / MEDIA headers)
 }
 
-export const AGENTS: Record<string, AgentIdentity> = {
+const AGENTS: Record<string, AgentIdentity> = {
   BETO:    { id: "BETO",    name: "BETO",    glyph: "B", tint: "#ff9966",
              textClass: "text-radbot-sunset",  bgClass: "bg-radbot-sunset/15 border-radbot-sunset/40",
              role: "host" },

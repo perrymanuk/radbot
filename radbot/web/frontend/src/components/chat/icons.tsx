@@ -50,4 +50,3 @@ export const Icon = {
   lightbulb: mk(<path d="M5 9.5V11h4V9.5M7 1.5a3.5 3.5 0 0 0-2 6.1V9.5h4V7.6A3.5 3.5 0 0 0 7 1.5z" />),
 } as const;
 
-export type IconName = keyof typeof Icon;

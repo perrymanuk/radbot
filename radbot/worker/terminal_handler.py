@@ -289,25 +289,6 @@ class TerminalManager:
         except Exception as e:
             logger.debug("Failed to capture Claude session ID: %s", e)
 
-    def reap_dead(self) -> None:
-        """Check for exited child processes and mark sessions as closed."""
-        for session in list(self._sessions.values()):
-            if session.closed:
-                continue
-            try:
-                pid, status = os.waitpid(session.pid, os.WNOHANG)
-                if pid != 0:
-                    session.closed = True
-                    logger.info(
-                        "Terminal session %s child exited (status=%d)",
-                        session.terminal_id,
-                        status,
-                    )
-            except ChildProcessError:
-                session.closed = True
-            except Exception:
-                pass
-
     @staticmethod
     def _recover_workspace_dir(ws: Dict[str, Any], local_path: str) -> str:
         """Re-create workspace directory if lost (container restart)."""

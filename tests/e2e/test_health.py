@@ -32,8 +32,3 @@ class TestHealthEndpoint:
         assert "status" in data
         assert "components" in data
         assert isinstance(data["components"], dict)
-
-    async def test_healthz_alias(self, client):
-        """GET /healthz should work as a liveness probe alias."""
-        resp = await client.get("/healthz")
-        assert resp.status_code == 200

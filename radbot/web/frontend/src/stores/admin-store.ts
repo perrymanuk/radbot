@@ -22,7 +22,6 @@ interface AdminState {
 
   // Live config (merged file + DB)
   liveConfig: Record<string, any>;
-  liveConfigLoading: boolean;
   loadLiveConfig: () => Promise<Record<string, any>>;
   invalidateLiveConfig: () => void;
 
@@ -102,7 +101,6 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
   // ── Live Config ────────────────────────────────────────
   liveConfig: {},
-  liveConfigLoading: false,
 
   loadLiveConfig: async () => {
     // Cache for 5 seconds
@@ -111,15 +109,13 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       return _liveConfigCache;
     }
     const { token } = get();
-    set({ liveConfigLoading: true });
     try {
       const cfg = await adminApi.getLiveConfig(token);
       _liveConfigCache = cfg;
       _liveConfigTime = Date.now();
-      set({ liveConfig: cfg, liveConfigLoading: false });
+      set({ liveConfig: cfg });
       return cfg;
     } catch (e: any) {
-      set({ liveConfigLoading: false });
       get().toast("Failed to load config: " + e.message, "error");
       return {};
     }

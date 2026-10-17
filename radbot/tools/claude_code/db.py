@@ -145,27 +145,6 @@ def create_workspace(
         raise
 
 
-def get_workspace(
-    owner: str,
-    repo: str,
-    branch: str = "main",
-) -> Optional[Dict[str, Any]]:
-    """Get a workspace by owner/repo/branch."""
-    sql = """
-        SELECT * FROM coder_workspaces
-        WHERE owner = %s AND repo = %s AND branch = %s;
-    """
-    try:
-        with get_db_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
-                cursor.execute(sql, (owner, repo, branch))
-                row = cursor.fetchone()
-                return dict(row) if row else None
-    except psycopg2.Error as e:
-        logger.error(f"Database error getting workspace: {e}")
-        raise
-
-
 def update_session_id(
     owner: str,
     repo: str,

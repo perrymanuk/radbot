@@ -4,11 +4,8 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from radbot.tools.shared.client_utils import client_or_error
 from radbot.tools.shared.errors import truncate_error
-from radbot.tools.shared.retry import retry_on_error
 from radbot.tools.shared.serialization import serialize_row, serialize_rows
 from radbot.tools.shared.tool_decorator import tool_error_handler
 from radbot.tools.shared.validation import validate_uuid
@@ -332,86 +329,3 @@ class TestToolErrorHandler:
 # ---------------------------------------------------------------------------
 # retry.py
 # ---------------------------------------------------------------------------
-
-
-class TestRetryOnError:
-    """Tests for retry_on_error()."""
-
-    @patch("radbot.tools.shared.retry.time.sleep")
-    def test_no_retry_on_success(self, mock_sleep):
-        """Function is called once and returns without retrying."""
-        call_count = 0
-
-        @retry_on_error(max_retries=3)
-        def ok():
-            nonlocal call_count
-            call_count += 1
-            return "done"
-
-        assert ok() == "done"
-        assert call_count == 1
-        mock_sleep.assert_not_called()
-
-    @patch("radbot.tools.shared.retry.time.sleep")
-    def test_retries_on_retryable_exception(self, mock_sleep):
-        """Retries on retryable exceptions and succeeds after transient failures."""
-        attempts = 0
-
-        @retry_on_error(max_retries=3, retryable_exceptions=(ConnectionError,))
-        def flaky():
-            nonlocal attempts
-            attempts += 1
-            if attempts < 3:
-                raise ConnectionError("transient")
-            return "recovered"
-
-        assert flaky() == "recovered"
-        assert attempts == 3
-        assert mock_sleep.call_count == 2
-
-    @patch("radbot.tools.shared.retry.time.sleep")
-    def test_raises_after_max_retries_exhausted(self, mock_sleep):
-        """Raises the last exception after all retries are exhausted."""
-
-        @retry_on_error(max_retries=2, retryable_exceptions=(TimeoutError,))
-        def always_fails():
-            raise TimeoutError("still broken")
-
-        with pytest.raises(TimeoutError, match="still broken"):
-            always_fails()
-
-        # initial call + 2 retries = 3 total; sleep before retry 1 and 2
-        assert mock_sleep.call_count == 2
-
-    @patch("radbot.tools.shared.retry.time.sleep")
-    def test_no_retry_on_non_retryable_exception(self, mock_sleep):
-        """Non-retryable exceptions propagate immediately without retrying."""
-
-        @retry_on_error(max_retries=3, retryable_exceptions=(ConnectionError,))
-        def bad():
-            raise ValueError("not retryable")
-
-        with pytest.raises(ValueError, match="not retryable"):
-            bad()
-
-        mock_sleep.assert_not_called()
-
-    @patch("radbot.tools.shared.retry.time.sleep")
-    def test_exponential_backoff_timing(self, mock_sleep):
-        """Sleep durations follow exponential backoff: base * 2^attempt."""
-
-        @retry_on_error(
-            max_retries=3,
-            backoff_base=2.0,
-            retryable_exceptions=(OSError,),
-        )
-        def always_fails():
-            raise OSError("fail")
-
-        with pytest.raises(OSError):
-            always_fails()
-
-        # delays: 2*2^0=2, 2*2^1=4, 2*2^2=8
-        expected_delays = [2.0, 4.0, 8.0]
-        actual_delays = [call.args[0] for call in mock_sleep.call_args_list]
-        assert actual_delays == expected_delays

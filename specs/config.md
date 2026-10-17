@@ -64,18 +64,13 @@ Use `config:full` as an Admin-UI read-only diagnostic that returns the merged co
 
 ## Per-Agent Model Resolution
 
-`config_manager.resolve_model(model_string)`:
-
-- Gemini strings (e.g. `gemini-2.5-pro`) → passed through unchanged
-- Ollama strings (prefix `ollama_chat/...`) → wrapped in `LiteLlm(...)` for ADK compatibility
-
-Each agent factory calls `resolve_agent_model(key)` which:
+Each agent factory calls `resolve_agent_model(key)` (`radbot/agent/shared.py`) which:
 
 1. Checks `config:agent.<key>` (e.g. `casa_agent`) — DB first
 2. Falls back to `config:agent.sub_model`
 3. Falls back to env var (`RADBOT_SUB_MODEL`)
 
-`search_agent` and `code_execution_agent` require Gemini — resolve_model does not let Ollama reach them.
+Model strings are passed to ADK unchanged (no `LiteLlm` wrapping layer exists today). `search_agent` and `code_execution_agent` require Gemini.
 
 ## Integration Client Pattern
 
@@ -150,7 +145,7 @@ See `docs/implementation/dev_environment_setup.md` for full procedure.
 
 | File | Purpose |
 |------|---------|
-| `config/config_loader.py` | `ConfigLoader` with DB merge, `get_integrations_config()`, `resolve_model()` |
+| `config/config_loader.py` | `ConfigLoader` with DB merge, `get_integrations_config()` |
 | `config/schema/config_schema.json` | JSON schema for validation (uses `additionalProperties: true` for agent schemas to tolerate drift) |
 | `config/default_configs/instructions/*.md` | Per-agent instruction files |
 | `config/default_configs/schemas/*` | Per-agent config sub-schemas |

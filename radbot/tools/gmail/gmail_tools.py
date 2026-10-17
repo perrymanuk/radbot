@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from google.adk.tools import FunctionTool
-from pydantic import BaseModel, Field
 
 from radbot.tools.gmail.gmail_auth import discover_accounts
 from radbot.tools.gmail.gmail_manager import GmailManager, get_gmail_manager
@@ -13,71 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 # --- Pydantic parameter models ---
-
-
-class ListEmailsParameters(BaseModel):
-    """Parameters for list_emails function."""
-
-    max_results: int = Field(
-        default=10,
-        description="Maximum number of emails to return",
-        ge=1,
-        le=50,
-    )
-    label: str = Field(
-        default="INBOX",
-        description="Gmail label to list from (e.g. INBOX, SENT, STARRED, IMPORTANT, UNREAD)",
-    )
-    account: Optional[str] = Field(
-        default=None,
-        description=(
-            "Gmail account label to use (e.g. 'personal', 'work'). "
-            "Use list_gmail_accounts to see available accounts. "
-            "If not specified, uses the default account."
-        ),
-    )
-
-
-class SearchEmailsParameters(BaseModel):
-    """Parameters for search_emails function."""
-
-    query: str = Field(
-        description=(
-            "Gmail search query. Supports Gmail operators like "
-            "from:, to:, subject:, newer_than:, older_than:, has:attachment, "
-            "is:unread, label:, filename:, and free text."
-        ),
-    )
-    max_results: int = Field(
-        default=10,
-        description="Maximum number of results to return",
-        ge=1,
-        le=50,
-    )
-    account: Optional[str] = Field(
-        default=None,
-        description=(
-            "Gmail account label to use (e.g. 'personal', 'work'). "
-            "Use list_gmail_accounts to see available accounts. "
-            "If not specified, uses the default account."
-        ),
-    )
-
-
-class GetEmailParameters(BaseModel):
-    """Parameters for get_email function."""
-
-    message_id: str = Field(
-        description="The Gmail message ID to retrieve",
-    )
-    account: Optional[str] = Field(
-        default=None,
-        description=(
-            "Gmail account label to use (e.g. 'personal', 'work'). "
-            "Use list_gmail_accounts to see available accounts. "
-            "If not specified, uses the default account."
-        ),
-    )
 
 
 # --- Core functions (accept manager parameter for testability) ---

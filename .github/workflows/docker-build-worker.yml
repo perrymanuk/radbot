@@ -8,7 +8,6 @@ on:
       - 'radbot/tools/claude_code/**'
       - 'radbot/tools/github/**'
       - 'radbot/tools/shared/**'
-      - 'radbot/tools/todo/db/**'
       - 'radbot/config/**'
       - 'radbot/credentials/**'
       - 'radbot/logging_config.py'

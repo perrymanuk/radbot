@@ -10,20 +10,6 @@ export function formatTimestamp(ts: string | number): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-export function formatDate(ts: string | number): string {
-  const date = new Date(typeof ts === "number" ? ts : Date.parse(ts));
-  return date.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-export function truncate(str: string, len: number): string {
-  if (str.length <= len) return str;
-  return str.slice(0, len) + "...";
-}
-
 /** crypto.randomUUID() replacement that works in insecure contexts (plain HTTP). */
 export function uuid(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {

@@ -23,14 +23,14 @@ pytestmark = [
 
 
 class TestAgentRouting:
-    async def test_route_to_tracker(self, live_server):
-        """Ask about tasks — should route to tracker or use todo tools."""
+    async def test_route_to_telos_tasks(self, live_server):
+        """Ask about tasks — beto should answer from Telos project_tasks."""
         session_id = str(uuid.uuid4())
         ws = await WSTestClient.connect(live_server, session_id)
         try:
             result = await ws.send_and_wait_response("Show me my task list")
             assert_response_not_empty(result)
-            # Should either transfer to tracker or mention tasks
+            # Should mention tasks (Telos-backed, handled by beto directly)
             assert_response_contains_any(
                 result, "task", "project", "todo", "backlog", "no task", "list"
             )
@@ -150,11 +150,11 @@ class TestAgentRouting:
             await ws.close()
 
     async def test_sequential_agent_routing(self, live_server):
-        """Send a tracker question then a planner question — both should route correctly."""
+        """Send a Telos task question then a planner question — both should route correctly."""
         session_id = str(uuid.uuid4())
         ws = await WSTestClient.connect(live_server, session_id)
         try:
-            # First: tracker domain
+            # First: Telos task domain (beto)
             r1 = await ws.send_and_wait_response("Show me my task list")
             assert_response_not_empty(r1)
             assert_response_contains_any(

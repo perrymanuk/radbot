@@ -2,7 +2,7 @@
  * Keeps visual wayfinding consistent across sessions without needing a
  * stored metadata.accent. */
 
-export const ACCENT_PALETTE = [
+const ACCENT_PALETTE = [
   "#ff7849", // sunset
   "#a884ff", // violet
   "#ff3d7f", // magenta
