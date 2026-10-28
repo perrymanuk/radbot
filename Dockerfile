@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Build React frontend
-FROM node:20-slim AS frontend-build
+FROM node:24-slim AS frontend-build
 
 WORKDIR /frontend
 COPY radbot/web/frontend/package.json radbot/web/frontend/package-lock.json* radbot/web/frontend/.npmrc ./
@@ -10,7 +10,7 @@ COPY radbot/web/frontend/ .
 RUN npx tsc -b && npx vite build --outDir dist
 
 # Stage 2: Install Claude Code CLI (isolated from runtime)
-FROM node:20-slim AS claude-code-build
+FROM node:24-slim AS claude-code-build
 
 RUN npm install -g @anthropic-ai/claude-code
 
